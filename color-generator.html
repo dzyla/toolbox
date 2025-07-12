@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Palette Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .color-card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1.5rem;
+        }
+        /* Style for disabled input */
+        input:disabled {
+            background-color: #e2e8f0;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto px-4 py-8 md:py-12">
+        
+        <!-- Header -->
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Color Palette Generator</h1>
+            <h2 class="text-xl md:text-2xl text-slate-600 mt-2">Vibecoded color generator</h2>
+            <p class="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">Select a colormap and the number of colors to generate a palette. Click any color to copy its HEX code.</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 md:mb-12 sticky top-4 z-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="colormap-select" class="block text-sm font-medium text-slate-700 mb-2">Colormap</label>
+                    <select id="colormap-select" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div>
+                    <label for="color-count" class="block text-sm font-medium text-slate-700 mb-2">Number of Colors (2-256)</label>
+                    <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Palette Display -->
+        <main id="palette-display" class="color-card-container">
+            <!-- Colors will be generated here -->
+        </main>
+
+    </div>
+
+    <script>
+        // --- DATA: D3.js Color Schemes ---
+        // We now use the comprehensive list from d3-scale-chromatic
+        const colorSchemes = {
+            'Sequential (Multi-Hue)': ['interpolateViridis', 'interpolatePlasma', 'interpolateInferno', 'interpolateMagma', 'interpolateCividis', 'interpolateTurbo', 'interpolateWarm', 'interpolateCool', 'interpolateBuGn', 'interpolateBuPu', 'interpolateGnBu', 'interpolateOrRd', 'interpolatePuBuGn', 'interpolatePuBu', 'interpolatePuRd', 'interpolateRdPu', 'interpolateYlGnBu', 'interpolateYlGn', 'interpolateYlOrBr', 'interpolateYlOrRd'],
+            'Sequential (Single Hue)': ['interpolateBlues', 'interpolateGreens', 'interpolateGreys', 'interpolateOranges', 'interpolatePurples', 'interpolateReds'],
+            'Diverging': ['interpolateBrBG', 'interpolatePRGn', 'interpolatePiYG', 'interpolatePuOr', 'interpolateRdBu', 'interpolateRdGy', 'interpolateRdYlBu', 'interpolateRdYlGn', 'interpolateSpectral'],
+            'Cyclical': ['interpolateRainbow', 'interpolateSinebow'],
+            'Categorical (Fixed Size)': ['schemeAccent', 'schemeDark2', 'schemePaired', 'schemePastel1', 'schemePastel2', 'schemeSet1', 'schemeSet2', 'schemeSet3', 'schemeTableau10', 'schemeCategory10']
+        };
+
+        // --- DOM Elements ---
+        const colormapSelect = document.getElementById('colormap-select');
+        const colorCountInput = document.getElementById('color-count');
+        const paletteDisplay = document.getElementById('palette-display');
+
+        // --- Core Functions ---
+
+        /**
+         * Generates a discrete palette from a D3 interpolator.
+         * @param {string} interpolatorName - The name of the D3 interpolator function.
+         * @param {number} count - The number of colors to generate.
+         * @returns {string[]} - An array of hex color strings.
+         */
+        function generatePaletteFromInterpolator(interpolatorName, count) {
+            const colors = [];
+            const interpolator = d3[interpolatorName];
+            if (typeof interpolator !== 'function') {
+                console.error(`Interpolator ${interpolatorName} not found.`);
+                return [];
+            }
+
+            for (let i = 0; i < count; i++) {
+                // Create a value t from 0 to 1
+                const t = (count > 1) ? i / (count - 1) : 0.5;
+                // Get the color from the interpolator and format as HEX
+                const color = d3.color(interpolator(t)).formatHex();
+                colors.push(color);
+            }
+            return colors;
+        }
+
+        /**
+         * Renders the color palette in the DOM.
+         */
+        function updateDisplay() {
+            const selectedSchemeName = colormapSelect.value;
+            let palette = [];
+
+            // Check if the selected item is a categorical scheme or an interpolator
+            if (selectedSchemeName.startsWith('scheme')) {
+                // It's a categorical scheme with a fixed number of colors
+                colorCountInput.disabled = true;
+                const scheme = d3[selectedSchemeName];
+                if (Array.isArray(scheme)) {
+                    palette = scheme;
+                    colorCountInput.value = scheme.length; // Update count display
+                }
+            } else {
+                // It's an interpolator, so we can generate a variable number of colors
+                colorCountInput.disabled = false;
+                let colorCount = parseInt(colorCountInput.value, 10);
+
+                // Validate count
+                if (isNaN(colorCount) || colorCount < 2) colorCount = 2;
+                if (colorCount > 256) colorCount = 256;
+                colorCountInput.value = colorCount;
+
+                palette = generatePaletteFromInterpolator(selectedSchemeName, colorCount);
+            }
+            
+            paletteDisplay.innerHTML = ''; // Clear previous palette
+
+            palette.forEach(hex => {
+                const colorCard = document.createElement('div');
+                colorCard.className = 'relative group cursor-pointer transform hover:-translate-y-1 transition-transform duration-300';
+                
+                const colorSwatch = document.createElement('div');
+                colorSwatch.style.backgroundColor = hex;
+                colorSwatch.className = 'w-full h-24 rounded-lg shadow-md';
+
+                const colorInfo = document.createElement('div');
+                colorInfo.className = 'p-3 bg-white rounded-b-lg shadow-md';
+                
+                const hexCode = document.createElement('p');
+                hexCode.className = 'font-mono text-sm text-slate-700 font-medium';
+                hexCode.textContent = hex;
+
+                colorInfo.appendChild(hexCode);
+                colorCard.appendChild(colorSwatch);
+                colorCard.appendChild(colorInfo);
+
+                colorCard.addEventListener('click', () => copyToClipboard(hex, colorCard));
+                paletteDisplay.appendChild(colorCard);
+            });
+        }
+
+        /**
+         * Copies a string to the clipboard and shows a temporary message.
+         * @param {string} text - The text to copy.
+         * @param {HTMLElement} element - The element to show feedback on.
+         */
+        function copyToClipboard(text, element) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                document.body.removeChild(textArea);
+            }
+            
+            const feedback = document.createElement('div');
+            feedback.textContent = 'Copied!';
+            feedback.className = 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full animate-ping-once';
+            
+            // Prevent multiple "Copied!" messages
+            const existingFeedback = element.querySelector('.absolute');
+            if(existingFeedback) {
+                existingFeedback.remove();
+            }
+
+            element.appendChild(feedback);
+            setTimeout(() => {
+                feedback.remove();
+            }, 1000);
+        }
+
+        /**
+         * Initializes the application.
+         */
+        function init() {
+            // Populate dropdown with organized groups
+            for (const groupName in colorSchemes) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = groupName;
+                colorSchemes[groupName].forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    // Create a user-friendly display name from the function name
+                    // e.g., "interpolateViridis" becomes "Viridis"
+                    const displayName = name.replace(/^(interpolate|scheme)/, '').replace(/([A-Z])/g, ' $1').trim();
+                    option.textContent = displayName;
+                    optgroup.appendChild(option);
+                });
+                colormapSelect.appendChild(optgroup);
+            }
+
+            // Set event listeners
+            colormapSelect.addEventListener('change', updateDisplay);
+            colorCountInput.addEventListener('change', updateDisplay);
+            colorCountInput.addEventListener('input', () => {
+                // Debounce input to prevent rapid updates while typing
+                clearTimeout(window.inputTimeout);
+                window.inputTimeout = setTimeout(updateDisplay, 300);
+            });
+
+            // Initial render
+            updateDisplay();
+        }
+
+        // --- Start the App ---
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <h3 class="text-center text-sm text-slate-500 mt-12">|Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a> | <a href="
+</body>
+</html>
