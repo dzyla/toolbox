@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Palette Generator</title>
+    <title>Advanced Color Palette Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
         }
         /* Custom scrollbar for better aesthetics */
         ::-webkit-scrollbar {
@@ -35,6 +36,28 @@
             background-color: #e2e8f0;
             cursor: not-allowed;
         }
+        /* Animation for the feedback message */
+        .feedback-anim {
+            animation: fadeAndScale 1s ease-out forwards;
+        }
+        @keyframes fadeAndScale {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+        }
+        /* Simple fade-in for the shade panel */
+        .panel-fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
@@ -43,9 +66,8 @@
         
         <!-- Header -->
         <header class="text-center mb-8 md:mb-12">
-            <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Color Palette Generator</h1>
-            <h2 class="text-xl md:text-2xl text-slate-600 mt-2">Vibecoded color generator</h2>
-            <p class="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">Select a colormap and the number of colors to generate a palette. Click any color to copy its HEX code.</p>
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Advanced Color Palette Generator</h1>
+            <p class="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">Select a colormap to generate a palette. Click a color to copy its code and reveal a full spectrum of tints, tones, and shades.</p>
         </header>
 
         <!-- Controls -->
@@ -69,11 +91,19 @@
             <!-- Colors will be generated here -->
         </main>
 
+        <!-- Shade Details Panel Container -->
+        <div id="shade-panel-container" class="mt-12">
+            <!-- Shade details will be injected here -->
+        </div>
+
     </div>
+
+    <footer class="text-center text-sm text-slate-500 py-8">
+        Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a>
+    </footer>
 
     <script>
         // --- DATA: D3.js Color Schemes ---
-        // We now use the comprehensive list from d3-scale-chromatic
         const colorSchemes = {
             'Sequential (Multi-Hue)': ['interpolateViridis', 'interpolatePlasma', 'interpolateInferno', 'interpolateMagma', 'interpolateCividis', 'interpolateTurbo', 'interpolateWarm', 'interpolateCool', 'interpolateBuGn', 'interpolateBuPu', 'interpolateGnBu', 'interpolateOrRd', 'interpolatePuBuGn', 'interpolatePuBu', 'interpolatePuRd', 'interpolateRdPu', 'interpolateYlGnBu', 'interpolateYlGn', 'interpolateYlOrBr', 'interpolateYlOrRd'],
             'Sequential (Single Hue)': ['interpolateBlues', 'interpolateGreens', 'interpolateGreys', 'interpolateOranges', 'interpolatePurples', 'interpolateReds'],
@@ -86,85 +116,166 @@
         const colormapSelect = document.getElementById('colormap-select');
         const colorCountInput = document.getElementById('color-count');
         const paletteDisplay = document.getElementById('palette-display');
+        const shadePanelContainer = document.getElementById('shade-panel-container');
+
+        // --- State ---
+        let activeColorCard = null;
 
         // --- Core Functions ---
 
         /**
-         * Generates a discrete palette from a D3 interpolator.
-         * @param {string} interpolatorName - The name of the D3 interpolator function.
-         * @param {number} count - The number of colors to generate.
-         * @returns {string[]} - An array of hex color strings.
+         * Generates a discrete palette from a D3 interpolator or scheme.
          */
-        function generatePaletteFromInterpolator(interpolatorName, count) {
-            const colors = [];
-            const interpolator = d3[interpolatorName];
-            if (typeof interpolator !== 'function') {
-                console.error(`Interpolator ${interpolatorName} not found.`);
-                return [];
-            }
-
-            for (let i = 0; i < count; i++) {
-                // Create a value t from 0 to 1
-                const t = (count > 1) ? i / (count - 1) : 0.5;
-                // Get the color from the interpolator and format as HEX
-                const color = d3.color(interpolator(t)).formatHex();
-                colors.push(color);
-            }
-            return colors;
-        }
-
-        /**
-         * Renders the color palette in the DOM.
-         */
-        function updateDisplay() {
+        function generatePalette() {
             const selectedSchemeName = colormapSelect.value;
             let palette = [];
 
-            // Check if the selected item is a categorical scheme or an interpolator
             if (selectedSchemeName.startsWith('scheme')) {
-                // It's a categorical scheme with a fixed number of colors
                 colorCountInput.disabled = true;
                 const scheme = d3[selectedSchemeName];
                 if (Array.isArray(scheme)) {
-                    palette = scheme;
-                    colorCountInput.value = scheme.length; // Update count display
+                    palette = scheme.map(c => d3.color(c).formatHex());
+                    colorCountInput.value = scheme.length;
                 }
             } else {
-                // It's an interpolator, so we can generate a variable number of colors
                 colorCountInput.disabled = false;
                 let colorCount = parseInt(colorCountInput.value, 10);
-
-                // Validate count
                 if (isNaN(colorCount) || colorCount < 2) colorCount = 2;
                 if (colorCount > 256) colorCount = 256;
                 colorCountInput.value = colorCount;
-
-                palette = generatePaletteFromInterpolator(selectedSchemeName, colorCount);
+                
+                const interpolator = d3[selectedSchemeName];
+                if (typeof interpolator !== 'function') return [];
+                
+                for (let i = 0; i < colorCount; i++) {
+                    const t = (colorCount > 1) ? i / (colorCount - 1) : 0.5;
+                    palette.push(d3.color(interpolator(t)).formatHex());
+                }
             }
+            return palette;
+        }
+
+        /**
+         * Renders the main color palette in the DOM.
+         */
+        function updateDisplay() {
+            const palette = generatePalette();
             
             paletteDisplay.innerHTML = ''; // Clear previous palette
+            shadePanelContainer.innerHTML = ''; // Clear shade panel
+            activeColorCard = null;
 
             palette.forEach(hex => {
                 const colorCard = document.createElement('div');
-                colorCard.className = 'relative group cursor-pointer transform hover:-translate-y-1 transition-transform duration-300';
-                
-                const colorSwatch = document.createElement('div');
-                colorSwatch.style.backgroundColor = hex;
-                colorSwatch.className = 'w-full h-24 rounded-lg shadow-md';
+                colorCard.className = 'relative group cursor-pointer transform hover:-translate-y-1 transition-transform duration-300 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 rounded-lg';
+                colorCard.dataset.color = hex;
 
-                const colorInfo = document.createElement('div');
-                colorInfo.className = 'p-3 bg-white rounded-b-lg shadow-md';
-                
-                const hexCode = document.createElement('p');
-                hexCode.className = 'font-mono text-sm text-slate-700 font-medium';
-                hexCode.textContent = hex;
+                colorCard.innerHTML = `
+                    <div style="background-color: ${hex};" class="w-full h-24 rounded-t-lg shadow-md"></div>
+                    <div class="p-3 bg-white rounded-b-lg shadow-md">
+                        <p class="font-mono text-sm text-slate-700 font-medium">${hex}</p>
+                    </div>
+                `;
 
-                colorInfo.appendChild(hexCode);
-                colorCard.appendChild(colorSwatch);
-                colorCard.appendChild(colorInfo);
-
-                colorCard.addEventListener('click', () => copyToClipboard(hex, colorCard));
+                colorCard.addEventListener('click', () => {
+                    copyToClipboard(hex, colorCard.querySelector('div[style]'));
+                    showShadePanel(hex, colorCard);
+                });
                 paletteDisplay.appendChild(colorCard);
+            });
+        }
+        
+        /**
+         * Generates tints, tones, and shades for a given base color.
+         * @param {string} baseHex - The base color in HEX format.
+         * @returns {object} - An object containing arrays of tints, tones, and shades.
+         */
+        function generateShades(baseHex) {
+            const baseColor = d3.hsl(baseHex);
+            const variations = { tints: [], tones: [], shades: [] };
+            const steps = 5;
+
+            // Generate Tints (mixing with white)
+            for (let i = 1; i <= steps; i++) {
+                variations.tints.push(baseColor.brighter(i * 0.35).formatHex());
+            }
+
+            // Generate Shades (mixing with black)
+            for (let i = 1; i <= steps; i++) {
+                variations.shades.push(baseColor.darker(i * 0.35).formatHex());
+            }
+
+            // Generate Tones (mixing with gray / desaturating)
+            for (let i = 1; i <= steps; i++) {
+                const tonedColor = d3.hsl(baseColor.h, baseColor.s * (1 - (i * 0.18)), baseColor.l);
+                variations.tones.push(tonedColor.formatHex());
+            }
+            
+            return variations;
+        }
+
+        /**
+         * Displays a detailed panel with color variations.
+         * @param {string} hex - The selected color's HEX code.
+         * @param {HTMLElement} cardElement - The clicked color card element.
+         */
+        function showShadePanel(hex, cardElement) {
+            if (activeColorCard) {
+                activeColorCard.classList.remove('ring-2', 'ring-offset-2', 'ring-indigo-500');
+            }
+            cardElement.classList.add('ring-2', 'ring-offset-2', 'ring-indigo-500');
+            activeColorCard = cardElement;
+
+            const variations = generateShades(hex);
+
+            const createVariationRow = (title, colors) => {
+                const colorSwatches = colors.map(color => `
+                    <div class="flex-1 group" title="Click to copy ${color}">
+                        <div data-color="${color}" class="shade-swatch h-16 w-full rounded-md cursor-pointer border border-slate-200 transition-transform duration-200 group-hover:scale-105" style="background-color: ${color};"></div>
+                        <p class="text-center text-xs mt-2 font-mono text-slate-600">${color}</p>
+                    </div>
+                `).join('');
+
+                return `
+                    <div>
+                        <h4 class="font-bold text-slate-700 mb-3">${title}</h4>
+                        <div class="flex flex-row gap-2 md:gap-4">
+                            ${colorSwatches}
+                        </div>
+                    </div>
+                `;
+            };
+
+            shadePanelContainer.innerHTML = `
+                <div id="shade-panel" class="bg-white p-6 md:p-8 rounded-2xl shadow-xl panel-fade-in">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-slate-200 pb-4">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Color Variations</h3>
+                            <p class="text-slate-500">Tints, tones, and shades for your selected color.</p>
+                        </div>
+                        <div class="flex items-center gap-3 mt-4 md:mt-0">
+                            <div class="w-10 h-10 rounded-full shadow-inner" style="background-color:${hex};"></div>
+                            <span class="font-mono text-lg text-slate-800">${hex}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        ${createVariationRow('Tints (Lighter)', variations.tints.reverse())}
+                        ${createVariationRow('Tones (Desaturated)', variations.tones)}
+                        ${createVariationRow('Shades (Darker)', variations.shades)}
+                    </div>
+                </div>
+            `;
+            
+            // Scroll to the panel smoothly
+            document.getElementById('shade-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Add event listeners to the new shade swatches
+            shadePanelContainer.querySelectorAll('.shade-swatch').forEach(swatch => {
+                swatch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const colorToCopy = swatch.dataset.color;
+                    copyToClipboard(colorToCopy, swatch);
+                });
             });
         }
 
@@ -177,6 +288,7 @@
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text);
             } else {
+                // Fallback for insecure contexts or older browsers
                 const textArea = document.createElement('textarea');
                 textArea.value = text;
                 textArea.style.position = 'fixed';
@@ -194,15 +306,11 @@
             
             const feedback = document.createElement('div');
             feedback.textContent = 'Copied!';
-            feedback.className = 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full animate-ping-once';
+            feedback.className = 'absolute top-1/2 left-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full feedback-anim pointer-events-none';
             
-            // Prevent multiple "Copied!" messages
-            const existingFeedback = element.querySelector('.absolute');
-            if(existingFeedback) {
-                existingFeedback.remove();
-            }
-
+            element.style.position = 'relative';
             element.appendChild(feedback);
+
             setTimeout(() => {
                 feedback.remove();
             }, 1000);
@@ -219,8 +327,6 @@
                 colorSchemes[groupName].forEach(name => {
                     const option = document.createElement('option');
                     option.value = name;
-                    // Create a user-friendly display name from the function name
-                    // e.g., "interpolateViridis" becomes "Viridis"
                     const displayName = name.replace(/^(interpolate|scheme)/, '').replace(/([A-Z])/g, ' $1').trim();
                     option.textContent = displayName;
                     optgroup.appendChild(option);
@@ -231,10 +337,11 @@
             // Set event listeners
             colormapSelect.addEventListener('change', updateDisplay);
             colorCountInput.addEventListener('change', updateDisplay);
+            
+            let inputTimeout;
             colorCountInput.addEventListener('input', () => {
-                // Debounce input to prevent rapid updates while typing
-                clearTimeout(window.inputTimeout);
-                window.inputTimeout = setTimeout(updateDisplay, 300);
+                clearTimeout(inputTimeout);
+                inputTimeout = setTimeout(updateDisplay, 350);
             });
 
             // Initial render
@@ -244,6 +351,5 @@
         // --- Start the App ---
         document.addEventListener('DOMContentLoaded', init);
     </script>
-    <h3 class="text-center text-sm text-slate-500 mt-12">|Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a> | <a href="
 </body>
 </html>
