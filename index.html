@@ -21,6 +21,7 @@
             border: 2px solid transparent;
             transition: all 0.3s ease;
             color: #475569; /* slate-600 */
+            cursor: pointer;
         }
         .nav-button:hover {
             background-color: #f1f5f9; /* slate-100 */
@@ -61,12 +62,13 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Styles from Text Counter */
+        /* Styles for Text Counter */
         .stat-card { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
 
+    <!-- App Switcher Navigation -->
     <nav class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
         <div class="container mx-auto px-4 py-3 flex justify-center gap-2 md:gap-4">
             <button id="show-color-btn" class="nav-button active-nav-button">🎨 Color Generator</button>
@@ -74,13 +76,16 @@
         </div>
     </nav>
 
+    <!-- App Containers -->
     <main>
+        <!-- Color Palette Generator App -->
         <div id="color-generator-app">
             <div class="container mx-auto px-4 py-8 md:py-12">
                 <header class="text-center mb-8 md:mb-12">
                     <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Advanced Color Palette Generator</h1>
                     <p class="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">Select a colormap to generate a palette. Click a color to copy its code and reveal a full spectrum of tints, tones, and shades.</p>
                 </header>
+                <!-- Controls for Color Generator -->
                 <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 md:mb-12 sticky top-[74px] z-10">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -93,6 +98,7 @@
                         </div>
                     </div>
                 </div>
+                <!-- Display Area for Color Generator -->
                 <div id="palette-display" class="color-card-container"></div>
                 <div id="shade-panel-container" class="mt-12"></div>
             </div>
@@ -101,43 +107,48 @@
             </footer>
         </div>
 
+        <!-- Text Counter App -->
         <div id="text-counter-app" class="hidden">
             <div class="flex items-center justify-center py-8 md:py-12 px-4">
-                <div class="w-full max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
-                    <div class="text-center mb-6">
-                        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">Text Counter</h1>
-                        <p class="text-gray-500 dark:text-gray-400 mt-2">Instantly analyze your text's word, letter, and space count.</p>
-                    </div>
+                <div class="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8">
+                    <!-- Header for Text Counter -->
+                    <header class="text-center mb-6">
+                        <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Text Counter</h1>
+                        <p class="text-slate-600 mt-2">Instantly analyze your text's word, letter, and space count.</p>
+                    </header>
+                    <!-- Text Area for Counter -->
                     <div class="mb-6">
-                        <textarea id="text-input" class="w-full h-48 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none" placeholder="Start typing or paste your text here..."></textarea>
+                        <textarea id="text-input" class="w-full h-48 p-4 border border-slate-300 rounded-lg bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-none" placeholder="Start typing or paste your text here..."></textarea>
                     </div>
+                    <!-- Statistics Display for Counter -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
-                        <div class="stat-card bg-blue-100 dark:bg-blue-900/50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-blue-600 dark:text-blue-300">Words</p>
-                            <p id="word-count" class="text-3xl font-bold text-blue-800 dark:text-blue-200">0</p>
+                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
+                            <p class="text-sm font-medium text-slate-600">Words</p>
+                            <p id="word-count" class="text-3xl font-bold text-indigo-700">0</p>
                         </div>
-                        <div class="stat-card bg-green-100 dark:bg-green-900/50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-green-600 dark:text-green-300">Letters</p>
-                            <p id="letter-count" class="text-3xl font-bold text-green-800 dark:text-green-200">0</p>
+                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
+                            <p class="text-sm font-medium text-slate-600">Letters</p>
+                            <p id="letter-count" class="text-3xl font-bold text-indigo-700">0</p>
                         </div>
-                        <div class="stat-card bg-purple-100 dark:bg-purple-900/50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-purple-600 dark:text-purple-300">Spaces</p>
-                            <p id="space-count" class="text-3xl font-bold text-purple-800 dark:text-purple-200">0</p>
+                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
+                            <p class="text-sm font-medium text-slate-600">Spaces</p>
+                            <p id="space-count" class="text-3xl font-bold text-indigo-700">0</p>
                         </div>
-                        <div class="stat-card bg-yellow-100 dark:bg-yellow-900/50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-yellow-600 dark:text-yellow-300">Articles</p>
-                            <p id="article-count" class="text-3xl font-bold text-yellow-800 dark:text-yellow-200">0</p>
+                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
+                            <p class="text-sm font-medium text-slate-600">Articles</p>
+                            <p id="article-count" class="text-3xl font-bold text-indigo-700">0</p>
                         </div>
                     </div>
-                    <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <!-- Controls for Counter -->
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg">
                         <div class="flex flex-col sm:flex-row gap-4">
                             <label class="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" id="count-spaces-toggle" class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
-                                <span class="text-gray-700 dark:text-gray-300">Include spaces in letter count</span>
+                                <input type="checkbox" id="count-spaces-toggle" class="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500">
+                                <span class="text-slate-700">Include spaces in letter count</span>
                             </label>
                             <label class="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" id="count-articles-toggle" checked class="form-checkbox h-5 w-5 text-yellow-600 rounded focus:ring-yellow-500">
-                                <span class="text-gray-700 dark:text-gray-300">Count articles ('a', 'an', 'the')</span>
+                                <input type="checkbox" id="count-articles-toggle" checked class="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500">
+                                <span class="text-slate-700">Count articles ('a', 'an', 'the')</span>
                             </label>
                         </div>
                         <button id="clear-btn" class="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition duration-200">Clear</button>
@@ -154,11 +165,13 @@
         document.addEventListener('DOMContentLoaded', () => {
 
             // --- APP SWITCHER LOGIC ---
+            // This section handles the navigation between the two applications.
             const colorGeneratorApp = document.getElementById('color-generator-app');
             const textCounterApp = document.getElementById('text-counter-app');
             const showColorBtn = document.getElementById('show-color-btn');
             const showCounterBtn = document.getElementById('show-counter-btn');
 
+            // Event listener for the color generator button
             showColorBtn.addEventListener('click', () => {
                 colorGeneratorApp.classList.remove('hidden');
                 textCounterApp.classList.add('hidden');
@@ -166,6 +179,7 @@
                 showCounterBtn.classList.remove('active-nav-button');
             });
 
+            // Event listener for the text counter button
             showCounterBtn.addEventListener('click', () => {
                 textCounterApp.classList.remove('hidden');
                 colorGeneratorApp.classList.add('hidden');
@@ -174,7 +188,8 @@
             });
             
             // --- COLOR GENERATOR LOGIC ---
-            (function() {
+            // Encapsulated in an IIFE (Immediately Invoked Function Expression) to avoid global scope pollution.
+            (function initColorGenerator() {
                 const colorSchemes = {
                     'Sequential (Multi-Hue)': ['interpolateViridis', 'interpolatePlasma', 'interpolateInferno', 'interpolateMagma', 'interpolateCividis', 'interpolateTurbo', 'interpolateWarm', 'interpolateCool', 'interpolateBuGn', 'interpolateBuPu', 'interpolateGnBu', 'interpolateOrRd', 'interpolatePuBuGn', 'interpolatePuBu', 'interpolatePuRd', 'interpolateRdPu', 'interpolateYlGnBu', 'interpolateYlGn', 'interpolateYlOrBr', 'interpolateYlOrRd'],
                     'Sequential (Single Hue)': ['interpolateBlues', 'interpolateGreens', 'interpolateGreys', 'interpolateOranges', 'interpolatePurples', 'interpolateReds'],
@@ -308,38 +323,37 @@
                     navigator.clipboard.writeText(text);
                     const feedback = document.createElement('div');
                     feedback.textContent = 'Copied!';
-                    feedback.className = 'absolute top-1/2 left-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full feedback-anim pointer-events-none';
+                    feedback.className = 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full feedback-anim pointer-events-none';
                     element.style.position = 'relative';
                     element.appendChild(feedback);
                     setTimeout(() => feedback.remove(), 1000);
                 }
 
-                function initColorGenerator() {
-                    for (const groupName in colorSchemes) {
-                        const optgroup = document.createElement('optgroup');
-                        optgroup.label = groupName;
-                        colorSchemes[groupName].forEach(name => {
-                            const option = document.createElement('option');
-                            option.value = name;
-                            option.textContent = name.replace(/^(interpolate|scheme)/, '').replace(/([A-Z])/g, ' $1').trim();
-                            optgroup.appendChild(option);
-                        });
-                        colormapSelect.appendChild(optgroup);
-                    }
-                    colormapSelect.addEventListener('change', updateDisplay);
-                    colorCountInput.addEventListener('change', updateDisplay);
-                    let inputTimeout;
-                    colorCountInput.addEventListener('input', () => {
-                        clearTimeout(inputTimeout);
-                        inputTimeout = setTimeout(updateDisplay, 350);
+                // Populate dropdown and set initial state
+                for (const groupName in colorSchemes) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupName;
+                    colorSchemes[groupName].forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name.replace(/^(interpolate|scheme)/, '').replace(/([A-Z])/g, ' $1').trim();
+                        optgroup.appendChild(option);
                     });
-                    updateDisplay();
+                    colormapSelect.appendChild(optgroup);
                 }
-                initColorGenerator();
+                colormapSelect.addEventListener('change', updateDisplay);
+                colorCountInput.addEventListener('change', updateDisplay);
+                let inputTimeout;
+                colorCountInput.addEventListener('input', () => {
+                    clearTimeout(inputTimeout);
+                    inputTimeout = setTimeout(updateDisplay, 350);
+                });
+                updateDisplay();
             })();
 
             // --- TEXT COUNTER LOGIC ---
-            (function() {
+            // Also encapsulated in an IIFE.
+            (function initTextCounter() {
                 const textInput = document.getElementById('text-input');
                 const wordCountEl = document.getElementById('word-count');
                 const letterCountEl = document.getElementById('letter-count');
@@ -352,7 +366,7 @@
                 function updateCounts() {
                     const text = textInput.value;
                     const words = text.trim().split(/\s+/).filter(word => word.length > 0);
-                    const totalWordCount = words.length;
+                    const totalWordCount = text ? words.length : 0; // Fix: ensure empty input is 0 words
                     const articleMatches = text.match(/\b(a|an|the)\b/gi);
                     const articleCount = articleMatches ? articleMatches.length : 0;
                     
@@ -374,14 +388,12 @@
                     updateCounts();
                 }
                 
-                function initTextCounter() {
-                    textInput.addEventListener('input', updateCounts);
-                    countSpacesToggle.addEventListener('change', updateCounts);
-                    countArticlesToggle.addEventListener('change', updateCounts);
-                    clearBtn.addEventListener('click', clearAll);
-                    updateCounts(); // Initial count on load
-                }
-                initTextCounter();
+                // Add event listeners for the text counter
+                textInput.addEventListener('input', updateCounts);
+                countSpacesToggle.addEventListener('change', updateCounts);
+                countArticlesToggle.addEventListener('change', updateCounts);
+                clearBtn.addEventListener('click', clearAll);
+                updateCounts(); // Initial count on load
             })();
         });
     </script>
