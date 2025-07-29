@@ -3,17 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Tools Suite | Kd Calculator, Color Gen, Text Counter</title>
+    <title>Web Tools Suite</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
             scroll-behavior: smooth;
         }
-        /* App Switcher Styles */
         .nav-button {
             padding: 0.6rem 1.25rem;
             font-size: 0.95rem;
@@ -32,835 +29,102 @@
             border-color: #a5b4fc; /* indigo-300 */
             background-color: #eef2ff; /* indigo-50 */
         }
-        /* Utility */
-        .hidden {
-            display: none;
+        main {
+            min-height: calc(100vh - 80px); /* Adjust based on footer height */
         }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-        
-        /* Styles from Kd Calculator */
-        .input-group { display: flex; align-items: center; }
-        .input-group input { border-top-right-radius: 0; border-bottom-right-radius: 0; flex-grow: 1; }
-        .input-group select { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 0; }
-        .prose strong { color: #4f46e5; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-
-        /* Styles from Color Generator */
-        .color-card-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 1.5rem;
-        }
-        input:disabled {
-            background-color: #e2e8f0;
-            cursor: not-allowed;
-        }
-        .feedback-anim { animation: fadeAndScale 1s ease-out forwards; }
-        @keyframes fadeAndScale {
-            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
-        }
-        .panel-fade-in { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Styles for Text Counter */
-        .stat-card { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
 
-    <!-- App Switcher Navigation -->
+    <!-- Navigation bar to switch between tools -->
     <nav class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
         <div class="container mx-auto px-4 py-3 flex justify-center flex-wrap gap-2 md:gap-4">
-            <button id="show-kd-btn" class="nav-button active-nav-button">🔬 Binding Calculator</button>
-            <button id="show-color-btn" class="nav-button">🎨 Color Generator</button>
-            <button id="show-counter-btn" class="nav-button">🔢 Text Counter</button>
+            <button class="nav-button" data-src="binding_calculator.html">🔬 Binding Calculator</button>
+            <button class="nav-button" data-src="color_generator.html">🎨 Color Generator</button>
+            <button class="nav-button" data-src="text_counter.html">🔢 Text Counter</button>
+            <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
         </div>
     </nav>
 
-    <!-- App Containers -->
-    <main>
-        <!-- Binding Equilibrium Calculator App -->
-        <div id="kd-calculator-app">
-          <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-            <header class="text-center mb-8">
-              <h1 class="text-4xl font-bold text-gray-900">Binding Equilibrium Calculator</h1>
-              <p class="mt-2 text-lg text-gray-600">Compute equilibrium for two rigorous models and visualize saturation curves.</p>
-            </header>
-        
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-              <!-- Left column -->
-              <div class="lg:col-span-2 space-y-8">
-                <!-- Inputs -->
-                <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
-                  <h2 class="text-2xl font-semibold text-gray-800 border-b pb-3">Inputs</h2>
-        
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <select id="model" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-                      <option value="single_step" selected>Single-step n-mer assembly: P1 + n·P2 ⇌ P1·(P2)<sub>n</sub></option>
-                      <option value="stepwise_identical">Stepwise binding, n identical independent sites on P1</option>
-                    </select>
-                    <p class="text-xs text-gray-500 mt-1">
-                      Choose “single-step” only for true one-step assemblies. Choose “stepwise” for typical multi-site binding.
-                    </p>
-                  </div>
-        
-                  <div>
-                    <label for="stoichiometry" class="block text-sm font-medium text-gray-700 mb-1">Stoichiometry n (integer)</label>
-                    <input type="number" id="stoichiometry" value="1" min="1" step="1"
-                           class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-                    <p class="text-xs text-gray-500 mt-1">n is the number of P2 molecules per P1 in the fully bound state.</p>
-                  </div>
-        
-                  <div>
-                    <label for="protein1_conc" class="block text-sm font-medium text-gray-700 mb-1">Protein 1 Total</label>
-                    <div class="input-group">
-                      <input type="number" id="protein1_conc" value="10"
-                             class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md" />
-                      <select id="protein1_units" class="px-3 py-2 border-gray-300 rounded-md">
-                        <option value="nM" selected>nM</option>
-                        <option value="uM">µM</option>
-                        <option value="mM">mM</option>
-                      </select>
-                    </div>
-                  </div>
-        
-                  <div>
-                    <label for="protein2_conc" class="block text-sm font-medium text-gray-700 mb-1">Protein 2 Total (single point)</label>
-                    <div class="input-group">
-                      <input type="number" id="protein2_conc" value="50"
-                             class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md" />
-                      <select id="protein2_units" class="px-3 py-2 border-gray-300 rounded-md">
-                        <option value="nM" selected>nM</option>
-                        <option value="uM">µM</option>
-                        <option value="mM">mM</option>
-                      </select>
-                    </div>
-                  </div>
-        
-                  <div id="kd_block">
-                    <label for="kd" class="block text-sm font-medium text-gray-700 mb-1">
-                      Dissociation Constant <span id="kd_label_span"></span>
-                    </label>
-                    <div class="input-group">
-                      <input type="number" id="kd" value="100"
-                             class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md" />
-                      <select id="kd_units" class="px-3 py-2 border-gray-300 rounded-md">
-                        <option value="nM" selected>nM</option>
-                        <option value="uM">µM</option>
-                        <option value="mM">mM</option>
-                      </select>
-                    </div>
-                    <p id="kd_help" class="text-xs text-gray-500 mt-1"></p>
-                  </div>
-        
-                  <button id="calculateBtn"
-                          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Calculate & Update Plot
-                  </button>
-                  <div id="validationMsg" class="text-red-600 text-sm"></div>
-                </div>
-        
-                <!-- Results -->
-                <div class="bg-white p-6 rounded-xl shadow-lg">
-                  <h2 class="text-2xl font-semibold text-gray-800 border-b pb-3">Equilibrium (single point)</h2>
-                  <div id="results" class="space-y-4">
-                    <p class="text-gray-500">Results will appear here.</p>
-                  </div>
-                </div>
-        
-                <!-- Self tests -->
-                <div class="bg-white p-6 rounded-xl shadow-lg">
-                  <h3 class="text-xl font-semibold mb-2">Self‑tests</h3>
-                  <p class="text-sm text-gray-600">These tests check edge cases and the analytic 1:1 solution.</p>
-                  <button id="selfTestBtn"
-                          class="mt-2 bg-gray-800 hover:bg-black text-white font-semibold py-2 px-4 rounded">
-                    Run self‑tests
-                  </button>
-                  <div id="selfTestOutput" class="mt-3 text-sm mono whitespace-pre-wrap"></div>
-                </div>
-              </div>
-        
-              <!-- Right column -->
-              <div class="lg:col-span-3">
-                <div class="bg-white p-6 rounded-xl shadow-lg h-full">
-                  <h2 class="text-2xl font-semibold text-gray-800">Saturation Binding Curve</h2>
-                  <p class="text-sm text-gray-500 mb-4">
-                    Titrate P2 against fixed P1. Choose what to plot for the stepwise model.
-                  </p>
-        
-                  <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">P2 Titration Start</label>
-                      <input type="number" id="p2_start" value="0.1" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">P2 Titration End</label>
-                      <input type="number" id="p2_end" value="1000" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Number of Points</label>
-                      <input type="number" id="plot_points" value="100" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div class="flex items-end">
-                      <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="checkbox" id="log_scale" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                        <span class="text-sm font-medium text-gray-700">Logarithmic X‑axis</span>
-                      </label>
-                    </div>
-                  </div>
-        
-                  <div id="stepwisePlotToggles" class="mb-4 hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">What to plot (stepwise model)</label>
-                    <div class="flex flex-col sm:flex-row gap-2">
-                      <label class="inline-flex items-center gap-2">
-                        <input type="checkbox" id="plot_any_bound" checked>
-                        <span class="text-sm">[P1 with ≥1 P2 bound]</span>
-                      </label>
-                      <label class="inline-flex items-center gap-2">
-                        <input type="checkbox" id="plot_fully_bound">
-                        <span class="text-sm">[P1 with n P2 bound]</span>
-                      </label>
-                      <label class="inline-flex items-center gap-2">
-                        <input type="checkbox" id="plot_bound_sites">
-                        <span class="text-sm">Average bound sites per P1</span>
-                      </label>
-                    </div>
-                  </div>
-        
-                  <canvas id="complexFormationChart"></canvas>
-                </div>
-              </div>
-            </div>
-        
-            <!-- Explanations -->
-            <div class="mt-8 bg-white p-8 rounded-xl shadow-lg">
-              <h3 class="text-2xl font-semibold text-gray-800 mb-4">Model assumptions</h3>
-              <div class="text-gray-700 space-y-4 prose max-w-none">
-                <p><strong>Single‑step n‑mer assembly</strong> assumes a one‑shot formation of P1·(P2)<sub>n</sub>. It ignores partially liganded intermediates. Use it only for true assemblies where intermediates are negligible.</p>
-                <p><strong>Stepwise binding with n identical independent sites</strong> assumes n sites on P1 that bind P2 independently with the same microscopic dissociation constant. It includes partially liganded states and honors ligand depletion. It does not model cooperativity between sites.</p>
-                <p><strong>Units:</strong> In the single‑step model, the dissociation constant has units of concentration to the power n. In the stepwise model, the per‑site dissociation constant has units of concentration.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Color Palette Generator App -->
-        <div id="color-generator-app" class="hidden">
-            <div class="container mx-auto px-4 py-8 md:py-12">
-                <header class="text-center mb-8 md:mb-12">
-                    <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Advanced Color Palette Generator</h1>
-                    <p class="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">Select a colormap to generate a palette. Click a color to copy its code and reveal a full spectrum of tints, tones, and shades.</p>
-                </header>
-                <!-- Controls for Color Generator -->
-                <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 md:mb-12 sticky top-[74px] z-10">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="colormap-select" class="block text-sm font-medium text-slate-700 mb-2">Colormap</label>
-                            <select id="colormap-select" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"></select>
-                        </div>
-                        <div>
-                            <label for="color-count" class="block text-sm font-medium text-slate-700 mb-2">Number of Colors (2-256)</label>
-                            <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-                        </div>
-                    </div>
-                </div>
-                <!-- Display Area for Color Generator -->
-                <div id="palette-display" class="color-card-container"></div>
-                <div id="shade-panel-container" class="mt-12"></div>
-            </div>
-        </div>
-
-        <!-- Text Counter App -->
-        <div id="text-counter-app" class="hidden">
-            <div class="flex items-center justify-center py-8 md:py-12 px-4">
-                <div class="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8">
-                    <!-- Header for Text Counter -->
-                    <header class="text-center mb-6">
-                        <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Text Counter</h1>
-                        <p class="text-slate-600 mt-2">Instantly analyze your text's word, letter, and space count.</p>
-                    </header>
-                    <!-- Text Area for Counter -->
-                    <div class="mb-6">
-                        <textarea id="text-input" class="w-full h-48 p-4 border border-slate-300 rounded-lg bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-none" placeholder="Start typing or paste your text here..."></textarea>
-                    </div>
-                    <!-- Statistics Display for Counter -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
-                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-slate-600">Words</p>
-                            <p id="word-count" class="text-3xl font-bold text-indigo-700">0</p>
-                        </div>
-                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-slate-600">Letters</p>
-                            <p id="letter-count" class="text-3xl font-bold text-indigo-700">0</p>
-                        </div>
-                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-slate-600">Spaces</p>
-                            <p id="space-count" class="text-3xl font-bold text-indigo-700">0</p>
-                        </div>
-                        <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                            <p class="text-sm font-medium text-slate-600">Articles</p>
-                            <p id="article-count" class="text-3xl font-bold text-indigo-700">0</p>
-                        </div>
-                    </div>
-                    <!-- Controls for Counter -->
-                    <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg">
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <label class="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" id="count-spaces-toggle" class="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500">
-                                <span class="text-slate-700">Include spaces in letter count</span>
-                            </label>
-                            <label class="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" id="count-articles-toggle" checked class="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500">
-                                <span class="text-slate-700">Count articles ('a', 'an', 'the')</span>
-                            </label>
-                        </div>
-                        <button id="clear-btn" class="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition duration-200">Clear</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- The main content area where tools will be loaded -->
+    <main id="content-area">
+        <!-- App content will be loaded here dynamically -->
     </main>
+
+    <footer class="text-center text-sm text-slate-500 py-8 bg-slate-100">
+        Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a>
+    </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const contentArea = document.getElementById('content-area');
+            const navButtons = document.querySelectorAll('.nav-button');
 
-            // --- APP SWITCHER LOGIC ---
-            const appContainers = {
-                kd: document.getElementById('kd-calculator-app'),
-                color: document.getElementById('color-generator-app'),
-                counter: document.getElementById('text-counter-app'),
-            };
-            const navButtons = {
-                kd: document.getElementById('show-kd-btn'),
-                color: document.getElementById('show-color-btn'),
-                counter: document.getElementById('show-counter-btn'),
-            };
+            /**
+             * Fetches and loads the content of a tool into the main content area.
+             * @param {string} src - The path to the HTML file of the tool.
+             */
+            async function loadContent(src) {
+                try {
+                    const response = await fetch(src);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ${src}: ${response.statusText}`);
+                    }
+                    const text = await response.text();
+                    
+                    // Clear previous content before loading new tool
+                    contentArea.innerHTML = '';
+                    
+                    // Create a temporary container to parse the fetched HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = text;
 
-            function switchApp(appToShow) {
-                Object.keys(appContainers).forEach(key => {
-                    const isVisible = key === appToShow;
-                    appContainers[key].classList.toggle('hidden', !isVisible);
-                    navButtons[key].classList.toggle('active-nav-button', isVisible);
-                });
+                    // Transfer all child nodes from the temp container to the content area
+                    while (tempDiv.firstChild) {
+                        contentArea.appendChild(tempDiv.firstChild);
+                    }
+
+                    // Find and execute any scripts in the loaded content
+                    const scripts = contentArea.querySelectorAll('script');
+                    scripts.forEach(script => {
+                        const newScript = document.createElement('script');
+                        // Copy attributes like src
+                        for (let i = 0; i < script.attributes.length; i++) {
+                            const attr = script.attributes[i];
+                            newScript.setAttribute(attr.name, attr.value);
+                        }
+                        // Copy inline script content
+                        newScript.textContent = script.textContent;
+                        // Replace the old script tag with the new one to trigger execution
+                        script.parentNode.replaceChild(newScript, script);
+                    });
+
+                } catch (error) {
+                    contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${error.message}</p>`;
+                    console.error('Fetch error:', error);
+                }
             }
 
-            navButtons.kd.addEventListener('click', () => switchApp('kd'));
-            navButtons.color.addEventListener('click', () => switchApp('color'));
-            navButtons.counter.addEventListener('click', () => switchApp('counter'));
-
-            // --- KD CALCULATOR LOGIC ---
-            (function initKdCalculator() {
-                const els = {
-                    model: document.getElementById('model'),
-                    n: document.getElementById('stoichiometry'),
-                    p1: document.getElementById('protein1_conc'),
-                    p1u: document.getElementById('protein1_units'),
-                    p2: document.getElementById('protein2_conc'),
-                    p2u: document.getElementById('protein2_units'),
-                    kd: document.getElementById('kd'),
-                    kdu: document.getElementById('kd_units'),
-                    kdLabelSpan: document.getElementById('kd_label_span'),
-                    kdHelp: document.getElementById('kd_help'),
-                    validate: document.getElementById('validationMsg'),
-                    results: document.getElementById('results'),
-                    calc: document.getElementById('calculateBtn'),
-                    chartCanvas: document.getElementById('complexFormationChart'),
-                    p2Start: document.getElementById('p2_start'),
-                    p2End: document.getElementById('p2_end'),
-                    nPts: document.getElementById('plot_points'),
-                    log: document.getElementById('log_scale'),
-                    stepwiseToggles: document.getElementById('stepwisePlotToggles'),
-                    plotAny: document.getElementById('plot_any_bound'),
-                    plotFull: document.getElementById('plot_fully_bound'),
-                    plotSites: document.getElementById('plot_bound_sites'),
-                    selfTestBtn: document.getElementById('selfTestBtn'),
-                    selfTestOut: document.getElementById('selfTestOutput'),
-                  };
-            
-                  const FACTORS = { nM: 1, uM: 1000, mM: 1000000 };
-            
-                  function to_nM(v, unit) { return v * (FACTORS[unit] || 1); }
-                  function from_nM(v_nM, unit) { return v_nM / (FACTORS[unit] || 1); }
-            
-                  function clamp0(x) { return (x < 0 && Math.abs(x) < 1e-12) ? 0 : x; }
-            
-                  function updateKdLabel() {
-                    const model = els.model.value;
-                    const n = parseInt(els.n.value);
-                    if (model === 'single_step') {
-                      els.kdLabelSpan.innerHTML = `K<sub>d</sub> units`;
-                      const unit = els.kdu.value;
-                      els.kdHelp.textContent = `For the single‑step n‑mer model, the units are ${unit}^${n}. The code converts to nM^${n} internally.`;
-                    } else {
-                      els.kdLabelSpan.innerHTML = `Per‑site K<sub>d</sub> units`;
-                      const unit = els.kdu.value;
-                      els.kdHelp.textContent = `For the stepwise model, the per‑site Kd has units of ${unit}. The code converts to nM internally.`;
-                    }
-                    els.stepwiseToggles.classList.toggle('hidden', model !== 'stepwise_identical');
-                  }
-            
-                  function kd_to_internal_single_step(kd_val, kd_unit, n) {
-                    return kd_val * Math.pow(FACTORS[kd_unit] || 1, n);
-                  }
-            
-                  function f_single_step(x, P1_tot, P2_tot, Kd_int, n) {
-                    const P1_free = P1_tot - x;
-                    const P2_free = P2_tot - n * x;
-                    if (P1_free < 0 || P2_free < 0) return Number.POSITIVE_INFINITY;
-                    return P1_free * Math.pow(P2_free, n) - Kd_int * x;
-                  }
-            
-                  function solve_single_step(P1_tot, P2_tot, Kd_int, n) {
-                    let low = 0;
-                    let high = Math.min(P1_tot, P2_tot / n);
-                    if (P1_tot <= 0 || P2_tot <= 0) return 0;
-                    const f_low = f_single_step(low, P1_tot, P2_tot, Kd_int, n);
-                    const f_high = f_single_step(high, P1_tot, P2_tot, Kd_int, n);
-                    if (!(f_low >= 0 && f_high <= 0)) {
-                      high = 0.999999 * high;
-                    }
-                    for (let i = 0; i < 200; i++) {
-                      const mid = 0.5 * (low + high);
-                      const fmid = f_single_step(mid, P1_tot, P2_tot, Kd_int, n);
-                      if (Math.abs(fmid) < 1e-12) return mid;
-                      if (fmid > 0) { low = mid; } else { high = mid; }
-                    }
-                    return 0.5 * (low + high);
-                  }
-            
-                  function solve_11_analytic(P1_tot, P2_tot, Kd) {
-                    const S = P1_tot + P2_tot + Kd;
-                    const disc = S*S - 4*P1_tot*P2_tot;
-                    return (S - Math.sqrt(Math.max(disc, 0))) / 2;
-                  }
-            
-                  function solve_stepwise_identical(P_tot, L_tot, Kd_site, n) {
-                    if (P_tot <= 0) return { L: Math.max(L_tot, 0), theta: 0 };
-                    if (L_tot <= 0) return { L: 0, theta: 0 };
-                    const g = (L) => L + n * P_tot * (L / (Kd_site + L)) - L_tot;
-                    let low = 0;
-                    let high = L_tot;
-                    for (let i = 0; i < 200; i++) {
-                      const mid = 0.5 * (low + high);
-                      const val = g(mid);
-                      if (Math.abs(val) < 1e-12) { low = high = mid; break; }
-                      if (val > 0) high = mid; else low = mid;
-                    }
-                    const L = 0.5 * (low + high);
-                    const theta = (Kd_site + L) > 0 ? (L / (Kd_site + L)) : 0;
-                    return { L, theta };
-                  }
-            
-                  let chartInstance = null;
-            
-                  function updatePlot() {
-                    const model = els.model.value;
-                    const n = parseInt(els.n.value);
-                    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value);
-                    const kd_val = parseFloat(els.kd.value);
-                    const kd_unit = els.kdu.value;
-            
-                    const start_val = parseFloat(els.p2Start.value);
-                    const end_val = parseFloat(els.p2End.value);
-                    const num_points = parseInt(els.nPts.value);
-                    const use_log = els.log.checked;
-            
-                    const p2_units = els.p2u.value;
-                    const p1_units = els.p1u.value;
-            
-                    if (!(num_points > 1) || !(end_val > 0) || !(start_val >= 0) || (use_log && start_val <= 0)) return;
-            
-                    const labels = [];
-                    const datasets = [];
-            
-                    if (model === 'single_step') {
-                      const Kd_int = kd_to_internal_single_step(kd_val, kd_unit, n);
-                      const complexData = [];
-                      for (let i = 0; i < num_points; i++) {
-                        const p2_val = use_log
-                          ? start_val * Math.pow(end_val / start_val, i / (num_points - 1))
-                          : start_val + (end_val - start_val) * (i / (num_points - 1));
-                        const P2_tot = to_nM(p2_val, p2_units);
-                        const x = solve_single_step(P1_tot, P2_tot, Kd_int, n);
-                        labels.push(p2_val);
-                        complexData.push(from_nM(x, p1_units));
-                      }
-                      datasets.push({
-                        label: `P1·(P2)\u2099 (single‑step) [${p1_units}]`,
-                        data: complexData,
-                        borderWidth: 2.5,
-                        borderColor: 'rgb(79, 70, 229)',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        pointRadius: 0,
-                        tension: 0.1
-                      });
-                    } else {
-                      const Kd_site = to_nM(kd_val, kd_unit);
-                      const anyData = [], fullData = [], sitesData = [];
-                      for (let i = 0; i < num_points; i++) {
-                        const p2_val = use_log
-                          ? start_val * Math.pow(end_val / start_val, i / (num_points - 1))
-                          : start_val + (end_val - start_val) * (i / (num_points - 1));
-                        const L_tot = to_nM(p2_val, p2_units);
-                        const { L, theta } = solve_stepwise_identical(P1_tot, L_tot, Kd_site, n);
-                        const prob0 = Math.pow(1 - theta, n);
-                        const probN = Math.pow(theta, n);
-                        const anyBoundP1 = P1_tot * (1 - prob0);
-                        const fullyBoundP1 = P1_tot * probN;
-                        const avgSites = n * theta;
-            
-                        labels.push(p2_val);
-                        anyData.push(from_nM(anyBoundP1, p1_units));
-                        fullData.push(from_nM(fullyBoundP1, p1_units));
-                        sitesData.push(avgSites);
-                      }
-                      if (els.plotAny.checked) {
-                        datasets.push({
-                          label: `P1 with ≥1 P2 bound [${p1_units}]`, data: anyData, borderWidth: 2.5,
-                          borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                          pointRadius: 0, tension: 0.1
-                        });
-                      }
-                      if (els.plotFull.checked) {
-                        datasets.push({
-                          label: `P1 with n P2 bound [${p1_units}]`, data: fullData, borderWidth: 2.5,
-                          borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                          pointRadius: 0, tension: 0.1
-                        });
-                      }
-                      if (els.plotSites.checked) {
-                        datasets.push({
-                          label: `Average bound sites per P1 (0..${n})`, data: sitesData, yAxisID: 'y2',
-                          borderWidth: 2.5, borderColor: 'rgb(234, 179, 8)', backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                          pointRadius: 0, tension: 0.1
-                        });
-                      }
-                    }
-            
-                    if (chartInstance) chartInstance.destroy();
-                    chartInstance = new Chart(els.chartCanvas.getContext('2d'), {
-                      type: 'line', data: { labels, datasets },
-                      options: {
-                        responsive: true, maintainAspectRatio: true,
-                        scales: {
-                          x: { type: els.log.checked ? 'logarithmic' : 'linear', title: { display: true, text: `[P2] (${p2_units})`, font: { size: 14 } } },
-                          y: { beginAtZero: true, title: { display: true, text: `Concentration [${els.p1u.value}]`, font: { size: 14 } } },
-                          y2: { display: datasets.some(d => d.yAxisID === 'y2'), position: 'right', beginAtZero: true, title: { display: true, text: 'Bound sites per P1', font: { size: 14 } }, grid: { drawOnChartArea: false } }
-                        },
-                        plugins: { tooltip: { mode: 'index', intersect: false } }
-                      }
-                    });
-                  }
-            
-                  function validateInputs() {
-                    const errs = [];
-                    const n = parseInt(els.n.value), p1 = parseFloat(els.p1.value), p2 = parseFloat(els.p2.value), kd = parseFloat(els.kd.value);
-                    if (!(Number.isInteger(n) && n >= 1)) errs.push('Stoichiometry n must be an integer ≥ 1.');
-                    if (!(p1 >= 0)) errs.push('Protein 1 total must be ≥ 0.');
-                    if (!(p2 >= 0)) errs.push('Protein 2 total must be ≥ 0.');
-                    if (!(kd > 0)) errs.push('Kd must be > 0.');
-                    els.validate.textContent = errs.join(' ');
-                    return errs.length === 0;
-                  }
-            
-                  function runSinglePoint() {
-                    if (!validateInputs()) { els.results.innerHTML = `<div class="text-red-600 bg-red-100 p-3 rounded-lg">Please correct the inputs.</div>`; return; }
-                    const model = els.model.value;
-                    const n = parseInt(els.n.value);
-                    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value);
-                    const P2_tot = to_nM(parseFloat(els.p2.value), els.p2u.value);
-                    const kd_val = parseFloat(els.kd.value);
-                    const kd_unit = els.kdu.value;
-                    let html = '';
-            
-                    if (model === 'single_step') {
-                      const Kd_int = kd_to_internal_single_step(kd_val, kd_unit, n);
-                      const x = solve_single_step(P1_tot, P2_tot, Kd_int, n);
-                      const P1_free = clamp0(P1_tot - x);
-                      const P2_free = clamp0(P2_tot - n * x);
-                      const pctP1 = (P1_tot > 0) ? (100 * x / P1_tot) : 0;
-                      html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1·(P2)<sub>${n}</sub>]</h4><p class="text-xl text-indigo-900">${from_nM(x, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-                          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub></h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-                          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(P2_free, els.p2u.value).toPrecision(6)} ${els.p2u.value}</p></div>
-                          <div class="p-3 bg-gray-100 rounded-lg"><h4 class="font-semibold text-gray-800">% of P1 in complex</h4><p class="text-xl text-gray-900">${pctP1.toFixed(2)}%</p></div>
-                        </div>`;
-                    } else {
-                      const Kd_site = to_nM(kd_val, kd_unit);
-                      const { L, theta } = solve_stepwise_identical(P1_tot, P2_tot, Kd_site, n);
-                      const prob0 = Math.pow(1 - theta, n);
-                      const probN = Math.pow(theta, n);
-                      const P1_any = P1_tot * (1 - prob0);
-                      const P1_full = P1_tot * probN;
-                      const bound_sites = n * theta;
-                      const P1_free = P1_tot - P1_any;
-                      html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub> (0 bound)</h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-                          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(L, els.p2u.value).toPrecision(6)} ${els.p2u.value}</p></div>
-                          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1 with ≥1 P2]</h4><p class="text-xl text-indigo-900">${from_nM(P1_any, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-                          <div class="p-3 bg-purple-50 rounded-lg"><h4 class="font-semibold text-purple-800">[P1 with n P2]</h4><p class="text-xl text-purple-900">${from_nM(P1_full, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-                          <div class="p-3 bg-amber-50 rounded-lg"><h4 class="font-semibold text-amber-800">Average bound sites per P1</h4><p class="text-xl text-amber-900">${bound_sites.toPrecision(6)} of ${n}</p></div>
-                        </div>`;
-                    }
-                    els.results.innerHTML = html;
-                  }
-            
-                  function runAll() {
-                    if (!validateInputs()) return;
-                    runSinglePoint();
-                    updatePlot();
-                  }
-            
-                  function selfTests() {
-                    const lines = [];
-                    {
-                      const P1 = 10, P2 = 50, Kd = 100;
-                      const xA = solve_11_analytic(P1, P2, Kd);
-                      const xN = solve_single_step(P1, P2, Kd, 1);
-                      lines.push(`Test 1 (1:1) analytic=${xA.toFixed(8)} nM, numeric=${xN.toFixed(8)} nM, diff=${Math.abs(xA-xN).toExponential(2)} nM`);
-                    }
-                    {
-                      const n = 2, P1 = 20, P2 = 10, Kd = 1;
-                      const x = solve_single_step(P1, P2, Kd, n);
-                      lines.push(`Test 2 (1:2 single-step, tight & P2-limited): x=${x.toFixed(8)} nM, expected≈P2/n=${(P2/n).toFixed(8)} nM`);
-                    }
-                    {
-                      const n = 4, P_tot = 10, L_tot = 1e6, Kd_site = 100;
-                      const { L, theta } = solve_stepwise_identical(P_tot, L_tot, Kd_site, n);
-                      lines.push(`Test 3 (stepwise, ligand excess): theta≈1 ⇒ ${theta.toFixed(6)}`);
-                    }
-                    {
-                      const n = 3, P_tot = 10, L_tot = 0, Kd_site = 100;
-                      const { L, theta } = solve_stepwise_identical(P_tot, L_tot, Kd_site, n);
-                      lines.push(`Test 4 (stepwise, no ligand): L=${L.toFixed(6)} nM, theta=${theta.toFixed(6)} (expect 0)`);
-                    }
-                    els.selfTestOut.textContent = lines.join('\n');
-                  }
-            
-                  [els.model, els.n, els.kdu].forEach(el => el.addEventListener('change', () => { updateKdLabel(); runAll(); }));
-                  [els.p1, els.p1u, els.p2, els.p2u, els.kd].forEach(el => el.addEventListener('change', runAll));
-                  [els.p2Start, els.p2End, els.nPts, els.log, els.plotAny, els.plotFull, els.plotSites].forEach(el => el.addEventListener('change', updatePlot));
-                  els.calc.addEventListener('click', runAll);
-                  els.selfTestBtn.addEventListener('click', selfTests);
-            
-                  updateKdLabel();
-                  runAll();
-            })();
-
-            // --- COLOR GENERATOR LOGIC ---
-            (function initColorGenerator() {
-                const colorSchemes = {
-                    'Sequential (Multi-Hue)': ['interpolateViridis', 'interpolatePlasma', 'interpolateInferno', 'interpolateMagma', 'interpolateCividis', 'interpolateTurbo', 'interpolateWarm', 'interpolateCool', 'interpolateBuGn', 'interpolateBuPu', 'interpolateGnBu', 'interpolateOrRd', 'interpolatePuBuGn', 'interpolatePuBu', 'interpolatePuRd', 'interpolateRdPu', 'interpolateYlGnBu', 'interpolateYlGn', 'interpolateYlOrBr', 'interpolateYlOrRd'],
-                    'Sequential (Single Hue)': ['interpolateBlues', 'interpolateGreens', 'interpolateGreys', 'interpolateOranges', 'interpolatePurples', 'interpolateReds'],
-                    'Diverging': ['interpolateBrBG', 'interpolatePRGn', 'interpolatePiYG', 'interpolatePuOr', 'interpolateRdBu', 'interpolateRdGy', 'interpolateRdYlBu', 'interpolateRdYlGn', 'interpolateSpectral'],
-                    'Cyclical': ['interpolateRainbow', 'interpolateSinebow'],
-                    'Categorical (Fixed Size)': ['schemeAccent', 'schemeDark2', 'schemePaired', 'schemePastel1', 'schemePastel2', 'schemeSet1', 'schemeSet2', 'schemeSet3', 'schemeTableau10', 'schemeCategory10']
-                };
-
-                const colormapSelect = document.getElementById('colormap-select');
-                const colorCountInput = document.getElementById('color-count');
-                const paletteDisplay = document.getElementById('palette-display');
-                const shadePanelContainer = document.getElementById('shade-panel-container');
-                let activeColorCard = null;
-
-                function generatePalette() {
-                    const selectedSchemeName = colormapSelect.value;
-                    let palette = [];
-                    if (selectedSchemeName.startsWith('scheme')) {
-                        colorCountInput.disabled = true;
-                        const scheme = d3[selectedSchemeName];
-                        if (Array.isArray(scheme)) {
-                            palette = scheme.map(c => d3.color(c).formatHex());
-                            colorCountInput.value = scheme.length;
-                        }
-                    } else {
-                        colorCountInput.disabled = false;
-                        let colorCount = parseInt(colorCountInput.value, 10);
-                        if (isNaN(colorCount) || colorCount < 2) colorCount = 2;
-                        if (colorCount > 256) colorCount = 256;
-                        colorCountInput.value = colorCount;
-                        const interpolator = d3[selectedSchemeName];
-                        if (typeof interpolator !== 'function') return [];
-                        for (let i = 0; i < colorCount; i++) {
-                            const t = (colorCount > 1) ? i / (colorCount - 1) : 0.5;
-                            palette.push(d3.color(interpolator(t)).formatHex());
-                        }
-                    }
-                    return palette;
-                }
-
-                function updateDisplay() {
-                    const palette = generatePalette();
-                    paletteDisplay.innerHTML = '';
-                    shadePanelContainer.innerHTML = '';
-                    activeColorCard = null;
-                    palette.forEach(hex => {
-                        const colorCard = document.createElement('div');
-                        colorCard.className = 'relative group cursor-pointer transform hover:-translate-y-1 transition-transform duration-300 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 rounded-lg';
-                        colorCard.dataset.color = hex;
-                        colorCard.innerHTML = `
-                            <div style="background-color: ${hex};" class="w-full h-24 rounded-t-lg shadow-md"></div>
-                            <div class="p-3 bg-white rounded-b-lg shadow-md">
-                                <p class="font-mono text-sm text-slate-700 font-medium">${hex}</p>
-                            </div>
-                        `;
-                        colorCard.addEventListener('click', () => {
-                            copyToClipboard(hex, colorCard.querySelector('div[style]'));
-                            showShadePanel(hex, colorCard);
-                        });
-                        paletteDisplay.appendChild(colorCard);
-                    });
-                }
-                
-                function generateShades(baseHex) {
-                    const baseColor = d3.hsl(baseHex);
-                    const variations = { tints: [], tones: [], shades: [] };
-                    const steps = 5;
-                    for (let i = 1; i <= steps; i++) {
-                        variations.tints.push(baseColor.brighter(i * 0.35).formatHex());
-                    }
-                    for (let i = 1; i <= steps; i++) {
-                        variations.shades.push(baseColor.darker(i * 0.35).formatHex());
-                    }
-                    for (let i = 1; i <= steps; i++) {
-                        const tonedColor = d3.hsl(baseColor.h, baseColor.s * (1 - (i * 0.18)), baseColor.l);
-                        variations.tones.push(tonedColor.formatHex());
-                    }
-                    return variations;
-                }
-
-                function showShadePanel(hex, cardElement) {
-                    if (activeColorCard) {
-                        activeColorCard.classList.remove('ring-2', 'ring-offset-2', 'ring-indigo-500');
-                    }
-                    cardElement.classList.add('ring-2', 'ring-offset-2', 'ring-indigo-500');
-                    activeColorCard = cardElement;
-                    const variations = generateShades(hex);
-                    const createVariationRow = (title, colors) => {
-                        const colorSwatches = colors.map(color => `
-                            <div class="flex-1 group" title="Click to copy ${color}">
-                                <div data-color="${color}" class="shade-swatch h-16 w-full rounded-md cursor-pointer border border-slate-200 transition-transform duration-200 group-hover:scale-105" style="background-color: ${color};"></div>
-                                <p class="text-center text-xs mt-2 font-mono text-slate-600">${color}</p>
-                            </div>
-                        `).join('');
-                        return `
-                            <div>
-                                <h4 class="font-bold text-slate-700 mb-3">${title}</h4>
-                                <div class="flex flex-row gap-2 md:gap-4">${colorSwatches}</div>
-                            </div>
-                        `;
-                    };
-                    shadePanelContainer.innerHTML = `
-                        <div id="shade-panel" class="bg-white p-6 md:p-8 rounded-2xl shadow-xl panel-fade-in">
-                            <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-slate-200 pb-4">
-                                <div>
-                                    <h3 class="text-2xl font-bold text-slate-900">Color Variations</h3>
-                                    <p class="text-slate-500">Tints, tones, and shades for your selected color.</p>
-                                </div>
-                                <div class="flex items-center gap-3 mt-4 md:mt-0">
-                                    <div class="w-10 h-10 rounded-full shadow-inner" style="background-color:${hex};"></div>
-                                    <span class="font-mono text-lg text-slate-800">${hex}</span>
-                                </div>
-                            </div>
-                            <div class="space-y-6">
-                                ${createVariationRow('Tints (Lighter)', variations.tints.reverse())}
-                                ${createVariationRow('Tones (Desaturated)', variations.tones)}
-                                ${createVariationRow('Shades (Darker)', variations.shades)}
-                            </div>
-                        </div>
-                    `;
-                    document.getElementById('shade-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    shadePanelContainer.querySelectorAll('.shade-swatch').forEach(swatch => {
-                        swatch.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            copyToClipboard(swatch.dataset.color, swatch);
-                        });
-                    });
-                }
-
-                function copyToClipboard(text, element) {
-                    navigator.clipboard.writeText(text);
-                    const feedback = document.createElement('div');
-                    feedback.textContent = 'Copied!';
-                    feedback.className = 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full feedback-anim pointer-events-none';
-                    element.style.position = 'relative';
-                    element.appendChild(feedback);
-                    setTimeout(() => feedback.remove(), 1000);
-                }
-
-                for (const groupName in colorSchemes) {
-                    const optgroup = document.createElement('optgroup');
-                    optgroup.label = groupName;
-                    colorSchemes[groupName].forEach(name => {
-                        const option = document.createElement('option');
-                        option.value = name;
-                        option.textContent = name.replace(/^(interpolate|scheme)/, '').replace(/([A-Z])/g, ' $1').trim();
-                        optgroup.appendChild(option);
-                    });
-                    colormapSelect.appendChild(optgroup);
-                }
-                colormapSelect.addEventListener('change', updateDisplay);
-                colorCountInput.addEventListener('change', updateDisplay);
-                let inputTimeout;
-                colorCountInput.addEventListener('input', () => {
-                    clearTimeout(inputTimeout);
-                    inputTimeout = setTimeout(updateDisplay, 350);
+            // Add click event listeners to all navigation buttons
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const src = button.getAttribute('data-src');
+                    
+                    // Update active state for the buttons
+                    navButtons.forEach(btn => btn.classList.remove('active-nav-button'));
+                    button.classList.add('active-nav-button');
+                    
+                    // Load the content from the selected source file
+                    loadContent(src);
                 });
-                updateDisplay();
-            })();
+            });
 
-            // --- TEXT COUNTER LOGIC ---
-            (function initTextCounter() {
-                const textInput = document.getElementById('text-input');
-                const wordCountEl = document.getElementById('word-count');
-                const letterCountEl = document.getElementById('letter-count');
-                const spaceCountEl = document.getElementById('space-count');
-                const articleCountEl = document.getElementById('article-count');
-                const countSpacesToggle = document.getElementById('count-spaces-toggle');
-                const countArticlesToggle = document.getElementById('count-articles-toggle');
-                const clearBtn = document.getElementById('clear-btn');
-
-                function updateCounts() {
-                    const text = textInput.value;
-                    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
-                    const totalWordCount = text ? words.length : 0;
-                    const articleMatches = text.match(/\b(a|an|the)\b/gi);
-                    const articleCount = articleMatches ? articleMatches.length : 0;
-                    
-                    letterCountEl.textContent = countSpacesToggle.checked ? text.length : text.replace(/\s/g, '').length;
-                    const spaceMatches = text.match(/ /g);
-                    spaceCountEl.textContent = spaceMatches ? spaceMatches.length : 0;
-                    
-                    if (countArticlesToggle.checked) {
-                        wordCountEl.textContent = totalWordCount;
-                        articleCountEl.textContent = articleCount;
-                    } else {
-                        wordCountEl.textContent = totalWordCount - articleCount;
-                        articleCountEl.textContent = 0;
-                    }
-                }
-
-                function clearAll() {
-                    textInput.value = '';
-                    updateCounts();
-                }
-                
-                textInput.addEventListener('input', updateCounts);
-                countSpacesToggle.addEventListener('change', updateCounts);
-                countArticlesToggle.addEventListener('change', updateCounts);
-                clearBtn.addEventListener('click', clearAll);
-                updateCounts();
-            })();
+            // Automatically load the first tool when the page loads
+            if (navButtons.length > 0) {
+                navButtons[0].click();
+            }
         });
     </script>
+
 </body>
 </html>

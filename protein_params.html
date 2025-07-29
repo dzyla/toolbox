@@ -1,0 +1,933 @@
+<!-- This file contains only the content for the Protein Feature Workbench tool. -->
+<!-- It will be loaded into the main index.html file. -->
+
+<!-- Styles specific to this tool -->
+<style>
+    body { font-family: 'Inter', sans-serif; }
+
+    /* Compact scrollbar */
+    ::-webkit-scrollbar{ width:8px; height:8px;}
+    ::-webkit-scrollbar-track{ background:#f8fafc;}
+    ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
+    ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
+
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    /* --- Feature Track & Sequence Bar --- */
+    .feature-track-svg { cursor: crosshair; }
+    .feature-track-svg .feat-rect { transition: opacity 0.15s; cursor: pointer; }
+    .feature-track-svg .feat-rect.highlight { stroke: #111827; stroke-width: 2px; }
+    .feature-track-svg .seq-bar-bg { fill: #e5e7eb; }
+    .feature-track-svg .seq-bar-highlight { fill: rgba(250, 204, 21, 0.7); pointer-events: none; }
+
+    /* --- Tooltip for SVG --- */
+    #svg-tooltip {
+      position: absolute;
+      visibility: hidden;
+      background: rgba(17,24,39,0.95);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: opacity 0.1s;
+      z-index: 100;
+      line-height: 1.5;
+    }
+
+    /* --- Feature List --- */
+    .feature-list-item:hover { background-color: #eef2ff; }
+    .feature-list-item.active { background-color: #e0e7ff; outline: 2px solid #93c5fd; }
+
+    /* --- Small charts --- */
+    .mini-chart-container { position: relative; }
+    .mini-chart { width: 100%; height: 160px; }
+    .mini-track { width: 100%; height: 40px; }
+    .chart-title { font-size: 0.9rem; color: #374151; margin-bottom: 0.25rem; }
+    .hover-line { stroke: #9ca3af; stroke-width: 1px; stroke-dasharray: 4 2; pointer-events: none; }
+
+    /* Prevent user from collapsing the “always-open” details */
+    details.always-open[open] > summary { list-style: none; cursor: default; }
+    details.always-open > summary::-webkit-details-marker { display: none; }
+</style>
+
+<!-- Main container for the tool -->
+<div id="svg-tooltip"></div>
+
+<div class="mx-auto max-w-6xl p-4 md:p-8">
+    <!-- Header -->
+    <header class="mb-6 md:mb-8">
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">Protein Feature Workbench</h1>
+      <p class="mt-2 text-gray-600">Analyze multiple protein sequences with a compact graphical map and optional per‑residue plots.</p>
+    </header>
+
+    <!-- Input + Settings -->
+    <section class="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm">
+      <h2 class="text-lg font-semibold mb-4">1) Input and settings</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        <div>
+          <label for="fasta_input" class="block text-sm font-medium text-gray-700 mb-2">Paste FASTA sequences</label>
+          <textarea id="fasta_input" rows="12"
+            class="w-full p-3 border bg-white border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition mono"
+            placeholder=">sp|P0DP23|VIME_HUMAN Vimentin..."></textarea>
+          <div class="flex items-center flex-wrap gap-3 mt-2">
+            <button id="load_example" class="text-sm text-blue-700 hover:underline">Load example</button>
+            <span class="text-xs text-gray-500">Supports standard and ambiguous symbols.</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Or upload a FASTA file</label>
+          <input type="file" id="file_input" accept=".fasta,.fa,.faa,.fna"
+            class="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+          <p class="text-xs text-gray-500 mt-2">Max file size: 5 MB.</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mt-6">
+            <div>
+              <h3 class="text-base font-semibold">Analysis</h3>
+              <div class="space-y-3 mt-2">
+                <div>
+                  <label class="block text-sm mb-1">Reference pH for charge</label>
+                  <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
+                    class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"/>
+                </div>
+                <div>
+                  <label class="block text-sm mb-1">Transmembrane window (residues)</label>
+                  <input id="tm_window" type="number" min="11" max="35" step="1" value="19"
+                    class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"/>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold">Optional plots</h3>
+              <div class="space-y-2 mt-2">
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300">Hydrophobicity plot</label>
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300">Charge plot</label>
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300">Cysteine track</label>
+              </div>
+            </div>
+            <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <label class="block text-sm mb-1" for="hydro_window">Hydrophobicity smoothing</label>
+                <select id="hydro_window" class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm">
+                  <option value="1">None (1)</option>
+                  <option value="3">3</option>
+                  <option value="5" selected>5</option>
+                  <option value="7">7</option>
+                  <option value="9">9</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm mb-1" for="charge_window">Charge smoothing</label>
+                <select id="charge_window" class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm">
+                  <option value="1">None (1)</option>
+                  <option value="3">3</option>
+                  <option value="5" selected>5</option>
+                  <option value="7">7</option>
+                  <option value="9">9</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-center gap-3">
+        <button id="analyze_button"
+          class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-full hover:bg-blue-700 transition-colors shadow-sm">
+          Analyze
+        </button>
+        <button id="clear_button"
+          class="bg-white border border-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-full hover:bg-gray-50 transition-colors shadow-sm">
+          Clear
+        </button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results_section" class="mt-8 space-y-6">
+      <!-- Result cards will be injected here -->
+    </section>
+</div>
+
+<!-- The main logic for the protein params tool -->
+<script>
+(function initProteinParams() {
+  // =========================
+  // Scientific data and utils
+  // =========================
+  const AA = {
+    mw: { A: 71.0788, R: 156.1875, N: 114.1038, D: 115.0886, C: 103.1388, Q: 128.1307, E: 129.1155, G: 57.0519, H: 137.1411, I: 113.1594, L: 113.1594, K: 128.1741, M: 131.1926, F: 147.1766, P: 97.1167, S: 87.0782, T: 101.1051, W: 186.2132, Y: 163.1760, V: 99.1326, U: 150.0388, O: 237.3018, B: 114.5962, Z: 128.6231, J: 113.1594, X: 110.0 },
+    ext: { Y: 1490, W: 5500, CYS_DISULFIDE_PAIR: 125 },
+    kd: { A: 1.8, R: -4.5, N: -3.5, D: -3.5, C: 2.5, Q: -3.5, E: -3.5, G: -0.4, H: -3.2, I: 4.5, L: 3.8, K: -3.9, M: 1.9, F: 2.8, P: -1.6, S: -0.8, T: -0.7, W: -0.9, Y: -1.3, V: 4.2, U: 0.0, O: 0.0, B: -3.5, Z: -3.5, J: 3.8, X: 0.0 },
+    pKa_side: { C: 8.5, D: 3.9, E: 4.07, H: 6.5, K: 10.4, R: 12.5, Y: 10.0 },
+    pKa_term: { N: 8.6, C: 3.55 }
+  };
+
+  const DIWV = {
+    A:{A:4,C:0,D:-2,E:-1,F:-3,G:0,H:-2,I:-1,K:-1,L:-2,M:-1,N:-2,P:-1,Q:-1,R:-1,S:1,T:0,V:0,W:-3,Y:-2},C:{A:0,C:9,D:-3,E:-4,F:-2,G:-3,H:-3,I:1,K:-3,L:-1,M:-1,N:-3,P:-3,Q:-3,R:-3,S:-1,T:-1,V:1,W:-2,Y:-2},D:{A:-2,C:-3,D:6,E:2,F:-3,G:-1,H:-1,I:-3,K:-1,L:-4,M:-3,N:1,P:-1,Q:0,R:-2,S:0,T:-1,V:-3,W:-4,Y:-3},E:{A:-1,C:-4,D:2,E:5,F:-3,G:-2,H:0,I:-3,K:1,L:-3,M:-2,N:0,P:-1,Q:2,R:0,S:0,T:-1,V:-2,W:-3,Y:-2},F:{A:-3,C:-2,D:-3,E:-3,F:6,G:-4,H:-1,I:0,K:-3,L:0,M:0,N:-3,P:-4,Q:-3,R:-3,S:-2,T:-2,V:-1,W:1,Y:3},G:{A:0,C:-3,D:-1,E:-2,F:-4,G:6,H:-2,I:-4,K:-2,L:-4,M:-3,N:0,P:-2,Q:-2,R:-2,S:0,T:-2,V:-3,W:-2,Y:-3},H:{A:-2,C:-3,D:-1,E:0,F:-1,G:-2,H:8,I:-3,K:-1,L:-3,M:-2,N:1,P:-2,Q:0,R:0,S:-1,T:-2,V:-3,W:-2,Y:2},I:{A:-1,C:1,D:-3,E:-3,F:0,G:-4,H:-3,I:4,K:-3,L:2,M:1,N:-3,P:-3,Q:-3,R:-3,S:-2,T:-1,V:3,W:-3,Y:-1},K:{A:-1,C:-3,D:-1,E:1,F:-3,G:-2,H:-1,I:-3,K:5,L:-2,M:-1,N:0,P:-1,Q:1,R:2,S:0,T:-1,V:-2,W:-3,Y:-2},L:{A:-2,C:-1,D:-4,E:-3,F:0,G:-4,H:-3,I:2,K:-2,L:4,M:2,N:-3,P:-3,Q:-2,R:-2,S:-2,T:-1,V:1,W:-2,Y:-1},M:{A:-1,C:-1,D:-3,E:-2,F:0,G:-3,H:-2,I:1,K:-1,L:2,M:5,N:-2,P:-2,Q:0,R:-1,S:-1,T:-1,V:1,W:-1,Y:-1},N:{A:-2,C:-3,D:1,E:0,F:-3,G:0,H:1,I:-3,K:0,L:-3,M:-2,N:6,P:-2,Q:0,R:0,S:1,T:0,V:-3,W:-4,Y:-2},P:{A:-1,C:-3,D:-1,E:-1,F:-4,G:-2,H:-2,I:-3,K:-1,L:-3,M:-2,N:-2,P:7,Q:-1,R:-2,S:-1,T:-1,V:-2,W:-4,Y:-3},Q:{A:-1,C:-3,D:0,E:2,F:-3,G:-2,Q:0,I:-3,K:1,L:-2,M:0,N:0,P:-1,Q:5,R:1,S:0,T:-1,V:-2,W:-2,Y:-1},R:{A:-1,C:-3,D:-2,E:0,F:-3,G:-2,R:0,I:-3,K:2,L:-2,M:-1,N:0,P:-2,Q:1,R:5,S:-1,T:-1,V:-3,W:-3,Y:-2},S:{A:1,C:-1,D:0,E:0,F:-2,G:0,H:-1,I:-2,K:0,L:-2,M:-1,N:1,P:-1,Q:0,R:-1,S:4,T:1,V:-2,W:-3,Y:-2},T:{A:0,C:-1,D:-1,E:-1,F:-2,G:-2,H:-2,I:-1,K:-1,L:-1,M:-1,N:0,P:-1,Q:-1,R:-1,S:1,T:5,V:0,W:-2,Y:-2},V:{A:0,C:1,D:-3,E:-2,F:-1,G:-3,H:-3,I:3,K:-2,L:1,M:1,N:-3,P:-2,Q:-2,R:-3,S:-2,T:0,V:4,W:-3,Y:-1},W:{A:-3,C:-2,D:-4,E:-3,F:1,G:-2,H:-2,I:-3,K:-3,L:-2,M:-1,N:-4,P:-4,Q:-2,R:-3,S:-3,T:-2,V:-3,W:11,Y:2},Y:{A:-2,C:-2,D:-3,E:-2,F:3,G:-3,H:2,I:-1,K:-2,L:-1,M:-1,N:-2,P:-3,Q:-1,R:-2,S:-2,T:-2,V:-1,W:2,Y:7}
+  };
+
+  const TAGS = {
+    "His-Tag (6x)": { seqs: ["HHHHHH"], color: "#14b8a6", category: "Tags & Sites" },
+    "10xHis": { seqs: ["HHHHHHHHHH"], color: "#0891b2", category: "Tags & Sites" },
+    "FLAG": { seqs: ["DYKDDDDK"], color: "#6366f1", category: "Tags & Sites" },
+    "HA": { seqs: ["YPYDVPDYA"], color: "#f59e0b", category: "Tags & Sites" },
+    "Myc": { seqs: ["EQKLISEEDL"], color: "#ec4899", category: "Tags & Sites" },
+    "Strep-II": { seqs: ["WSHPQFEK"], color: "#0ea5e9", category: "Tags & Sites" },
+    "TEV site": { seqs: ["ENLYFQG","ENLYFQS"], color: "#64748b", category: "Tags & Sites" },
+  };
+  const MOTIFS = [
+    { name:"N‑glycosylation", category:"PTM", color:"#f97316", regex:/N[^P][ST]/g },
+    { name:"SUMOylation", category:"PTM", color:"#84cc16", regex:/[VILMFYWC]K.[DE]/g },
+    { name:"Walker A (P‑loop)", category:"Domain", color:"#a855f7", regex:/G....GK[ST]/g },
+    { name:"Zn finger C2H2", category:"Domain", color:"#8b5cf6", regex:/C.{2,4}C.{12}H.{3,5}H/g },
+  ];
+
+  function parseFasta(text){
+    const lines = text.replace(/\r/g,'').split('\n');
+    let out = [], header = null, seq = [];
+    for(const l of lines){
+      if(!l.trim()) continue;
+      if(l.startsWith('>')){
+        if(header) out.push({ header, seq: seq.join('') });
+        header = l.slice(1).trim(); seq = [];
+      } else { seq.push(l.trim()); }
+    }
+    if(header) out.push({ header, seq: seq.join('') });
+    return out;
+  }
+
+  function sanitizeSequence(raw){
+    const s = raw.toUpperCase().replace(/\s/g,'').replace(/\*/g,'');
+    if(!/^[ACDEFGHIKLMNPQRSTVWYUBZOJX]+$/.test(s)){
+      const bad = s.replace(/[ACDEFGHIKLMNPQRSTVWYUBZOJX]/g,'');
+      throw new Error("Invalid characters: " + Array.from(new Set(bad.split(''))).join(' '));
+    }
+    return s;
+  }
+
+  function countAA(seq){
+    const c = Object.create(null);
+    for(const ch of seq) c[ch] = (c[ch]||0)+1;
+    return c;
+  }
+
+  function molecularWeight(counts){
+    let m = 18.01528;
+    for(const a in counts) m += (counts[a] || 0) * (AA.mw[a] || 0);
+    return m;
+  }
+
+  function gravy(seq){
+    if(!seq.length) return 0;
+    let s=0; for(const a of seq) s += (AA.kd[a] ?? 0); return s/seq.length;
+  }
+
+  function netCharge(counts, pH){
+    let p = 1/(1+10**(pH - AA.pKa_term.N));
+    p += (counts.K||0)/(1+10**(pH - AA.pKa_side.K));
+    p += (counts.R||0)/(1+10**(pH - AA.pKa_side.R));
+    p += (counts.H||0)/(1+10**(pH - AA.pKa_side.H));
+    let n = 1/(1+10**(AA.pKa_term.C - pH));
+    n += (counts.D||0)/(1+10**(AA.pKa_side.D - pH));
+    n += (counts.E||0)/(1+10**(AA.pKa_side.E - pH));
+    n += (counts.C||0)/(1+10**(AA.pKa_side.C - pH));
+    n += (counts.Y||0)/(1+10**(AA.pKa_side.Y - pH));
+    return p - n;
+  }
+
+  function isoelectricPoint(counts){
+    let lo=0.0, hi=14.0;
+    for(let i=0;i<60;i++){
+      const mid = (lo+hi)/2;
+      if(netCharge(counts, mid) > 0) lo = mid; else hi = mid;
+    }
+    return (lo+hi)/2;
+  }
+
+  function instabilityIndex(seq){
+    if(seq.length < 2) return 0;
+    let score = 0;
+    for(let i=0;i<seq.length-1;i++){
+      const a = seq[i], b = seq[i+1];
+      if (DIWV[a] && typeof DIWV[a][b] !== 'undefined') score += DIWV[a][b];
+    }
+    return (10 / seq.length) * score;
+  }
+
+  function extinctionCoefficients(counts, mw){
+    const nY = counts.Y||0, nW = counts.W||0, nC = counts.C||0;
+    const reduced = nY*AA.ext.Y + nW*AA.ext.W;
+    const cystines = reduced + Math.floor(nC/2)*AA.ext.CYS_DISULFIDE_PAIR;
+    const A1mgml_reduced  = mw > 0 ? (reduced  / mw) : 0;
+    const A1mgml_cystines = mw > 0 ? (cystines / mw) : 0;
+    return { reduced, cystines, A1mgml_reduced, A1mgml_cystines };
+  }
+
+  function fractionalCharge(res, pH){
+    const s = AA.pKa_side;
+    switch(res){
+      case 'K': return 1/(1+10**(pH - s.K));
+      case 'R': return 1/(1+10**(pH - s.R));
+      case 'H': return 1/(1+10**(pH - s.H));
+      case 'D': return -1/(1+10**(s.D - pH));
+      case 'E': return -1/(1+10**(s.E - pH));
+      case 'C': return -1/(1+10**(s.C - pH));
+      case 'Y': return -1/(1+10**(s.Y - pH));
+      default: return 0;
+    }
+  }
+  function perResidueChargeArray(seq, pH){
+    const arr = new Array(seq.length).fill(0);
+    for(let i=0;i<seq.length;i++) arr[i] = fractionalCharge(seq[i], pH);
+    if(seq.length>0){
+      arr[0] += 1/(1+10**(pH - AA.pKa_term.N));
+      arr[seq.length-1] += -1/(1+10**(AA.pKa_term.C - pH));
+    }
+    return arr;
+  }
+
+  function mergeSegments(arr){
+    if(!arr.length) return [];
+    arr.sort((a,b)=> a.start - b.start || a.end - b.end);
+    const out=[{...arr[0]}];
+    for(let i=1;i<arr.length;i++){
+      const last = out[out.length-1], cur = arr[i];
+      if(cur.category===last.category && cur.start <= last.end + 1) last.end = Math.max(last.end, cur.end);
+      else out.push({...cur});
+    }
+    return out;
+  }
+
+  function scanFeatures(seq){
+    const feats=[];
+    for(const name in TAGS){
+      const def = TAGS[name];
+      for(const pattern of def.seqs){
+        let idx = seq.indexOf(pattern);
+        while(idx !== -1){
+          feats.push({ start: idx, end: idx + pattern.length - 1, name, ...def });
+          idx = seq.indexOf(pattern, idx+1);
+        }
+      }
+    }
+    for(const m of MOTIFS){
+      const re = new RegExp(m.regex.source, "g");
+      let match;
+      while((match = re.exec(seq)) !== null){
+        const start = match.index, len = match[0].length;
+        feats.push({ start, end: start + len - 1, name: m.name, ...m });
+      }
+    }
+    return feats;
+  }
+
+  function kdAverage(seq, i, w){
+    let sum = 0; for(let k=0;k<w;k++) sum += (AA.kd[seq[i+k]] ?? 0); return sum / w;
+  }
+
+  function transmembranes(seq, w=19, thr=1.6){
+    const feats=[];
+    for(let i=0;i<=seq.length-w;i++){
+      if(kdAverage(seq,i,w) >= thr){
+        let j=i+w;
+        while(j<seq.length && kdAverage(seq, j - w + 1, w) >= (thr - 0.2)) j++;
+        feats.push({ start:i, end:j-1, name:"Transmembrane", category:"Topology", color:"#34d399" });
+        i = j-1;
+      }
+    }
+    return mergeSegments(feats);
+  }
+
+  function getResidueStats(seq) {
+    const counts = countAA(seq);
+    const total = seq.length;
+    const pct = {};
+    for(const aa in counts) pct[aa] = ((counts[aa]/Math.max(1,total))*100).toFixed(2);
+    return { counts, pct, total };
+  }
+
+  const els = {
+    fasta: document.getElementById('fasta_input'),
+    file: document.getElementById('file_input'),
+    analyze: document.getElementById('analyze_button'),
+    clear: document.getElementById('clear_button'),
+    results: document.getElementById('results_section'),
+    pH: document.getElementById('ref_pH'),
+    tmWindow: document.getElementById('tm_window'),
+    loadExample: document.getElementById('load_example'),
+    tooltip: document.getElementById('svg-tooltip'),
+    optHydro: document.getElementById('opt_hydro'),
+    optCharge: document.getElementById('opt_charge'),
+    optCys: document.getElementById('opt_cys'),
+    hydroWindow: document.getElementById('hydro_window'),
+    chargeWindow: document.getElementById('charge_window')
+  };
+
+  let resultCounter=0, currentResults=[];
+
+  els.file.addEventListener('change', e=>{
+    const f=e.target.files[0];
+    if(!f) return;
+    if(f.size>5*1024*1024){ alert("File too large. Limit is 5 MB."); e.target.value=""; return; }
+    const r=new FileReader();
+    r.onload=ev=>{ els.fasta.value=ev.target.result; };
+    r.readAsText(f);
+  });
+
+  els.loadExample.addEventListener('click', ()=>{
+    els.fasta.value = `>sp|P0DP23|VIME_HUMAN Vimentin
+MSTRSVSSSSYRRMFGGPGTASRPSSSRSYVTTSTRTYSLGSALRPSTSRSLYASSPGGVYATRSSAVRLR
+SSVPGVRLLQDSVDFSLADAINTEFKNTRTNEKVELQELNDRFANYIDKVRFLEQQNKILLAELEQLKGQ
+GKSRLGDLYEEEMRELRRQVDQLTNDKARVEVERDNLAEDIMRLREKLQEEMLQRQEEAENNLAAFRADV
+DAATLARIDLERRIENLSIEELLCKSDASGYARVFGADLERAKEKLNVEAMHEFVQQLARAEEDNYRGVL
+SLTPIEFRAGEPYSDRHGYFAVYEELARTKKLDSVGSEALSVRQGHDVFLARKLLEIPALEFSSVQNQSL
+QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
+  });
+
+  els.clear.addEventListener('click', ()=>{
+    els.fasta.value=""; els.results.innerHTML=""; resultCounter=0; currentResults=[];
+  });
+
+  [els.optHydro, els.optCharge, els.optCys, els.hydroWindow, els.chargeWindow, els.pH].forEach(c=>{
+    c.addEventListener('change', ()=> refreshAllPlots());
+  });
+
+  els.analyze.addEventListener('click', ()=>{
+    const t=els.fasta.value.trim();
+    if(!t){ alert("Please paste or upload FASTA sequences."); return; }
+    els.results.innerHTML=""; currentResults=[];
+    try{
+      const seqs=parseFasta(t);
+      if(!seqs.length) throw new Error("No valid FASTA found.");
+      for(const item of seqs){
+        try{
+          const obj=analyzeSingle(item);
+          currentResults.push(obj);
+          buildResultCard(obj);
+        }catch(e){
+          showErrorCard(`Error analyzing: ${item.header}`, e.message);
+        }
+      }
+      refreshAllPlots();
+    }catch(e){ showErrorCard("Parse error", e.message); }
+  });
+
+  function analyzeSingle(item){
+    const s = sanitizeSequence(item.seq);
+    const L = s.length;
+    const c = countAA(s);
+    const tmW = parseInt(els.tmWindow.value,10);
+    const mw = molecularWeight(c);
+    const allFeats = mergeSegments([ ...transmembranes(s, tmW), ...scanFeatures(s) ]);
+    return {
+      id: ++resultCounter,
+      header: item.header,
+      seq: s,
+      length: L,
+      molecularWeight: mw,
+      pI: isoelectricPoint(c),
+      chargeAtPH: netCharge(c, Number(els.pH.value)),
+      gravy: gravy(s),
+      extinction: extinctionCoefficients(c, mw),
+      instability: instabilityIndex(s),
+      features: allFeats
+    };
+  }
+
+  function showErrorCard(title, msg){
+    els.results.insertAdjacentHTML('beforeend',
+      `<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl"><h3 class="font-semibold">${title}</h3><div class="text-sm mt-1">${msg}</div></div>`);
+  }
+
+  function buildResultCard(obj){
+    const stabilityText = obj.instability < 40 ? `<span class="text-green-700 font-semibold">Stable</span>` : `<span class="text-red-700 font-semibold">Unstable</span>`;
+
+    const byLane = obj.features.reduce((acc, f) => {
+      (acc[f.category] = acc[f.category] || []).push(f);
+      return acc;
+    }, {});
+
+    const featureListItems = Object.entries(byLane).map(([category, feats]) => {
+      const items = feats.map(f => {
+        return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}">
+            <span class="font-semibold text-sm">${f.name}</span>
+            <span class="mono text-xs text-gray-600 ml-2">[${f.start+1}..${f.end+1}]</span>
+        </li>`;
+      }).join('');
+
+      let statsHtml = '';
+      if(category==='Topology' || category==='PTM'){
+        const stats = getResidueStats(obj.seq);
+        const rows = Object.entries(stats.pct)
+          .sort((a,b)=>parseFloat(b[1]) - parseFloat(a[1]))
+          .map(([aa,pct])=>`<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${stats.counts[aa]}</td><td class="px-1 text-right">${pct}%</td></tr>`)
+          .join('');
+        statsHtml = `<details class="text-xs mt-2"><summary class="cursor-pointer">Residue statistics (${stats.total} aa)</summary>
+                       <div class="h-24 overflow-y-auto mt-1 border-t pt-1">
+                         <table class="w-full"><thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead><tbody>${rows}</tbody></table>
+                       </div>
+                     </details>`;
+      }
+
+      return `<details open class="mb-2">
+                <summary class="font-semibold cursor-pointer text-gray-800">${category} (${feats.length})</summary>
+                <ul class="mt-1 pl-2 space-y-1">${items}</ul>
+                ${statsHtml}
+              </details>`;
+    }).join('');
+
+    const card = `
+      <div id="result-card-${obj.id}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div class="flex items-baseline justify-between gap-3">
+          <h3 class="text-lg font-semibold text-blue-700">${obj.header}</h3>
+          <p class="text-sm text-gray-500">Residues: <span class="mono">${obj.length} aa</span></p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-8 mt-3">
+          <div>
+            <h4 class="font-semibold text-base mb-2">Graphical map</h4>
+            <div id="track-container-${obj.id}" class="w-full"></div>
+            <div id="plots-${obj.id}" class="mt-4 space-y-6"></div>
+          </div>
+          <div>
+            <h4 class="font-semibold text-base mb-2">Properties</h4>
+            <div class="space-y-3">
+              <details class="bg-gray-50 border border-gray-100 rounded-xl p-3 always-open" open>
+                <summary class="font-semibold text-sm select-none">Physicochemical</summary>
+                <div class="text-xs space-y-1 mt-2 pt-2 border-t">
+                  <p><strong>Molecular Weight:</strong> <span class="mono">${obj.molecularWeight.toFixed(2)}</span> Da</p>
+                  <p><strong>Theoretical pI:</strong> <span class="mono">${obj.pI.toFixed(2)}</span></p>
+                  <p><strong>Net Charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono">${obj.chargeAtPH.toFixed(2)}</span></p>
+                  <p><strong>GRAVY (Kyte–Doolittle):</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></p>
+                  <p><strong>Instability Index:</strong> <span class="mono">${obj.instability.toFixed(2)}</span> &nbsp; ${stabilityText}</p>
+                  <div class="mt-1 pt-1 border-t">
+                    <p><strong>ε<sub>280</sub> (M<sup>−1</sup> cm<sup>−1</sup>)</strong></p>
+                    <p class="pl-2">Reduced: ${obj.extinction.reduced} &nbsp; | &nbsp; Cystines: ${obj.extinction.cystines}</p>
+                    <p class="pl-2">A<sub>280</sub> (1 mg/mL, 1 cm): ${obj.extinction.A1mgml_reduced.toFixed(3)} (reduced), ${obj.extinction.A1mgml_cystines.toFixed(3)} (cystines)</p>
+                  </div>
+                </div>
+              </details>
+              <div class="border border-gray-100 rounded-xl p-3 bg-gray-50 h-64 overflow-y-auto">
+                ${featureListItems || '<p class="text-sm text-gray-500">No features found.</p>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    els.results.insertAdjacentHTML('beforeend', card);
+
+    const cardEl = document.getElementById(`result-card-${obj.id}`);
+    const details = cardEl.querySelector('details.always-open');
+    details.addEventListener('toggle', (e)=>{ e.target.open = true; });
+
+    renderGraphicalMap(`track-container-${obj.id}`, byLane, obj.length, obj.seq);
+    setupInteractions(obj.id);
+  }
+
+  function renderGraphicalMap(containerId, byLane, seqLen, seq) {
+    const container = document.getElementById(containerId);
+    const laneOrder = Object.keys(byLane).sort();
+    const hLane = 18, hSeq = 24, topPad = 5, leftPad = 80, rightPad = 10;
+    const height = (laneOrder.length * hLane) + hSeq + topPad + 25;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 500 ${height}`);
+    svg.classList.add('feature-track-svg');
+    svg.dataset.seqLen = String(seqLen);
+
+    const stepPixels = (w)=> (w - leftPad - rightPad) / Math.max(1, seqLen - 1);
+    const xScale = (pos, w) => leftPad + stepPixels(w) * pos;
+
+    const seqY = topPad + laneOrder.length * hLane;
+    const seqBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    seqBg.setAttribute('x', leftPad); seqBg.setAttribute('y', seqY);
+    seqBg.setAttribute('height', hSeq); seqBg.setAttribute('class', 'seq-bar-bg');
+    svg.appendChild(seqBg);
+    const seqHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    seqHighlight.setAttribute('y', seqY); seqHighlight.setAttribute('height', hSeq);
+    seqHighlight.setAttribute('class', 'seq-bar-highlight');
+    seqHighlight.style.visibility = 'hidden';
+    svg.appendChild(seqHighlight);
+
+    laneOrder.forEach((laneName, i) => {
+      const y = topPad + i * hLane;
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', 4); text.setAttribute('y', y + hLane/2 + 4);
+      text.setAttribute('font-size', '10'); text.setAttribute('fill', '#4b5563');
+      text.textContent = laneName;
+      svg.appendChild(text);
+
+      byLane[laneName].forEach(f => {
+        const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.dataset.start = f.start; r.dataset.end = f.end; r.dataset.name = f.name; r.dataset.category = laneName;
+        r.setAttribute('y', y + 2); r.setAttribute('height', hLane - 4);
+        r.setAttribute('fill', f.color); r.setAttribute('rx', '3');
+        r.classList.add('feat-rect');
+        svg.appendChild(r);
+      });
+    });
+
+    const axisY = seqY + hSeq;
+    const ticksGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+    for (let i = 0; i <= 10; i++) {
+      const posIdx = Math.round(i * (seqLen - 1) / 10);
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.dataset.pos = posIdx;
+      line.setAttribute('y1', axisY); line.setAttribute('y2', axisY + 4);
+      line.setAttribute('stroke', '#9ca3af');
+      ticksGroup.appendChild(line);
+      if (i > 0 && (seqLen > 50 ? i % 2 === 0 : true)) {
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.dataset.pos = posIdx;
+        t.setAttribute('y', axisY + 14);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('font-size', '10'); t.setAttribute('fill', '#6b7280');
+        t.textContent = posIdx + 1;
+        ticksGroup.appendChild(t);
+      }
+    }
+    svg.appendChild(ticksGroup);
+    container.appendChild(svg);
+
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0].contentRect.width;
+      const step = stepPixels(w);
+      svg.querySelectorAll('rect.feat-rect').forEach(r => {
+        const start = parseInt(r.dataset.start, 10);
+        const end   = parseInt(r.dataset.end,   10);
+        const x1 = xScale(start, w);
+        const width = Math.max(2, step * (end - start + 1));
+        r.setAttribute('x', x1); r.setAttribute('width', width);
+      });
+      seqBg.setAttribute('width', w - leftPad - rightPad);
+      ticksGroup.querySelectorAll('line, text').forEach(el => {
+        const pos = parseInt(el.dataset.pos, 10);
+        const x = xScale(pos, w);
+        if (el.tagName === 'line') { el.setAttribute('x1', x); el.setAttribute('x2', x); }
+        else { el.setAttribute('x', x); }
+      });
+    });
+    ro.observe(container);
+
+    svg.addEventListener('mousemove', e => {
+      const rect = svg.getBoundingClientRect();
+      const w = rect.width;
+      const x = e.clientX - rect.left;
+      if (x < 80 || x > w - 10) { els.tooltip.style.visibility = 'hidden'; return; }
+      const pos = Math.round((x - 80) / ((w - 80 - 10) / Math.max(1, seqLen - 1)));
+      if (pos >= 0 && pos < seqLen) {
+        els.tooltip.style.visibility = 'visible';
+        els.tooltip.textContent = `Pos: ${pos + 1}, AA: ${seq[pos]}`;
+        els.tooltip.style.left = `${e.pageX + 10}px`;
+        els.tooltip.style.top = `${e.pageY - 28}px`;
+      }
+    });
+    svg.addEventListener('mouseleave', () => { els.tooltip.style.visibility = 'hidden'; });
+  }
+
+  function setupInteractions(id) {
+    const card = document.getElementById(`result-card-${id}`);
+    const svg = card.querySelector('.feature-track-svg');
+
+    card.querySelectorAll('.feature-list-item').forEach(item => {
+      item.addEventListener('mouseenter', (ev) => {
+        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
+        highlightSvgRange(svg, start, end, true);
+        toggleSvgRect(svg, start, end, true);
+        item.classList.add('active');
+        els.tooltip.style.visibility = 'visible';
+        els.tooltip.textContent = `${item.dataset.category}: ${item.dataset.name} [${start+1}..${end+1}]`;
+        els.tooltip.style.left = `${ev.pageX + 10}px`;
+        els.tooltip.style.top  = `${ev.pageY - 28}px`;
+      });
+      item.addEventListener('mousemove', (ev)=>{
+        els.tooltip.style.left = `${ev.pageX + 10}px`;
+        els.tooltip.style.top  = `${ev.pageY - 28}px`;
+      });
+      item.addEventListener('mouseleave', () => {
+        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
+        highlightSvgRange(svg, start, end, false);
+        toggleSvgRect(svg, start, end, false);
+        item.classList.remove('active');
+        els.tooltip.style.visibility = 'hidden';
+      });
+    });
+
+    svg.querySelectorAll('.feat-rect').forEach(r => {
+      r.addEventListener('mouseenter', (e) => {
+        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
+        highlightSvgRange(svg, start, end, true);
+        toggleListItem(card, start, end, true);
+        els.tooltip.style.visibility = 'visible';
+        els.tooltip.textContent = `${r.dataset.category}: ${r.dataset.name} [${start+1}..${end+1}]`;
+        els.tooltip.style.left = `${e.pageX + 10}px`;
+        els.tooltip.style.top  = `${e.pageY - 28}px`;
+      });
+      r.addEventListener('mousemove', (e) => {
+        els.tooltip.style.left = `${e.pageX + 10}px`;
+        els.tooltip.style.top  = `${e.pageY - 28}px`;
+      });
+      r.addEventListener('mouseleave', () => {
+        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
+        highlightSvgRange(svg, start, end, false);
+        toggleListItem(card, start, end, false);
+        els.tooltip.style.visibility = 'hidden';
+      });
+    });
+  }
+
+  function toggleListItem(card,start,end,on){
+    card.querySelectorAll('.feature-list-item').forEach(i=>{
+      if(parseInt(i.dataset.start)===start && parseInt(i.dataset.end)===end){
+        i.classList.toggle('active', on);
+      }
+    });
+  }
+
+  function toggleSvgRect(svg,start,end,on){
+    svg.querySelectorAll('.feat-rect').forEach(r=>{
+      if(parseInt(r.dataset.start)===start && parseInt(r.dataset.end)===end){
+        r.classList.toggle('highlight', on);
+      }
+    });
+  }
+
+  function highlightSvgRange(svg,start,end,on){
+    const seqHighlight = svg.querySelector('.seq-bar-highlight');
+    if (on) {
+      const rect = svg.getBoundingClientRect();
+      const w = rect.width;
+      const leftPad = 80, rightPad = 10;
+      const seqLen = parseInt(svg.dataset.seqLen, 10) || 1;
+      const step = (w - leftPad - rightPad) / Math.max(1, seqLen - 1);
+      const x1 = leftPad + step * start;
+      const width = Math.max(1, step * (end - start + 1));
+      seqHighlight.setAttribute('x', x1);
+      seqHighlight.setAttribute('width', width);
+      seqHighlight.style.visibility = 'visible';
+    } else {
+      seqHighlight.style.visibility = 'hidden';
+    }
+  }
+
+  function movingAverage(arr,w){
+    if(w<=1) return arr.slice();
+    const half = Math.floor(w/2);
+    const out = new Array(arr.length).fill(0);
+    for(let i=0;i<arr.length;i++){
+      let s=0, n=0;
+      for(let k=i-half;k<=i+half;k++){
+        if(k>=0 && k<arr.length){ s+=arr[k]; n++; }
+      }
+      out[i] = n ? s/n : 0;
+    }
+    return out;
+  }
+
+  function drawLinePlot(container, data, yMin, yMax, title, yLabel){
+    const parent = document.getElementById(container);
+    const wrap = document.createElement('div');
+    wrap.className = 'mini-chart-container';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'chart-title';
+    titleEl.textContent = title + (yLabel ? ` (${yLabel})` : '');
+    wrap.appendChild(titleEl);
+
+    const s = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    s.classList.add('mini-chart');
+    parent.appendChild(wrap);
+    wrap.appendChild(s);
+
+    let W=600, H=160;
+    const leftPad = 40, rightPad = 10, topPad = 10, botPad = 20;
+
+    const hoverLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+    hoverLine.setAttribute('class','hover-line');
+    hoverLine.style.visibility='hidden';
+    s.appendChild(hoverLine);
+
+    function xScale(x){ return leftPad + (x * (W-leftPad-rightPad)) / Math.max(1, data.length-1); }
+    function yScale(y){ return topPad + (H-topPad-botPad) * (1 - (y - yMin) / (yMax - yMin)); }
+
+    function render(){
+      const rect = s.getBoundingClientRect();
+      W = rect.width || parent.clientWidth || 600;
+      H = rect.height || 160;
+      s.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      while(s.firstChild) s.removeChild(s.firstChild);
+      s.appendChild(hoverLine);
+
+      for(let i=0;i<=4;i++){
+        const yVal = yMin + (i*(yMax-yMin))/4;
+        const y = yScale(yVal);
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', leftPad); line.setAttribute('x2', W-rightPad);
+        line.setAttribute('y1', y); line.setAttribute('y2', y);
+        line.setAttribute('stroke', '#e5e7eb');
+        s.appendChild(line);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', 2); text.setAttribute('y', y+3);
+        text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280');
+        text.textContent = yVal.toFixed(1);
+        s.appendChild(text);
+      }
+
+      const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
+      const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+      pl.setAttribute('fill','none');
+      pl.setAttribute('stroke','#2563eb');
+      pl.setAttribute('stroke-width','1.5');
+      pl.setAttribute('points', pts);
+      s.appendChild(pl);
+
+      for(let i=0;i<=10;i++){
+        const idx = Math.round(i*(data.length-1)/10);
+        const x = xScale(idx);
+        const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1', x); l.setAttribute('x2', x);
+        l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4);
+        l.setAttribute('stroke','#9ca3af');
+        s.appendChild(l);
+        if(i%2===0 && idx>0){
+          const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+          t.setAttribute('x', x); t.setAttribute('y', H-2);
+          t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10'); t.setAttribute('fill','#6b7280');
+          t.textContent = idx+1;
+          s.appendChild(t);
+        }
+      }
+    }
+
+    s.addEventListener('mousemove', e=>{
+      const rect = s.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if(x < leftPad || x > W - rightPad){
+        hoverLine.style.visibility='hidden';
+        els.tooltip.style.visibility='hidden';
+        return;
+      }
+      hoverLine.setAttribute('x1', x);
+      hoverLine.setAttribute('x2', x);
+      hoverLine.setAttribute('y1', topPad);
+      hoverLine.setAttribute('y2', H - botPad);
+      hoverLine.style.visibility='visible';
+
+      const pos = Math.round((x - leftPad) / ((W-leftPad-rightPad)/Math.max(1,data.length-1)));
+      if(pos>=0 && pos<data.length){
+        els.tooltip.style.visibility = 'visible';
+        els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN'}`;
+        els.tooltip.style.left = `${e.pageX + 10}px`;
+        els.tooltip.style.top  = `${e.pageY - els.tooltip.offsetHeight - 5}px`;
+      }
+    });
+    s.addEventListener('mouseleave', ()=>{
+      hoverLine.style.visibility='hidden';
+      els.tooltip.style.visibility='hidden';
+    });
+
+    render();
+    new ResizeObserver(()=>render()).observe(parent);
+  }
+
+  function drawCysTrack(container, seq){
+    const parent = document.getElementById(container);
+    const titleEl = document.createElement('div');
+    titleEl.className = 'chart-title';
+    titleEl.textContent = 'Cysteine positions';
+    parent.appendChild(titleEl);
+
+    const s = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    s.classList.add('mini-track');
+    parent.appendChild(s);
+
+    const leftPad=40, rightPad=10, midY=20;
+    const positions = [];
+    for(let i=0;i<seq.length;i++) if(seq[i]==='C') positions.push(i);
+
+    function render(){
+      const rect = s.getBoundingClientRect();
+      const W = rect.width || parent.clientWidth || 600;
+      const H = 40;
+      s.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      while(s.firstChild) s.removeChild(s.firstChild);
+
+      const step = (W-leftPad-rightPad)/Math.max(1, seq.length-1);
+      const xScale = idx => leftPad + step * idx;
+
+      const base = document.createElementNS('http://www.w3.org/2000/svg','line');
+      base.setAttribute('x1', leftPad); base.setAttribute('x2', W-rightPad);
+      base.setAttribute('y1', midY); base.setAttribute('y2', midY);
+      base.setAttribute('stroke', '#9ca3af');
+      s.appendChild(base);
+
+      positions.forEach(idx=>{
+        const x = xScale(idx);
+        const t = document.createElementNS('http://www.w3.org/2000/svg','line');
+        t.setAttribute('x1', x); t.setAttribute('x2', x);
+        t.setAttribute('y1', midY-10); t.setAttribute('y2', midY+10);
+        t.setAttribute('stroke', '#059669'); t.setAttribute('stroke-width','2');
+        s.appendChild(t);
+      });
+
+      if(positions.length===0){
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', leftPad); text.setAttribute('y', midY+4);
+        text.setAttribute('font-size','12'); text.setAttribute('fill','#6b7280');
+        text.textContent = 'No cysteines found';
+        s.appendChild(text);
+      }
+
+      for(let i=0;i<=5;i++){
+        const idx = Math.round(i*(seq.length-1)/5);
+        const x = xScale(idx);
+        const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        lbl.setAttribute('x', x); lbl.setAttribute('y', H-2);
+        lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('font-size','10'); lbl.setAttribute('fill','#6b7280');
+        lbl.textContent = idx+1;
+        s.appendChild(lbl);
+      }
+    }
+    render();
+    new ResizeObserver(()=>render()).observe(parent);
+  }
+
+  function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
+
+  function updatePlotsForCard(obj){
+    const contId = `plots-${obj.id}`;
+    const cont = document.getElementById(contId);
+    if(!cont) return;
+    cont.innerHTML = "";
+
+    const wantHydro = els.optHydro.checked;
+    const wantCharge = els.optCharge.checked;
+    const wantCys = els.optCys.checked;
+
+    if(wantHydro){
+      const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
+      const w = parseInt(els.hydroWindow.value,10);
+      const smoothed = movingAverage(raw, w);
+      const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
+      drawLinePlot(holder.id, smoothed, -4.5, 4.5, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
+    }
+
+    if(wantCharge){
+      const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
+      const w = parseInt(els.chargeWindow.value,10);
+      const smooth = movingAverage(arr, w);
+      const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder);
+      drawLinePlot(holder.id, smooth, -1.2, 1.2, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
+    }
+
+    if(wantCys){
+      const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder);
+      drawCysTrack(holder.id, obj.seq);
+    }
+  }
+})();
+</script>

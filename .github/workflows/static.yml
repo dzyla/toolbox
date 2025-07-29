@@ -34,13 +34,13 @@ jobs:
       - name: Create deployment artifact
         run: |
           mkdir _site
-          mv index.html _site/index.html
+          cp *.html _site/
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload the directory with the renamed file
+          # Upload the directory with all the HTML files
           path: './_site'
       - name: Deploy to GitHub Pages
         id: deployment
