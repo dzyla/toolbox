@@ -12,12 +12,22 @@
         background-color: #e2e8f0;
         cursor: not-allowed;
     }
-    .feedback-anim { animation: fadeAndScale 1s ease-out forwards; }
-    @keyframes fadeAndScale {
-        0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
-        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+    .feedback-anim {
+        animation: fadeAndScale 1s ease-out forwards;
     }
-    .panel-fade-in { animation: fadeIn 0.5s ease-in-out; }
+    @keyframes fadeAndScale {
+        0% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(0.8);
+        }
+        100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+    }
+    .panel-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -28,19 +38,19 @@
 <div class="container mx-auto px-4 py-8 md:py-12">
     <header class="text-center mb-8 md:mb-12">
         <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Advanced Color Palette Generator</h1>
-        <p class="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">Select a colormap, generate a palette, and click a color to see its variations.</p>
+        <p class="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">Select a colormap to generate a palette. Click a color to copy its code and reveal a full spectrum of tints, tones, and shades.</p>
     </header>
 
     <!-- Controls -->
-    <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 md:mb-12">
+    <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 md:mb-12 sticky top-4 z-10">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="colormap-select" class="block text-sm font-medium text-slate-700 mb-2">Colormap</label>
-                <select id="colormap-select" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg"></select>
+                <select id="colormap-select" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"></select>
             </div>
             <div>
                 <label for="color-count" class="block text-sm font-medium text-slate-700 mb-2">Number of Colors (2-256)</label>
-                <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg">
+                <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
             </div>
         </div>
     </div>
@@ -57,13 +67,12 @@
 <!-- The main logic for the color generator -->
 <script>
     (function initColorGenerator() {
-        // All the JavaScript logic from the original file for the color generator goes here.
         const colorSchemes = {
-            'Sequential (Multi-Hue)': ['interpolateViridis', 'interpolatePlasma', 'interpolateInferno', 'interpolateMagma', 'interpolateCividis', 'interpolateTurbo', 'interpolateWarm', 'interpolateCool'],
+            'Sequential (Multi-Hue)': ['interpolateViridis', 'interpolatePlasma', 'interpolateInferno', 'interpolateMagma', 'interpolateCividis', 'interpolateTurbo', 'interpolateWarm', 'interpolateCool', 'interpolateBuGn', 'interpolateBuPu', 'interpolateGnBu', 'interpolateOrRd', 'interpolatePuBuGn', 'interpolatePuBu', 'interpolatePuRd', 'interpolateRdPu', 'interpolateYlGnBu', 'interpolateYlGn', 'interpolateYlOrBr', 'interpolateYlOrRd'],
             'Sequential (Single Hue)': ['interpolateBlues', 'interpolateGreens', 'interpolateGreys', 'interpolateOranges', 'interpolatePurples', 'interpolateReds'],
             'Diverging': ['interpolateBrBG', 'interpolatePRGn', 'interpolatePiYG', 'interpolatePuOr', 'interpolateRdBu', 'interpolateRdGy', 'interpolateRdYlBu', 'interpolateRdYlGn', 'interpolateSpectral'],
             'Cyclical': ['interpolateRainbow', 'interpolateSinebow'],
-            'Categorical': ['schemeAccent', 'schemeDark2', 'schemePaired', 'schemePastel1', 'schemePastel2', 'schemeSet1', 'schemeSet2', 'schemeSet3', 'schemeTableau10']
+            'Categorical (Fixed Size)': ['schemeAccent', 'schemeDark2', 'schemePaired', 'schemePastel1', 'schemePastel2', 'schemeSet1', 'schemeSet2', 'schemeSet3', 'schemeTableau10', 'schemeCategory10']
         };
 
         const colormapSelect = document.getElementById('colormap-select');
@@ -75,18 +84,24 @@
         function generatePalette() {
             const selectedSchemeName = colormapSelect.value;
             let palette = [];
-
             if (selectedSchemeName.startsWith('scheme')) {
                 colorCountInput.disabled = true;
                 const scheme = d3[selectedSchemeName];
-                palette = scheme.map(c => d3.color(c).formatHex());
-                colorCountInput.value = palette.length;
+                if (Array.isArray(scheme)) {
+                    palette = scheme.map(c => d3.color(c).formatHex());
+                    colorCountInput.value = scheme.length;
+                }
             } else {
                 colorCountInput.disabled = false;
-                const colorCount = parseInt(colorCountInput.value, 10);
+                let colorCount = parseInt(colorCountInput.value, 10);
+                if (isNaN(colorCount) || colorCount < 2) colorCount = 2;
+                if (colorCount > 256) colorCount = 256;
+                colorCountInput.value = colorCount;
                 const interpolator = d3[selectedSchemeName];
+                if (typeof interpolator !== 'function') return [];
                 for (let i = 0; i < colorCount; i++) {
-                    palette.push(d3.color(interpolator(i / (colorCount - 1))).formatHex());
+                    const t = (colorCount > 1) ? i / (colorCount - 1) : 0.5;
+                    palette.push(d3.color(interpolator(t)).formatHex());
                 }
             }
             return palette;
@@ -97,10 +112,9 @@
             paletteDisplay.innerHTML = '';
             shadePanelContainer.innerHTML = '';
             activeColorCard = null;
-
             palette.forEach(hex => {
                 const colorCard = document.createElement('div');
-                colorCard.className = 'relative group cursor-pointer transform hover:-translate-y-1 transition-transform duration-300 rounded-lg';
+                colorCard.className = 'relative group cursor-pointer transform hover:-translate-y-1 transition-transform duration-300 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 rounded-lg';
                 colorCard.dataset.color = hex;
                 colorCard.innerHTML = `
                     <div style="background-color: ${hex};" class="w-full h-24 rounded-t-lg shadow-md"></div>
@@ -115,30 +129,102 @@
                 paletteDisplay.appendChild(colorCard);
             });
         }
-
+        
         function generateShades(baseHex) {
             const baseColor = d3.hsl(baseHex);
             const variations = { tints: [], tones: [], shades: [] };
-            for (let i = 1; i <= 5; i++) {
+            const steps = 5;
+            for (let i = 1; i <= steps; i++) {
                 variations.tints.push(baseColor.brighter(i * 0.35).formatHex());
+            }
+            for (let i = 1; i <= steps; i++) {
                 variations.shades.push(baseColor.darker(i * 0.35).formatHex());
-                variations.tones.push(d3.hsl(baseColor.h, baseColor.s * (1 - (i * 0.18)), baseColor.l).formatHex());
+            }
+            for (let i = 1; i <= steps; i++) {
+                const tonedColor = d3.hsl(baseColor.h, baseColor.s * (1 - (i * 0.18)), baseColor.l);
+                variations.tones.push(tonedColor.formatHex());
             }
             return variations;
         }
 
         function showShadePanel(hex, cardElement) {
-             if (activeColorCard) {
+            if (activeColorCard) {
                 activeColorCard.classList.remove('ring-2', 'ring-offset-2', 'ring-indigo-500');
             }
             cardElement.classList.add('ring-2', 'ring-offset-2', 'ring-indigo-500');
             activeColorCard = cardElement;
-            // ... (rest of the shade panel logic)
+            const variations = generateShades(hex);
+            const createVariationRow = (title, colors) => {
+                const colorSwatches = colors.map(color => `
+                    <div class="flex-1 group" title="Click to copy ${color}">
+                        <div data-color="${color}" class="shade-swatch h-16 w-full rounded-md cursor-pointer border border-slate-200 transition-transform duration-200 group-hover:scale-105" style="background-color: ${color};"></div>
+                        <p class="text-center text-xs mt-2 font-mono text-slate-600">${color}</p>
+                    </div>
+                `).join('');
+                return `
+                    <div>
+                        <h4 class="font-bold text-slate-700 mb-3">${title}</h4>
+                        <div class="flex flex-row gap-2 md:gap-4">${colorSwatches}</div>
+                    </div>
+                `;
+            };
+            shadePanelContainer.innerHTML = `
+                <div id="shade-panel" class="bg-white p-6 md:p-8 rounded-2xl shadow-xl panel-fade-in">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-slate-200 pb-4">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Color Variations</h3>
+                            <p class="text-slate-500">Tints, tones, and shades for your selected color.</p>
+                        </div>
+                        <div class="flex items-center gap-3 mt-4 md:mt-0">
+                            <div class="w-10 h-10 rounded-full shadow-inner" style="background-color:${hex};"></div>
+                            <span class="font-mono text-lg text-slate-800">${hex}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        ${createVariationRow('Tints (Lighter)', variations.tints.reverse())}
+                        ${createVariationRow('Tones (Desaturated)', variations.tones)}
+                        ${createVariationRow('Shades (Darker)', variations.shades)}
+                    </div>
+                </div>
+            `;
+            document.getElementById('shade-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            shadePanelContainer.querySelectorAll('.shade-swatch').forEach(swatch => {
+                swatch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    copyToClipboard(swatch.dataset.color, swatch);
+                });
+            });
         }
-        
+
         function copyToClipboard(text, element) {
-            navigator.clipboard.writeText(text);
-            // ... (feedback animation logic)
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                document.body.removeChild(textArea);
+            }
+            
+            const feedback = document.createElement('div');
+            feedback.textContent = 'Copied!';
+            feedback.className = 'absolute top-1/2 left-1/2 bg-slate-900 bg-opacity-80 text-white text-xs font-bold px-3 py-1 rounded-full feedback-anim pointer-events-none';
+            
+            element.style.position = 'relative';
+            element.appendChild(feedback);
+
+            setTimeout(() => {
+                feedback.remove();
+            }, 1000);
         }
 
         function init() {
@@ -153,8 +239,16 @@
                 });
                 colormapSelect.appendChild(optgroup);
             }
+
             colormapSelect.addEventListener('change', updateDisplay);
-            colorCountInput.addEventListener('input', () => setTimeout(updateDisplay, 300));
+            colorCountInput.addEventListener('change', updateDisplay);
+            
+            let inputTimeout;
+            colorCountInput.addEventListener('input', () => {
+                clearTimeout(inputTimeout);
+                inputTimeout = setTimeout(updateDisplay, 350);
+            });
+
             updateDisplay();
         }
 
