@@ -51,8 +51,7 @@
     </div>
 
     <main id="palette-display" class="color-card-container"></main>
-
-    <div id="shade-panel-container" class="mt-12"></div>
+    <div id="shade-panel-container" class="mt-8"></div>
 </div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -178,7 +177,12 @@
                     </div>
                 </div>
             `;
-            document.getElementById('shade-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Only scroll if the shade panel is not already visible in viewport
+            const panel = document.getElementById('shade-panel');
+            const rect = panel.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight || rect.top < 0) {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             shadePanelContainer.querySelectorAll('.shade-swatch').forEach(swatch => {
                 swatch.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -233,14 +237,15 @@
 
             colormapSelect.addEventListener('change', updateDisplay);
             colorCountInput.addEventListener('change', updateDisplay);
-            
+
             let inputTimeout;
             colorCountInput.addEventListener('input', () => {
                 clearTimeout(inputTimeout);
                 inputTimeout = setTimeout(updateDisplay, 350);
             });
 
-            updateDisplay();
+            // Show colors immediately on page load
+            setTimeout(updateDisplay, 0);
         }
 
         init();
