@@ -449,6 +449,22 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       return acc;
     }, {});
 
+    // Residue statistics (moved outside feature list)
+    const stats = getResidueStats(obj.seq);
+    const statsRows = Object.entries(stats.pct)
+      .sort((a,b)=>parseFloat(b[1]) - parseFloat(a[1]))
+      .map(([aa,pct])=>`<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${stats.counts[aa]}</td><td class="px-1 text-right">${pct}%</td></tr>`)
+      .join('');
+    const residueStatsBox = `
+      <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
+        <details class="text-sm font-medium" open>
+          <summary class="cursor-pointer font-semibold">Residue statistics (${stats.total} aa)</summary>
+          <div class="h-28 overflow-y-auto mt-1 border-t pt-1">
+            <table class="w-full"><thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead><tbody>${statsRows}</tbody></table>
+          </div>
+        </details>
+      </div>`;
+
     const featureListItems = Object.entries(byLane).map(([category, feats]) => {
       const items = feats.map(f => {
         return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}">
@@ -457,24 +473,9 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         </li>`;
       }).join('');
 
-      let statsHtml = '';
-      if(category==='Topology' || category==='PTM'){
-        const stats = getResidueStats(obj.seq);
-        const rows = Object.entries(stats.pct)
-          .sort((a,b)=>parseFloat(b[1]) - parseFloat(a[1]))
-          .map(([aa,pct])=>`<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${stats.counts[aa]}</td><td class="px-1 text-right">${pct}%</td></tr>`)
-          .join('');
-        statsHtml = `<details class="text-xs mt-2"><summary class="cursor-pointer">Residue statistics (${stats.total} aa)</summary>
-                       <div class="h-24 overflow-y-auto mt-1 border-t pt-1">
-                         <table class="w-full"><thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead><tbody>${rows}</tbody></table>
-                       </div>
-                     </details>`;
-      }
-
       return `<details open class="mb-2">
                 <summary class="font-semibold cursor-pointer text-gray-800">${category} (${feats.length})</summary>
                 <ul class="mt-1 pl-2 space-y-1">${items}</ul>
-                ${statsHtml}
               </details>`;
     }).join('');
 
@@ -509,6 +510,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                   </div>
                 </div>
               </details>
+              ${residueStatsBox}
               <div class="border border-gray-100 rounded-xl p-3 bg-gray-50 h-64 overflow-y-auto">
                 ${featureListItems || '<p class="text-sm text-gray-500">No features found.</p>'}
               </div>
@@ -613,6 +615,10 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     });
     ro.observe(container);
 
+    // Collect all features for fast lookup
+    const allFeatures = [];
+    Object.values(byLane).forEach(arr => arr.forEach(f => allFeatures.push(f)));
+
     svg.addEventListener('mousemove', e => {
       const rect = svg.getBoundingClientRect();
       const w = rect.width;
@@ -620,8 +626,18 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       if (x < 80 || x > w - 10) { els.tooltip.style.visibility = 'hidden'; return; }
       const pos = Math.round((x - 80) / ((w - 80 - 10) / Math.max(1, seqLen - 1)));
       if (pos >= 0 && pos < seqLen) {
+        // Find all features covering this position
+        const featsAtPos = allFeatures.filter(f => f.start <= pos && f.end >= pos);
+        let html = `<strong>Pos: ${pos + 1}</strong>, AA: <span class="mono">${seq[pos]}</span>`;
+        if (featsAtPos.length > 0) {
+          html += '<br><span style="color:#f59e42;font-weight:600">Features:</span><ul style="margin:0;padding-left:1em">';
+          featsAtPos.forEach(f => {
+            html += `<li><span style="color:${f.color}"><strong>${f.name}</strong></span> <span style="font-size:11px">[${f.category}, ${f.start+1}..${f.end+1}]</span></li>`;
+          });
+          html += '</ul>';
+        }
         els.tooltip.style.visibility = 'visible';
-        els.tooltip.textContent = `Pos: ${pos + 1}, AA: ${seq[pos]}`;
+        els.tooltip.innerHTML = html;
         els.tooltip.style.left = `${e.pageX + 10}px`;
         els.tooltip.style.top = `${e.pageY - 28}px`;
       }
@@ -640,7 +656,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         toggleSvgRect(svg, start, end, true);
         item.classList.add('active');
         els.tooltip.style.visibility = 'visible';
-        els.tooltip.textContent = `${item.dataset.category}: ${item.dataset.name} [${start+1}..${end+1}]`;
+        els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong><br>Type: ${item.dataset.category}<br>Range: ${start+1}..${end+1}`;
         els.tooltip.style.left = `${ev.pageX + 10}px`;
         els.tooltip.style.top  = `${ev.pageY - 28}px`;
       });
@@ -663,7 +679,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         highlightSvgRange(svg, start, end, true);
         toggleListItem(card, start, end, true);
         els.tooltip.style.visibility = 'visible';
-        els.tooltip.textContent = `${r.dataset.category}: ${r.dataset.name} [${start+1}..${end+1}]`;
+        els.tooltip.innerHTML = `<strong>${r.dataset.name}</strong><br>Type: ${r.dataset.category}<br>Range: ${start+1}..${end+1}`;
         els.tooltip.style.left = `${e.pageX + 10}px`;
         els.tooltip.style.top  = `${e.pageY - 28}px`;
       });
