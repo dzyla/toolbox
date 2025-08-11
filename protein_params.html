@@ -1,115 +1,115 @@
-<!-- This file contains only the content for the Protein Feature Workbench tool. -->
-<!-- It will be loaded into the main index.html file. -->
-
-<!-- Styles specific to this tool -->
+<!-- Protein Feature Workbench (robust parsing + aligned hover, QOF-enhanced) -->
 <style>
-    body { font-family: 'Inter', sans-serif; }
+  body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
-    /* Compact scrollbar */
-    ::-webkit-scrollbar{ width:8px; height:8px;}
-    ::-webkit-scrollbar-track{ background:#f8fafc;}
-    ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
-    ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
+  ::-webkit-scrollbar{ width:8px; height:8px;}
+  ::-webkit-scrollbar-track{ background:#f8fafc;}
+  ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
 
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .feature-track-svg { cursor: crosshair; }
+  .feature-track-svg .feat-rect { transition: opacity 0.15s; cursor: pointer; }
+  .feature-track-svg .feat-rect.highlight { stroke: #111827; stroke-width: 2px; }
+  .feature-track-svg .seq-bar-bg { fill: #e5e7eb; }
+  .feature-track-svg .seq-bar-highlight { fill: rgba(250, 204, 21, 0.7); pointer-events: none; }
 
-    /* --- Feature Track & Sequence Bar --- */
-    .feature-track-svg { cursor: crosshair; }
-    .feature-track-svg .feat-rect { transition: opacity 0.15s; cursor: pointer; }
-    .feature-track-svg .feat-rect.highlight { stroke: #111827; stroke-width: 2px; }
-    .feature-track-svg .seq-bar-bg { fill: #e5e7eb; }
-    .feature-track-svg .seq-bar-highlight { fill: rgba(250, 204, 21, 0.7); pointer-events: none; }
+  #svg-tooltip {
+    position: absolute; visibility: hidden; background: rgba(17,24,39,0.95); color: #fff;
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; pointer-events: none;
+    white-space: nowrap; transition: opacity 0.1s; z-index: 100; line-height: 1.5;
+  }
 
-    /* --- Tooltip for SVG --- */
-    #svg-tooltip {
-      position: absolute;
-      visibility: hidden;
-      background: rgba(17,24,39,0.95);
-      color: #fff;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      pointer-events: none;
-      white-space: nowrap;
-      transition: opacity 0.1s;
-      z-index: 100;
-      line-height: 1.5;
-    }
+  .feature-list-item:hover { background-color: #eef2ff; }
+  .feature-list-item.active { background-color: #e0e7ff; outline: 2px solid #93c5fd; }
 
-    /* --- Feature List --- */
-    .feature-list-item:hover { background-color: #eef2ff; }
-    .feature-list-item.active { background-color: #e0e7ff; outline: 2px solid #93c5fd; }
+  .mini-chart-container { position: relative; }
+  .mini-chart { width: 100%; height: 150px; }
+  .mini-track { width: 100%; height: 40px; }
+  .chart-title { font-size: 0.9rem; color: #374151; margin-bottom: 0.25rem; }
+  .hover-line { stroke: #9ca3af; stroke-width: 1px; stroke-dasharray: 4 2; pointer-events: none; }
 
-    /* --- Small charts --- */
-    .mini-chart-container { position: relative; }
-    .mini-chart { width: 100%; height: 160px; }
-    .mini-track { width: 100%; height: 40px; }
-    .chart-title { font-size: 0.9rem; color: #374151; margin-bottom: 0.25rem; }
-    .hover-line { stroke: #9ca3af; stroke-width: 1px; stroke-dasharray: 4 2; pointer-events: none; }
-
-    /* Prevent user from collapsing the “always-open” details */
-    details.always-open[open] > summary { list-style: none; cursor: default; }
-    details.always-open > summary::-webkit-details-marker { display: none; }
+  .card-pad { padding: 1rem; }
+  .note { font-size: 11px; color: #6b7280; }
+  .note b { color: #374151; }
 </style>
 
-<!-- Main container for the tool -->
 <div id="svg-tooltip"></div>
 
 <div class="mx-auto max-w-6xl p-4 md:p-8">
-    <!-- Header -->
-    <header class="mb-6 md:mb-8">
-      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">Protein Feature Workbench</h1>
-      <p class="mt-2 text-gray-600">Analyze multiple protein sequences with a compact graphical map and optional per‑residue plots.</p>
-    </header>
+  <header class="mb-4 md:mb-6">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Protein Feature Workbench</h1>
+        <p class="mt-1 text-gray-600 text-sm md:text-base">ProtParam-like core with graphical maps, per-residue plots, and lab helpers.</p>
+      </div>
+      <div class="hidden md:flex items-center gap-2">
+        <button id="export_all_csv" class="text-sm bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-black">Export summary CSV</button>
+        <button id="toggle_all_plots" class="text-sm bg-white border border-slate-300 px-3 py-2 rounded-lg hover:bg-slate-50">Toggle plots</button>
+      </div>
+    </div>
+  </header>
 
-    <!-- Input + Settings -->
-    <section class="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm">
-      <h2 class="text-lg font-semibold mb-4">1) Input and settings</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-        <div>
-          <label for="fasta_input" class="block text-sm font-medium text-gray-700 mb-2">Paste FASTA sequences</label>
-          <textarea id="fasta_input" rows="12"
-            class="w-full p-3 border bg-white border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition mono"
-            placeholder=">sp|P0DP23|VIME_HUMAN Vimentin..."></textarea>
-          <div class="flex items-center flex-wrap gap-3 mt-2">
-            <button id="load_example" class="text-sm text-blue-700 hover:underline">Load example</button>
-            <span class="text-xs text-gray-500">Supports standard and ambiguous symbols.</span>
+  <section class="bg-white border border-gray-100 card-pad rounded-2xl shadow-sm">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+      <div>
+        <label for="fasta_input" class="block text-sm font-medium text-gray-700 mb-1">Paste FASTA sequences</label>
+        <textarea id="fasta_input" rows="8"
+          class="w-full p-3 border bg-white border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition mono"
+          placeholder="Paste FASTA or a raw sequence. Comments starting with ';' are ignored."></textarea>
+        <div class="flex items-center flex-wrap gap-3 mt-2">
+          <button id="load_example" class="text-sm text-indigo-700 hover:underline">Load example</button>
+          <span class="text-xs text-gray-500">Ambiguous B, Z, J, X and U (Sec), O (Pyl) supported.</span>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Or upload a FASTA file</label>
+        <input type="file" id="file_input" accept=".fasta,.fa,.faa,.fna"
+          class="w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+        <p class="text-xs text-gray-500 mt-1">We ignore whitespace, numbers, hyphens, and common separators.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div>
+            <h3 class="text-sm font-semibold">Analysis</h3>
+            <div class="space-y-2 mt-1">
+              <label class="block text-xs mb-1">Reference pH for charge</label>
+              <div class="flex items-center gap-3">
+                <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
+                  class="w-24 p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+                <input id="ref_pH_slider" type="range" min="0" max="14" step="0.1" value="7.4" class="w-full">
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold">Transmembrane</h3>
+            <div class="grid grid-cols-2 gap-2 mt-1">
+              <div>
+                <label class="block text-xs mb-1">Window (11–35)</label>
+                <input id="tm_window" type="number" min="11" max="35" step="1" value="19"
+                  class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+              </div>
+              <div>
+                <label class="block text-xs mb-1">KD threshold</label>
+                <input id="tm_thr" type="number" step="0.1" value="1.6"
+                  class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+              </div>
+            </div>
           </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Or upload a FASTA file</label>
-          <input type="file" id="file_input" accept=".fasta,.fa,.faa,.fna"
-            class="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-          <p class="text-xs text-gray-500 mt-2">Max file size: 5 MB.</p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mt-6">
+        <details class="mt-4" open>
+          <summary class="cursor-pointer text-sm font-semibold">Plots & advanced</summary>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
             <div>
-              <h3 class="text-base font-semibold">Analysis</h3>
-              <div class="space-y-3 mt-2">
-                <div>
-                  <label class="block text-sm mb-1">Reference pH for charge</label>
-                  <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
-                    class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"/>
-                </div>
-                <div>
-                  <label class="block text-sm mb-1">Transmembrane window (residues)</label>
-                  <input id="tm_window" type="number" min="11" max="35" step="1" value="19"
-                    class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"/>
-                </div>
-              </div>
+              <h4 class="text-sm font-semibold">Plots</h4>
+              <label class="flex items-center gap-2 text-sm mt-1"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300" checked>Hydrophobicity</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300" checked>Charge</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300" checked>Cysteine positions</label>
             </div>
-            <div>
-              <h3 class="text-base font-semibold">Optional plots</h3>
-              <div class="space-y-2 mt-2">
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300">Hydrophobicity plot</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300">Charge plot</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300">Cysteine track</label>
-              </div>
-            </div>
-            <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-sm mb-1" for="hydro_window">Hydrophobicity smoothing</label>
-                <select id="hydro_window" class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm">
+                <label class="block text-xs mb-1" for="hydro_window">Hydrophobicity smoothing</label>
+                <select id="hydro_window" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
                   <option value="1">None (1)</option>
                   <option value="3">3</option>
                   <option value="5" selected>5</option>
@@ -118,8 +118,8 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm mb-1" for="charge_window">Charge smoothing</label>
-                <select id="charge_window" class="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-sm">
+                <label class="block text-xs mb-1" for="charge_window">Charge smoothing</label>
+                <select id="charge_window" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
                   <option value="1">None (1)</option>
                   <option value="3">3</option>
                   <option value="5" selected>5</option>
@@ -129,100 +129,303 @@
               </div>
             </div>
           </div>
-        </div>
+        </details>
       </div>
+    </div>
 
-      <div class="mt-6 flex items-center justify-center gap-3">
-        <button id="analyze_button"
-          class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-full hover:bg-blue-700 transition-colors shadow-sm">
-          Analyze
-        </button>
-        <button id="clear_button"
-          class="bg-white border border-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-full hover:bg-gray-50 transition-colors shadow-sm">
-          Clear
-        </button>
-      </div>
-    </section>
+    <div class="mt-5 flex items-center justify-center gap-3 flex-wrap">
+      <button id="analyze_button" class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-full hover:bg-indigo-700 transition-colors shadow-sm">Analyze</button>
+      <button id="clear_button" class="bg-white border border-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-full hover:bg-gray-50 transition-colors shadow-sm">Clear</button>
+      <button id="expand_all" class="text-sm text-indigo-700 hover:underline">Expand all cards</button>
+      <button id="collapse_all" class="text-sm text-indigo-700 hover:underline">Collapse all cards</button>
+    </div>
 
-    <!-- Results -->
-    <section id="results_section" class="mt-8 space-y-6">
-      <!-- Result cards will be injected here -->
-    </section>
+    <p class="mt-3 text-xs text-gray-500">
+      Masses use monoisotopic residues with one water (+18.01528 Da). Charge and isoelectric point use Henderson–Hasselbalch with fixed pKa values.
+      Extinction ε<sub>280</sub> uses Tyr/Trp and optional cystine pairs.
+      Domains/PTMs and other features are based on sequence motifs and regular expressions. They show all potential matches in the sequence.
+    </p>
+  </section>
+
+  <section id="results_section" class="mt-6 space-y-4"></section>
 </div>
 
-<!-- The main logic for the protein params tool -->
 <script>
 (function initProteinParams() {
-  // =========================
-  // Scientific data and utils
-  // =========================
+  /* Scientific constants */
   const AA = {
-    mw: { A: 71.0788, R: 156.1875, N: 114.1038, D: 115.0886, C: 103.1388, Q: 128.1307, E: 129.1155, G: 57.0519, H: 137.1411, I: 113.1594, L: 113.1594, K: 128.1741, M: 131.1926, F: 147.1766, P: 97.1167, S: 87.0782, T: 101.1051, W: 186.2132, Y: 163.1760, V: 99.1326, U: 150.0388, O: 237.3018, B: 114.5962, Z: 128.6231, J: 113.1594, X: 110.0 },
-    ext: { Y: 1490, W: 5500, CYS_DISULFIDE_PAIR: 125 },
-    kd: { A: 1.8, R: -4.5, N: -3.5, D: -3.5, C: 2.5, Q: -3.5, E: -3.5, G: -0.4, H: -3.2, I: 4.5, L: 3.8, K: -3.9, M: 1.9, F: 2.8, P: -1.6, S: -0.8, T: -0.7, W: -0.9, Y: -1.3, V: 4.2, U: 0.0, O: 0.0, B: -3.5, Z: -3.5, J: 3.8, X: 0.0 },
-    pKa_side: { C: 8.5, D: 3.9, E: 4.07, H: 6.5, K: 10.4, R: 12.5, Y: 10.0 },
-    pKa_term: { N: 8.6, C: 3.55 }
+    mw: { A:71.0788,R:156.1875,N:114.1038,D:115.0886,C:103.1388,Q:128.1307,E:129.1155,G:57.0519,H:137.1411,I:113.1594,L:113.1594,K:128.1741,M:131.1926,F:147.1766,P:97.1167,S:87.0782,T:101.1051,W:186.2132,Y:163.1760,V:99.1326,U:150.0388,O:237.3018,B:114.5962,Z:128.6231,J:113.1594,X:110.0 },
+    ext: { Y:1490, W:5500, CYS_DISULFIDE_PAIR:125 },
+    kd: { A:1.8,R:-4.5,N:-3.5,D:-3.5,C:2.5,Q:-3.5,E:-3.5,G:-0.4,H:-3.2,I:4.5,L:3.8,K:-3.9,M:1.9,F:2.8,P:-1.6,S:-0.8,T:-0.7,W:-0.9,Y:-1.3,V:4.2,U:0.0,O:0.0,B:-3.5,Z:-3.5,J:3.8,X:0.0 },
+    pKa_side: { C:8.5, D:3.9, E:4.07, H:6.5, K:10.4, R:12.5, Y:10.0 },
+    pKa_term: { N:8.6, C:3.55 }
   };
 
   const DIWV = {
-    A:{A:4,C:0,D:-2,E:-1,F:-3,G:0,H:-2,I:-1,K:-1,L:-2,M:-1,N:-2,P:-1,Q:-1,R:-1,S:1,T:0,V:0,W:-3,Y:-2},C:{A:0,C:9,D:-3,E:-4,F:-2,G:-3,H:-3,I:1,K:-3,L:-1,M:-1,N:-3,P:-3,Q:-3,R:-3,S:-1,T:-1,V:1,W:-2,Y:-2},D:{A:-2,C:-3,D:6,E:2,F:-3,G:-1,H:-1,I:-3,K:-1,L:-4,M:-3,N:1,P:-1,Q:0,R:-2,S:0,T:-1,V:-3,W:-4,Y:-3},E:{A:-1,C:-4,D:2,E:5,F:-3,G:-2,H:0,I:-3,K:1,L:-3,M:-2,N:0,P:-1,Q:2,R:0,S:0,T:-1,V:-2,W:-3,Y:-2},F:{A:-3,C:-2,D:-3,E:-3,F:6,G:-4,H:-1,I:0,K:-3,L:0,M:0,N:-3,P:-4,Q:-3,R:-3,S:-2,T:-2,V:-1,W:1,Y:3},G:{A:0,C:-3,D:-1,E:-2,F:-4,G:6,H:-2,I:-4,K:-2,L:-4,M:-3,N:0,P:-2,Q:-2,R:-2,S:0,T:-2,V:-3,W:-2,Y:-3},H:{A:-2,C:-3,D:-1,E:0,F:-1,G:-2,H:8,I:-3,K:-1,L:-3,M:-2,N:1,P:-2,Q:0,R:0,S:-1,T:-2,V:-3,W:-2,Y:2},I:{A:-1,C:1,D:-3,E:-3,F:0,G:-4,H:-3,I:4,K:-3,L:2,M:1,N:-3,P:-3,Q:-3,R:-3,S:-2,T:-1,V:3,W:-3,Y:-1},K:{A:-1,C:-3,D:-1,E:1,F:-3,G:-2,H:-1,I:-3,K:5,L:-2,M:-1,N:0,P:-1,Q:1,R:2,S:0,T:-1,V:-2,W:-3,Y:-2},L:{A:-2,C:-1,D:-4,E:-3,F:0,G:-4,H:-3,I:2,K:-2,L:4,M:2,N:-3,P:-3,Q:-2,R:-2,S:-2,T:-1,V:1,W:-2,Y:-1},M:{A:-1,C:-1,D:-3,E:-2,F:0,G:-3,H:-2,I:1,K:-1,L:2,M:5,N:-2,P:-2,Q:0,R:-1,S:-1,T:-1,V:1,W:-1,Y:-1},N:{A:-2,C:-3,D:1,E:0,F:-3,G:0,H:1,I:-3,K:0,L:-3,M:-2,N:6,P:-2,Q:0,R:0,S:1,T:0,V:-3,W:-4,Y:-2},P:{A:-1,C:-3,D:-1,E:-1,F:-4,G:-2,H:-2,I:-3,K:-1,L:-3,M:-2,N:-2,P:7,Q:-1,R:-2,S:-1,T:-1,V:-2,W:-4,Y:-3},Q:{A:-1,C:-3,D:0,E:2,F:-3,G:-2,Q:0,I:-3,K:1,L:-2,M:0,N:0,P:-1,Q:5,R:1,S:0,T:-1,V:-2,W:-2,Y:-1},R:{A:-1,C:-3,D:-2,E:0,F:-3,G:-2,R:0,I:-3,K:2,L:-2,M:-1,N:0,P:-2,Q:1,R:5,S:-1,T:-1,V:-3,W:-3,Y:-2},S:{A:1,C:-1,D:0,E:0,F:-2,G:0,H:-1,I:-2,K:0,L:-2,M:-1,N:1,P:-1,Q:0,R:-1,S:4,T:1,V:-2,W:-3,Y:-2},T:{A:0,C:-1,D:-1,E:-1,F:-2,G:-2,H:-2,I:-1,K:-1,L:-1,M:-1,N:0,P:-1,Q:-1,R:-1,S:1,T:5,V:0,W:-2,Y:-2},V:{A:0,C:1,D:-3,E:-2,F:-1,G:-3,H:-3,I:3,K:-2,L:1,M:1,N:-3,P:-2,Q:-2,R:-3,S:-2,T:0,V:4,W:-3,Y:-1},W:{A:-3,C:-2,D:-4,E:-3,F:1,G:-2,H:-2,I:-3,K:-3,L:-2,M:-1,N:-4,P:-4,Q:-2,R:-3,S:-3,T:-2,V:-3,W:11,Y:2},Y:{A:-2,C:-2,D:-3,E:-2,F:3,G:-3,H:2,I:-1,K:-2,L:-1,M:-1,N:-2,P:-3,Q:-1,R:-2,S:-2,T:-2,V:-1,W:2,Y:7}
+    A:{A:4,C:0,D:-2,E:-1,F:-3,G:0,H:-2,I:-1,K:-1,L:-2,M:-1,N:-2,P:-1,Q:-1,R:-1,S:1,T:0,V:0,W:-3,Y:-2},C:{A:0,C:9,D:-3,E:-4,F:-2,G:-3,H:-3,I:1,K:-3,L:-1,M:-1,N:-3,P:-3,Q:-3,R:-3,S:-1,T:-1,V:1,W:-2,Y:-2},D:{A:-2,C:-3,D:6,E:2,F:-3,G:-1,H:-1,I:-3,K:-1,L:-4,M:-3,N:1,P:-1,Q:0,R:-2,S:0,T:-1,V:-3,W:-4,Y:-3},E:{A:-1,C:-4,D:2,E:5,F:-3,G:-2,H:0,I:-3,K:1,L:-3,M:-2,N:0,P:-1,Q:2,R:0,S:0,T:-1,V:-2,W:-3,Y:-2},F:{A:-3,C:-2,D:-3,E:-3,F:6,G:-4,H:-1,I:0,K:-3,L:0,M:0,N:-3,P:-4,Q:-3,R:-3,S:-2,T:-2,V:-1,W:1,Y:3},G:{A:0,C:-3,D:-1,E:-2,F:-4,G:6,H:-2,I:-4,K:-2,L:-4,M:-3,N:0,P:-2,Q:-2,R:-2,S:0,T:-2,V:-3,W:-2,Y:-3},H:{A:-2,C:-3,D:-1,E:0,F:-1,G:-2,H:8,I:-3,K:-1,L:-3,M:-2,N:1,P:-2,Q:0,R:0,S:-1,T:-2,V:-3,W:-2,Y:2},I:{A:-1,C:1,D:-3,E:-3,F:0,G:-4,H:-3,I:4,K:-3,L:2,M:1,N:-3,P:-3,Q:-3,R:-3,S:-2,T:-1,V:3,W:-3,Y:-1},K:{A:-1,C:-3,D:-1,E:1,F:-3,G:-2,H:-1,I:-3,K:5,L:-2,M:-1,N:0,P:-1,Q:1,R:2,S:0,T:-1,V:-2,W:-3,Y:-2},L:{A:-2,C:-1,D:-4,E:-3,F:0,G:-4,H:-3,I:2,K:-2,L:4,M:2,N:-3,P:-3,Q:-2,R:-2,S:-2,T:-1,V:1,W:-2,Y:-1},M:{A:-1,C:-1,D:-3,E:-2,F:0,G:-3,H:-2,I:1,K:-1,L:2,M:5,N:-2,P:-2,Q:0,R:-1,S:-1,T:-1,V:1,W:-1,Y:-1},N:{A:-2,C:-3,D:1,E:0,F:-3,G:0,H:1,I:-3,K:0,L:-3,M:-2,N:6,P:-2,Q:0,R:0,S:1,T:0,V:-3,W:-4,Y:-2},P:{A:-1,C:-3,D:-1,E:-1,F:-4,G:-2,H:-2,I:-3,K:-1,L:-3,M:-2,N:-2,P:7,Q:-1,R:-2,S:-1,T:-1,V:-2,W:-4,Y:-3},Q:{A:-1,C:-3,D:0,E:2,F:-3,G:-2,H:0,I:-3,K:1,L:-2,M:0,N:0,P:-1,Q:5,R:1,S:0,T:-1,V:-2,W:-2,Y:-1},R:{A:-1,C:-3,D:-2,E:0,F:-3,G:-2,H:0,I:-3,K:2,L:-2,M:-1,N:0,P:-2,Q:1,R:5,S:-1,T:-1,V:-3,W:-3,Y:-2},S:{A:1,C:-1,D:0,E:0,F:-2,G:0,H:-1,I:-2,K:0,L:-2,M:-1,N:1,P:-1,Q:0,R:-1,S:4,T:1,V:-2,W:-3,Y:-2},T:{A:0,C:-1,D:-1,E:-1,F:-2,G:-2,H:-2,I:-1,K:-1,L:-1,M:-1,N:0,P:-1,Q:-1,R:-1,S:1,T:5,V:0,W:-2,Y:-2},V:{A:0,C:1,D:-3,E:-2,F:-1,G:-3,H:-3,I:3,K:-2,L:1,M:1,N:-3,P:-2,Q:-2,R:-3,S:-2,T:0,V:4,W:-3,Y:-1},W:{A:-3,C:-2,D:-4,E:-3,F:1,G:-2,H:-2,I:-3,K:-3,L:-2,M:-1,N:-4,P:-4,Q:-2,R:-3,S:-3,T:-2,V:-3,W:11,Y:2},Y:{A:-2,C:-2,D:-3,E:-2,F:3,G:-3,H:2,I:-1,K:-2,L:-1,M:-1,N:-2,P:-3,Q:-1,R:-2,S:-2,T:-2,V:-1,W:2,Y:7}
   };
 
+  /* === Combined, de-duplicated Tags & Motifs (drop-in replace this whole block) === */
   const TAGS = {
-    "His-Tag (6x)": { seqs: ["HHHHHH"], color: "#14b8a6", category: "Tags & Sites" },
-    "10xHis": { seqs: ["HHHHHHHHHH"], color: "#0891b2", category: "Tags & Sites" },
-    "FLAG": { seqs: ["DYKDDDDK"], color: "#6366f1", category: "Tags & Sites" },
-    "HA": { seqs: ["YPYDVPDYA"], color: "#f59e0b", category: "Tags & Sites" },
-    "Myc": { seqs: ["EQKLISEEDL"], color: "#ec4899", category: "Tags & Sites" },
-    "Strep-II": { seqs: ["WSHPQFEK"], color: "#0ea5e9", category: "Tags & Sites" },
-    "TEV site": { seqs: ["ENLYFQG","ENLYFQS"], color: "#64748b", category: "Tags & Sites" },
+  /* ===== Small Purification & Detection Tags ===== */
+  "His-Tag (6x)":         { seqs:["HHHHHH"],                                  color:"#14b8a6", category:"Tags & Sites", note:"Purification via Immobilized Metal Affinity Chromatography (IMAC)." },
+  "His-Tag (8x–10x)":     { seqs:["HHHHHHHH","HHHHHHHHH","HHHHHHHHHH"],        color:"#0ea5e9", category:"Tags & Sites", note:"Longer His-tags for stronger binding to IMAC resins." },
+  "FLAG":                 { seqs:["DYKDDDDK"],                                color:"#6366f1", category:"Tags & Sites", note:"Hydrophilic; contains Enterokinase cleavage site." },
+  "3xFLAG":               { seqs:["DYKDHDGDYKDHDIDYKDDDDK"],                  color:"#7c3aed", category:"Tags & Sites", note:"Tandem tag for higher affinity detection and purification." },
+  "HA":                   { seqs:["YPYDVPDYA"],                               color:"#f59e0b", category:"Tags & Sites", note:"From Influenza Hemagglutinin; widely used for detection." },
+  "3xHA":                 { seqs:["YPYDVPDYAGYPYDVPDYAGYPYDVPDYA"],             color:"#fb923c", category:"Tags & Sites", note:"Tandem tag for higher affinity detection." },
+  "Myc":                  { seqs:["EQKLISEEDL"],                              color:"#ec4899", category:"Tags & Sites", note:"From human c-Myc. WARNING: Antibody binding (e.g., 9E10 clone) can be context-dependent." },
+  "V5":                   { seqs:["GKPIPNPLLGLDST"],                          color:"#22d3ee", category:"Tags & Sites", note:"From P and V proteins of Simian Virus 5." },
+  "T7":                   { seqs:["MASMTGGQQMG"],                             color:"#06b6d4", category:"Tags & Sites", note:"Leader sequence from T7 bacteriophage major capsid protein." },
+  "S-tag":                { seqs:["KETAAAKFERQHMDS"],                         color:"#8b5cf6", category:"Tags & Sites", note:"Binds to S-protein (derived from RNase A)." },
+  "Strep-II":             { seqs:["WSHPQFEK"],                                color:"#06b6d4", category:"Tags & Sites", note:"Binds with high affinity to Strep-Tactin resin." },
+  "Twin-Strep":           { seqs:["WSHPQFEKGGGSGGGSGGSAWSHPQFEK"],            color:"#0891b2", category:"Tags & Sites", note:"Tandem tag for enhanced binding to Strep-Tactin." },
+  "ALFA-tag":             { seqs:["SRLEEELRRRLTE"],                           color:"#ef4444", category:"Tags & Sites", note:"Small, stable alpha-helical tag for capture and detection." },
+  "AviTag":               { seqs:["GLNDIFEAQKIEWHE"],                         color:"#3b82f6", category:"Tags & Sites", note:"Site for specific in vivo or in vitro biotinylation by BirA ligase." },
+  "SBP-tag":              { seqs:["MDEKTTGWRGGHVVEGLAGELEQLRARLEHHPQGQREP"],  color:"#2563eb", category:"Tags & Sites", note:"Streptavidin-Binding Peptide for affinity purification." },
+  "Calmodulin-Binding":   { seqs:["KRRWKKNFIAVSAANRFKKISSSGAL"],              color:"#16a34a", category:"Tags & Sites", note:"Ca2+-dependent binding to Calmodulin resin; allows for gentle elution with EGTA." },
+  "Rho1D4":               { seqs:["TETSQVAPA"],                               color:"#059669", category:"Tags & Sites", note:"C-terminal tag for membrane protein purification." },
+  "VSV-G":                { seqs:["YTDIEMNRLGK"],                             color:"#0ea5e9", category:"Tags & Sites", note:"Epitope from Vesicular Stomatitis Virus Glycoprotein." },
+  "SpyTag":               { seqs:["AHIVMVDAYKPTK"],                           color:"#f472b6", category:"Tags & Sites", note:"Forms a spontaneous, covalent isopeptide bond with its SpyCatcher protein partner." },
+  "SnoopTag":             { seqs:["KLGDIEFIKVNK"],                            color:"#a78bfa", category:"Tags & Sites", note:"Forms a covalent bond with its SnoopCatcher partner; orthogonal to SpyTag." },
+  "Spot-Tag":             { seqs:["PDRVRAVSHWSS"],                            color:"#10b981", category:"Tags & Sites", note:"Binds Spot-Nanobody with high affinity for detection and IP." },
+  "HiBiT":                { seqs:["VSGWRLFKKIS"],                             color:"#14b8a6", category:"Tags & Sites", note:"Luminescent tag; reconstitutes NanoLuciferase with the LgBiT protein fragment." },
+
+  /* ===== Protease Cleavage Sites (Exact Sequences) ===== */
+  "TEV site":             { seqs:["ENLYFQG","ENLYFQS"],                       color:"#64748b", category:"Tags & Sites", note:"Tobacco Etch Virus protease site. Cleavage between Q and G/S." },
+  "Thrombin site":        { seqs:["LVPRGS"],                                  color:"#78716c", category:"Tags & Sites", note:"Common recognition site; cleaves after R. Can have off-target effects." },
+  "HRV 3C / PreScission": { seqs:["LEVLFQGP"],                                color:"#71717a", category:"Tags & Sites", note:"Human Rhinovirus 3C protease. Cleavage between Q and G." },
+  "Factor Xa site":       { seqs:["IEGR", "IDGR"],                            color:"#854d0e", category:"Tags & Sites", note:"Cleavage after R. Can have off-target effects." },
+  "Enterokinase site":    { seqs:["DDDDK"],                                   color:"#6366f1", category:"Tags & Sites", note:"Highly specific; cleaves after K." },
+
+  /* ===== Other Specific Sites ===== */
+  "RGD motif":            { seqs:["RGD"],                                     color:"#34d399", category:"Site",       note:"Integrin-binding motif involved in cell adhesion." }
+};
+
+/**
+ * LARGE_TAGS: Full-length proteins used as fusion tags.
+ * NOTE: Identifying these in a sequence is an alignment problem (e.g., using BLAST), not a simple string search.
+ * These sequences are provided as canonical references for this purpose.
+ */
+const LARGE_TAGS = {
+  "GST (S. japonicum)": {
+    seq: "MSPILGYWKIKGLVQPTRLLLEYLEEKYEEHLYERDEGDKWRNKKFELGLEFPNLPYYIDGDVKLTQSMAIIRYIADKHNMLGGCPKERAEISMLEGAVLDIRYGVSRIAYSKDFETLKVDFLSKLPEMLKMFEDRLCHKTYLNGDHVTHPDFMLYDALDVVLYMDPMCLDAFPKLVCFKKRIEAIPQIDKYLKSSKYIAWPLQGWQATFGGGDHPPKSD",
+    color: "#a16207", category: "Tags & Sites", note: "Glutathione S-Transferase (~26 kDa). Enhances solubility and allows for affinity purification on glutathione resin."
+  },
+  "MBP (E. coli)": {
+    seq: "MKIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKEIKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEALKDAQTRITK",
+    color: "#4d7c0f", category: "Tags & Sites", note: "Maltose-Binding Protein (~42 kDa). One of the most effective solubility-enhancing tags; allows purification on amylose resin."
+  },
+  "MBP (general)": {
+  seq: "KIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKELKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEAPKDAQT",
+    color: "#4d7c0f", category: "Tags & Sites", note: "Maltose-Binding Protein (~59 kDa). Generalized version for solubility enhancement; allows purification on amylose resin."
+  },
+  "Thioredoxin (E. coli)": {
+    seq: "SDKIIHLTDDSFDTDVLKADGAILVDFWAEWCGPCKMIAPILDEIADEYQGKLTVAKLNIDQNPGTAPKYGIRGIPTLLLFKNGEVAATKVGALSKGQLKEFLDANLA",
+    color: "#15803d", category: "Tags & Sites", note: "Thioredoxin 1 (~12 kDa). Enhances solubility and can aid in correct disulfide bond formation in the cytoplasm."
+  },
+  "SUMO (S. cerevisiae)": {
+    seq: "MSDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIGG",
+    color: "#7e22ce", category: "Tags & Sites", note: "Smt3 protein (~11 kDa). Enhances solubility. Cleavage by a SUMO-specific protease (e.g., Ulp1) yields a native N-terminus."
+  },
+  "EGFP": {
+    seq: "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+    color: "#4ade80", category: "Tags & Sites", note: "Enhanced Green Fluorescent Protein (~27 kDa). Intrinsically fluorescent reporter for live-cell imaging."
+  },
+  "mCherry": {
+    seq: "MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQDGEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKMRLKLKDGGHYDAEVKTTYMAKKPVQLPGAYKTDIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYK",
+    color: "#f43f5e", category: "Tags & Sites", note: "Monomeric Red Fluorescent Protein (~27 kDa). Intrinsically fluorescent reporter for multicolor imaging."
+  }
+};
+
+/**
+ * MOTIFS: Features defined by regular expressions.
+ * Many biological motifs are degenerate and these regexes are often heuristics.
+ * Notes provide context on their function and predictive limitations.
+ */
+const MOTIFS = [
+  /* ===== Post-Translational Modifications (PTMs) ===== */
+  { name:"N-glycosylation (N-X-[ST])",   category:"PTM", color:"#f97316",
+    note:"N-linked glycosylation consensus (X cannot be Proline).", regex:/N[^P][ST]/g },
+  { name:"C-mannosylation (W-x-x-W)",    category:"PTM", color:"#fb923c",
+    note:"Tryptophan C-mannosylation motif.",                    regex:/W..W/g },
+  { name:"Tyrosine sulfation ([DE]Y)",   category:"PTM", color:"#f59e0b",
+    note:"Acidic residue before Tyr; common heuristic.",         regex:/[DE]Y/g },
+  { name:"SUMOylation (ψ-K-x-[DE])",     category:"PTM", color:"#84cc16",
+    note:"Hydrophobic ψ (V/I/L/M/F/Y/W/C) before Lys; acidic at +2.", regex:/[VILMFYWC]K.[DE]/g },
+  { name:"Lysine Acetylation (K)",       category:"PTM", color:"#a3e635",
+    note:"Heuristic for Lys acetylation. HIGH FALSE-POSITIVE RATE. Use dedicated predictors for validation.", regex:/K/g },
+  { name:"Arg Methylation (GAR motif)",  category:"PTM", color:"#4ade80",
+    note:"Glycine-Arginine Rich motif heuristic for PRMTs. HIGH FALSE-POSITIVE RATE.", regex:/G.{0,3}R.{0,3}G/g },
+  { name:"CK2 phosphorylation",          category:"PTM", color:"#22c55e",
+    note:"Casein Kinase 2 site: (S/T)xx(D/E).",                  regex:/[ST]..[DE]/g },
+  { name:"PKA phosphorylation",          category:"PTM", color:"#f59e0b",
+    note:"Protein Kinase A site: (R/K)(R/K)x(S/T), no Pro at +1.", regex:/(?:R|K){2}.[ST](?!P)/g },
+  { name:"PKC phosphorylation",          category:"PTM", color:"#f43f5e",
+    note:"Protein Kinase C site: (S/T)x(R/K).",                  regex:/[ST].[RK]/g },
+  { name:"Akt/PKB phosphorylation",      category:"PTM", color:"#10b981",
+    note:"Akt/PKB site: RxRxx(S/T).",                            regex:/R.R..[ST]/g },
+  { name:"CDK phosphorylation",          category:"PTM", color:"#0ea5e9",
+    note:"Cyclin-Dependent Kinase site: (S/T)P x (K/R).",        regex:/[ST]P.[KR]/g },
+  { name:"MAPK phosphorylation",         category:"PTM", color:"#ef4444",
+    note:"Mitogen-Activated Protein Kinase site: Px(S/T)P.",     regex:/P.[ST]P/g },
+  { name:"ATM/ATR phosphorylation",      category:"PTM", color:"#fbbf24",
+    note:"DNA damage response kinase site: (S/T)Q.",            regex:/[ST]Q/g },
+  { name:"N-myristoylation (N-term)",    category:"PTM", color:"#65a30d",
+    note:"Gly at pos 2 required; simple heuristic.",            regex:/^M?G(?![EDRKHP])[A-Z]{3}[STAGCNV]/g },
+  { name:"Prenylation (CaaX, C-term)",   category:"PTM", color:"#16a34a",
+    note:"Cys + two aliphatic + [LIVM] at C-terminus.",          regex:/C[AILVFM][A-Z][LIVM]$/g },
+  { name:"C-term Amidation (G-R/K-R/K)", category:"PTM", color:"#0d9488",
+    note:"PROSITE PS00009. Signal for C-terminal amidation of peptide hormones after cleavage.", regex:/G[RK][RK]$/g },
+
+  /* ===== Protease & Enzyme Sites (Regex-based) ===== */
+  { name:"Furin Cleavage (R-x-K/R-R)",   category:"Tags & Sites", color:"#a16207",
+    note:"Proprotein convertase site for maturation in secretory pathway.", regex:/R.[KR]R/g },
+  { name:"Caspase-3 Cleavage (DEVD)",    category:"Tags & Sites", color:"#991b1b",
+    note:"Apoptotic executioner caspase site.",                  regex:/DEVD/g },
+  { name:"Caspase-8 Cleavage ([IL]ETD)", category:"Tags & Sites", color:"#b91c1c",
+    note:"Apoptotic initiator caspase site.",                    regex:/[IL]ETD/g },
+  { name:"Sortase A (LPXTG)",            category:"Tags & Sites", color:"#0ea5e9",
+    note:"Transpeptidation signal in Gram-positive bacteria.",   regex:/LP[A-Z]TG/g },
+  { name:"Tetracysteine Tag",            category:"Tags & Sites", color:"#fb7185",
+    note:"Binds biarsenical dyes (FlAsH/ReAsH). Minimal motif is CCxxCC.", regex:/CC[A-Z]{2}CC/g },
+
+  /* ===== Localization Signals ===== */
+  { name:"Signal Peptide (N-term)",      category:"Localization", color:"#67e8f9",
+    note:"Heuristic for secretory signal peptide. HIGHLY VARIABLE. Use SignalP for validation.", regex:/^M[A-Z]{0,20}[KR][A-Z]{2,8}[LIFVAGMW]{8,15}/g },
+  { name:"Transmembrane Domain",         category:"Localization", color:"#22d3ee",
+    note:"Heuristic for hydrophobic transmembrane helix. HIGH FALSE-POSITIVE RATE. Use TMHMM for validation.", regex:/[LIFVAGMW]{18,25}/g },
+  { name:"Monopartite NLS",              category:"Localization", color:"#a855f7",
+    note:"Classical nuclear localization signal, K(K/R)x(K/R).", regex:/K[KR][A-Z][KR]/g },
+  { name:"Bipartite NLS",                category:"Localization", color:"#8b5cf6",
+    note:"Two basic clusters separated by ~10aa spacer.",        regex:/[KR]{2}.{10,12}[KR]{3,}/g },
+  { name:"NES (Leu-rich, heuristic)",    category:"Localization", color:"#ec4899",
+    note:"Φ-x(2,3)-Φ-x(2,3)-Φ-x-Φ; Φ=LIVFM.",                   regex:/[LIVFM][A-Z]{2,3}[LIVFM][A-Z]{2,3}[LIVFM][A-Z][LIVFM]/g },
+  { name:"PTS1 (peroxisome, C-term)",    category:"Localization", color:"#22d3ee",
+    note:"C-terminal [SAC][KRH][LM].",                          regex:/[SAC][RKH][LM]$/g },
+  { name:"PTS2 (peroxisome, N-term)",    category:"Localization", color:"#06b6d4",
+    note:"Within first ~40 aa: [RK][LVI].{5}[HQ][LA].",         regex:/(?=^.{0,40})[RK][LVI][A-Z]{5}[HQ][LA]/g },
+  { name:"ER retention (KDEL/HDEL)",     category:"Localization", color:"#10b981",
+    note:"Luminal ER retrieval signal (C-terminus).",            regex:/(KDEL|HDEL)$/g },
+  { name:"ER retrieval (KKXX, C-term)",  category:"Localization", color:"#059669",
+    note:"Cytosolic KKxx at extreme C-terminus.",                regex:/KK[A-Z]{2}$/g },
+
+  /* ===== Domains & Binding / Degrons ===== */
+  { name:"Walker A (P-loop)",            category:"Domain", color:"#a78bfa",
+    note:"ATP/GTP binding motif: GxxxxGKS/T.",                 regex:/G[A-Z]{4}GK[ST]/g },
+  { name:"Zn finger C2H2",               category:"Domain", color:"#7c3aed",
+    note:"Classical Cys2-His2 zinc finger.",                   regex:/C.{2,4}C.{12}H.{3,5}H/g },
+  { name:"Coiled-Coil Heptad Repeat",    category:"Domain", color:"#94a3b8",
+    note:"Heuristic for coiled-coil structure: [h]xxxxx[h]xxxxx[h]. h=hydrophobic.", regex:/[LIVMF][A-Z]{6}[LIVMF][A-Z]{6}[LIVMF]/g },
+  { name:"SH3-binding (Class I)",        category:"Domain", color:"#60a5fa",
+    note:"Proline-rich motif: RxxPxxP.",                       regex:/R..P..P/g },
+  { name:"WW-binding (PPxY)",            category:"Domain", color:"#38bdf8",
+    note:"PPxY motif.",                                         regex:/PP.Y/g },
+  { name:"PDZ-binding (Class I, C-term)",category:"Domain", color:"#14b8a6",
+    note:"(S/T)xV at C-terminus.",                              regex:/[ST][A-Z]V$/g },
+  { name:"KEN box (APC/C degron)",       category:"Degron", color:"#ef4444",
+    note:"Degradation signal for APC/C E3 ligase.",            regex:/KEN.{0,3}N/g },
+  { name:"D-box (RxxL)",                 category:"Degron", color:"#f87171",
+    note:"Destruction box for APC/C E3 ligase.",               regex:/R..L..[ILV]/g }
+];
+
+
+  // 1) Robust FASTA parse: capture sequence trailing on the '>' header line
+function parseFastaFlexible(text){
+  const lines = text.replace(/\r/g,'').split('\n');
+  const out = [];
+  let header = null, seq = [];
+  let sawHeader = false;
+
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (!l) continue;
+    if (l.startsWith(';')) continue; // comment
+
+    if (l.startsWith('>')) {
+      // flush previous
+      if (header !== null) out.push({ header, seq: seq.join('') });
+
+      // split header vs. accidental sequence on the same line
+      const after = l.slice(1).trim();
+      const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/); // AA run at end
+      if (tailAA && tailAA[1].length >= 5) {
+        header = after.slice(0, after.length - tailAA[1].length).trim() || `Sequence ${out.length+1}`;
+        seq = [tailAA[1]];
+      } else {
+        header = after || `Sequence ${out.length+1}`;
+        seq = [];
+      }
+      sawHeader = true;
+    } else {
+      seq.push(l);
+    }
+  }
+  if (header !== null) out.push({ header, seq: seq.join('') });
+
+  // headerless paste
+  if (!sawHeader) {
+    const joined = lines.join('\n');
+    if (/[A-Za-z]/.test(joined)) out.push({ header: 'Sequence 1', seq: joined });
+  }
+  return out;
+}
+
+// 2) Safer sanitizer: pull only valid residues in one pass (never stateful)
+function sanitizeSequenceWithLog(raw){
+  const upper = raw.toUpperCase();
+  const kept = (upper.match(/[ACDEFGHIKLMNPQRSTVWYUBZOJX]+/g) || []).join('');
+  const removedCount = upper.length - kept.length;
+
+  // Keep working sequences; only fail if truly nothing was found
+  if (kept.length === 0) {
+    throw new Error('Sequence contains no valid residues after cleaning.');
+  }
+  return {
+    seq: kept,
+    issues: removedCount > 0 ? `Removed non-residue characters: ${removedCount}` : '',
+    notes: ''
   };
-  const MOTIFS = [
-    { name:"N‑glycosylation", category:"PTM", color:"#f97316", regex:/N[^P][ST]/g },
-    { name:"SUMOylation", category:"PTM", color:"#84cc16", regex:/[VILMFYWC]K.[DE]/g },
-    { name:"Walker A (P‑loop)", category:"Domain", color:"#a855f7", regex:/G....GK[ST]/g },
-    { name:"Zn finger C2H2", category:"Domain", color:"#8b5cf6", regex:/C.{2,4}C.{12}H.{3,5}H/g },
-  ];
+}
 
-  function parseFasta(text){
-    const lines = text.replace(/\r/g,'').split('\n');
-    let out = [], header = null, seq = [];
-    for(const l of lines){
-      if(!l.trim()) continue;
-      if(l.startsWith('>')){
-        if(header) out.push({ header, seq: seq.join('') });
-        header = l.slice(1).trim(); seq = [];
-      } else { seq.push(l.trim()); }
+  // Clean while tracking what changed. Fail only on true invalid letters.
+  function sanitizeSequenceWithLog(raw){
+    const upper = raw.toUpperCase();
+
+    const removed = { whitespace:0, digits:0, dashes:0, stars:0, punctuation:0, other:0 };
+    const keepRe = /[ACDEFGHIKLMNPQRSTVWYUBZOJX]/;
+    let cleanedArr = [];
+
+    for (let i = 0; i < upper.length; i++){
+      const ch = upper[i];
+      if (keepRe.test(ch)) { cleanedArr.push(ch); continue; }
+
+      if (/\\s/.test(ch)) { removed.whitespace++; continue; }
+      if (/[0-9]/.test(ch)) { removed.digits++; continue; }
+      if (/[-–—_]/.test(ch)) { removed.dashes++; continue; }
+      if (ch === '*') { removed.stars++; continue; }
+      if (/[.,:;\\/|()\\[\\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
+
+      // This is a true invalid letter or symbol
+      removed.other++;
     }
-    if(header) out.push({ header, seq: seq.join('') });
-    return out;
+
+    const seq = cleanedArr.join('');
+    const issues = removed.other > 0 ? `Invalid letters removed: ${removed.other}` : '';
+    const notes = [];
+    if (removed.whitespace) notes.push(`spaces ${removed.whitespace}`);
+    if (removed.digits) notes.push(`digits ${removed.digits}`);
+    if (removed.dashes) notes.push(`dashes ${removed.dashes}`);
+    if (removed.stars) notes.push(`stars ${removed.stars}`);
+    if (removed.punctuation) notes.push(`punct ${removed.punctuation}`);
+
+    return { seq, issues, notes: notes.join(', ') };
   }
 
-  function sanitizeSequence(raw){
-    const s = raw.toUpperCase().replace(/\s/g,'').replace(/\*/g,'');
-    if(!/^[ACDEFGHIKLMNPQRSTVWYUBZOJX]+$/.test(s)){
-      const bad = s.replace(/[ACDEFGHIKLMNPQRSTVWYUBZOJX]/g,'');
-      throw new Error("Invalid characters: " + Array.from(new Set(bad.split(''))).join(' '));
-    }
-    return s;
-  }
-
-  function countAA(seq){
-    const c = Object.create(null);
-    for(const ch of seq) c[ch] = (c[ch]||0)+1;
-    return c;
-  }
-
-  function molecularWeight(counts){
-    let m = 18.01528;
-    for(const a in counts) m += (counts[a] || 0) * (AA.mw[a] || 0);
-    return m;
-  }
-
-  function gravy(seq){
-    if(!seq.length) return 0;
-    let s=0; for(const a of seq) s += (AA.kd[a] ?? 0); return s/seq.length;
-  }
+  /* -------- Core calculations -------- */
+  function countAA(seq){ const c = Object.create(null); for(const ch of seq) c[ch] = (c[ch]||0)+1; return c; }
+  function molecularWeight(counts){ let m = 18.01528; for(const a in counts) m += (counts[a]||0) * (AA.mw[a]||0); return m; }
+  function gravy(seq){ if(!seq.length) return 0; let s=0; for(const a of seq) s += (AA.kd[a] ?? 0); return s/seq.length; }
 
   function netCharge(counts, pH){
     let p = 1/(1+10**(pH - AA.pKa_term.N));
@@ -236,23 +439,15 @@
     n += (counts.Y||0)/(1+10**(AA.pKa_side.Y - pH));
     return p - n;
   }
-
   function isoelectricPoint(counts){
     let lo=0.0, hi=14.0;
-    for(let i=0;i<60;i++){
-      const mid = (lo+hi)/2;
-      if(netCharge(counts, mid) > 0) lo = mid; else hi = mid;
-    }
+    for(let i=0;i<60;i++){ const mid=(lo+hi)/2; if(netCharge(counts, mid)>0) lo=mid; else hi=mid; }
     return (lo+hi)/2;
   }
-
   function instabilityIndex(seq){
     if(seq.length < 2) return 0;
     let score = 0;
-    for(let i=0;i<seq.length-1;i++){
-      const a = seq[i], b = seq[i+1];
-      if (DIWV[a] && typeof DIWV[a][b] !== 'undefined') score += DIWV[a][b];
-    }
+    for(let i=0;i<seq.length-1;i++){ const a=seq[i], b=seq[i+1]; if (DIWV[a] && typeof DIWV[a][b] !== 'undefined') score += DIWV[a][b]; }
     return (10 / seq.length) * score;
   }
 
@@ -288,45 +483,20 @@
     return arr;
   }
 
+  /* Features */
+  function kdAverage(seq, i, w){ let s=0; for(let k=0;k<w;k++) s += (AA.kd[seq[i+k]] ?? 0); return s / w; }
   function mergeSegments(arr){
     if(!arr.length) return [];
     arr.sort((a,b)=> a.start - b.start || a.end - b.end);
     const out=[{...arr[0]}];
     for(let i=1;i<arr.length;i++){
       const last = out[out.length-1], cur = arr[i];
-      if(cur.category===last.category && cur.start <= last.end + 1) last.end = Math.max(last.end, cur.end);
+      const sameClass = (cur.category===last.category) && (cur.name===last.name);
+      if(sameClass && cur.start <= last.end + 1) last.end = Math.max(last.end, cur.end);
       else out.push({...cur});
     }
     return out;
   }
-
-  function scanFeatures(seq){
-    const feats=[];
-    for(const name in TAGS){
-      const def = TAGS[name];
-      for(const pattern of def.seqs){
-        let idx = seq.indexOf(pattern);
-        while(idx !== -1){
-          feats.push({ start: idx, end: idx + pattern.length - 1, name, ...def });
-          idx = seq.indexOf(pattern, idx+1);
-        }
-      }
-    }
-    for(const m of MOTIFS){
-      const re = new RegExp(m.regex.source, "g");
-      let match;
-      while((match = re.exec(seq)) !== null){
-        const start = match.index, len = match[0].length;
-        feats.push({ start, end: start + len - 1, name: m.name, ...m });
-      }
-    }
-    return feats;
-  }
-
-  function kdAverage(seq, i, w){
-    let sum = 0; for(let k=0;k<w;k++) sum += (AA.kd[seq[i+k]] ?? 0); return sum / w;
-  }
-
   function transmembranes(seq, w=19, thr=1.6){
     const feats=[];
     for(let i=0;i<=seq.length-w;i++){
@@ -339,15 +509,53 @@
     }
     return mergeSegments(feats);
   }
+  function signalPeptideCandidates(seq){
+    const feats=[]; const N= Math.min(30, seq.length);
+    let i=0;
+    while(i<=N-7){
+      if(kdAverage(seq,i,7) >= 1.6){
+        let j=i+7;
+        while(j<N && kdAverage(seq, j-6, 7) >= 1.2) j++;
+        feats.push({ start:i, end:j-1, name:"Signal peptide (candidate)", category:"Topology", color:"#fb7185", note:"Heuristic: hydrophobic stretch near N-terminus." });
+        i=j;
+      } else i++;
+    }
+    return feats;
+  }
+  function scanFeatures(seq){
+    const feats=[];
+    for(const name in TAGS){
+      const def = TAGS[name];
+      for(const pattern of def.seqs){
+        let idx = seq.indexOf(pattern);
+        while(idx !== -1){
+          feats.push({ start: idx, end: idx + pattern.length - 1, name, match: pattern, note: "Tag/site match.", ...def });
+          idx = seq.indexOf(pattern, idx+1);
+        }
+      }
+    }
+    for(const m of MOTIFS){
+      const re = new RegExp(m.regex.source, m.regex.flags);
+      let match;
+      while((match = re.exec(seq)) !== null){
+        const start = match.index, len = match[0].length;
+        feats.push({ start, end: start + len - 1, name: m.name, color: m.color, category: m.category, match: match[0], note: m.note || "" });
+        if (len === 0) re.lastIndex++;
+      }
+    }
+    return feats;
+  }
 
   function getResidueStats(seq) {
     const counts = countAA(seq);
+    const std = Array.from("ACDEFGHIKLMNPQRSTVWY");
     const total = seq.length;
     const pct = {};
-    for(const aa in counts) pct[aa] = ((counts[aa]/Math.max(1,total))*100).toFixed(2);
-    return { counts, pct, total };
+    std.forEach(aa => { const n = counts[aa] || 0; pct[aa] = ((n/Math.max(1,total))*100).toFixed(2); });
+    return { counts, pct, total, order: std };
   }
 
+  /* UI elements */
   const els = {
     fasta: document.getElementById('fasta_input'),
     file: document.getElementById('file_input'),
@@ -355,17 +563,24 @@
     clear: document.getElementById('clear_button'),
     results: document.getElementById('results_section'),
     pH: document.getElementById('ref_pH'),
+    pHslider: document.getElementById('ref_pH_slider'),
     tmWindow: document.getElementById('tm_window'),
+    tmThr: document.getElementById('tm_thr'),
     loadExample: document.getElementById('load_example'),
     tooltip: document.getElementById('svg-tooltip'),
     optHydro: document.getElementById('opt_hydro'),
     optCharge: document.getElementById('opt_charge'),
     optCys: document.getElementById('opt_cys'),
     hydroWindow: document.getElementById('hydro_window'),
-    chargeWindow: document.getElementById('charge_window')
+    chargeWindow: document.getElementById('charge_window'),
+    exportAllCsv: document.getElementById('export_all_csv'),
+    toggleAllPlots: document.getElementById('toggle_all_plots'),
+    expandAll: document.getElementById('expand_all'),
+    collapseAll: document.getElementById('collapse_all'),
   };
 
   let resultCounter=0, currentResults=[];
+  let plotsVisible=true;
 
   els.file.addEventListener('change', e=>{
     const f=e.target.files[0];
@@ -390,37 +605,65 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     els.fasta.value=""; els.results.innerHTML=""; resultCounter=0; currentResults=[];
   });
 
-  [els.optHydro, els.optCharge, els.optCys, els.hydroWindow, els.chargeWindow, els.pH].forEach(c=>{
-    c.addEventListener('change', ()=> refreshAllPlots());
+  function syncPHInputs(from){
+    if(from==='slider'){ els.pH.value = Number(els.pHslider.value).toFixed(1); }
+    if(from==='box'){ els.pHslider.value = els.pH.value; }
+    refreshAllPlots();
+    refreshCharges();
+  }
+  els.pHslider.addEventListener('input', ()=>syncPHInputs('slider'));
+  els.pH.addEventListener('change', ()=>syncPHInputs('box'));
+
+  [els.optHydro, els.optCharge, els.optCys, els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr].forEach(c=>{
+    c.addEventListener('change', ()=> { refreshAllCards(); });
   });
 
   els.analyze.addEventListener('click', ()=>{
     const t=els.fasta.value.trim();
-    if(!t){ alert("Please paste or upload FASTA sequences."); return; }
+    if(!t){ alert("Please paste or upload sequences."); return; }
+
     els.results.innerHTML=""; currentResults=[];
+
     try{
-      const seqs=parseFasta(t);
-      if(!seqs.length) throw new Error("No valid FASTA found.");
-      for(const item of seqs){
+      const records = parseFastaFlexible(t);
+      if(!records.length) throw new Error("No sequence letters found.");
+
+      for(const item of records){
         try{
-          const obj=analyzeSingle(item);
+          // Cleaning + validation
+          const { seq, issues, notes } = sanitizeSequenceWithLog(item.seq);
+          if(seq.length === 0) throw new Error("Sequence contains no valid residues after cleaning.");
+          if(issues) {
+            // Keep but note that truly invalid letters were removed
+            console.warn(issues);
+          }
+
+          const obj=analyzeSingle({ header: item.header, seq });
+          obj.parseNotes = notes;
+          obj.parseIssues = issues;
           currentResults.push(obj);
           buildResultCard(obj);
+
         }catch(e){
           showErrorCard(`Error analyzing: ${item.header}`, e.message);
         }
       }
-      refreshAllPlots();
+      refreshAllCards();
+
     }catch(e){ showErrorCard("Parse error", e.message); }
   });
 
   function analyzeSingle(item){
-    const s = sanitizeSequence(item.seq);
+    const s = item.seq;
     const L = s.length;
     const c = countAA(s);
     const tmW = parseInt(els.tmWindow.value,10);
+    const tmT = Number(els.tmThr.value);
     const mw = molecularWeight(c);
-    const allFeats = mergeSegments([ ...transmembranes(s, tmW), ...scanFeatures(s) ]);
+    const tmSegs = transmembranes(s, tmW, tmT);
+    const spSegs = signalPeptideCandidates(s);
+    const motifSegs = scanFeatures(s);
+    const allFeats = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
     return {
       id: ++resultCounter,
       header: item.header,
@@ -432,7 +675,8 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       gravy: gravy(s),
       extinction: extinctionCoefficients(c, mw),
       instability: instabilityIndex(s),
-      features: allFeats
+      features: allFeats,
+      counts: c
     };
   }
 
@@ -443,116 +687,169 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
 
   function buildResultCard(obj){
     const stabilityText = obj.instability < 40 ? `<span class="text-green-700 font-semibold">Stable</span>` : `<span class="text-red-700 font-semibold">Unstable</span>`;
-
-    const byLane = obj.features.reduce((acc, f) => {
-      (acc[f.category] = acc[f.category] || []).push(f);
-      return acc;
-    }, {});
-
-    // Residue statistics (moved outside feature list)
+    const byLane = obj.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
     const stats = getResidueStats(obj.seq);
-    const statsRows = Object.entries(stats.pct)
-      .sort((a,b)=>parseFloat(b[1]) - parseFloat(a[1]))
-      .map(([aa,pct])=>`<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${stats.counts[aa]}</td><td class="px-1 text-right">${pct}%</td></tr>`)
+    const statsRows = stats.order
+      .map(aa => {
+        const n = stats.counts[aa] || 0;
+        const p = stats.pct[aa];
+        return `<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${n}</td><td class="px-1 text-right">${p}%</td></tr>`;
+      })
       .join('');
-    const residueStatsBox = `
-      <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
-        <details class="text-sm font-medium" open>
-          <summary class="cursor-pointer font-semibold">Residue statistics (${stats.total} aa)</summary>
-          <div class="h-28 overflow-y-auto mt-1 border-t pt-1">
-            <table class="w-full"><thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead><tbody>${statsRows}</tbody></table>
-          </div>
-        </details>
-      </div>`;
 
-    const featureListItems = Object.entries(byLane).map(([category, feats]) => {
-      const items = feats.map(f => {
-        return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}">
-            <span class="font-semibold text-sm">${f.name}</span>
-            <span class="mono text-xs text-gray-600 ml-2">[${f.start+1}..${f.end+1}]</span>
-        </li>`;
-      }).join('');
-
-      return `<details open class="mb-2">
-                <summary class="font-semibold cursor-pointer text-gray-800">${category} (${feats.length})</summary>
-                <ul class="mt-1 pl-2 space-y-1">${items}</ul>
-              </details>`;
-    }).join('');
+    const parsingNote = (obj.parseNotes || obj.parseIssues)
+      ? `<div class="note mt-1">Parsing notes: ${obj.parseNotes ? obj.parseNotes : 'none'}${obj.parseIssues ? ' • <b>'+obj.parseIssues+'</b>' : ''}</div>`
+      : '';
 
     const card = `
-      <div id="result-card-${obj.id}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div class="flex items-baseline justify-between gap-3">
-          <h3 class="text-lg font-semibold text-blue-700">${obj.header}</h3>
-          <p class="text-sm text-gray-500">Residues: <span class="mono">${obj.length} aa</span></p>
+      <div id="result-card-${obj.id}" class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base md:text-lg font-semibold text-indigo-700">${obj.header}</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Length: <span class="mono">${obj.length}</span> aa • Monoisotopic mass: <span class="mono">${obj.molecularWeight.toFixed(2)}</span> Da</p>
+            ${parsingNote}
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-copy-fasta="${obj.id}">Copy FASTA</button>
+            <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-download-svg="${obj.id}">Save map (SVG)</button>
+            <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-export-props="${obj.id}">Export props (CSV)</button>
+          </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-8 mt-3">
+        <div class="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 mt-3">
           <div>
-            <h4 class="font-semibold text-base mb-2">Graphical map</h4>
+            <h4 class="font-semibold text-sm mb-1">Graphical map</h4>
             <div id="track-container-${obj.id}" class="w-full"></div>
-            <div id="plots-${obj.id}" class="mt-4 space-y-6"></div>
+            <div id="plots-${obj.id}" class="mt-3 ${plotsVisible ? '' : 'hidden'}"></div>
           </div>
-          <div>
-            <h4 class="font-semibold text-base mb-2">Properties</h4>
-            <div class="space-y-3">
-              <details class="bg-gray-50 border border-gray-100 rounded-xl p-3 always-open" open>
-                <summary class="font-semibold text-sm select-none">Physicochemical</summary>
-                <div class="text-xs space-y-1 mt-2 pt-2 border-t">
-                  <p><strong>Molecular Weight:</strong> <span class="mono">${obj.molecularWeight.toFixed(2)}</span> Da</p>
-                  <p><strong>Theoretical pI:</strong> <span class="mono">${obj.pI.toFixed(2)}</span></p>
-                  <p><strong>Net Charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono">${obj.chargeAtPH.toFixed(2)}</span></p>
-                  <p><strong>GRAVY (Kyte–Doolittle):</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></p>
-                  <p><strong>Instability Index:</strong> <span class="mono">${obj.instability.toFixed(2)}</span> &nbsp; ${stabilityText}</p>
-                  <div class="mt-1 pt-1 border-t">
-                    <p><strong>ε<sub>280</sub> (M<sup>−1</sup> cm<sup>−1</sup>)</strong></p>
-                    <p class="pl-2">Reduced: ${obj.extinction.reduced} &nbsp; | &nbsp; Cystines: ${obj.extinction.cystines}</p>
-                    <p class="pl-2">A<sub>280</sub> (1 mg/mL, 1 cm): ${obj.extinction.A1mgml_reduced.toFixed(3)} (reduced), ${obj.extinction.A1mgml_cystines.toFixed(3)} (cystines)</p>
-                  </div>
+          <div class="space-y-3">
+            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
+              <div class="grid grid-cols-2 gap-y-1 text-xs">
+                <div><strong>Theoretical pI:</strong> <span class="mono">${obj.pI.toFixed(2)}</span></div>
+                <div><strong>Net charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono">${obj.chargeAtPH.toFixed(2)}</span></div>
+                <div><strong>GRAVY (KD):</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></div>
+                <div><strong>Instability:</strong> <span class="mono">${obj.instability.toFixed(2)}</span> ${stabilityText}</div>
+              </div>
+              <div class="mt-2 pt-2 border-t text-xs">
+                <div class="grid grid-cols-[170px,1fr] gap-y-1 items-center">
+                  <div class="text-gray-500">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono">${obj.extinction.reduced}</div>
+                  <div class="text-gray-500">ε<sub>280</sub> (+cystines)</div><div class="mono">${obj.extinction.cystines}</div>
+                  <div class="text-gray-500">A<sub>280</sub> @ 1 mg/mL, 1 cm (reduced)</div><div class="mono">${obj.extinction.A1mgml_reduced.toFixed(3)}</div>
+                  <div class="text-gray-500">A<sub>280</sub> @ 1 mg/mL, 1 cm (+cystines)</div><div class="mono">${obj.extinction.A1mgml_cystines.toFixed(3)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white border border-gray-100 rounded-xl p-3">
+              <h4 class="font-semibold text-sm mb-2">A<sub>280</sub> helper</h4>
+              <div class="grid grid-cols-3 gap-2 items-end">
+                <div>
+                  <label class="block text-xs">Path length (cm)</label>
+                  <input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border rounded-lg" data-a280-path="${obj.id}">
+                </div>
+                <div>
+                  <label class="block text-xs">Use ε</label>
+                  <select class="w-full p-2 border rounded-lg" data-a280-eps-type="${obj.id}">
+                    <option value="reduced">Reduced (no disulfides)</option>
+                    <option value="cystines">With cystines</option>
+                  </select>
+                </div>
+                <div class="text-right">
+                  <button class="text-xs bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label class="block text-xs">Concentration (mg/mL)</label>
+                  <input type="number" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g., 0.5" data-a280-mgml="${obj.id}">
+                  <div class="text-xs text-gray-500 mt-1">A = (ε/MW)·mg/mL·path</div>
+                </div>
+                <div>
+                  <label class="block text-xs">Concentration (µM)</label>
+                  <input type="number" step="0.01" class="w-full p-2 border rounded-lg" placeholder="e.g., 10" data-a280-um="${obj.id}">
+                  <div class="text-xs text-gray-500 mt-1">A = ε·(µM·1e−6)·path</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label class="block text-xs">Measured A<sub>280</sub></label>
+                  <input type="number" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g., 0.7" data-a280-A="${obj.id}">
+                </div>
+                <div class="text-xs text-gray-700 flex items-end"><span data-a280-out="${obj.id}"></span></div>
+              </div>
+            </div>
+
+            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
+              <details class="text-sm font-medium" open>
+                <summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary>
+                <div class="h-28 overflow-y-auto mt-1 border-t pt-1">
+                  <table class="w-full text-xs">
+                    <thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead>
+                    <tbody>${statsRows}</tbody>
+                  </table>
                 </div>
               </details>
-              ${residueStatsBox}
-              <div class="border border-gray-100 rounded-xl p-3 bg-gray-50 h-64 overflow-y-auto">
-                ${featureListItems || '<p class="text-sm text-gray-500">No features found.</p>'}
-              </div>
+            </div>
+
+            <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">
+              ${buildFeatureListHTML(byLane)}
             </div>
           </div>
         </div>
       </div>
     `;
     els.results.insertAdjacentHTML('beforeend', card);
-
-    const cardEl = document.getElementById(`result-card-${obj.id}`);
-    const details = cardEl.querySelector('details.always-open');
-    details.addEventListener('toggle', (e)=>{ e.target.open = true; });
-
     renderGraphicalMap(`track-container-${obj.id}`, byLane, obj.length, obj.seq);
-    setupInteractions(obj.id);
+    setupInteractions(obj.id, obj);
+    wireA280Helper(obj);
+    wirePerCardExports(obj);
   }
 
+  function buildFeatureListHTML(byLane){
+    const keys = Object.keys(byLane);
+    if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
+    return keys.sort().map(category => {
+      const items = byLane[category].map(f => {
+        const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 px-1 rounded">${f.match}</span>` : '';
+        const note = f.note ? ` <span class="text-xs text-gray-600">(${f.note})</span>` : '';
+        return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}" data-match="${f.match||''}" data-note="${f.note||''}">
+          <span class="font-semibold text-sm">${f.name}</span>${note}
+          <span class="mono text-xs text-gray-600 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
+        </li>`;
+      }).join('');
+      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-gray-800">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
+    }).join('');
+  }
+
+  /* Graphical map with aligned hover */
   function renderGraphicalMap(containerId, byLane, seqLen, seq) {
     const container = document.getElementById(containerId);
     const laneOrder = Object.keys(byLane).sort();
-    const hLane = 18, hSeq = 24, topPad = 5, leftPad = 80, rightPad = 10;
-    const height = (laneOrder.length * hLane) + hSeq + topPad + 25;
+    const hLane = 18, hSeq = 22, topPad = 5, leftPad = 80, rightPad = 10;
+    const vbW = 1000;
+    const height = (laneOrder.length * hLane) + hSeq + topPad + 24;
+
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', height);
-    svg.setAttribute('viewBox', `0 0 500 ${height}`);
+    svg.setAttribute('width', '100%'); svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${vbW} ${height}`);
     svg.classList.add('feature-track-svg');
     svg.dataset.seqLen = String(seqLen);
+    svg.dataset.vbW = String(vbW);
+    svg.dataset.leftPad = String(leftPad);
+    svg.dataset.rightPad = String(rightPad);
 
-    const stepPixels = (w)=> (w - leftPad - rightPad) / Math.max(1, seqLen - 1);
-    const xScale = (pos, w) => leftPad + stepPixels(w) * pos;
+    const step = (vbW - leftPad - rightPad) / Math.max(1, seqLen - 1);
+    const xScale = (pos) => leftPad + step * pos;
 
     const seqY = topPad + laneOrder.length * hLane;
     const seqBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     seqBg.setAttribute('x', leftPad); seqBg.setAttribute('y', seqY);
-    seqBg.setAttribute('height', hSeq); seqBg.setAttribute('class', 'seq-bar-bg');
-    svg.appendChild(seqBg);
+    seqBg.setAttribute('height', hSeq); seqBg.setAttribute('width', vbW - leftPad - rightPad);
+    seqBg.setAttribute('class', 'seq-bar-bg'); svg.appendChild(seqBg);
+
     const seqHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     seqHighlight.setAttribute('y', seqY); seqHighlight.setAttribute('height', hSeq);
-    seqHighlight.setAttribute('class', 'seq-bar-highlight');
-    seqHighlight.style.visibility = 'hidden';
+    seqHighlight.setAttribute('class', 'seq-bar-highlight'); seqHighlight.style.visibility = 'hidden';
     svg.appendChild(seqHighlight);
 
     laneOrder.forEach((laneName, i) => {
@@ -560,16 +857,17 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', 4); text.setAttribute('y', y + hLane/2 + 4);
       text.setAttribute('font-size', '10'); text.setAttribute('fill', '#4b5563');
-      text.textContent = laneName;
-      svg.appendChild(text);
+      text.textContent = laneName; svg.appendChild(text);
 
       byLane[laneName].forEach(f => {
         const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         r.dataset.start = f.start; r.dataset.end = f.end; r.dataset.name = f.name; r.dataset.category = laneName;
+        r.dataset.match = f.match || ""; r.dataset.note = f.note || "";
         r.setAttribute('y', y + 2); r.setAttribute('height', hLane - 4);
-        r.setAttribute('fill', f.color); r.setAttribute('rx', '3');
-        r.classList.add('feat-rect');
-        svg.appendChild(r);
+        r.setAttribute('fill', f.color || '#94a3b8'); r.setAttribute('rx', '3');
+        r.setAttribute('x', xScale(f.start));
+        r.setAttribute('width', Math.max(2, step * (f.end - f.start + 1)));
+        r.classList.add('feat-rect'); svg.appendChild(r);
       });
     });
 
@@ -577,62 +875,41 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const ticksGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
     for (let i = 0; i <= 10; i++) {
       const posIdx = Math.round(i * (seqLen - 1) / 10);
+      const x = xScale(posIdx);
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.dataset.pos = posIdx;
+      line.setAttribute('x1', x); line.setAttribute('x2', x);
       line.setAttribute('y1', axisY); line.setAttribute('y2', axisY + 4);
-      line.setAttribute('stroke', '#9ca3af');
-      ticksGroup.appendChild(line);
+      line.setAttribute('stroke', '#9ca3af'); ticksGroup.appendChild(line);
       if (i > 0 && (seqLen > 50 ? i % 2 === 0 : true)) {
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.dataset.pos = posIdx;
-        t.setAttribute('y', axisY + 14);
-        t.setAttribute('text-anchor', 'middle');
-        t.setAttribute('font-size', '10'); t.setAttribute('fill', '#6b7280');
-        t.textContent = posIdx + 1;
-        ticksGroup.appendChild(t);
+        t.dataset.pos = posIdx; t.setAttribute('x', x); t.setAttribute('y', axisY + 14);
+        t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '10'); t.setAttribute('fill', '#6b7280');
+        t.textContent = posIdx + 1; ticksGroup.appendChild(t);
       }
     }
-    svg.appendChild(ticksGroup);
-    container.appendChild(svg);
+    svg.appendChild(ticksGroup); container.appendChild(svg);
 
-    const ro = new ResizeObserver(entries => {
-      const w = entries[0].contentRect.width;
-      const step = stepPixels(w);
-      svg.querySelectorAll('rect.feat-rect').forEach(r => {
-        const start = parseInt(r.dataset.start, 10);
-        const end   = parseInt(r.dataset.end,   10);
-        const x1 = xScale(start, w);
-        const width = Math.max(2, step * (end - start + 1));
-        r.setAttribute('x', x1); r.setAttribute('width', width);
-      });
-      seqBg.setAttribute('width', w - leftPad - rightPad);
-      ticksGroup.querySelectorAll('line, text').forEach(el => {
-        const pos = parseInt(el.dataset.pos, 10);
-        const x = xScale(pos, w);
-        if (el.tagName === 'line') { el.setAttribute('x1', x); el.setAttribute('x2', x); }
-        else { el.setAttribute('x', x); }
-      });
-    });
-    ro.observe(container);
+    function clientToSvgX(evt){
+      const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+      const local = pt.matrixTransform(svg.getScreenCTM().inverse()); return local.x;
+    }
 
-    // Collect all features for fast lookup
-    const allFeatures = [];
-    Object.values(byLane).forEach(arr => arr.forEach(f => allFeatures.push(f)));
+    const allFeatures = []; Object.values(byLane).forEach(arr => arr.forEach(f => allFeatures.push(f)));
 
     svg.addEventListener('mousemove', e => {
-      const rect = svg.getBoundingClientRect();
-      const w = rect.width;
-      const x = e.clientX - rect.left;
-      if (x < 80 || x > w - 10) { els.tooltip.style.visibility = 'hidden'; return; }
-      const pos = Math.round((x - 80) / ((w - 80 - 10) / Math.max(1, seqLen - 1)));
+      const localX = clientToSvgX(e);
+      if (localX < leftPad || localX > vbW - rightPad) { els.tooltip.style.visibility = 'hidden'; return; }
+      const pos = Math.round((localX - leftPad) / step);
       if (pos >= 0 && pos < seqLen) {
-        // Find all features covering this position
         const featsAtPos = allFeatures.filter(f => f.start <= pos && f.end >= pos);
         let html = `<strong>Pos: ${pos + 1}</strong>, AA: <span class="mono">${seq[pos]}</span>`;
         if (featsAtPos.length > 0) {
           html += '<br><span style="color:#f59e42;font-weight:600">Features:</span><ul style="margin:0;padding-left:1em">';
           featsAtPos.forEach(f => {
-            html += `<li><span style="color:${f.color}"><strong>${f.name}</strong></span> <span style="font-size:11px">[${f.category}, ${f.start+1}..${f.end+1}]</span></li>`;
+            const match = f.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${f.match}</span>` : '';
+            const note = f.note ? ` <span style="color:#cbd5e1">(${f.note})</span>` : '';
+            html += `<li><span style="color:${f.color||'#fff'}"><strong>${f.name}</strong></span> <span style="font-size:11px">[${f.category}, ${f.start+1}..${f.end+1}]</span>${match}${note}</li>`;
           });
           html += '</ul>';
         }
@@ -643,27 +920,43 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       }
     });
     svg.addEventListener('mouseleave', () => { els.tooltip.style.visibility = 'hidden'; });
+
+    svg.querySelectorAll('.feat-rect').forEach(r => {
+      r.addEventListener('mouseenter', (e) => {
+        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
+        highlightSvgRange(svg, start, end, true);
+        const match = r.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${r.dataset.match}</span>` : '';
+        const note = r.dataset.note ? ` <span style="color:#cbd5e1">(${r.dataset.note})</span>` : '';
+        els.tooltip.style.visibility = 'visible';
+        els.tooltip.innerHTML = `<strong>${r.dataset.name}</strong>${note}<br><span style="font-size:11px">${r.dataset.category} • ${start+1}..${end+1}</span>${match}`;
+        els.tooltip.style.left = `${e.pageX + 10}px`;
+        els.tooltip.style.top  = `${e.pageY - 28}px`;
+      });
+      r.addEventListener('mousemove', (e)=>{ els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
+      r.addEventListener('mouseleave', () => {
+        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
+        highlightSvgRange(svg, start, end, false);
+        els.tooltip.style.visibility = 'hidden';
+      });
+    });
   }
 
-  function setupInteractions(id) {
+  function setupInteractions(id, obj) {
     const card = document.getElementById(`result-card-${id}`);
     const svg = card.querySelector('.feature-track-svg');
-
     card.querySelectorAll('.feature-list-item').forEach(item => {
       item.addEventListener('mouseenter', (ev) => {
         const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
         highlightSvgRange(svg, start, end, true);
         toggleSvgRect(svg, start, end, true);
         item.classList.add('active');
+        const match = item.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${item.dataset.match}</span>` : '';
+        const note = item.dataset.note ? ` <span style="color:#cbd5e1">(${item.dataset.note})</span>` : '';
         els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong><br>Type: ${item.dataset.category}<br>Range: ${start+1}..${end+1}`;
-        els.tooltip.style.left = `${ev.pageX + 10}px`;
-        els.tooltip.style.top  = `${ev.pageY - 28}px`;
+        els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong>${note}<br><span style="font-size:11px">${item.dataset.category} • ${start+1}..${end+1}</span>${match}`;
+        els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top = `${ev.pageY - 28}px`;
       });
-      item.addEventListener('mousemove', (ev)=>{
-        els.tooltip.style.left = `${ev.pageX + 10}px`;
-        els.tooltip.style.top  = `${ev.pageY - 28}px`;
-      });
+      item.addEventListener('mousemove', (ev)=>{ els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top  = `${ev.pageY - 28}px`; });
       item.addEventListener('mouseleave', () => {
         const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
         highlightSvgRange(svg, start, end, false);
@@ -671,36 +964,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         item.classList.remove('active');
         els.tooltip.style.visibility = 'hidden';
       });
-    });
-
-    svg.querySelectorAll('.feat-rect').forEach(r => {
-      r.addEventListener('mouseenter', (e) => {
-        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
-        highlightSvgRange(svg, start, end, true);
-        toggleListItem(card, start, end, true);
-        els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = `<strong>${r.dataset.name}</strong><br>Type: ${r.dataset.category}<br>Range: ${start+1}..${end+1}`;
-        els.tooltip.style.left = `${e.pageX + 10}px`;
-        els.tooltip.style.top  = `${e.pageY - 28}px`;
-      });
-      r.addEventListener('mousemove', (e) => {
-        els.tooltip.style.left = `${e.pageX + 10}px`;
-        els.tooltip.style.top  = `${e.pageY - 28}px`;
-      });
-      r.addEventListener('mouseleave', () => {
-        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
-        highlightSvgRange(svg, start, end, false);
-        toggleListItem(card, start, end, false);
-        els.tooltip.style.visibility = 'hidden';
-      });
-    });
-  }
-
-  function toggleListItem(card,start,end,on){
-    card.querySelectorAll('.feature-list-item').forEach(i=>{
-      if(parseInt(i.dataset.start)===start && parseInt(i.dataset.end)===end){
-        i.classList.toggle('active', on);
-      }
     });
   }
 
@@ -711,15 +974,14 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       }
     });
   }
-
   function highlightSvgRange(svg,start,end,on){
     const seqHighlight = svg.querySelector('.seq-bar-highlight');
+    const seqLen = parseInt(svg.dataset.seqLen, 10) || 1;
+    const vbW = parseFloat(svg.dataset.vbW) || 1000;
+    const leftPad = parseFloat(svg.dataset.leftPad) || 80;
+    const rightPad = parseFloat(svg.dataset.rightPad) || 10;
+    const step = (vbW - leftPad - rightPad) / Math.max(1, seqLen - 1);
     if (on) {
-      const rect = svg.getBoundingClientRect();
-      const w = rect.width;
-      const leftPad = 80, rightPad = 10;
-      const seqLen = parseInt(svg.dataset.seqLen, 10) || 1;
-      const step = (w - leftPad - rightPad) / Math.max(1, seqLen - 1);
       const x1 = leftPad + step * start;
       const width = Math.max(1, step * (end - start + 1));
       seqHighlight.setAttribute('x', x1);
@@ -730,189 +992,124 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     }
   }
 
+  /* Plots */
   function movingAverage(arr,w){
     if(w<=1) return arr.slice();
     const half = Math.floor(w/2);
     const out = new Array(arr.length).fill(0);
     for(let i=0;i<arr.length;i++){
       let s=0, n=0;
-      for(let k=i-half;k<=i+half;k++){
-        if(k>=0 && k<arr.length){ s+=arr[k]; n++; }
-      }
+      for(let k=i-half;k<=i+half;k++){ if(k>=0 && k<arr.length){ s+=arr[k]; n++; } }
       out[i] = n ? s/n : 0;
     }
     return out;
   }
-
   function drawLinePlot(container, data, yMin, yMax, title, yLabel){
     const parent = document.getElementById(container);
-    const wrap = document.createElement('div');
-    wrap.className = 'mini-chart-container';
-    const titleEl = document.createElement('div');
-    titleEl.className = 'chart-title';
-    titleEl.textContent = title + (yLabel ? ` (${yLabel})` : '');
+    const wrap = document.createElement('div'); wrap.className = 'mini-chart-container';
+    const titleEl = document.createElement('div'); titleEl.className = 'chart-title'; titleEl.textContent = title + (yLabel ? ` (${yLabel})` : '');
     wrap.appendChild(titleEl);
+    const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.classList.add('mini-chart');
+    parent.appendChild(wrap); wrap.appendChild(s);
 
-    const s = document.createElementNS('http://www.w3.org/2000/svg','svg');
-    s.classList.add('mini-chart');
-    parent.appendChild(wrap);
-    wrap.appendChild(s);
-
-    let W=600, H=160;
+    let W=600, H=150;
     const leftPad = 40, rightPad = 10, topPad = 10, botPad = 20;
-
     const hoverLine = document.createElementNS('http://www.w3.org/2000/svg','line');
-    hoverLine.setAttribute('class','hover-line');
-    hoverLine.style.visibility='hidden';
-    s.appendChild(hoverLine);
+    hoverLine.setAttribute('class','hover-line'); hoverLine.style.visibility='hidden'; s.appendChild(hoverLine);
 
     function xScale(x){ return leftPad + (x * (W-leftPad-rightPad)) / Math.max(1, data.length-1); }
     function yScale(y){ return topPad + (H-topPad-botPad) * (1 - (y - yMin) / (yMax - yMin)); }
 
     function render(){
-      const rect = s.getBoundingClientRect();
-      W = rect.width || parent.clientWidth || 600;
-      H = rect.height || 160;
+      const rect = s.getBoundingClientRect(); W = rect.width || parent.clientWidth || 600; H = rect.height || 150;
       s.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      while(s.firstChild) s.removeChild(s.firstChild);
-      s.appendChild(hoverLine);
-
+      while(s.firstChild) s.removeChild(s.firstChild); s.appendChild(hoverLine);
       for(let i=0;i<=4;i++){
-        const yVal = yMin + (i*(yMax-yMin))/4;
-        const y = yScale(yVal);
+        const yVal = yMin + (i*(yMax-yMin))/4; const y = yScale(yVal);
         const line = document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1', leftPad); line.setAttribute('x2', W-rightPad);
-        line.setAttribute('y1', y); line.setAttribute('y2', y);
-        line.setAttribute('stroke', '#e5e7eb');
-        s.appendChild(line);
-
+        line.setAttribute('y1', y); line.setAttribute('y2', y); line.setAttribute('stroke', '#e5e7eb'); s.appendChild(line);
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-        text.setAttribute('x', 2); text.setAttribute('y', y+3);
-        text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280');
-        text.textContent = yVal.toFixed(1);
-        s.appendChild(text);
+        text.setAttribute('x', 2); text.setAttribute('y', y+3); text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280'); text.textContent = yVal.toFixed(1); s.appendChild(text);
       }
-
       const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
-      const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline');
-      pl.setAttribute('fill','none');
-      pl.setAttribute('stroke','#2563eb');
-      pl.setAttribute('stroke-width','1.5');
-      pl.setAttribute('points', pts);
-      s.appendChild(pl);
-
+      const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts); s.appendChild(pl);
       for(let i=0;i<=10;i++){
-        const idx = Math.round(i*(data.length-1)/10);
-        const x = xScale(idx);
-        const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-        l.setAttribute('x1', x); l.setAttribute('x2', x);
-        l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4);
-        l.setAttribute('stroke','#9ca3af');
-        s.appendChild(l);
-        if(i%2===0 && idx>0){
-          const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-          t.setAttribute('x', x); t.setAttribute('y', H-2);
-          t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10'); t.setAttribute('fill','#6b7280');
-          t.textContent = idx+1;
-          s.appendChild(t);
-        }
+        const idx = Math.round(i*(data.length-1)/10); const x = xScale(idx);
+        const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1', x); l.setAttribute('x2', x); l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4); l.setAttribute('stroke','#9ca3af'); s.appendChild(l);
+        if(i%2===0 && idx>0){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x', x); t.setAttribute('y', H-2); t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10'); t.setAttribute('fill','#6b7280'); t.textContent = idx+1; s.appendChild(t); }
       }
     }
-
     s.addEventListener('mousemove', e=>{
-      const rect = s.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      if(x < leftPad || x > W - rightPad){
-        hoverLine.style.visibility='hidden';
-        els.tooltip.style.visibility='hidden';
-        return;
-      }
-      hoverLine.setAttribute('x1', x);
-      hoverLine.setAttribute('x2', x);
-      hoverLine.setAttribute('y1', topPad);
-      hoverLine.setAttribute('y2', H - botPad);
-      hoverLine.style.visibility='visible';
-
-      const pos = Math.round((x - leftPad) / ((W-leftPad-rightPad)/Math.max(1,data.length-1)));
+      const rect = s.getBoundingClientRect(); const x = e.clientX - rect.left;
+      if(x < 40 || x > rect.width - 10){ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; return; }
+      hoverLine.setAttribute('x1', x); hoverLine.setAttribute('x2', x); hoverLine.setAttribute('y1', 10); hoverLine.setAttribute('y2', 150 - 20); hoverLine.style.visibility='visible';
+      const pos = Math.round((x - 40) / ((rect.width-40-10)/Math.max(1,data.length-1)));
       if(pos>=0 && pos<data.length){
-        els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN'}`;
-        els.tooltip.style.left = `${e.pageX + 10}px`;
-        els.tooltip.style.top  = `${e.pageY - els.tooltip.offsetHeight - 5}px`;
+        els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN'}`;
+        els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - els.tooltip.offsetHeight - 5}px`;
       }
     });
-    s.addEventListener('mouseleave', ()=>{
-      hoverLine.style.visibility='hidden';
-      els.tooltip.style.visibility='hidden';
-    });
-
-    render();
-    new ResizeObserver(()=>render()).observe(parent);
+    s.addEventListener('mouseleave', ()=>{ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; });
+    render(); new ResizeObserver(()=>render()).observe(parent);
   }
 
   function drawCysTrack(container, seq){
     const parent = document.getElementById(container);
-    const titleEl = document.createElement('div');
-    titleEl.className = 'chart-title';
-    titleEl.textContent = 'Cysteine positions';
-    parent.appendChild(titleEl);
-
-    const s = document.createElementNS('http://www.w3.org/2000/svg','svg');
-    s.classList.add('mini-track');
-    parent.appendChild(s);
-
-    const leftPad=40, rightPad=10, midY=20;
-    const positions = [];
-    for(let i=0;i<seq.length;i++) if(seq[i]==='C') positions.push(i);
+    const titleEl = document.createElement('div'); titleEl.className = 'chart-title'; titleEl.textContent = 'Cysteine positions'; parent.appendChild(titleEl);
+    const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.classList.add('mini-track'); parent.appendChild(s);
+    const positions = []; for(let i=0;i<seq.length;i++) if(seq[i]==='C') positions.push(i);
 
     function render(){
-      const rect = s.getBoundingClientRect();
-      const W = rect.width || parent.clientWidth || 600;
-      const H = 40;
-      s.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      while(s.firstChild) s.removeChild(s.firstChild);
-
-      const step = (W-leftPad-rightPad)/Math.max(1, seq.length-1);
-      const xScale = idx => leftPad + step * idx;
-
-      const base = document.createElementNS('http://www.w3.org/2000/svg','line');
-      base.setAttribute('x1', leftPad); base.setAttribute('x2', W-rightPad);
-      base.setAttribute('y1', midY); base.setAttribute('y2', midY);
-      base.setAttribute('stroke', '#9ca3af');
-      s.appendChild(base);
-
-      positions.forEach(idx=>{
-        const x = xScale(idx);
-        const t = document.createElementNS('http://www.w3.org/2000/svg','line');
-        t.setAttribute('x1', x); t.setAttribute('x2', x);
-        t.setAttribute('y1', midY-10); t.setAttribute('y2', midY+10);
-        t.setAttribute('stroke', '#059669'); t.setAttribute('stroke-width','2');
-        s.appendChild(t);
-      });
-
+      const rect = s.getBoundingClientRect(); const W = rect.width || parent.clientWidth || 600; const H = 40;
+      s.setAttribute('viewBox', `0 0 ${W} ${H}`); while(s.firstChild) s.removeChild(s.firstChild);
       if(positions.length===0){
-        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-        text.setAttribute('x', leftPad); text.setAttribute('y', midY+4);
-        text.setAttribute('font-size','12'); text.setAttribute('fill','#6b7280');
-        text.textContent = 'No cysteines found';
-        s.appendChild(text);
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('x', 4); text.setAttribute('y', 22); text.setAttribute('font-size','12'); text.setAttribute('fill','#6b7280'); text.textContent = 'No cysteines found'; s.appendChild(text); return;
       }
-
-      for(let i=0;i<=5;i++){
-        const idx = Math.round(i*(seq.length-1)/5);
-        const x = xScale(idx);
-        const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-        lbl.setAttribute('x', x); lbl.setAttribute('y', H-2);
-        lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('font-size','10'); lbl.setAttribute('fill','#6b7280');
-        lbl.textContent = idx+1;
-        s.appendChild(lbl);
-      }
+      const leftPad=10, rightPad=10; const step = (W-leftPad-rightPad)/Math.max(1, seq.length-1);
+      const xScale = idx => leftPad + step * idx;
+      positions.forEach(idx=>{
+        const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        c.setAttribute('cx', xScale(idx)); c.setAttribute('cy', 20); c.setAttribute('r', 4); c.setAttribute('fill', '#059669');
+        c.addEventListener('mouseenter', (e)=>{ els.tooltip.style.visibility='visible'; els.tooltip.innerHTML = `<strong>Cys</strong> at position <span class="mono">${idx+1}</span>`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
+        c.addEventListener('mousemove', (e)=>{ els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
+        c.addEventListener('mouseleave', ()=>{ els.tooltip.style.visibility='hidden'; });
+        s.appendChild(c);
+      });
     }
-    render();
-    new ResizeObserver(()=>render()).observe(parent);
+    render(); new ResizeObserver(()=>render()).observe(parent);
   }
 
+  /* Refreshers */
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
+  function refreshCharges(){
+    currentResults.forEach(o=>{
+      const c = netCharge(o.counts, Number(els.pH.value));
+      const card = document.getElementById(`result-card-${o.id}`);
+      const text = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono');
+      if(text) text.textContent = c.toFixed(2);
+      if(els.optCharge.checked) updatePlotsForCard(o);
+    });
+  }
+  function refreshAllCards(){
+    const updated = currentResults.map(o => {
+      const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value));
+      const spSegs = signalPeptideCandidates(o.seq);
+      const motifSegs = scanFeatures(o.seq);
+      o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
+      return o;
+    });
+    updated.forEach(o => {
+      const card = document.getElementById(`result-card-${o.id}`); if(!card) return;
+      const list = card.querySelector(`#feature-list-${o.id}`);
+      const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
+      list.innerHTML = buildFeatureListHTML(byLane);
+      const track = card.querySelector(`#track-container-${o.id}`); track.innerHTML = '';
+      renderGraphicalMap(`track-container-${o.id}`, byLane, o.length, o.seq);
+      setupInteractions(o.id, o);
+      updatePlotsForCard(o);
+    });
+  }
 
   function updatePlotsForCard(obj){
     const contId = `plots-${obj.id}`;
@@ -920,11 +1117,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     if(!cont) return;
     cont.innerHTML = "";
 
-    const wantHydro = els.optHydro.checked;
-    const wantCharge = els.optCharge.checked;
-    const wantCys = els.optCys.checked;
-
-    if(wantHydro){
+    if(els.optHydro.checked){
       const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
       const w = parseInt(els.hydroWindow.value,10);
       const smoothed = movingAverage(raw, w);
@@ -932,7 +1125,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       drawLinePlot(holder.id, smoothed, -4.5, 4.5, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
     }
 
-    if(wantCharge){
+    if(els.optCharge.checked){
       const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
       const w = parseInt(els.chargeWindow.value,10);
       const smooth = movingAverage(arr, w);
@@ -940,10 +1133,173 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       drawLinePlot(holder.id, smooth, -1.2, 1.2, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
     }
 
-    if(wantCys){
+    if(els.optCys.checked){
       const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder);
       drawCysTrack(holder.id, obj.seq);
     }
   }
+
+  /* ======================= A280 helper and exports — REFACTORED ======================= */
+
+/* ---- Pure math helpers ---- */
+function calcAFromMgml(eps, mw, mgml, path){
+  if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN;
+  return (eps / mw) * mgml * path;
+}
+function calcAFromuM(eps, uM, path){
+  if(!(eps>0 && path>0 && uM>=0)) return NaN;
+  return eps * (uM * 1e-6) * path;
+}
+function concFromA({ A=0, path=1.0, eps=0, mw=1 }){
+  if(!(eps>0 && path>0 && mw>0 && A>=0)) return { mgml: NaN, uM: NaN };
+  const mgml = A / ((eps / mw) * path);
+  const uM   = (A / (eps * path)) * 1e6;
+  return { mgml, uM };
+}
+
+/* ---- UI wiring for A280 card ---- */
+function wireA280Helper(obj){
+  const card   = document.getElementById(`result-card-${obj.id}`);
+  const pathEl = card.querySelector(`[data-a280-path="${obj.id}"]`);
+  const epsSel = card.querySelector(`[data-a280-eps-type="${obj.id}"]`);
+  const mgEl   = card.querySelector(`[data-a280-mgml="${obj.id}"]`);
+  const umEl   = card.querySelector(`[data-a280-um="${obj.id}"]`);
+  const aEl    = card.querySelector(`[data-a280-A="${obj.id}"]`);
+  const outEl  = card.querySelector(`[data-a280-out="${obj.id}"]`);
+  const btn    = card.querySelector(`[data-a280-calc="${obj.id}"]`);
+
+  const getEps = () => (epsSel.value === 'reduced' ? obj.extinction.reduced : obj.extinction.cystines);
+  const round  = (v, n=4) => (isFinite(v) ? Number(v).toFixed(n) : '—');
+
+  function compute(){
+    const L   = parseFloat(pathEl.value) || 1.0;
+    const eps = getEps();
+    const mw  = obj.molecularWeight;
+
+    let lines = [];
+
+    // Forward: concentration -> A
+    const mgVal = mgEl.value.trim() === '' ? NaN : parseFloat(mgEl.value);
+    if(isFinite(mgVal)){
+      const A = calcAFromMgml(eps, mw, mgVal, L);
+      lines.push(`A from ${mgVal} mg/mL: ${round(A,4)}`);
+    }
+    const umVal = umEl.value.trim() === '' ? NaN : parseFloat(umEl.value);
+    if(isFinite(umVal)){
+      const A = calcAFromuM(eps, umVal, L);
+      lines.push(`A from ${umVal} µM: ${round(A,4)}`);
+    }
+
+    // Inverse: A -> concentrations
+    const Aread = aEl.value.trim() === '' ? NaN : parseFloat(aEl.value);
+    if(isFinite(Aread)){
+      const { mgml, uM } = concFromA({ A: Aread, path: L, eps, mw });
+      lines.push(`From A=${Aread}: ${round(mgml,4)} mg/mL • ${round(uM,2)} µM`);
+    }
+
+    outEl.textContent = lines.length ? lines.join('  |  ') : 'Enter a value to compute.';
+  }
+
+  // Compute on click and on input changes (more responsive UX)
+  btn.addEventListener('click', compute);
+  [pathEl, epsSel, mgEl, umEl, aEl].forEach(el=>{
+    el.addEventListener('input', compute);
+    el.addEventListener('change', compute);
+    el.addEventListener('keyup', (e)=>{ if(e.key === 'Enter') compute(); });
+  });
+
+  // First render
+  compute();
+}
+
+/* ---- Clean CSV export (one row per protein, proper header, Excel-friendly) ---- */
+function safeName(s){ return s.replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,''); }
+function buildPropsRow(obj, pHval){
+  return {
+    Header: obj.header,
+    Length_aa: obj.length,
+    Mass_mono_Da: Number(obj.molecularWeight.toFixed(2)),
+    pI: Number(obj.pI.toFixed(2)),
+    Net_charge_at_pH: Number(netCharge(obj.counts, pHval).toFixed(2)),
+    GRAVY_KD: Number(obj.gravy.toFixed(3)),
+    Instability_index: Number(obj.instability.toFixed(2)),
+    Eps280_reduced_Minv_cmInv: obj.extinction.reduced,
+    Eps280_with_cystines_Minv_cmInv: obj.extinction.cystines,
+    A280_1mgmL_1cm_reduced: Number(obj.extinction.A1mgml_reduced.toFixed(3)),
+    A280_1mgmL_1cm_cystines: Number(obj.extinction.A1mgml_cystines.toFixed(3))
+  };
+}
+function objectsToCSV(rows){
+  if(!rows || rows.length===0) return '\ufeff';
+  const headers = Object.keys(rows[0]);
+  const esc = (v) => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const lines = [];
+  lines.push(headers.join(','));
+  rows.forEach(r => lines.push(headers.map(h => esc(r[h])).join(',')));
+  return '\ufeff' + lines.join('\r\n'); // BOM + CRLF for Excel
+}
+function downloadText(content, filename, mime='text/csv;charset=utf-8'){
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---- Per-card exports: copy FASTA, SVG, CSV ---- */
+function wirePerCardExports(obj){
+  const card   = document.getElementById(`result-card-${obj.id}`);
+  const copyBtn= card.querySelector(`[data-copy-fasta="${obj.id}"]`);
+  const svgBtn = card.querySelector(`[data-download-svg="${obj.id}"]`);
+  const csvBtn = card.querySelector(`[data-export-props="${obj.id}"]`);
+
+  copyBtn.addEventListener('click', ()=>{
+    const fasta = `>${obj.header}\n${obj.seq.match(/.{1,70}/g).join('\n')}\n`;
+    navigator.clipboard.writeText(fasta);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(()=>copyBtn.textContent='Copy FASTA', 1200);
+  });
+
+  svgBtn.addEventListener('click', ()=>{
+    const svg = card.querySelector('.feature-track-svg'); if(!svg) return;
+    const serializer = new XMLSerializer();
+    const src  = serializer.serializeToString(svg);
+    const blob = new Blob([src], {type: 'image/svg+xml;charset=utf-8'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a'); a.href = url; a.download = `${safeName(obj.header)}_map.svg`; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  csvBtn.addEventListener('click', ()=>{
+    const row = buildPropsRow(obj, Number(els.pH.value));
+    const csv = objectsToCSV([row]);
+    downloadText(csv, `${safeName(obj.header)}_props.csv`);
+  });
+}
+
+/* ---- Summary export button ---- */
+els.exportAllCsv.addEventListener('click', ()=>{
+  if(currentResults.length===0) return;
+  const pHval = Number(els.pH.value);
+  const rows  = currentResults.map(o => buildPropsRow(o, pHval));
+  const csv   = objectsToCSV(rows);
+  downloadText(csv, `protein_params_summary_pH_${pHval.toFixed(1)}.csv`);
+});
+
+/* ---- Plot visibility + card expand/collapse (unchanged) ---- */
+els.toggleAllPlots.addEventListener('click', ()=>{
+  plotsVisible = !plotsVisible;
+  currentResults.forEach(o => {
+    const cont = document.getElementById(`plots-${o.id}`);
+    if(cont) cont.classList.toggle('hidden', !plotsVisible);
+  });
+});
+els.expandAll.addEventListener('click', ()=>{ document.querySelectorAll('#results_section details').forEach(d=> d.open = true); });
+els.collapseAll.addEventListener('click', ()=>{ document.querySelectorAll('#results_section details').forEach(d=> d.open = false); });
+
+/* ---- Auto-analyze if prefilled ---- */
+if(els.fasta.value.trim().length > 0){ els.analyze.click(); }
 })();
 </script>
