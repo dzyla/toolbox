@@ -1,28 +1,53 @@
-<!-- Protein Feature Workbench (robust parsing + aligned hover, QOF-enhanced) -->
-<style>
-  body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+<!-- Protein Feature Workbench — fullscreen map + zoom, reordered cards, dark-mode aware -->
+<!-- This file works standalone (auto-loads Tailwind + d3 if missing) and inside index.html (uses html.dark). -->
 
+<!-- Optional dependency loader for standalone use -->
+<script>
+(function ensureDeps(){
+  // Tailwind (for standalone)
+  if (!window.tailwind || !window.tailwind.configLoadedOnce) {
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = { darkMode: 'class' };
+    window.tailwind.configLoadedOnce = true;
+    var s = document.createElement('script'); s.src = "https://cdn.tailwindcss.com"; document.head.appendChild(s);
+  }
+  // d3 (for modal zoom)
+  if (!window.d3) {
+    var d = document.createElement('script'); d.src = "https://d3js.org/d3.v7.min.js"; document.head.appendChild(d);
+  }
+})();
+</script>
+
+<style>
+  /* Base fonts */
+  body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans"; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+  /* Scrollbars */
   ::-webkit-scrollbar{ width:8px; height:8px;}
   ::-webkit-scrollbar-track{ background:#f8fafc;}
   ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
   ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
 
-  .feature-track-svg { cursor: crosshair; }
+  /* Track (inline and modal) */
+  .feature-track-svg { cursor: crosshair; user-select:none; -webkit-user-select:none; }
   .feature-track-svg .feat-rect { transition: opacity 0.15s; cursor: pointer; }
   .feature-track-svg .feat-rect.highlight { stroke: #111827; stroke-width: 2px; }
   .feature-track-svg .seq-bar-bg { fill: #e5e7eb; }
   .feature-track-svg .seq-bar-highlight { fill: rgba(250, 204, 21, 0.7); pointer-events: none; }
 
+  /* Tooltip */
   #svg-tooltip {
     position: absolute; visibility: hidden; background: rgba(17,24,39,0.95); color: #fff;
     padding: 6px 10px; border-radius: 6px; font-size: 12px; pointer-events: none;
     white-space: nowrap; transition: opacity 0.1s; z-index: 100; line-height: 1.5;
   }
 
+  /* Feature list */
   .feature-list-item:hover { background-color: #eef2ff; }
   .feature-list-item.active { background-color: #e0e7ff; outline: 2px solid #93c5fd; }
 
+  /* Charts */
   .mini-chart-container { position: relative; }
   .mini-chart { width: 100%; height: 150px; }
   .mini-track { width: 100%; height: 40px; }
@@ -32,7 +57,53 @@
   .card-pad { padding: 1rem; }
   .note { font-size: 11px; color: #6b7280; }
   .note b { color: #374151; }
+
+  /* Fullscreen modal */
+  .map-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .map-modal-backdrop.open { display: flex; }
+  .map-modal-content {
+    width: min(1400px, 96vw);
+    max-height: 90vh;
+    background: #fff; border-radius: 0.75rem; padding: 0.75rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .map-modal-header { display: flex; align-items:center; justify-content: space-between; gap: 0.5rem; }
+  .map-modal-body { overflow: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; background: #fff; }
+  .map-modal-body svg { display:block; width: 100%; height: auto; }
+  .map-modal-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas; border:1px solid #cbd5e1; border-bottom-width:2px; padding: 0 0.4rem; border-radius:0.375rem; font-size: 0.75rem; }
+
+  /* Dark mode fallbacks if Tailwind dark utilities are not present */
+  html.dark .feature-track-svg .seq-bar-bg { fill: #1f2937; }
+  html.dark .chart-title, html.dark .note { color: #94a3b8; }
+  html.dark .feature-list-item:hover { background-color: rgba(99,102,241,0.12); }
+  html.dark .feature-list-item.active { background-color: rgba(99,102,241,0.18); outline-color: #a5b4fc; }
+  html.dark .map-modal-content { background:#0f172a; color:#e5e7eb; }
+  html.dark .map-modal-body { background:#0f172a; border-color:#334155; }
+  html.dark .map-modal-kbd { border-color:#334155; }
+  html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
+  html.dark ::-webkit-scrollbar-thumb{ background:#475569; }
+  html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b; }
 </style>
+<style id="map-modal-size-override">
+  /* Make the zoom modal almost fullscreen for more vertical space */
+  .map-modal-content{
+    width: 98vw !important;
+    max-width: 98vw !important;
+    height: 96vh !important;
+    max-height: 96vh !important;
+  }
+  .map-modal-body{
+    /* Let the body grow to fill the modal height */
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: calc(96vh - 64px) !important; /* header height allowance */
+  }
+</style>
+
 
 <div id="svg-tooltip"></div>
 
@@ -50,6 +121,7 @@
     </div>
   </header>
 
+  <!-- Input card -->
   <section class="bg-white border border-gray-100 card-pad rounded-2xl shadow-sm">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
       <div>
@@ -142,17 +214,30 @@
 
     <p class="mt-3 text-xs text-gray-500">
       Masses use monoisotopic residues with one water (+18.01528 Da). Charge and isoelectric point use Henderson–Hasselbalch with fixed pKa values.
-      Extinction ε<sub>280</sub> uses Tyr/Trp and optional cystine pairs.
-      Domains/PTMs and other features are based on sequence motifs and regular expressions. They show all potential matches in the sequence.
+      Extinction ε<sub>280</sub> uses Tyr/Trp and optional cystine pairs. Domains/PTMs and tags are detected by simple motif heuristics.
     </p>
   </section>
 
   <section id="results_section" class="mt-6 space-y-4"></section>
 </div>
 
+<!-- Fullscreen map modal (shared; contents injected per card) -->
+<div id="map-modal" class="map-modal-backdrop" aria-hidden="true">
+  <div class="map-modal-content">
+    <div class="map-modal-header">
+      <div class="text-sm opacity-80">Scroll to zoom • drag to pan • press <span class="map-modal-kbd">Esc</span> to close</div>
+      <div class="flex items-center gap-2">
+        <button id="map-reset" class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50">Reset view</button>
+        <button id="map-close" class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black">Close</button>
+      </div>
+    </div>
+    <div id="map-modal-body" class="map-modal-body"></div>
+  </div>
+</div>
+
 <script>
-(function initProteinParams() {
-  /* Scientific constants */
+(function initProteinWorkbench(){
+  /* ===== Scientific constants ===== */
   const AA = {
     mw: { A:71.0788,R:156.1875,N:114.1038,D:115.0886,C:103.1388,Q:128.1307,E:129.1155,G:57.0519,H:137.1411,I:113.1594,L:113.1594,K:128.1741,M:131.1926,F:147.1766,P:97.1167,S:87.0782,T:101.1051,W:186.2132,Y:163.1760,V:99.1326,U:150.0388,O:237.3018,B:114.5962,Z:128.6231,J:113.1594,X:110.0 },
     ext: { Y:1490, W:5500, CYS_DISULFIDE_PAIR:125 },
@@ -161,9 +246,8 @@
     pKa_term: { N:8.6, C:3.55 }
   };
 
-  const DIWV = {
-    A:{A:4,C:0,D:-2,E:-1,F:-3,G:0,H:-2,I:-1,K:-1,L:-2,M:-1,N:-2,P:-1,Q:-1,R:-1,S:1,T:0,V:0,W:-3,Y:-2},C:{A:0,C:9,D:-3,E:-4,F:-2,G:-3,H:-3,I:1,K:-3,L:-1,M:-1,N:-3,P:-3,Q:-3,R:-3,S:-1,T:-1,V:1,W:-2,Y:-2},D:{A:-2,C:-3,D:6,E:2,F:-3,G:-1,H:-1,I:-3,K:-1,L:-4,M:-3,N:1,P:-1,Q:0,R:-2,S:0,T:-1,V:-3,W:-4,Y:-3},E:{A:-1,C:-4,D:2,E:5,F:-3,G:-2,H:0,I:-3,K:1,L:-3,M:-2,N:0,P:-1,Q:2,R:0,S:0,T:-1,V:-2,W:-3,Y:-2},F:{A:-3,C:-2,D:-3,E:-3,F:6,G:-4,H:-1,I:0,K:-3,L:0,M:0,N:-3,P:-4,Q:-3,R:-3,S:-2,T:-2,V:-1,W:1,Y:3},G:{A:0,C:-3,D:-1,E:-2,F:-4,G:6,H:-2,I:-4,K:-2,L:-4,M:-3,N:0,P:-2,Q:-2,R:-2,S:0,T:-2,V:-3,W:-2,Y:-3},H:{A:-2,C:-3,D:-1,E:0,F:-1,G:-2,H:8,I:-3,K:-1,L:-3,M:-2,N:1,P:-2,Q:0,R:0,S:-1,T:-2,V:-3,W:-2,Y:2},I:{A:-1,C:1,D:-3,E:-3,F:0,G:-4,H:-3,I:4,K:-3,L:2,M:1,N:-3,P:-3,Q:-3,R:-3,S:-2,T:-1,V:3,W:-3,Y:-1},K:{A:-1,C:-3,D:-1,E:1,F:-3,G:-2,H:-1,I:-3,K:5,L:-2,M:-1,N:0,P:-1,Q:1,R:2,S:0,T:-1,V:-2,W:-3,Y:-2},L:{A:-2,C:-1,D:-4,E:-3,F:0,G:-4,H:-3,I:2,K:-2,L:4,M:2,N:-3,P:-3,Q:-2,R:-2,S:-2,T:-1,V:1,W:-2,Y:-1},M:{A:-1,C:-1,D:-3,E:-2,F:0,G:-3,H:-2,I:1,K:-1,L:2,M:5,N:-2,P:-2,Q:0,R:-1,S:-1,T:-1,V:1,W:-1,Y:-1},N:{A:-2,C:-3,D:1,E:0,F:-3,G:0,H:1,I:-3,K:0,L:-3,M:-2,N:6,P:-2,Q:0,R:0,S:1,T:0,V:-3,W:-4,Y:-2},P:{A:-1,C:-3,D:-1,E:-1,F:-4,G:-2,H:-2,I:-3,K:-1,L:-3,M:-2,N:-2,P:7,Q:-1,R:-2,S:-1,T:-1,V:-2,W:-4,Y:-3},Q:{A:-1,C:-3,D:0,E:2,F:-3,G:-2,H:0,I:-3,K:1,L:-2,M:0,N:0,P:-1,Q:5,R:1,S:0,T:-1,V:-2,W:-2,Y:-1},R:{A:-1,C:-3,D:-2,E:0,F:-3,G:-2,H:0,I:-3,K:2,L:-2,M:-1,N:0,P:-2,Q:1,R:5,S:-1,T:-1,V:-3,W:-3,Y:-2},S:{A:1,C:-1,D:0,E:0,F:-2,G:0,H:-1,I:-2,K:0,L:-2,M:-1,N:1,P:-1,Q:0,R:-1,S:4,T:1,V:-2,W:-3,Y:-2},T:{A:0,C:-1,D:-1,E:-1,F:-2,G:-2,H:-2,I:-1,K:-1,L:-1,M:-1,N:0,P:-1,Q:-1,R:-1,S:1,T:5,V:0,W:-2,Y:-2},V:{A:0,C:1,D:-3,E:-2,F:-1,G:-3,H:-3,I:3,K:-2,L:1,M:1,N:-3,P:-2,Q:-2,R:-3,S:-2,T:0,V:4,W:-3,Y:-1},W:{A:-3,C:-2,D:-4,E:-3,F:1,G:-2,H:-2,I:-3,K:-3,L:-2,M:-1,N:-4,P:-4,Q:-2,R:-3,S:-3,T:-2,V:-3,W:11,Y:2},Y:{A:-2,C:-2,D:-3,E:-2,F:3,G:-3,H:2,I:-1,K:-2,L:-1,M:-1,N:-2,P:-3,Q:-1,R:-2,S:-2,T:-2,V:-1,W:2,Y:7}
-  };
+  /* DIWV unstable dipeptides (instability index) */
+  const DIWV = {A:{A:4,C:0,D:-2,E:-1,F:-3,G:0,H:-2,I:-1,K:-1,L:-2,M:-1,N:-2,P:-1,Q:-1,R:-1,S:1,T:0,V:0,W:-3,Y:-2},C:{A:0,C:9,D:-3,E:-4,F:-2,G:-3,H:-3,I:1,K:-3,L:-1,M:-1,N:-3,P:-3,Q:-3,R:-3,S:-1,T:-1,V:1,W:-2,Y:-2},D:{A:-2,C:-3,D:6,E:2,F:-3,G:-1,H:-1,I:-3,K:-1,L:-4,M:-3,N:1,P:-1,Q:0,R:-2,S:0,T:-1,V:-3,W:-4,Y:-3},E:{A:-1,C:-4,D:2,E:5,F:-3,G:-2,H:0,I:-3,K:1,L:-3,M:-2,N:0,P:-1,Q:2,R:0,S:0,T:-1,V:-2,W:-3,Y:-2},F:{A:-3,C:-2,D:-3,E:-3,F:6,G:-4,H:-1,I:0,K:-3,L:0,M:0,N:-3,P:-4,Q:-3,R:-3,S:-2,T:-2,V:-1,W:1,Y:3},G:{A:0,C:-3,D:-1,E:-2,F:-4,G:6,H:-2,I:-4,K:-2,L:-4,M:-3,N:0,P:-2,Q:-2,R:-2,S:0,T:-2,V:-3,W:-2,Y:-3},H:{A:-2,C:-3,D:-1,E:0,F:-1,G:-2,H:8,I:-3,K:-1,L:-3,M:-2,N:1,P:-2,Q:0,R:0,S:-1,T:-2,V:-3,W:-2,Y:2},I:{A:-1,C:1,D:-3,E:-3,F:0,G:-4,H:-3,I:4,K:-3,L:2,M:1,N:-3,P:-3,Q:-3,R:-3,S:-2,T:-1,V:3,W:-3,Y:-1},K:{A:-1,C:-3,D:-1,E:1,F:-3,G:-2,H:-1,I:-3,K:5,L:-2,M:-1,N:0,P:-1,Q:1,R:2,S:0,T:-1,V:-2,W:-3,Y:-2},L:{A:-2,C:-1,D:-4,E:-3,F:0,G:-4,H:-3,I:2,K:-2,L:4,M:2,N:-3,P:-3,Q:-2,R:-2,S:-2,T:-1,V:1,W:-2,Y:-1},M:{A:-1,C:-1,D:-3,E:-2,F:0,G:-3,H:-2,I:1,K:-1,L:2,M:5,N:-2,P:-2,Q:0,R:-1,S:-1,T:-1,V:1,W:-1,Y:-1},N:{A:-2,C:-3,D:1,E:0,F:-3,G:0,H:1,I:-3,K:0,L:-3,M:-2,N:6,P:-2,Q:0,R:0,S:1,T:0,V:-3,W:-4,Y:-2},P:{A:-1,C:-3,D:-1,E:-1,F:-4,G:-2,H:-2,I:-3,K:-1,L:-3,M:-2,N:-2,P:7,Q:-1,R:-2,S:-1,T:-1,V:-2,W:-4,Y:-3},Q:{A:-1,C:-3,D:0,E:2,F:-3,G:-2,H:0,I:-3,K:1,L:-2,M:0,N:0,P:-1,Q:5,R:1,S:0,T:-1,V:-2,W:-2,Y:-1},R:{A:-1,C:-3,D:-2,E:0,F:-3,G:-2,H:0,I:-3,K:2,L:-2,M:-1,N:0,P:-2,Q:1,R:5,S:-1,T:-1,V:-3,W:-3,Y:-2},S:{A:1,C:-1,D:0,E:0,F:-2,G:0,H:-1,I:-2,K:0,L:-2,M:-1,N:1,P:-1,Q:0,R:-1,S:4,T:1,V:-2,W:-3,Y:-2},T:{A:0,C:-1,D:-1,E:-1,F:-2,G:-2,H:-2,I:-1,K:-1,L:-1,M:-1,N:0,P:-1,Q:-1,R:-1,S:1,T:5,V:0,W:-2,Y:-2},V:{A:0,C:1,D:-3,E:-2,F:-1,G:-3,H:-3,I:3,K:-2,L:1,M:1,N:-3,P:-2,Q:-2,R:-3,S:-2,T:0,V:4,W:-3,Y:-1},W:{A:-3,C:-2,D:-4,E:-3,F:1,G:-2,H:-2,I:-3,K:-3,L:-2,M:-1,N:-4,P:-4,Q:-2,R:-3,S:-3,T:-2,V:-3,W:11,Y:2},Y:{A:-2,C:-2,D:-3,E:-2,F:3,G:-3,H:2,I:-1,K:-2,L:-1,M:-1,N:-2,P:-3,Q:-1,R:-2,S:-2,T:-2,V:-1,W:2,Y:7} };
 
   /* === Combined, de-duplicated Tags & Motifs (drop-in replace this whole block) === */
   const TAGS = {
@@ -329,100 +413,87 @@ const MOTIFS = [
     note:"Destruction box for APC/C E3 ligase.",               regex:/R..L..[ILV]/g }
 ];
 
-
-  // 1) Robust FASTA parse: capture sequence trailing on the '>' header line
-function parseFastaFlexible(text){
-  const lines = text.replace(/\r/g,'').split('\n');
-  const out = [];
-  let header = null, seq = [];
-  let sawHeader = false;
-
-  for (const raw of lines) {
-    const l = raw.trim();
-    if (!l) continue;
-    if (l.startsWith(';')) continue; // comment
-
-    if (l.startsWith('>')) {
-      // flush previous
-      if (header !== null) out.push({ header, seq: seq.join('') });
-
-      // split header vs. accidental sequence on the same line
-      const after = l.slice(1).trim();
-      const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/); // AA run at end
-      if (tailAA && tailAA[1].length >= 5) {
-        header = after.slice(0, after.length - tailAA[1].length).trim() || `Sequence ${out.length+1}`;
-        seq = [tailAA[1]];
-      } else {
-        header = after || `Sequence ${out.length+1}`;
-        seq = [];
-      }
-      sawHeader = true;
-    } else {
-      seq.push(l);
-    }
-  }
-  if (header !== null) out.push({ header, seq: seq.join('') });
-
-  // headerless paste
-  if (!sawHeader) {
-    const joined = lines.join('\n');
-    if (/[A-Za-z]/.test(joined)) out.push({ header: 'Sequence 1', seq: joined });
-  }
-  return out;
-}
-
-// 2) Safer sanitizer: pull only valid residues in one pass (never stateful)
-function sanitizeSequenceWithLog(raw){
-  const upper = raw.toUpperCase();
-  const kept = (upper.match(/[ACDEFGHIKLMNPQRSTVWYUBZOJX]+/g) || []).join('');
-  const removedCount = upper.length - kept.length;
-
-  // Keep working sequences; only fail if truly nothing was found
-  if (kept.length === 0) {
-    throw new Error('Sequence contains no valid residues after cleaning.');
-  }
-  return {
-    seq: kept,
-    issues: removedCount > 0 ? `Removed non-residue characters: ${removedCount}` : '',
-    notes: ''
+  /* ===== DOM elements ===== */
+  const els = {
+    fasta: document.getElementById('fasta_input'),
+    file: document.getElementById('file_input'),
+    analyze: document.getElementById('analyze_button'),
+    clear: document.getElementById('clear_button'),
+    results: document.getElementById('results_section'),
+    pH: document.getElementById('ref_pH'),
+    pHslider: document.getElementById('ref_pH_slider'),
+    tmWindow: document.getElementById('tm_window'),
+    tmThr: document.getElementById('tm_thr'),
+    loadExample: document.getElementById('load_example'),
+    tooltip: document.getElementById('svg-tooltip'),
+    optHydro: document.getElementById('opt_hydro'),
+    optCharge: document.getElementById('opt_charge'),
+    optCys: document.getElementById('opt_cys'),
+    hydroWindow: document.getElementById('hydro_window'),
+    chargeWindow: document.getElementById('charge_window'),
+    exportAllCsv: document.getElementById('export_all_csv'),
+    toggleAllPlots: document.getElementById('toggle_all_plots'),
+    expandAll: document.getElementById('expand_all'),
+    collapseAll: document.getElementById('collapse_all'),
+    modal: document.getElementById('map-modal'),
+    modalBody: document.getElementById('map-modal-body'),
+    modalClose: document.getElementById('map-close'),
+    modalReset: document.getElementById('map-reset'),
   };
-}
 
-  // Clean while tracking what changed. Fail only on true invalid letters.
+  let resultCounter=0, currentResults=[];
+  let plotsVisible=true;
+  let modalState = { svg: null, zoom: null };
+
+  /* ===== FASTA parsing & sanitization ===== */
+  function parseFastaFlexible(text){
+    const lines = text.replace(/\r/g,'').split('\n'); const out = [];
+    let header = null, seq = []; let sawHeader = false;
+    for (const raw of lines) {
+      const l = raw.trim(); if (!l) continue; if (l.startsWith(';')) continue;
+      if (l.startsWith('>')) {
+        if (header !== null) out.push({ header, seq: seq.join('') });
+        const after = l.slice(1).trim();
+        const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/);
+        if (tailAA && tailAA[1].length >= 5) {
+          header = after.slice(0, after.length - tailAA[1].length).trim() || `Sequence ${out.length+1}`;
+          seq = [tailAA[1]];
+        } else { header = after || `Sequence ${out.length+1}`; seq = []; }
+        sawHeader = true;
+      } else { seq.push(l); }
+    }
+    if (header !== null) out.push({ header, seq: seq.join('') });
+    if (!sawHeader) { const joined = lines.join('\n'); if (/[A-Za-z]/.test(joined)) out.push({ header: 'Sequence 1', seq: joined }); }
+    return out;
+  }
+
   function sanitizeSequenceWithLog(raw){
     const upper = raw.toUpperCase();
-
     const removed = { whitespace:0, digits:0, dashes:0, stars:0, punctuation:0, other:0 };
     const keepRe = /[ACDEFGHIKLMNPQRSTVWYUBZOJX]/;
     let cleanedArr = [];
-
-    for (let i = 0; i < upper.length; i++){
+    for (let i=0;i<upper.length;i++){
       const ch = upper[i];
       if (keepRe.test(ch)) { cleanedArr.push(ch); continue; }
-
-      if (/\\s/.test(ch)) { removed.whitespace++; continue; }
+      if (/\s/.test(ch)) { removed.whitespace++; continue; }
       if (/[0-9]/.test(ch)) { removed.digits++; continue; }
       if (/[-–—_]/.test(ch)) { removed.dashes++; continue; }
       if (ch === '*') { removed.stars++; continue; }
-      if (/[.,:;\\/|()\\[\\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
-
-      // This is a true invalid letter or symbol
+      if (/[.,:;\/|()\[\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
       removed.other++;
     }
-
     const seq = cleanedArr.join('');
-    const issues = removed.other > 0 ? `Invalid letters removed: ${removed.other}` : '';
+    if (!seq.length) throw new Error('Sequence contains no valid residues after cleaning.');
     const notes = [];
     if (removed.whitespace) notes.push(`spaces ${removed.whitespace}`);
     if (removed.digits) notes.push(`digits ${removed.digits}`);
     if (removed.dashes) notes.push(`dashes ${removed.dashes}`);
     if (removed.stars) notes.push(`stars ${removed.stars}`);
     if (removed.punctuation) notes.push(`punct ${removed.punctuation}`);
-
-    return { seq, issues, notes: notes.join(', ') };
+    return { seq, issues: removed.other ? `Invalid letters removed: ${removed.other}` : '', notes: notes.join(', ') };
   }
 
-  /* -------- Core calculations -------- */
+  /* ===== Core calculations ===== */
   function countAA(seq){ const c = Object.create(null); for(const ch of seq) c[ch] = (c[ch]||0)+1; return c; }
   function molecularWeight(counts){ let m = 18.01528; for(const a in counts) m += (counts[a]||0) * (AA.mw[a]||0); return m; }
   function gravy(seq){ if(!seq.length) return 0; let s=0; for(const a of seq) s += (AA.kd[a] ?? 0); return s/seq.length; }
@@ -450,7 +521,6 @@ function sanitizeSequenceWithLog(raw){
     for(let i=0;i<seq.length-1;i++){ const a=seq[i], b=seq[i+1]; if (DIWV[a] && typeof DIWV[a][b] !== 'undefined') score += DIWV[a][b]; }
     return (10 / seq.length) * score;
   }
-
   function extinctionCoefficients(counts, mw){
     const nY = counts.Y||0, nW = counts.W||0, nC = counts.C||0;
     const reduced = nY*AA.ext.Y + nW*AA.ext.W;
@@ -483,8 +553,7 @@ function sanitizeSequenceWithLog(raw){
     return arr;
   }
 
-  /* Features */
-  function kdAverage(seq, i, w){ let s=0; for(let k=0;k<w;k++) s += (AA.kd[seq[i+k]] ?? 0); return s / w; }
+  /* ===== Feature scanning ===== */
   function mergeSegments(arr){
     if(!arr.length) return [];
     arr.sort((a,b)=> a.start - b.start || a.end - b.end);
@@ -497,12 +566,12 @@ function sanitizeSequenceWithLog(raw){
     }
     return out;
   }
+  function kdAverage(seq, i, w){ let s=0; for(let k=0;k<w;k++) s += (AA.kd[seq[i+k]] ?? 0); return s / w; }
   function transmembranes(seq, w=19, thr=1.6){
     const feats=[];
     for(let i=0;i<=seq.length-w;i++){
       if(kdAverage(seq,i,w) >= thr){
-        let j=i+w;
-        while(j<seq.length && kdAverage(seq, j - w + 1, w) >= (thr - 0.2)) j++;
+        let j=i+w; while(j<seq.length && kdAverage(seq, j - w + 1, w) >= (thr - 0.2)) j++;
         feats.push({ start:i, end:j-1, name:"Transmembrane", category:"Topology", color:"#34d399" });
         i = j-1;
       }
@@ -514,8 +583,7 @@ function sanitizeSequenceWithLog(raw){
     let i=0;
     while(i<=N-7){
       if(kdAverage(seq,i,7) >= 1.6){
-        let j=i+7;
-        while(j<N && kdAverage(seq, j-6, 7) >= 1.2) j++;
+        let j=i+7; while(j<N && kdAverage(seq, j-6, 7) >= 1.2) j++;
         feats.push({ start:i, end:j-1, name:"Signal peptide (candidate)", category:"Topology", color:"#fb7185", note:"Heuristic: hydrophobic stretch near N-terminus." });
         i=j;
       } else i++;
@@ -555,33 +623,7 @@ function sanitizeSequenceWithLog(raw){
     return { counts, pct, total, order: std };
   }
 
-  /* UI elements */
-  const els = {
-    fasta: document.getElementById('fasta_input'),
-    file: document.getElementById('file_input'),
-    analyze: document.getElementById('analyze_button'),
-    clear: document.getElementById('clear_button'),
-    results: document.getElementById('results_section'),
-    pH: document.getElementById('ref_pH'),
-    pHslider: document.getElementById('ref_pH_slider'),
-    tmWindow: document.getElementById('tm_window'),
-    tmThr: document.getElementById('tm_thr'),
-    loadExample: document.getElementById('load_example'),
-    tooltip: document.getElementById('svg-tooltip'),
-    optHydro: document.getElementById('opt_hydro'),
-    optCharge: document.getElementById('opt_charge'),
-    optCys: document.getElementById('opt_cys'),
-    hydroWindow: document.getElementById('hydro_window'),
-    chargeWindow: document.getElementById('charge_window'),
-    exportAllCsv: document.getElementById('export_all_csv'),
-    toggleAllPlots: document.getElementById('toggle_all_plots'),
-    expandAll: document.getElementById('expand_all'),
-    collapseAll: document.getElementById('collapse_all'),
-  };
-
-  let resultCounter=0, currentResults=[];
-  let plotsVisible=true;
-
+  /* ===== UI: inputs ===== */
   els.file.addEventListener('change', e=>{
     const f=e.target.files[0];
     if(!f) return;
@@ -608,8 +650,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   function syncPHInputs(from){
     if(from==='slider'){ els.pH.value = Number(els.pHslider.value).toFixed(1); }
     if(from==='box'){ els.pHslider.value = els.pH.value; }
-    refreshAllPlots();
-    refreshCharges();
+    refreshAllPlots(); refreshCharges();
   }
   els.pHslider.addEventListener('input', ()=>syncPHInputs('slider'));
   els.pH.addEventListener('change', ()=>syncPHInputs('box'));
@@ -621,44 +662,28 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   els.analyze.addEventListener('click', ()=>{
     const t=els.fasta.value.trim();
     if(!t){ alert("Please paste or upload sequences."); return; }
-
     els.results.innerHTML=""; currentResults=[];
-
     try{
       const records = parseFastaFlexible(t);
       if(!records.length) throw new Error("No sequence letters found.");
-
       for(const item of records){
         try{
-          // Cleaning + validation
           const { seq, issues, notes } = sanitizeSequenceWithLog(item.seq);
           if(seq.length === 0) throw new Error("Sequence contains no valid residues after cleaning.");
-          if(issues) {
-            // Keep but note that truly invalid letters were removed
-            console.warn(issues);
-          }
-
           const obj=analyzeSingle({ header: item.header, seq });
-          obj.parseNotes = notes;
-          obj.parseIssues = issues;
+          obj.parseNotes = notes; obj.parseIssues = issues;
           currentResults.push(obj);
           buildResultCard(obj);
-
-        }catch(e){
-          showErrorCard(`Error analyzing: ${item.header}`, e.message);
-        }
+        }catch(e){ showErrorCard(`Error analyzing: ${item.header}`, e.message); }
       }
       refreshAllCards();
-
     }catch(e){ showErrorCard("Parse error", e.message); }
   });
 
+  /* ===== Compute single sequence ===== */
   function analyzeSingle(item){
-    const s = item.seq;
-    const L = s.length;
-    const c = countAA(s);
-    const tmW = parseInt(els.tmWindow.value,10);
-    const tmT = Number(els.tmThr.value);
+    const s = item.seq; const L = s.length; const c = countAA(s);
+    const tmW = parseInt(els.tmWindow.value,10); const tmT = Number(els.tmThr.value);
     const mw = molecularWeight(c);
     const tmSegs = transmembranes(s, tmW, tmT);
     const spSegs = signalPeptideCandidates(s);
@@ -680,49 +705,68 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     };
   }
 
+  /* ===== Cards & layout (map full width + modal) ===== */
   function showErrorCard(title, msg){
     els.results.insertAdjacentHTML('beforeend',
       `<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl"><h3 class="font-semibold">${title}</h3><div class="text-sm mt-1">${msg}</div></div>`);
+  }
+
+  function buildFeatureListHTML(byLane){
+    const keys = Object.keys(byLane);
+    if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
+    return keys.sort().map(category => {
+      const items = byLane[category].map(f => {
+        const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 px-1 rounded">${f.match}</span>` : '';
+        const note = f.note ? ` <span class="text-xs text-gray-600">(${f.note})</span>` : '';
+        return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}" data-match="${f.match||''}" data-note="${f.note||''}">
+          <span class="font-semibold text-sm">${f.name}</span>${note}
+          <span class="mono text-xs text-gray-600 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
+        </li>`;
+      }).join('');
+      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-gray-800">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
+    }).join('');
   }
 
   function buildResultCard(obj){
     const stabilityText = obj.instability < 40 ? `<span class="text-green-700 font-semibold">Stable</span>` : `<span class="text-red-700 font-semibold">Unstable</span>`;
     const byLane = obj.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
     const stats = getResidueStats(obj.seq);
-    const statsRows = stats.order
-      .map(aa => {
-        const n = stats.counts[aa] || 0;
-        const p = stats.pct[aa];
-        return `<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${n}</td><td class="px-1 text-right">${p}%</td></tr>`;
-      })
-      .join('');
+    const statsRows = stats.order.map(aa => {
+      const n = stats.counts[aa] || 0; const p = stats.pct[aa];
+      return `<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${n}</td><td class="px-1 text-right">${p}%</td></tr>`;
+    }).join('');
 
     const parsingNote = (obj.parseNotes || obj.parseIssues)
-      ? `<div class="note mt-1">Parsing notes: ${obj.parseNotes ? obj.parseNotes : 'none'}${obj.parseIssues ? ' • <b>'+obj.parseIssues+'</b>' : ''}</div>`
-      : '';
+      ? `<div class="note mt-1">Parsing notes: ${[obj.parseNotes, obj.parseIssues].filter(Boolean).join('; ')}</div>` : '';
 
     const card = `
-      <div id="result-card-${obj.id}" class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h3 class="text-base md:text-lg font-semibold text-indigo-700">${obj.header}</h3>
-            <p class="text-xs text-gray-500 mt-0.5">Length: <span class="mono">${obj.length}</span> aa • Monoisotopic mass: <span class="mono">${obj.molecularWeight.toFixed(2)}</span> Da</p>
-            ${parsingNote}
+      <div id="result-card-${obj.id}" class="bg-white border border-gray-100 rounded-2xl shadow-sm">
+        <div class="p-4 md:p-5">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div>
+              <h3 class="text-lg font-semibold">${obj.header}</h3>
+              <div class="text-xs text-gray-500 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>
+              ${parsingNote}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-copy-fasta="${obj.id}">Copy FASTA</button>
+              <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-download-svg="${obj.id}">Save map (SVG)</button>
+              <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-export-props="${obj.id}">Export props (CSV)</button>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-copy-fasta="${obj.id}">Copy FASTA</button>
-            <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-download-svg="${obj.id}">Save map (SVG)</button>
-            <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-export-props="${obj.id}">Export props (CSV)</button>
-          </div>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 mt-3">
-          <div>
-            <h4 class="font-semibold text-sm mb-1">Graphical map</h4>
-            <div id="track-container-${obj.id}" class="w-full"></div>
-            <div id="plots-${obj.id}" class="mt-3 ${plotsVisible ? '' : 'hidden'}"></div>
+          <!-- FULL-WIDTH MAP -->
+          <div class="mt-3">
+            <h4 class="font-semibold text-sm mb-1">Graphical map (click to open fullscreen)</h4>
+            <div id="track-click-${obj.id}" class="group relative rounded-lg border border-gray-100 bg-gray-50 p-2 hover:bg-gray-100 transition cursor-zoom-in">
+              <div id="track-container-${obj.id}" class="w-full"></div>
+              <div class="absolute right-2 top-2 text-[11px] text-gray-500 opacity-80">Zoom in/out in fullscreen</div>
+            </div>
           </div>
-          <div class="space-y-3">
+
+          <!-- BELOW THE MAP: order required -->
+          <!-- 1) Quick facts + A280 helper -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
               <div class="grid grid-cols-2 gap-y-1 text-xs">
                 <div><strong>Theoretical pI:</strong> <span class="mono">${obj.pI.toFixed(2)}</span></div>
@@ -745,40 +789,43 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
               <div class="grid grid-cols-3 gap-2 items-end">
                 <div>
                   <label class="block text-xs">Path length (cm)</label>
-                  <input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border rounded-lg" data-a280-path="${obj.id}">
+                  <input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border rounded-lg" placeholder="1.0" data-a280-path="${obj.id}">
                 </div>
                 <div>
-                  <label class="block text-xs">Use ε</label>
+                  <label class="block text-xs">ε<sub>280</sub> type</label>
                   <select class="w-full p-2 border rounded-lg" data-a280-eps-type="${obj.id}">
-                    <option value="reduced">Reduced (no disulfides)</option>
-                    <option value="cystines">With cystines</option>
+                    <option value="red">Reduced (Y+W)</option>
+                    <option value="cys">+Cystines (Y+W + Cys pairs)</option>
                   </select>
                 </div>
-                <div class="text-right">
-                  <button class="text-xs bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute</button>
+                <div>
+                  <label class="block text-xs">A<sub>280</sub> (unitless)</label>
+                  <input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g. 0.7" data-a280-A="${obj.id}">
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-3 mt-2">
+              <div class="grid grid-cols-2 gap-2 mt-2">
                 <div>
-                  <label class="block text-xs">Concentration (mg/mL)</label>
-                  <input type="number" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g., 0.5" data-a280-mgml="${obj.id}">
-                  <div class="text-xs text-gray-500 mt-1">A = (ε/MW)·mg/mL·path</div>
+                  <label class="block text-xs">Conc. (mg/mL)</label>
+                  <input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-mgml="${obj.id}">
                 </div>
                 <div>
-                  <label class="block text-xs">Concentration (µM)</label>
-                  <input type="number" step="0.01" class="w-full p-2 border rounded-lg" placeholder="e.g., 10" data-a280-um="${obj.id}">
-                  <div class="text-xs text-gray-500 mt-1">A = ε·(µM·1e−6)·path</div>
+                  <label class="block text-xs">Conc. (μM)</label>
+                  <input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-um="${obj.id}">
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-3 mt-2">
-                <div>
-                  <label class="block text-xs">Measured A<sub>280</sub></label>
-                  <input type="number" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g., 0.7" data-a280-A="${obj.id}">
-                </div>
-                <div class="text-xs text-gray-700 flex items-end"><span data-a280-out="${obj.id}"></span></div>
+              <div class="flex items-center gap-2 mt-2">
+                <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute from A</button>
+                <span class="text-xs text-gray-700">MW = <span class="mono">${obj.molecularWeight.toFixed(2)}</span> Da</span>
               </div>
+              <div class="text-xs text-gray-700 flex items-end mt-1"><span data-a280-out="${obj.id}"></span></div>
             </div>
+          </div>
 
+          <!-- 2) Graphs -->
+          <div id="plots-${obj.id}" class="mt-4 ${plotsVisible ? '' : 'hidden'}"></div>
+
+          <!-- 3) Residue stats + Domain/PTM list -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
               <details class="text-sm font-medium" open>
                 <summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary>
@@ -799,29 +846,16 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       </div>
     `;
     els.results.insertAdjacentHTML('beforeend', card);
+
+    // Render inline map and wire interactions
     renderGraphicalMap(`track-container-${obj.id}`, byLane, obj.length, obj.seq);
     setupInteractions(obj.id, obj);
     wireA280Helper(obj);
     wirePerCardExports(obj);
+    wireMapClickForModal(obj, byLane);
   }
 
-  function buildFeatureListHTML(byLane){
-    const keys = Object.keys(byLane);
-    if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
-    return keys.sort().map(category => {
-      const items = byLane[category].map(f => {
-        const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 px-1 rounded">${f.match}</span>` : '';
-        const note = f.note ? ` <span class="text-xs text-gray-600">(${f.note})</span>` : '';
-        return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}" data-match="${f.match||''}" data-note="${f.note||''}">
-          <span class="font-semibold text-sm">${f.name}</span>${note}
-          <span class="mono text-xs text-gray-600 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
-        </li>`;
-      }).join('');
-      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-gray-800">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
-    }).join('');
-  }
-
-  /* Graphical map with aligned hover */
+  /* ===== Map rendering (inline) ===== */
   function renderGraphicalMap(containerId, byLane, seqLen, seq) {
     const container = document.getElementById(containerId);
     const laneOrder = Object.keys(byLane).sort();
@@ -890,14 +924,12 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     }
     svg.appendChild(ticksGroup); container.appendChild(svg);
 
-    function clientToSvgX(evt){
-      const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
-      const local = pt.matrixTransform(svg.getScreenCTM().inverse()); return local.x;
-    }
-
+    // Hover tooltip (inline)
+    function clientToSvgX(evt){ const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY; const local = pt.matrixTransform(svg.getScreenCTM().inverse()); return local.x; }
     const allFeatures = []; Object.values(byLane).forEach(arr => arr.forEach(f => allFeatures.push(f)));
-
     svg.addEventListener('mousemove', e => {
+      const vbW = parseFloat(svg.dataset.vbW), leftPad = parseFloat(svg.dataset.leftPad), rightPad = parseFloat(svg.dataset.rightPad);
+      const step = (vbW - leftPad - rightPad) / Math.max(1, seqLen - 1);
       const localX = clientToSvgX(e);
       if (localX < leftPad || localX > vbW - rightPad) { els.tooltip.style.visibility = 'hidden'; return; }
       const pos = Math.round((localX - leftPad) / step);
@@ -921,6 +953,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     });
     svg.addEventListener('mouseleave', () => { els.tooltip.style.visibility = 'hidden'; });
 
+    // Feature rect tooltips
     svg.querySelectorAll('.feat-rect').forEach(r => {
       r.addEventListener('mouseenter', (e) => {
         const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
@@ -936,32 +969,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       r.addEventListener('mouseleave', () => {
         const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
         highlightSvgRange(svg, start, end, false);
-        els.tooltip.style.visibility = 'hidden';
-      });
-    });
-  }
-
-  function setupInteractions(id, obj) {
-    const card = document.getElementById(`result-card-${id}`);
-    const svg = card.querySelector('.feature-track-svg');
-    card.querySelectorAll('.feature-list-item').forEach(item => {
-      item.addEventListener('mouseenter', (ev) => {
-        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
-        highlightSvgRange(svg, start, end, true);
-        toggleSvgRect(svg, start, end, true);
-        item.classList.add('active');
-        const match = item.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${item.dataset.match}</span>` : '';
-        const note = item.dataset.note ? ` <span style="color:#cbd5e1">(${item.dataset.note})</span>` : '';
-        els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong>${note}<br><span style="font-size:11px">${item.dataset.category} • ${start+1}..${end+1}</span>${match}`;
-        els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top = `${ev.pageY - 28}px`;
-      });
-      item.addEventListener('mousemove', (ev)=>{ els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top  = `${ev.pageY - 28}px`; });
-      item.addEventListener('mouseleave', () => {
-        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
-        highlightSvgRange(svg, start, end, false);
-        toggleSvgRect(svg, start, end, false);
-        item.classList.remove('active');
         els.tooltip.style.visibility = 'hidden';
       });
     });
@@ -992,7 +999,33 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     }
   }
 
-  /* Plots */
+  function setupInteractions(id, obj) {
+    const card = document.getElementById(`result-card-${id}`);
+    const svg = card.querySelector('.feature-track-svg');
+    card.querySelectorAll('.feature-list-item').forEach(item => {
+      item.addEventListener('mouseenter', (ev) => {
+        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
+        highlightSvgRange(svg, start, end, true);
+        toggleSvgRect(svg, start, end, true);
+        item.classList.add('active');
+        const match = item.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${item.dataset.match}</span>` : '';
+        const note = item.dataset.note ? ` <span style="color:#cbd5e1">(${item.dataset.note})</span>` : '';
+        els.tooltip.style.visibility = 'visible';
+        els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong>${note}<br><span style="font-size:11px">${item.dataset.category} • ${start+1}.${end+1}</span>${match}`;
+        els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top = `${ev.pageY - 28}px`;
+      });
+      item.addEventListener('mousemove', (ev)=>{ els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top  = `${ev.pageY - 28}px`; });
+      item.addEventListener('mouseleave', () => {
+        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
+        highlightSvgRange(svg, start, end, false);
+        toggleSvgRect(svg, start, end, false);
+        item.classList.remove('active');
+        els.tooltip.style.visibility = 'hidden';
+      });
+    });
+  }
+
+  /* ===== Plots ===== */
   function movingAverage(arr,w){
     if(w<=1) return arr.slice();
     const half = Math.floor(w/2);
@@ -1033,7 +1066,8 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         text.setAttribute('x', 2); text.setAttribute('y', y+3); text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280'); text.textContent = yVal.toFixed(1); s.appendChild(text);
       }
       const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
-      const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts); s.appendChild(pl);
+      const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts);
+      s.appendChild(pl);
       for(let i=0;i<=10;i++){
         const idx = Math.round(i*(data.length-1)/10); const x = xScale(idx);
         const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1', x); l.setAttribute('x2', x); l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4); l.setAttribute('stroke','#9ca3af'); s.appendChild(l);
@@ -1080,26 +1114,25 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     render(); new ResizeObserver(()=>render()).observe(parent);
   }
 
-  /* Refreshers */
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
   function refreshCharges(){
     currentResults.forEach(o=>{
       const c = netCharge(o.counts, Number(els.pH.value));
       const card = document.getElementById(`result-card-${o.id}`);
-      const text = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono');
-      if(text) text.textContent = c.toFixed(2);
+      const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono');
+      if(target) target.textContent = c.toFixed(2);
       if(els.optCharge.checked) updatePlotsForCard(o);
     });
   }
   function refreshAllCards(){
-    const updated = currentResults.map(o => {
+    currentResults = currentResults.map(o => {
       const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value));
       const spSegs = signalPeptideCandidates(o.seq);
       const motifSegs = scanFeatures(o.seq);
-      o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
+      o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);   /* FIXED: spread arrays correctly */
       return o;
     });
-    updated.forEach(o => {
+    currentResults.forEach(o => {
       const card = document.getElementById(`result-card-${o.id}`); if(!card) return;
       const list = card.querySelector(`#feature-list-${o.id}`);
       const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
@@ -1113,10 +1146,8 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
 
   function updatePlotsForCard(obj){
     const contId = `plots-${obj.id}`;
-    const cont = document.getElementById(contId);
-    if(!cont) return;
+    const cont = document.getElementById(contId); if(!cont) return;
     cont.innerHTML = "";
-
     if(els.optHydro.checked){
       const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
       const w = parseInt(els.hydroWindow.value,10);
@@ -1124,7 +1155,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
       drawLinePlot(holder.id, smoothed, -4.5, 4.5, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
     }
-
     if(els.optCharge.checked){
       const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
       const w = parseInt(els.chargeWindow.value,10);
@@ -1132,174 +1162,242 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder);
       drawLinePlot(holder.id, smooth, -1.2, 1.2, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
     }
-
     if(els.optCys.checked){
       const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder);
       drawCysTrack(holder.id, obj.seq);
     }
   }
 
-  /* ======================= A280 helper and exports — REFACTORED ======================= */
+  /* ===== A280 helper (robust) ===== */
+  function calcAFromMgml(eps, mw, mgml, path){ if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN; return (eps / mw) * mgml * path; }
+  function calcAFromuM(eps, uM, path){ if(!(eps>0 && path>0 && uM>=0)) return NaN; return eps * (uM * 1e-6) * path; }
+  function concFromA({ A=0, path=1.0, eps=0, mw=1 }){ if(!(eps>0 && path>0 && mw>0 && A>=0)) return { mgml: NaN, uM: NaN }; const mgml = A / ((eps / mw) * path); const uM = (A / (eps * path)) * 1e6; return { mgml, uM }; }
 
-/* ---- Pure math helpers ---- */
-function calcAFromMgml(eps, mw, mgml, path){
-  if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN;
-  return (eps / mw) * mgml * path;
-}
-function calcAFromuM(eps, uM, path){
-  if(!(eps>0 && path>0 && uM>=0)) return NaN;
-  return eps * (uM * 1e-6) * path;
-}
-function concFromA({ A=0, path=1.0, eps=0, mw=1 }){
-  if(!(eps>0 && path>0 && mw>0 && A>=0)) return { mgml: NaN, uM: NaN };
-  const mgml = A / ((eps / mw) * path);
-  const uM   = (A / (eps * path)) * 1e6;
-  return { mgml, uM };
-}
+  function wireA280Helper(obj){
+    const card   = document.getElementById(`result-card-${obj.id}`);
+    const pathEl = card.querySelector(`[data-a280-path="${obj.id}"]`);
+    const epsSel = card.querySelector(`[data-a280-eps-type="${obj.id}"]`);
+    const mgEl   = card.querySelector(`[data-a280-mgml="${obj.id}"]`);
+    const umEl   = card.querySelector(`[data-a280-um="${obj.id}"]`);
+    const aEl    = card.querySelector(`[data-a280-A="${obj.id}"]`);
+    const outEl  = card.querySelector(`[data-a280-out="${obj.id}"]`);
+    const btn    = card.querySelector(`[data-a280-calc="${obj.id}"]`);
 
-/* ---- UI wiring for A280 card ---- */
-function wireA280Helper(obj){
-  const card   = document.getElementById(`result-card-${obj.id}`);
-  const pathEl = card.querySelector(`[data-a280-path="${obj.id}"]`);
-  const epsSel = card.querySelector(`[data-a280-eps-type="${obj.id}"]`);
-  const mgEl   = card.querySelector(`[data-a280-mgml="${obj.id}"]`);
-  const umEl   = card.querySelector(`[data-a280-um="${obj.id}"]`);
-  const aEl    = card.querySelector(`[data-a280-A="${obj.id}"]`);
-  const outEl  = card.querySelector(`[data-a280-out="${obj.id}"]`);
-  const btn    = card.querySelector(`[data-a280-calc="${obj.id}"]`);
-
-  const getEps = () => (epsSel.value === 'reduced' ? obj.extinction.reduced : obj.extinction.cystines);
-  const round  = (v, n=4) => (isFinite(v) ? Number(v).toFixed(n) : '—');
-
-  function compute(){
-    const L   = parseFloat(pathEl.value) || 1.0;
-    const eps = getEps();
-    const mw  = obj.molecularWeight;
-
-    let lines = [];
-
-    // Forward: concentration -> A
-    const mgVal = mgEl.value.trim() === '' ? NaN : parseFloat(mgEl.value);
-    if(isFinite(mgVal)){
-      const A = calcAFromMgml(eps, mw, mgVal, L);
-      lines.push(`A from ${mgVal} mg/mL: ${round(A,4)}`);
+    function chosenEps(){
+      return (epsSel.value === 'cys') ? obj.extinction.cystines : obj.extinction.reduced;
     }
-    const umVal = umEl.value.trim() === '' ? NaN : parseFloat(umEl.value);
-    if(isFinite(umVal)){
-      const A = calcAFromuM(eps, umVal, L);
-      lines.push(`A from ${umVal} µM: ${round(A,4)}`);
-    }
+    function show(msg){ outEl.textContent = msg; }
 
-    // Inverse: A -> concentrations
-    const Aread = aEl.value.trim() === '' ? NaN : parseFloat(aEl.value);
-    if(isFinite(Aread)){
-      const { mgml, uM } = concFromA({ A: Aread, path: L, eps, mw });
-      lines.push(`From A=${Aread}: ${round(mgml,4)} mg/mL • ${round(uM,2)} µM`);
-    }
+    btn.addEventListener('click', ()=>{
+      const path = Number(pathEl.value); const A = Number(aEl.value); const eps = chosenEps();
+      if(!isFinite(path) || !isFinite(A) || path<=0 || A<0 || !isFinite(eps) || eps<=0){ show("Invalid inputs."); return; }
+      const { mgml, uM } = concFromA({A, path, eps, mw: obj.molecularWeight});
+      mgEl.value = isFinite(mgml) ? mgml.toFixed(6) : '';
+      umEl.value = isFinite(uM)   ? uM.toFixed(3)   : '';
+      show(`From A=${A}: ${isFinite(mgml)?mgml.toFixed(6):'—'} mg/mL • ${isFinite(uM)?uM.toFixed(3):'—'} μM`);
+    });
 
-    outEl.textContent = lines.length ? lines.join('  |  ') : 'Enter a value to compute.';
+    [pathEl, epsSel, mgEl, umEl, aEl].forEach(el=>{
+      el.addEventListener('change', ()=>{
+        const eps = chosenEps(); const path = Number(pathEl.value);
+        const mgml = Number(mgEl.value); const um = Number(umEl.value);
+        if (isFinite(mgml) && mgml>0 && isFinite(eps) && eps>0 && isFinite(path) && path>0){
+          const A = calcAFromMgml(eps, obj.molecularWeight, mgml, path);
+          if (isFinite(A)) aEl.value = A.toFixed(5);
+        } else if (isFinite(um) && um>0 && isFinite(eps) && eps>0 && isFinite(path) && path>0){
+          const A = calcAFromuM(eps, um, path);
+          if (isFinite(A)) aEl.value = A.toFixed(5);
+        }
+      });
+    });
   }
 
-  // Compute on click and on input changes (more responsive UX)
-  btn.addEventListener('click', compute);
-  [pathEl, epsSel, mgEl, umEl, aEl].forEach(el=>{
-    el.addEventListener('input', compute);
-    el.addEventListener('change', compute);
-    el.addEventListener('keyup', (e)=>{ if(e.key === 'Enter') compute(); });
+  /* ===== Per-card exports ===== */
+  function wirePerCardExports(obj){
+    const card = document.getElementById(`result-card-${obj.id}`);
+    const svgBtn = card.querySelector(`[data-download-svg="${obj.id}"]`);
+    const copyBtn = card.querySelector(`[data-copy-fasta="${obj.id}"]`);
+    const propsBtn = card.querySelector(`[data-export-props="${obj.id}"]`);
+
+    svgBtn.addEventListener('click', ()=>{
+      const svg = card.querySelector('.feature-track-svg');
+      if(!svg){ alert('Map not available.'); return; }
+      const cloned = svg.cloneNode(true);
+      const s = new XMLSerializer().serializeToString(cloned);
+      const blob = new Blob([s], {type:'image/svg+xml;charset=utf-8'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = `${sanitizeName(obj.header)}_map.svg`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 500);
+    });
+
+    copyBtn.addEventListener('click', async ()=>{
+      const text = `>${obj.header}\n${obj.seq.replace(/(.{1,80})/g, '$1\n').trim()}\n`;
+      try{ await navigator.clipboard.writeText(text); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy FASTA', 1200); }catch{ alert('Clipboard failed.'); }
+    });
+
+    propsBtn.addEventListener('click', ()=>{
+      const rows = [
+        ['Header', obj.header],
+        ['Length', obj.length],
+        ['MolecularWeight_Da', obj.molecularWeight.toFixed(2)],
+        ['Theoretical_pI', obj.pI.toFixed(3)],
+        ['Charge_at_pH_'+Number(els.pH.value).toFixed(1), obj.chargeAtPH.toFixed(3)],
+        ['GRAVY_KD', obj.gravy.toFixed(4)],
+        ['Instability_Index', obj.instability.toFixed(2)],
+        ['E280_reduced', obj.extinction.reduced],
+        ['E280_plus_cystines', obj.extinction.cystines],
+        ['A1mgml_reduced', obj.extinction.A1mgml_reduced.toFixed(5)],
+        ['A1mgml_plus_cystines', obj.extinction.A1mgml_cystines.toFixed(5)]
+      ];
+      const csv = rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+      downloadText(`${sanitizeName(obj.header)}_props.csv`, csv);
+    });
+  }
+  function sanitizeName(s){ return s.replace(/[^\w\d\-_.]+/g,'_').slice(0,120)||'sequence'; }
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:'text/plain;charset=utf-8'}); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
+  }
+
+  /* ===== Top-level exports & toggles ===== */
+  els.exportAllCsv.addEventListener('click', ()=>{
+    if(currentResults.length===0){ alert('No results to export.'); return; }
+    const header = ['Header','Length','MW_Da','pI','Charge_at_pH_'+Number(els.pH.value).toFixed(1),'GRAVY','Instability','E280_red','E280_cys','A1mgml_red','A1mgml_cys'];
+    const rows = currentResults.map(o=>[
+      o.header,o.length,o.molecularWeight.toFixed(2),o.pI.toFixed(3),netCharge(o.counts, Number(els.pH.value)).toFixed(3),
+      o.gravy.toFixed(4),o.instability.toFixed(2),o.extinction.reduced,o.extinction.cystines,
+      o.extinction.A1mgml_reduced.toFixed(5),o.extinction.A1mgml_cystines.toFixed(5)
+    ]);
+    const csv = [header, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+    downloadText('protein_workbench_summary.csv', csv);
+  });
+  els.toggleAllPlots.addEventListener('click', ()=>{
+    plotsVisible = !plotsVisible;
+    currentResults.forEach(o=>{
+      const cont = document.getElementById(`plots-${o.id}`); if(!cont) return;
+      cont.classList.toggle('hidden', !plotsVisible);
+    });
+  });
+  els.expandAll.addEventListener('click', ()=>{
+    document.querySelectorAll('#results_section details').forEach(d=>d.open=true);
+  });
+  els.collapseAll.addEventListener('click', ()=>{
+    document.querySelectorAll('#results_section details').forEach(d=>d.open=false);
   });
 
-  // First render
-  compute();
+  /* ===== Fullscreen modal with d3-zoom (tall viewport) ===== */
+function wireMapClickForModal(obj, byLane){
+  const clickBox = document.getElementById(`track-click-${obj.id}`);
+  clickBox.addEventListener('click', ()=>{
+    openMapModal(obj, byLane);
+  }, { passive: true });
 }
 
-/* ---- Clean CSV export (one row per protein, proper header, Excel-friendly) ---- */
-function safeName(s){ return s.replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,''); }
-function buildPropsRow(obj, pHval){
-  return {
-    Header: obj.header,
-    Length_aa: obj.length,
-    Mass_mono_Da: Number(obj.molecularWeight.toFixed(2)),
-    pI: Number(obj.pI.toFixed(2)),
-    Net_charge_at_pH: Number(netCharge(obj.counts, pHval).toFixed(2)),
-    GRAVY_KD: Number(obj.gravy.toFixed(3)),
-    Instability_index: Number(obj.instability.toFixed(2)),
-    Eps280_reduced_Minv_cmInv: obj.extinction.reduced,
-    Eps280_with_cystines_Minv_cmInv: obj.extinction.cystines,
-    A280_1mgmL_1cm_reduced: Number(obj.extinction.A1mgml_reduced.toFixed(3)),
-    A280_1mgmL_1cm_cystines: Number(obj.extinction.A1mgml_cystines.toFixed(3))
-  };
-}
-function objectsToCSV(rows){
-  if(!rows || rows.length===0) return '\ufeff';
-  const headers = Object.keys(rows[0]);
-  const esc = (v) => {
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
-  };
-  const lines = [];
-  lines.push(headers.join(','));
-  rows.forEach(r => lines.push(headers.map(h => esc(r[h])).join(',')));
-  return '\ufeff' + lines.join('\r\n'); // BOM + CRLF for Excel
-}
-function downloadText(content, filename, mime='text/csv;charset=utf-8'){
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+let _modalResizeHandler = null;
+const MODAL_VB_WIDTH = 2400; // wider virtual width for smoother zoom
+
+function _sizeModalToViewport(){
+  const modal = els.modal;
+  const modalContent = modal.querySelector('.map-modal-content');
+  const headerEl = modal.querySelector('.map-modal-header');
+  const bodyEl = els.modalBody;
+
+  // Force near full-screen to gain vertical space
+  modalContent.style.width = '98vw';
+  modalContent.style.maxWidth = '98vw';
+  modalContent.style.height = '96vh';
+  modalContent.style.maxHeight = '96vh';
+
+  const headerH = headerEl ? headerEl.offsetHeight : 56;
+  const paddingAllowance = 16; // matches modal paddings
+  const bodyH = Math.max(300, modalContent.clientHeight - headerH - paddingAllowance);
+
+  bodyEl.style.height = bodyH + 'px';
+  bodyEl.style.minHeight = bodyH + 'px';
+
+  // If an SVG is already present, let it fill the tall body
+  const svg = bodyEl.querySelector('svg');
+  if (svg) {
+    svg.style.width = '100%';
+    svg.style.height = (bodyH - 4) + 'px';
+  }
 }
 
-/* ---- Per-card exports: copy FASTA, SVG, CSV ---- */
-function wirePerCardExports(obj){
-  const card   = document.getElementById(`result-card-${obj.id}`);
-  const copyBtn= card.querySelector(`[data-copy-fasta="${obj.id}"]`);
-  const svgBtn = card.querySelector(`[data-download-svg="${obj.id}"]`);
-  const csvBtn = card.querySelector(`[data-export-props="${obj.id}"]`);
+function openMapModal(obj, byLane){
+  els.modalBody.innerHTML = '';
+  els.modal.classList.add('open');
+  els.modal.setAttribute('aria-hidden','false');
 
-  copyBtn.addEventListener('click', ()=>{
-    const fasta = `>${obj.header}\n${obj.seq.match(/.{1,70}/g).join('\n')}\n`;
-    navigator.clipboard.writeText(fasta);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(()=>copyBtn.textContent='Copy FASTA', 1200);
-  });
+  _sizeModalToViewport();
 
-  svgBtn.addEventListener('click', ()=>{
-    const svg = card.querySelector('.feature-track-svg'); if(!svg) return;
-    const serializer = new XMLSerializer();
-    const src  = serializer.serializeToString(svg);
-    const blob = new Blob([src], {type: 'image/svg+xml;charset=utf-8'});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a'); a.href = url; a.download = `${safeName(obj.header)}_map.svg`; a.click();
-    URL.revokeObjectURL(url);
-  });
+  // Holder that fills the tall modal body
+  const holder = document.createElement('div');
+  holder.id = `modal-track-${obj.id}`;
+  holder.style.width = '100%';
+  holder.style.height = '100%';
+  els.modalBody.appendChild(holder);
 
-  csvBtn.addEventListener('click', ()=>{
-    const row = buildPropsRow(obj, Number(els.pH.value));
-    const csv = objectsToCSV([row]);
-    downloadText(csv, `${safeName(obj.header)}_props.csv`);
-  });
+  // Render map, then widen the viewBox for better zooming
+  renderGraphicalMap(holder.id, byLane, obj.length, obj.seq);
+  const svg = holder.querySelector('svg');
+  const vbH = svg.viewBox.baseVal.height;
+
+  svg.setAttribute('viewBox', `0 0 ${MODAL_VB_WIDTH} ${vbH}`);
+  svg.dataset.vbW = String(MODAL_VB_WIDTH);
+  svg.style.width = '100%';
+  svg.style.height = '100%';
+  svg.style.display = 'block';
+
+  // Wrap content in a <g> so zoom transforms apply cleanly
+  let wrap = svg.querySelector('g[data-zoom-wrap="1"]');
+  if (!wrap) {
+    wrap = document.createElementNS('http://www.w3.org/2000/svg','g');
+    wrap.setAttribute('data-zoom-wrap','1');
+    while (svg.firstChild) wrap.appendChild(svg.firstChild);
+    svg.appendChild(wrap);
+  }
+
+  // Attach d3 zoom: do not allow zooming out beyond full sequence (min scale 1)
+  if (window.d3 && d3.zoom) {
+    const zoom = d3.zoom()
+      .scaleExtent([1, 20])
+      .translateExtent([[0, 0], [MODAL_VB_WIDTH, vbH]])
+      .on('zoom', (event)=> d3.select(wrap).attr('transform', event.transform));
+
+    d3.select(svg).on('.zoom', null).call(zoom);
+
+    modalState.svg = svg;
+    modalState.zoom = zoom;
+  } else {
+    modalState.svg = null;
+    modalState.zoom = null;
+  }
+
+  // Keep the modal tall on window resize
+  _modalResizeHandler = () => _sizeModalToViewport();
+  window.addEventListener('resize', _modalResizeHandler, { passive: true });
 }
 
-/* ---- Summary export button ---- */
-els.exportAllCsv.addEventListener('click', ()=>{
-  if(currentResults.length===0) return;
-  const pHval = Number(els.pH.value);
-  const rows  = currentResults.map(o => buildPropsRow(o, pHval));
-  const csv   = objectsToCSV(rows);
-  downloadText(csv, `protein_params_summary_pH_${pHval.toFixed(1)}.csv`);
+function closeMapModal(){
+  els.modal.classList.remove('open');
+  els.modal.setAttribute('aria-hidden','true');
+  els.modalBody.innerHTML = '';
+  if (_modalResizeHandler) {
+    window.removeEventListener('resize', _modalResizeHandler);
+    _modalResizeHandler = null;
+  }
+  modalState = { svg:null, zoom:null };
+}
+
+els.modalClose.addEventListener('click', closeMapModal);
+els.modal.addEventListener('click', (e)=>{ if (e.target === els.modal) closeMapModal(); });
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && els.modal.classList.contains('open')) closeMapModal(); });
+els.modalReset.addEventListener('click', ()=>{
+  if (modalState.svg && modalState.zoom) {
+    d3.select(modalState.svg).transition().duration(200).call(modalState.zoom.transform, d3.zoomIdentity);
+  }
 });
 
-/* ---- Plot visibility + card expand/collapse (unchanged) ---- */
-els.toggleAllPlots.addEventListener('click', ()=>{
-  plotsVisible = !plotsVisible;
-  currentResults.forEach(o => {
-    const cont = document.getElementById(`plots-${o.id}`);
-    if(cont) cont.classList.toggle('hidden', !plotsVisible);
-  });
-});
-els.expandAll.addEventListener('click', ()=>{ document.querySelectorAll('#results_section details').forEach(d=> d.open = true); });
-els.collapseAll.addEventListener('click', ()=>{ document.querySelectorAll('#results_section details').forEach(d=> d.open = false); });
-
-/* ---- Auto-analyze if prefilled ---- */
-if(els.fasta.value.trim().length > 0){ els.analyze.click(); }
-})();
+})(); // end init
 </script>
