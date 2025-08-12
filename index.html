@@ -1,129 +1,267 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Tools Suite</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            scroll-behavior: smooth;
-        }
-        .nav-button {
-            padding: 0.6rem 1.25rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-            border-radius: 9999px;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-            color: #475569; /* slate-600 */
-            cursor: pointer;
-        }
-        .nav-button:hover {
-            background-color: #f1f5f9; /* slate-100 */
-        }
-        .active-nav-button {
-            color: #4f46e5; /* indigo-600 */
-            border-color: #a5b4fc; /* indigo-300 */
-            background-color: #eef2ff; /* indigo-50 */
-        }
-        main {
-            min-height: calc(100vh - 80px); /* Adjust based on footer height */
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Tools Suite</title>
+
+  <!-- System theme colors for browser UI -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f5f9">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1220">
+
+  <!-- Tailwind config BEFORE the CDN script -->
+  <script>
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      darkMode: 'class'
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ---------- Base typography and smooth scroll ---------- */
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans";
+      scroll-behavior: smooth;
+    }
+
+    /* ---------- Nav button base ---------- */
+    .nav-button {
+      padding: 0.6rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      transition: all 0.25s ease;
+      color: #475569; /* slate-600 */
+      cursor: pointer;
+      background: transparent;
+    }
+    .nav-button:hover { background-color: #f1f5f9; }      /* slate-100 */
+    .active-nav-button {
+      color: #4f46e5;               /* indigo-600 */
+      border-color: #a5b4fc;        /* indigo-300 */
+      background-color: #eef2ff;    /* indigo-50 */
+    }
+
+    main { min-height: calc(100vh - 80px); }
+
+    /* ==========================================================
+       DARK THEME (index-only) that restyles embedded tools, too
+       ========================================================== */
+
+    :root {
+      --bg-0: #f1f5f9;   /* page bg (light)    */
+      --text-1: #0f172a; /* primary text light */
+      --text-2: #334155; /* secondary text     */
+    }
+    html.dark {
+      color-scheme: dark;
+      --bg-0: #0b1220;   /* page bg (dark) */
+      --surface-1: #0f172a; /* card bg */
+      --surface-2: #111827; /* subtle bg */
+      --border-1: #334155;  /* borders */
+      --text-1: #e5e7eb;    /* primary text */
+      --text-2: #94a3b8;    /* secondary text */
+      --muted-1: #1f2937;   /* muted surfaces / hovers */
+      --accent-1: #a5b4fc;  /* indigo-300 */
+      --accent-2: #6366f1;  /* indigo-500/600 */
+    }
+
+    /* Page-level background and text */
+    body { background-color: var(--bg-0); }
+    html.dark body { color: var(--text-1); }
+
+    /* Navbar and footer surfaces without editing their classes */
+    #topnav { backdrop-filter: blur(8px); }
+    html.dark #topnav { background-color: rgba(2, 6, 23, 0.8) !important; } /* slate-950/80 */
+    html.dark footer { background-color: var(--surface-1) !important; color: var(--text-2) !important; }
+
+    /* Nav buttons in dark */
+    html.dark .nav-button { color: var(--text-2); border-color: transparent; }
+    html.dark .nav-button:hover { background-color: var(--muted-1); }
+    html.dark .active-nav-button {
+      color: var(--accent-2);
+      border-color: var(--accent-1);
+      background-color: rgba(99,102,241,0.12);
+    }
+
+    /* ---------- Universal utility overrides inside dark ---------- */
+    /* Cards / containers commonly used across tools */
+    html.dark .bg-white        { background-color: var(--surface-1) !important; }
+    html.dark .bg-gray-50      { background-color: var(--surface-2) !important; }
+    html.dark .bg-slate-100    { background-color: var(--surface-2) !important; }
+    html.dark .bg-indigo-50    { background-color: rgba(99,102,241,0.12) !important; }
+
+    /* Borders */
+    html.dark .border-gray-100 { border-color: var(--border-1) !important; }
+    html.dark .border-gray-200 { border-color: var(--border-1) !important; }
+    html.dark .border-gray-300 { border-color: var(--border-1) !important; }
+    html.dark .border-slate-300{ border-color: var(--border-1) !important; }
+
+    /* Text colors */
+    html.dark .text-slate-800  { color: var(--text-1) !important; }
+    html.dark .text-gray-800   { color: var(--text-1) !important; }
+    html.dark .text-gray-700   { color: var(--text-1) !important; }
+    html.dark .text-gray-600   { color: var(--text-2) !important; }
+    html.dark .text-gray-500   { color: var(--text-2) !important; }
+    html.dark .text-slate-500  { color: var(--text-2) !important; }
+    html.dark .text-indigo-700 { color: #c7d2fe !important; } /* brighter for headings */
+
+    /* Inputs, selects, textareas */
+    html.dark input,
+    html.dark select,
+    html.dark textarea {
+      background-color: var(--surface-1) !important;
+      color: var(--text-1) !important;
+      border-color: var(--border-1) !important;
+    }
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: var(--text-2) !important; }
+
+    /* Buttons that were "bg-white hover:bg-slate-50" */
+    html.dark .hover\:bg-slate-50:hover,
+    html.dark .bg-slate-50 { background-color: var(--muted-1) !important; }
+
+    /* Tables */
+    html.dark table { color: var(--text-1); }
+    html.dark thead th { color: var(--text-2); }
+
+    /* Generic paragraph notes and captions used in tools */
+    html.dark .note { color: var(--text-2) !important; }
+    html.dark .note b { color: var(--text-1) !important; }
+    html.dark .chart-title { color: var(--text-2) !important; }
+
+    /* Feature list hovers (Protein Workbench) */
+    html.dark .feature-list-item:hover { background-color: rgba(99,102,241,0.12) !important; }
+    html.dark .feature-list-item.active {
+      background-color: rgba(99,102,241,0.18) !important;
+      outline-color: var(--accent-1) !important;
+    }
+
+    /* SVG tooltip from Protein Workbench already uses a dark bg; keep legible text */
+    html.dark #svg-tooltip { color: #fff !important; }
+
+    /* Scrollbars (override any light styles the embedded tools define) */
+    html.dark ::-webkit-scrollbar{ width:8px; height:8px;}
+    html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
+    html.dark ::-webkit-scrollbar-thumb{ background:#475569; border-radius:4px;}
+    html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b;}
+
+    /* Content wrapper */
+    #content-area { transition: background-color .2s ease, color .2s ease; }
+  </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased">
 
-    <nav class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
-        <div class="container mx-auto px-4 py-3 flex justify-center flex-wrap gap-2 md:gap-4">
-            <button class="nav-button" data-src="color_generator.html">🎨 Color Generator</button>
-            <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calculator</button>
-            <button class="nav-button" data-src="text_counter.html">📝 Text Counter</button>
-            <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
-        </div>
-    </nav>
+<body class="bg-slate-100 text-slate-800 antialiased transition-colors">
+  <!-- NAV -->
+  <nav id="topnav" class="bg-white/80 shadow-sm sticky top-0 z-20">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex justify-center flex-wrap gap-2 md:gap-4">
+        <button class="nav-button" data-src="color_generator.html">🎨 Color Generator</button>
+        <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calculator</button>
+        <button class="nav-button" data-src="text_counter.html">📝 Text Counter</button>
+        <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
+      </div>
 
-    <main id="content-area">
-        </main>
+      <button id="theme-toggle"
+              class="nav-button"
+              type="button"
+              aria-pressed="false"
+              aria-label="Toggle dark mode"
+              title="Toggle dark mode">
+        🌙 Dark
+      </button>
+    </div>
+  </nav>
 
-    <footer class="text-center text-sm text-slate-500 py-8 bg-slate-100">
-        Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a>
-    </footer>
+  <!-- MAIN -->
+  <main id="content-area"></main>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const contentArea = document.getElementById('content-area');
-            const navButtons = document.querySelectorAll('.nav-button');
+  <!-- FOOTER -->
+  <footer class="text-center text-sm text-slate-500 py-8 bg-slate-100">
+    Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a>
+  </footer>
 
-            /**
-             * Fetches and loads the content of a tool into the main content area.
-             * @param {string} src - The path to the HTML file of the tool.
-             */
-            async function loadContent(src) {
-                try {
-                    const response = await fetch(src);
-                    if (!response.ok) {
-                        throw new Error(`Failed to load ${src}: ${response.statusText}`);
-                    }
-                    const text = await response.text();
-                    
-                    // Clear previous content before loading new tool
-                    contentArea.innerHTML = '';
-                    
-                    // Create a temporary container to parse the fetched HTML
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = text;
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const contentArea = document.getElementById('content-area');
+      const navButtons  = document.querySelectorAll('.nav-button[data-src]');
+      const themeBtn    = document.getElementById('theme-toggle');
+      const docEl       = document.documentElement;
 
-                    // Transfer all child nodes from the temp container to the content area
-                    while (tempDiv.firstChild) {
-                        contentArea.appendChild(tempDiv.firstChild);
-                    }
+      /* ---------- Theme init: prefer saved, else system ---------- */
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const startDark = saved ? (saved === 'dark') : prefersDark;
 
-                    // Find and execute any scripts in the loaded content
-                    const scripts = contentArea.querySelectorAll('script');
-                    scripts.forEach(script => {
-                        const newScript = document.createElement('script');
-                        // Copy attributes like src
-                        for (let i = 0; i < script.attributes.length; i++) {
-                            const attr = script.attributes[i];
-                            newScript.setAttribute(attr.name, attr.value);
-                        }
-                        // Copy inline script content
-                        newScript.textContent = script.textContent;
-                        // Replace the old script tag with the new one to trigger execution
-                        script.parentNode.replaceChild(newScript, script);
-                    });
+      function applyTheme(isDark, persist = true) {
+        if (isDark) {
+          docEl.classList.add('dark');
+          themeBtn.textContent = '🌞 Light';
+          themeBtn.setAttribute('aria-pressed', 'true');
+        } else {
+          docEl.classList.remove('dark');
+          themeBtn.textContent = '🌙 Dark';
+          themeBtn.setAttribute('aria-pressed', 'false');
+        }
+        if (persist) localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      }
+      applyTheme(startDark, false);
 
-                } catch (error) {
-                    contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${error.message}</p>`;
-                    console.error('Fetch error:', error);
-                }
+      themeBtn.addEventListener('click', () => {
+        const nowDark = !docEl.classList.contains('dark');
+        applyTheme(nowDark, true);
+      });
+
+      /* ---------- Loader for embedded tools ---------- */
+      async function loadContent(src) {
+        try {
+          const response = await fetch(src);
+          if (!response.ok) throw new Error(`Failed to load ${src}: ${response.status} ${response.statusText}`);
+
+          const text = await response.text();
+          contentArea.innerHTML = '';
+
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = text;
+
+          while (tempDiv.firstChild) contentArea.appendChild(tempDiv.firstChild);
+
+          // Re-execute scripts from the embedded HTML
+          const scripts = contentArea.querySelectorAll('script');
+          scripts.forEach((script) => {
+            const newScript = document.createElement('script');
+            for (let i = 0; i < script.attributes.length; i++) {
+              const attr = script.attributes[i];
+              newScript.setAttribute(attr.name, attr.value);
             }
+            newScript.textContent = script.textContent;
+            script.parentNode.replaceChild(newScript, script);
+          });
 
-            // Add click event listeners to all navigation buttons
-            navButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const src = button.getAttribute('data-src');
-                    
-                    // Update active state for the buttons
-                    navButtons.forEach(btn => btn.classList.remove('active-nav-button'));
-                    button.classList.add('active-nav-button');
-                    
-                    // Load the content from the selected source file
-                    loadContent(src);
-                });
-            });
+        } catch (error) {
+          contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${error.message}</p>`;
+          console.error('Fetch error:', error);
+        }
+      }
 
-            // Automatically load the first tool when the page loads
-            if (navButtons.length > 0) {
-                navButtons[0].click();
-            }
+      // Nav interactions
+      navButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const src = button.getAttribute('data-src');
+          navButtons.forEach(btn => btn.classList.remove('active-nav-button'));
+          button.classList.add('active-nav-button');
+          loadContent(src);
         });
-    </script>
+      });
 
+      // Auto-load the first tool
+      if (navButtons.length > 0) navButtons[0].click();
+    });
+  </script>
 </body>
 </html>
