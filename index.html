@@ -5,16 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Web Tools Suite</title>
 
-  <!-- System theme colors for browser UI -->
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f5f9">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1220">
 
-  <!-- Tailwind config BEFORE the CDN script -->
   <script>
     window.tailwind = window.tailwind || {};
-    window.tailwind.config = {
-      darkMode: 'class'
-    };
+    window.tailwind.config = { darkMode: 'class' };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -22,136 +18,70 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* ---------- Base typography and smooth scroll ---------- */
-    body {
-      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans";
-      scroll-behavior: smooth;
-    }
-
-    /* ---------- Nav button base ---------- */
-    .nav-button {
-      padding: 0.6rem 1.25rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-      border-radius: 9999px;
-      border: 2px solid transparent;
-      transition: all 0.25s ease;
-      color: #475569; /* slate-600 */
-      cursor: pointer;
-      background: transparent;
-    }
-    .nav-button:hover { background-color: #f1f5f9; }      /* slate-100 */
-    .active-nav-button {
-      color: #4f46e5;               /* indigo-600 */
-      border-color: #a5b4fc;        /* indigo-300 */
-      background-color: #eef2ff;    /* indigo-50 */
-    }
-
+    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans"; scroll-behavior: smooth; }
+    .nav-button { padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; border-radius: 9999px; border: 2px solid transparent; transition: all .25s ease; color: #475569; cursor: pointer; background: transparent; }
+    .nav-button:hover { background-color: #f1f5f9; }
+    .active-nav-button { color: #4f46e5; border-color: #a5b4fc; background-color: #eef2ff; }
     main { min-height: calc(100vh - 80px); }
 
-    /* ==========================================================
-       DARK THEME (index-only) that restyles embedded tools, too
-       ========================================================== */
-
-    :root {
-      --bg-0: #f1f5f9;   /* page bg (light)    */
-      --text-1: #0f172a; /* primary text light */
-      --text-2: #334155; /* secondary text     */
-    }
+    :root { --bg-0:#f1f5f9; --text-1:#0f172a; --text-2:#334155; }
     html.dark {
       color-scheme: dark;
-      --bg-0: #0b1220;   /* page bg (dark) */
-      --surface-1: #0f172a; /* card bg */
-      --surface-2: #111827; /* subtle bg */
-      --border-1: #334155;  /* borders */
-      --text-1: #e5e7eb;    /* primary text */
-      --text-2: #94a3b8;    /* secondary text */
-      --muted-1: #1f2937;   /* muted surfaces / hovers */
-      --accent-1: #a5b4fc;  /* indigo-300 */
-      --accent-2: #6366f1;  /* indigo-500/600 */
+      --bg-0:#0b1220; --surface-1:#0f172a; --surface-2:#111827; --border-1:#334155; --text-1:#e5e7eb; --text-2:#94a3b8; --muted-1:#1f2937; --accent-1:#a5b4fc; --accent-2:#6366f1;
     }
 
-    /* Page-level background and text */
     body { background-color: var(--bg-0); }
     html.dark body { color: var(--text-1); }
 
-    /* Navbar and footer surfaces without editing their classes */
     #topnav { backdrop-filter: blur(8px); }
-    html.dark #topnav { background-color: rgba(2, 6, 23, 0.8) !important; } /* slate-950/80 */
+    html.dark #topnav { background-color: rgba(2, 6, 23, 0.8) !important; }
     html.dark footer { background-color: var(--surface-1) !important; color: var(--text-2) !important; }
 
-    /* Nav buttons in dark */
     html.dark .nav-button { color: var(--text-2); border-color: transparent; }
     html.dark .nav-button:hover { background-color: var(--muted-1); }
-    html.dark .active-nav-button {
-      color: var(--accent-2);
-      border-color: var(--accent-1);
-      background-color: rgba(99,102,241,0.12);
-    }
+    html.dark .active-nav-button { color: var(--accent-2); border-color: var(--accent-1); background-color: rgba(99,102,241,0.12); }
 
-    /* ---------- Universal utility overrides inside dark ---------- */
-    /* Cards / containers commonly used across tools */
     html.dark .bg-white        { background-color: var(--surface-1) !important; }
     html.dark .bg-gray-50      { background-color: var(--surface-2) !important; }
     html.dark .bg-slate-100    { background-color: var(--surface-2) !important; }
     html.dark .bg-indigo-50    { background-color: rgba(99,102,241,0.12) !important; }
 
-    /* Borders */
-    html.dark .border-gray-100 { border-color: var(--border-1) !important; }
-    html.dark .border-gray-200 { border-color: var(--border-1) !important; }
-    html.dark .border-gray-300 { border-color: var(--border-1) !important; }
-    html.dark .border-slate-300{ border-color: var(--border-1) !important; }
+    html.dark .border-gray-100,
+    html.dark .border-gray-200,
+    html.dark .border-gray-300,
+    html.dark .border-slate-300 { border-color: var(--border-1) !important; }
 
-    /* Text colors */
-    html.dark .text-slate-800  { color: var(--text-1) !important; }
-    html.dark .text-gray-800   { color: var(--text-1) !important; }
-    html.dark .text-gray-700   { color: var(--text-1) !important; }
-    html.dark .text-gray-600   { color: var(--text-2) !important; }
-    html.dark .text-gray-500   { color: var(--text-2) !important; }
-    html.dark .text-slate-500  { color: var(--text-2) !important; }
-    html.dark .text-indigo-700 { color: #c7d2fe !important; } /* brighter for headings */
+    html.dark .text-slate-800,
+    html.dark .text-gray-800,
+    html.dark .text-gray-700 { color: var(--text-1) !important; }
+    html.dark .text-gray-600,
+    html.dark .text-gray-500,
+    html.dark .text-slate-500 { color: var(--text-2) !important; }
+    html.dark .text-indigo-700 { color: #c7d2fe !important; }
 
-    /* Inputs, selects, textareas */
-    html.dark input,
-    html.dark select,
-    html.dark textarea {
-      background-color: var(--surface-1) !important;
-      color: var(--text-1) !important;
-      border-color: var(--border-1) !important;
-    }
-    html.dark input::placeholder,
-    html.dark textarea::placeholder { color: var(--text-2) !important; }
+    html.dark input, html.dark select, html.dark textarea { background-color: var(--surface-1) !important; color: var(--text-1) !important; border-color: var(--border-1) !important; }
+    html.dark input::placeholder, html.dark textarea::placeholder { color: var(--text-2) !important; }
 
-    /* Buttons that were "bg-white hover:bg-slate-50" */
     html.dark .hover\:bg-slate-50:hover,
     html.dark .bg-slate-50 { background-color: var(--muted-1) !important; }
 
-    /* Tables */
     html.dark table { color: var(--text-1); }
     html.dark thead th { color: var(--text-2); }
 
-    /* Generic paragraph notes and captions used in tools */
     html.dark .note { color: var(--text-2) !important; }
     html.dark .note b { color: var(--text-1) !important; }
     html.dark .chart-title { color: var(--text-2) !important; }
 
-    /* Feature list hovers (Protein Workbench) */
     html.dark .feature-list-item:hover { background-color: rgba(99,102,241,0.12) !important; }
-    html.dark .feature-list-item.active {
-      background-color: rgba(99,102,241,0.18) !important;
-      outline-color: var(--accent-1) !important;
-    }
+    html.dark .feature-list-item.active { background-color: rgba(99,102,241,0.18) !important; outline-color: var(--accent-1) !important; }
 
-    /* SVG tooltip from Protein Workbench already uses a dark bg; keep legible text */
     html.dark #svg-tooltip { color: #fff !important; }
 
-    /* Scrollbars (override any light styles the embedded tools define) */
     html.dark ::-webkit-scrollbar{ width:8px; height:8px;}
     html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
     html.dark ::-webkit-scrollbar-thumb{ background:#475569; border-radius:4px;}
     html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b;}
 
-    /* Content wrapper */
     #content-area { transition: background-color .2s ease, color .2s ease; }
   </style>
 </head>
@@ -161,10 +91,11 @@
   <nav id="topnav" class="bg-white/80 shadow-sm sticky top-0 z-20">
     <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
       <div class="flex justify-center flex-wrap gap-2 md:gap-4">
+        <!-- Protein Workbench first -->
+        <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
         <button class="nav-button" data-src="color_generator.html">🎨 Color Generator</button>
         <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calculator</button>
         <button class="nav-button" data-src="text_counter.html">📝 Text Counter</button>
-        <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
       </div>
 
       <button id="theme-toggle"
@@ -193,7 +124,7 @@
       const themeBtn    = document.getElementById('theme-toggle');
       const docEl       = document.documentElement;
 
-      /* ---------- Theme init: prefer saved, else system ---------- */
+      /* Theme init */
       const saved = localStorage.getItem('theme');
       const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       const startDark = saved ? (saved === 'dark') : prefersDark;
@@ -217,35 +148,31 @@
         applyTheme(nowDark, true);
       });
 
-      /* ---------- Loader for embedded tools ---------- */
+      /* Load embedded tool into main area */
       async function loadContent(src) {
         try {
           const response = await fetch(src);
           if (!response.ok) throw new Error(`Failed to load ${src}: ${response.status} ${response.statusText}`);
-
           const text = await response.text();
           contentArea.innerHTML = '';
 
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = text;
-
           while (tempDiv.firstChild) contentArea.appendChild(tempDiv.firstChild);
 
-          // Re-execute scripts from the embedded HTML
+          // Re-execute scripts from embedded HTML
           const scripts = contentArea.querySelectorAll('script');
           scripts.forEach((script) => {
-            const newScript = document.createElement('script');
+            const s = document.createElement('script');
             for (let i = 0; i < script.attributes.length; i++) {
-              const attr = script.attributes[i];
-              newScript.setAttribute(attr.name, attr.value);
+              const a = script.attributes[i]; s.setAttribute(a.name, a.value);
             }
-            newScript.textContent = script.textContent;
-            script.parentNode.replaceChild(newScript, script);
+            s.textContent = script.textContent;
+            script.parentNode.replaceChild(s, script);
           });
-
-        } catch (error) {
-          contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${error.message}</p>`;
-          console.error('Fetch error:', error);
+        } catch (err) {
+          contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${err.message}</p>`;
+          console.error('Fetch error:', err);
         }
       }
 
@@ -259,7 +186,7 @@
         });
       });
 
-      // Auto-load the first tool
+      // Auto-load the first tool (Protein Workbench now first)
       if (navButtons.length > 0) navButtons[0].click();
     });
   </script>
