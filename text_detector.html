@@ -35,6 +35,7 @@
                     <h2 class="text-xl font-semibold text-gray-800">Input Text</h2>
                     <div class="flex space-x-2">
                          <button id="example-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors">See Example</button>
+                         <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Copy Text</button>
                          <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Clear</button>
                     </div>
                 </div>
@@ -46,7 +47,6 @@
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-gray-800">Highlighted Characters</h2>
-                    <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Copy Cleaned Text</button>
                 </div>
                 <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 whitespace-pre-wrap break-words">
                     <span class="text-gray-500">Your text with highlighted characters will appear here...</span>
@@ -81,7 +81,7 @@
                 </div>
 
                 <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
-                    Remove All Detected
+                    Remove All & Copy
                 </button>
             </div>
         </div>
@@ -209,6 +209,7 @@
         const fixChar = INVISIBLE_CHARS[charCode]?.fix || '';
         inputText.value = inputText.value.split(charToRemove).join(fixChar);
         analyzeText();
+        copyCleanedText(true);
     };
     
     const removeAllChars = () => {
@@ -234,14 +235,29 @@ This text has a zero​width space right here. And this space -> <- is a non-br
         analyzeText();
     };
 
-    const copyCleanedText = () => {
+    const copyCleanedText = (isAutomatic = false) => {
         const textToCopy = inputText.value;
+        
+        if (isAutomatic && !textToCopy && invisibleCount.textContent === '0') return;
+
+        const originalText = 'Copy Text';
+        const buttonToUpdate = isAutomatic ? removeAllBtn : copyBtn;
+        const originalMainButtonText = 'Remove All & Copy';
+
         const doCopy = () => navigator.clipboard.writeText(textToCopy).then(() => {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+            if (isAutomatic) {
+                buttonToUpdate.textContent = 'Removed & Copied!';
+            } else {
+                buttonToUpdate.textContent = 'Copied!';
+            }
+            setTimeout(() => { 
+                buttonToUpdate.textContent = isAutomatic ? originalMainButtonText : originalText;
+            }, 2000);
         }, () => {
-            copyBtn.textContent = 'Copy Failed';
-            setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+            buttonToUpdate.textContent = 'Copy Failed';
+             setTimeout(() => { 
+                buttonToUpdate.textContent = isAutomatic ? originalMainButtonText : originalText;
+            }, 2000);
         });
 
         if (navigator.clipboard && window.isSecureContext) {
@@ -254,23 +270,31 @@ This text has a zero​width space right here. And this space -> <- is a non-br
             ta.select();
             try {
                 document.execCommand('copy');
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+                 if (isAutomatic) {
+                    buttonToUpdate.textContent = 'Removed & Copied!';
+                } else {
+                    buttonToUpdate.textContent = 'Copied!';
+                }
             } catch (err) {
-                copyBtn.textContent = 'Copy Failed';
-                setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+                buttonToUpdate.textContent = 'Copy Failed';
+            } finally {
+                setTimeout(() => { 
+                    buttonToUpdate.textContent = isAutomatic ? originalMainButtonText : originalText;
+                }, 2000);
+                ta.remove();
             }
-            ta.remove();
         }
     };
 
     inputText.addEventListener('input', analyzeText);
-    removeAllBtn.addEventListener('click', removeAllChars);
+    removeAllBtn.addEventListener('click', () => {
+        removeAllChars();
+        copyCleanedText(true);
+    });
     exampleBtn.addEventListener('click', setExampleText);
     clearBtn.addEventListener('click', clearText);
-    copyBtn.addEventListener('click', copyCleanedText);
+    copyBtn.addEventListener('click', () => copyCleanedText(false));
 
     analyzeText();
 })();
 </script>
-
