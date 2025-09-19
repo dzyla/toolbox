@@ -44,7 +44,10 @@
 
             <!-- Highlighted Output Card -->
             <div class="bg-white p-6 rounded-xl shadow-lg">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Highlighted Characters</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Highlighted Characters</h2>
+                    <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Copy Cleaned Text</button>
+                </div>
                 <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 whitespace-pre-wrap break-words">
                     <span class="text-gray-500">Your text with highlighted characters will appear here...</span>
                 </div>
@@ -97,20 +100,38 @@
     const removeAllBtn = document.getElementById('remove-all-btn');
     const exampleBtn = document.getElementById('example-btn');
     const clearBtn = document.getElementById('clear-btn');
+    const copyBtn = document.getElementById('copy-btn');
     
     // A list of "invisible" or non-standard characters to detect.
     const INVISIBLE_CHARS = {
-        'U+00A0': { name: 'Non-Breaking Space', char: '\u00A0', fix: ' ', description: 'Looks like a space, but prevents line breaks.' },
-        'U+200B': { name: 'Zero-Width Space', char: '\u200B', fix: '', description: 'An invisible character, often used for line breaks in scripts.' },
+        'U+00A0': { name: 'Non-Breaking Space', char: '\u00A0', fix: ' ', description: 'Prevents line breaks between words.' },
+        'U+00AD': { name: 'Soft Hyphen', char: '\u00AD', fix: '', description: 'An invisible character suggesting a hyphenation point.' },
+        'U+2000': { name: 'En Quad', char: '\u2000', fix: ' ', description: 'A space equal to one en.' },
+        'U+2001': { name: 'Em Quad', char: '\u2001', fix: ' ', description: 'A space equal to one em.' },
+        'U+2002': { name: 'En Space', char: '\u2002', fix: ' ', description: 'A space equal to half an em.' },
+        'U+2003': { name: 'Em Space', char: '\u2003', fix: ' ', description: 'A space equal to the point size of the font.' },
+        'U+2004': { name: 'Three-Per-Em Space', char: '\u2004', fix: ' ', description: 'A space equal to 1/3 of an em.' },
+        'U+2005': { name: 'Four-Per-Em Space', char: '\u2005', fix: ' ', description: 'A space equal to 1/4 of an em.' },
+        'U+2006': { name: 'Six-Per-Em Space', char: '\u2006', fix: ' ', description: 'A space equal to 1/6 of an em.' },
+        'U+2007': { name: 'Figure Space', char: '\u2007', fix: ' ', description: 'A space equal to the width of a digit.' },
+        'U+2008': { name: 'Punctuation Space', char: '\u2008', fix: ' ', description: 'A space equal to the width of a period.' },
+        'U+2009': { name: 'Thin Space', char: '\u2009', fix: ' ', description: 'A thin space, typically 1/5 of an em.' },
+        'U+200A': { name: 'Hair Space', char: '\u200A', fix: ' ', description: 'The thinnest space character.' },
+        'U+200B': { name: 'Zero-Width Space', char: '\u200B', fix: '', description: 'Invisible, used for line break opportunities.' },
         'U+200C': { name: 'Zero-Width Non-Joiner', char: '\u200C', fix: '', description: 'Prevents adjacent characters from joining.' },
         'U+200D': { name: 'Zero-Width Joiner', char: '\u200D', fix: '', description: 'Joins characters that would not normally connect.' },
-        'U+2013': { name: 'En Dash', char: '–', fix: '-', description: 'Longer than a hyphen, used for ranges (e.g., 1–10).' },
-        'U+2014': { name: 'Em Dash', char: '—', fix: '--', description: 'Longer dash, used for breaks in a sentence.' },
-        'U+2018': { name: 'Left Single Quotation Mark', char: '‘', fix: '\'', description: 'A "curly" single quote.' },
-        'U+2019': { name: 'Right Single Quotation Mark', char: '’', fix: '\'', description: 'A "curly" single quote or apostrophe.' },
-        'U+201C': { name: 'Left Double Quotation Mark', char: '“', fix: '"', description: 'A "curly" double quote.' },
-        'U+201D': { name: 'Right Double Quotation Mark', char: '”', fix: '"', description: 'A "curly" double quote.' },
-        'U+FEFF': { name: 'Byte Order Mark (BOM)', char: '\uFEFF', fix: '', description: 'Invisible character used to indicate text encoding.' }
+        'U+2013': { name: 'En Dash', char: '–', fix: '-', description: 'Used for ranges (e.g., 1–10).' },
+        'U+2014': { name: 'Em Dash', char: '—', fix: '--', description: 'Used for a break in a sentence.' },
+        'U+2018': { name: 'Left Single Quotation Mark', char: '‘', fix: '\'', description: 'A “curly” single quote.' },
+        'U+2019': { name: 'Right Single Quotation Mark', char: '’', fix: '\'', description: 'A “curly” single quote or apostrophe.' },
+        'U+201C': { name: 'Left Double Quotation Mark', char: '“', fix: '"', description: 'A “curly” double quote.' },
+        'U+201D': { name: 'Right Double Quotation Mark', char: '”', fix: '"', description: 'A “curly” double quote.' },
+        'U+2026': { name: 'Horizontal Ellipsis', char: '…', fix: '...', description: 'Represents omitted text.' },
+        'U+2028': { name: 'Line Separator', char: '\u2028', fix: '\n', description: 'Represents a line break.' },
+        'U+2029': { name: 'Paragraph Separator', char: '\u2029', fix: '\n\n', description: 'Represents a paragraph break.' },
+        'U+202F': { name: 'Narrow No-Break Space', char: '\u202F', fix: ' ', description: 'A narrow non-breaking space.' },
+        'U+3000': { name: 'Ideographic Space', char: '\u3000', fix: ' ', description: 'A wide space, used in East Asian typography.' },
+        'U+FEFF': { name: 'Byte Order Mark (BOM)', char: '\uFEFF', fix: '', description: 'Invisible, indicates text encoding.' }
     };
 
     const analyzeText = () => {
@@ -203,7 +224,7 @@
 
     const setExampleText = () => {
         inputText.value = `This is an example sentence—it’s great!
-Here’s a range: 1–5.
+Here’s a range: 1–5. …and some "curly quotes."
 This text has a zero​width space right here. And this space -> <- is a non-breaking one.`;
         analyzeText();
     };
@@ -213,11 +234,43 @@ This text has a zero​width space right here. And this space -> <- is a non-br
         analyzeText();
     };
 
+    const copyCleanedText = () => {
+        const textToCopy = inputText.value;
+        const doCopy = () => navigator.clipboard.writeText(textToCopy).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+        }, () => {
+            copyBtn.textContent = 'Copy Failed';
+            setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+        });
+
+        if (navigator.clipboard && window.isSecureContext) {
+            doCopy();
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = textToCopy;
+            ta.style.position='fixed'; ta.style.left='-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+            } catch (err) {
+                copyBtn.textContent = 'Copy Failed';
+                setTimeout(() => { copyBtn.textContent = 'Copy Cleaned Text'; }, 2000);
+            }
+            ta.remove();
+        }
+    };
+
     inputText.addEventListener('input', analyzeText);
     removeAllBtn.addEventListener('click', removeAllChars);
     exampleBtn.addEventListener('click', setExampleText);
     clearBtn.addEventListener('click', clearText);
+    copyBtn.addEventListener('click', copyCleanedText);
 
     analyzeText();
 })();
 </script>
+
