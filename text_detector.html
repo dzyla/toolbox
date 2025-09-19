@@ -1,0 +1,223 @@
+<!-- This file contains only the content for the Invisible Text Detector tool. -->
+<!-- It will be loaded into the main index.html file. -->
+
+<style>
+    .highlight {
+        background-color: #fef08a; /* yellow-200 */
+        color: #1e293b; /* slate-800 */
+        border-radius: 3px;
+        padding: 1px 2px;
+        box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+    }
+    .detected-character-card {
+        transition: all 0.2s ease-in-out;
+    }
+    /* Dark mode specific styles */
+    html.dark .highlight {
+        background-color: #facc15; /* yellow-400 */
+        color: #1f2937; /* gray-800 */
+    }
+</style>
+
+<div class="container mx-auto p-4 md:p-8 max-w-7xl">
+    <!-- Header -->
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-900">Invisible Text Detector</h1>
+        <p class="mt-2 text-lg text-gray-600">Find and remove hidden Unicode characters from text.</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left Column: Input and Highlighted Output -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Input Text Card -->
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Input Text</h2>
+                    <div class="flex space-x-2">
+                         <button id="example-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors">See Example</button>
+                         <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Clear</button>
+                    </div>
+                </div>
+                <textarea id="inputText" class="w-full h-64 bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Paste your text here..."></textarea>
+                <p id="char-count" class="text-right text-sm text-gray-500 mt-2">0/15000 characters</p>
+            </div>
+
+            <!-- Highlighted Output Card -->
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Highlighted Characters</h2>
+                <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 whitespace-pre-wrap break-words">
+                    <span class="text-gray-500">Your text with highlighted characters will appear here...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Analysis -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-lg p-6 sticky top-24">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-slate-200 pb-3">Analysis</h2>
+                
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-4 text-center mb-6">
+                    <div>
+                        <p class="text-3xl font-bold text-green-600" id="visible-count">0</p>
+                        <p class="text-xs text-gray-500">Visible Chars</p>
+                    </div>
+                    <div>
+                        <p class="text-3xl font-bold text-red-500" id="invisible-count">0</p>
+                        <p class="text-xs text-gray-500">Invisible Chars</p>
+                    </div>
+                    <div>
+                        <p class="text-3xl font-bold text-blue-600" id="word-count">0</p>
+                        <p class="text-xs text-gray-500">Words</p>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Detected Characters</h3>
+                <div id="detected-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    <p class="text-gray-500 italic">No special characters detected yet.</p>
+                </div>
+
+                <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
+                    Remove All Detected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function initTextDetector() {
+    const inputText = document.getElementById('inputText');
+    const highlightedOutput = document.getElementById('highlightedOutput');
+    const charCount = document.getElementById('char-count');
+    const visibleCount = document.getElementById('visible-count');
+    const invisibleCount = document.getElementById('invisible-count');
+    const wordCount = document.getElementById('word-count');
+    const detectedList = document.getElementById('detected-list');
+    const removeAllBtn = document.getElementById('remove-all-btn');
+    const exampleBtn = document.getElementById('example-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    
+    // A list of "invisible" or non-standard characters to detect.
+    const INVISIBLE_CHARS = {
+        'U+00A0': { name: 'Non-Breaking Space', char: '\u00A0', fix: ' ', description: 'Looks like a space, but prevents line breaks.' },
+        'U+200B': { name: 'Zero-Width Space', char: '\u200B', fix: '', description: 'An invisible character, often used for line breaks in scripts.' },
+        'U+200C': { name: 'Zero-Width Non-Joiner', char: '\u200C', fix: '', description: 'Prevents adjacent characters from joining.' },
+        'U+200D': { name: 'Zero-Width Joiner', char: '\u200D', fix: '', description: 'Joins characters that would not normally connect.' },
+        'U+2013': { name: 'En Dash', char: '–', fix: '-', description: 'Longer than a hyphen, used for ranges (e.g., 1–10).' },
+        'U+2014': { name: 'Em Dash', char: '—', fix: '--', description: 'Longer dash, used for breaks in a sentence.' },
+        'U+2018': { name: 'Left Single Quotation Mark', char: '‘', fix: '\'', description: 'A "curly" single quote.' },
+        'U+2019': { name: 'Right Single Quotation Mark', char: '’', fix: '\'', description: 'A "curly" single quote or apostrophe.' },
+        'U+201C': { name: 'Left Double Quotation Mark', char: '“', fix: '"', description: 'A "curly" double quote.' },
+        'U+201D': { name: 'Right Double Quotation Mark', char: '”', fix: '"', description: 'A "curly" double quote.' },
+        'U+FEFF': { name: 'Byte Order Mark (BOM)', char: '\uFEFF', fix: '', description: 'Invisible character used to indicate text encoding.' }
+    };
+
+    const analyzeText = () => {
+        const text = inputText.value;
+        let highlightedText = '';
+        let detected = {};
+        let invisibleCharCount = 0;
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const charCode = 'U+' + char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
+            
+            if (INVISIBLE_CHARS[charCode]) {
+                highlightedText += `<span class="highlight" title="${INVISIBLE_CHARS[charCode].name} (${charCode})">${char}</span>`;
+                invisibleCharCount++;
+                if (!detected[charCode]) {
+                    detected[charCode] = { ...INVISIBLE_CHARS[charCode], count: 0 };
+                }
+                detected[charCode].count++;
+            } else {
+                highlightedText += char.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            }
+        }
+        
+        highlightedOutput.innerHTML = highlightedText || `<span class="text-gray-500">Your text with highlighted characters will appear here...</span>`;
+        charCount.textContent = `${text.length}/15000 characters`;
+        invisibleCount.textContent = invisibleCharCount;
+        visibleCount.textContent = text.length - invisibleCharCount;
+        wordCount.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+        updateDetectedList(detected);
+
+        removeAllBtn.disabled = invisibleCharCount <= 0;
+    };
+
+    const updateDetectedList = (detected) => {
+        if (Object.keys(detected).length === 0) {
+            detectedList.innerHTML = '<p class="text-gray-500 italic">No special characters detected yet.</p>';
+            return;
+        }
+
+        detectedList.innerHTML = '';
+        for (const charCode in detected) {
+            const { name, description, count, char } = detected[charCode];
+            const card = document.createElement('div');
+            card.className = 'detected-character-card bg-slate-50 p-3 rounded-lg border border-slate-200';
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center">
+                            <span class="font-bold text-slate-800 mr-2">${name}</span>
+                            <span class="text-xs bg-blue-500 text-white font-semibold rounded-full px-2 py-0.5">${count}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">${description}</p>
+                        <p class="text-xs text-gray-400 mt-1">Unicode: ${charCode}</p>
+                    </div>
+                    <button class="remove-char-btn text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md transition-colors" data-char="${char}">
+                        Remove
+                    </button>
+                </div>
+            `;
+            detectedList.appendChild(card);
+        }
+        
+        document.querySelectorAll('.remove-char-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const charToRemove = e.target.getAttribute('data-char');
+                removeSpecificChar(charToRemove);
+            });
+        });
+    };
+    
+    const removeSpecificChar = (charToRemove) => {
+        const charCode = 'U+' + charToRemove.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
+        const fixChar = INVISIBLE_CHARS[charCode]?.fix || '';
+        inputText.value = inputText.value.split(charToRemove).join(fixChar);
+        analyzeText();
+    };
+    
+    const removeAllChars = () => {
+        let text = inputText.value;
+        for(const charCode in INVISIBLE_CHARS) {
+            const charData = INVISIBLE_CHARS[charCode];
+            const regex = new RegExp(charData.char, 'g');
+            text = text.replace(regex, charData.fix);
+        }
+        inputText.value = text;
+        analyzeText();
+    };
+
+    const setExampleText = () => {
+        inputText.value = `This is an example sentence—it’s great!
+Here’s a range: 1–5.
+This text has a zero​width space right here. And this space -> <- is a non-breaking one.`;
+        analyzeText();
+    };
+
+    const clearText = () => {
+        inputText.value = '';
+        analyzeText();
+    };
+
+    inputText.addEventListener('input', analyzeText);
+    removeAllBtn.addEventListener('click', removeAllChars);
+    exampleBtn.addEventListener('click', setExampleText);
+    clearBtn.addEventListener('click', clearText);
+
+    analyzeText();
+})();
+</script>
