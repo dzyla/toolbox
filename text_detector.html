@@ -1,6 +1,3 @@
-<!-- This file contains only the content for the Invisible Text Detector tool. -->
-<!-- It will be loaded into the main index.html file. -->
-
 <style>
     .highlight {
         background-color: #fef08a; /* yellow-200 */
@@ -12,24 +9,35 @@
     .detected-character-card {
         transition: all 0.2s ease-in-out;
     }
+    .progress-bar {
+        background-color: #e5e7eb;
+        border-radius: 9999px;
+        overflow: hidden;
+        height: 1rem;
+    }
+    .progress-bar-inner {
+        height: 100%;
+        transition: width 0.5s ease-in-out;
+        border-radius: 9999px;
+    }
     /* Dark mode specific styles */
     html.dark .highlight {
         background-color: #facc15; /* yellow-400 */
         color: #1f2937; /* gray-800 */
     }
+    html.dark .progress-bar {
+        background-color: #374151; /* gray-700 */
+    }
 </style>
 
 <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-    <!-- Header -->
     <header class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-900">Invisible Text Detector</h1>
-        <p class="mt-2 text-lg text-gray-600">Find and remove hidden Unicode characters from text.</p>
+        <h1 class="text-4xl font-bold text-gray-900">Invisible & AI Text Detector</h1>
+        <p class="mt-2 text-lg text-gray-600">Find hidden Unicode characters and analyze text for AI generation patterns.</p>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Left Column: Input and Highlighted Output -->
         <div class="lg:col-span-2 space-y-8">
-            <!-- Input Text Card -->
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-gray-800">Input Text</h2>
@@ -39,11 +47,10 @@
                          <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Clear</button>
                     </div>
                 </div>
-                <textarea id="inputText" class="w-full h-64 bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Paste your text here..."></textarea>
+                <textarea id="inputText" class="w-full h-64 bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Paste your text here... For best AI detection results, use at least 50 words."></textarea>
                 <p id="char-count" class="text-right text-sm text-gray-500 mt-2">0/15000 characters</p>
             </div>
 
-            <!-- Highlighted Output Card -->
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-gray-800">Highlighted Characters</h2>
@@ -54,35 +61,63 @@
             </div>
         </div>
 
-        <!-- Right Column: Analysis -->
         <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl shadow-lg p-6 sticky top-24">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-slate-200 pb-3">Analysis</h2>
-                
-                <!-- Stats -->
-                <div class="grid grid-cols-3 gap-4 text-center mb-6">
-                    <div>
-                        <p class="text-3xl font-bold text-green-600" id="visible-count">0</p>
-                        <p class="text-xs text-gray-500">Visible Chars</p>
+            <div class="sticky top-24 space-y-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-slate-200 pb-3">Invisible Character Analysis</h2>
+                    
+                    <div class="grid grid-cols-3 gap-4 text-center mb-6">
+                        <div>
+                            <p class="text-3xl font-bold text-green-600" id="visible-count">0</p>
+                            <p class="text-xs text-gray-500">Visible Chars</p>
+                        </div>
+                        <div>
+                            <p class="text-3xl font-bold text-red-500" id="invisible-count">0</p>
+                            <p class="text-xs text-gray-500">Invisible Chars</p>
+                        </div>
+                        <div>
+                            <p class="text-3xl font-bold text-blue-600" id="word-count">0</p>
+                            <p class="text-xs text-gray-500">Words</p>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-3xl font-bold text-red-500" id="invisible-count">0</p>
-                        <p class="text-xs text-gray-500">Invisible Chars</p>
+
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Detected Characters</h3>
+                    <div id="detected-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                        <p class="text-gray-500 italic">No special characters detected yet.</p>
                     </div>
-                    <div>
-                        <p class="text-3xl font-bold text-blue-600" id="word-count">0</p>
-                        <p class="text-xs text-gray-500">Words</p>
-                    </div>
+
+                    <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
+                        Remove All & Copy
+                    </button>
                 </div>
 
-                <h3 class="text-lg font-semibold text-gray-800 mb-3">Detected Characters</h3>
-                <div id="detected-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
-                    <p class="text-gray-500 italic">No special characters detected yet.</p>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-slate-200 pb-3">AI-Generated Text Analysis</h2>
+                    <div id="ai-detector-results" class="space-y-4">
+                        <div class="text-center">
+                            <p class="text-lg font-medium text-gray-500" id="ai-verdict">Enter at least 50 words</p>
+                            <div class="w-full progress-bar mt-2">
+                                <div id="ai-score-bar" class="progress-bar-inner bg-gray-400" style="width: 0%;"></div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">AI Likelihood Score</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-gray-700">Sentence Variation (Burstiness)</span>
+                                <span class="font-bold text-gray-900" id="ai-burstiness-score">-</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Measures the variation in sentence length. AI text is often more uniform (lower score).</p>
+                        </div>
+                         <div>
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-gray-700">Predictability & Phrasing</span>
+                                <span class="font-bold text-gray-900" id="ai-predictability-score">-</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Analyzes token patterns, formality, and repetition. AI text is often more predictable.</p>
+                        </div>
+                        <p class="text-xs text-gray-400 italic text-center pt-2">Disclaimer: This detection is based on statistical patterns and is not 100% accurate. It should be used as a guide, not a definitive judgment.</p>
+                    </div>
                 </div>
-
-                <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
-                    Remove All & Copy
-                </button>
             </div>
         </div>
     </div>
@@ -101,6 +136,12 @@
     const exampleBtn = document.getElementById('example-btn');
     const clearBtn = document.getElementById('clear-btn');
     const copyBtn = document.getElementById('copy-btn');
+
+    // AI Detector UI Elements
+    const aiVerdictEl = document.getElementById('ai-verdict');
+    const aiScoreBarEl = document.getElementById('ai-score-bar');
+    const aiBurstinessScoreEl = document.getElementById('ai-burstiness-score');
+    const aiPredictabilityScoreEl = document.getElementById('ai-predictability-score');
     
     // A list of "invisible" or non-standard characters to detect.
     const INVISIBLE_CHARS = {
@@ -134,7 +175,12 @@
         'U+FEFF': { name: 'Byte Order Mark (BOM)', char: '\uFEFF', fix: '', description: 'Invisible, indicates text encoding.' }
     };
 
-    const analyzeText = () => {
+    const analyzeAll = () => {
+        analyzeInvisibleChars();
+        analyzeAIGeneratedText();
+    }
+
+    const analyzeInvisibleChars = () => {
         const text = inputText.value;
         let highlightedText = '';
         let detected = {};
@@ -166,6 +212,74 @@
 
         removeAllBtn.disabled = invisibleCharCount <= 0;
     };
+
+    const analyzeAIGeneratedText = () => {
+        const text = inputText.value.trim();
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+
+        if (words.length < 50) {
+            aiVerdictEl.textContent = 'Enter at least 50 words';
+            aiScoreBarEl.style.width = '0%';
+            aiScoreBarEl.className = 'progress-bar-inner bg-gray-400';
+            aiBurstinessScoreEl.textContent = '-';
+            aiPredictabilityScoreEl.textContent = '-';
+            return;
+        }
+
+        // 1. Burstiness (Sentence Length Variation)
+        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+        const sentenceLengths = sentences.map(s => s.split(/\s+/).length);
+        const avgLength = sentenceLengths.reduce((a, b) => a + b, 0) / sentenceLengths.length;
+        const stdDev = Math.sqrt(sentenceLengths.map(len => Math.pow(len - avgLength, 2)).reduce((a, b) => a + b, 0) / sentenceLengths.length);
+        let burstinessScore = Math.max(0, 100 - (stdDev * 12.5)); 
+        aiBurstinessScoreEl.textContent = stdDev.toFixed(2);
+
+        // 2. Predictability & Phrasing
+        const lowerCaseText = text.toLowerCase();
+        let predictabilitySubScore = 0;
+
+        // a. Overly formal/common AI phrases
+        const aiPhrases = ['it is important to note', 'it is worth noting', 'in conclusion', 'as a large language model', 'plays a pivotal role', 'plays a crucial role', 'the landscape of', 'it should be noted', 'harnessing the power', 'delve into'];
+        let phraseCount = 0;
+        aiPhrases.forEach(phrase => {
+            phraseCount += (lowerCaseText.match(new RegExp(phrase, 'g')) || []).length;
+        });
+        predictabilitySubScore += Math.min(40, (phraseCount / words.length) * 2000); // Heavy penalty for these phrases
+
+        // b. Lack of contractions
+        const contractions = (lowerCaseText.match(/(\w+(?=['’]t))|(\w+(?=['’]s))|(\w+(?=['’]ve))/g) || []).length;
+        const uncontracted = (lowerCaseText.match(/\b(is not|are not|do not|does not|have not|has not|was not|were not|will not|would not)\b/g) || []).length;
+        const totalContractions = contractions + uncontracted;
+        if (totalContractions > 2) {
+             predictabilitySubScore += Math.min(30, (1 - (contractions / totalContractions)) * 60);
+        }
+
+        // c. Repetitive sentence starts
+        const sentenceStarts = sentences.map(s => s.trim().split(/\s+/).slice(0, 3).join(' ').toLowerCase());
+        const startCounts = sentenceStarts.reduce((acc, start) => { acc[start] = (acc[start] || 0) + 1; return acc; }, {});
+        const repetitionPenalty = Object.values(startCounts).reduce((acc, count) => acc + (count > 1 ? count * 5 : 0), 0);
+        predictabilitySubScore += Math.min(30, repetitionPenalty);
+        
+        const finalPredictabilityScore = Math.min(100, Math.round(predictabilitySubScore));
+        aiPredictabilityScoreEl.textContent = `${finalPredictabilityScore} / 100`;
+        
+        // Final combined score (weighted)
+        const finalScore = Math.round((burstinessScore * 0.5) + (finalPredictabilityScore * 0.5));
+        
+        aiScoreBarEl.style.width = `${finalScore}%`;
+
+        if (finalScore < 35) {
+            aiVerdictEl.textContent = '✅ Likely Human-Written';
+            aiScoreBarEl.className = 'progress-bar-inner bg-green-500';
+        } else if (finalScore < 65) {
+            aiVerdictEl.textContent = '⚠️ Potentially AI-Generated';
+            aiScoreBarEl.className = 'progress-bar-inner bg-yellow-500';
+        } else {
+            aiVerdictEl.textContent = '❌ Likely AI-Generated';
+            aiScoreBarEl.className = 'progress-bar-inner bg-red-500';
+        }
+    };
+
 
     const updateDetectedList = (detected) => {
         if (Object.keys(detected).length === 0) {
@@ -208,7 +322,7 @@
         const charCode = 'U+' + charToRemove.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
         const fixChar = INVISIBLE_CHARS[charCode]?.fix || '';
         inputText.value = inputText.value.split(charToRemove).join(fixChar);
-        analyzeText();
+        analyzeAll();
         copyCleanedText(true);
     };
     
@@ -220,19 +334,19 @@
             text = text.replace(regex, charData.fix);
         }
         inputText.value = text;
-        analyzeText();
+        analyzeAll();
     };
 
     const setExampleText = () => {
         inputText.value = `This is an example sentence—it’s great!
 Here’s a range: 1–5. …and some "curly quotes."
-This text has a zero​width space right here. And this space -> <- is a non-breaking one.`;
-        analyzeText();
+This text has a zero​width space right here. And this space -> <- is a non-breaking one. Furthermore, it is important to note that the integration of synergistic frameworks plays a pivotal role in the ongoing development of scalable solutions. This methodology underscores the importance of robust data-driven analysis.`;
+        analyzeAll();
     };
 
     const clearText = () => {
         inputText.value = '';
-        analyzeText();
+        analyzeAll();
     };
 
     const copyCleanedText = (isAutomatic = false) => {
@@ -285,8 +399,14 @@ This text has a zero​width space right here. And this space -> <- is a non-br
             }
         }
     };
+    
+    // Debounce input to avoid excessive calculations
+    let timeout;
+    inputText.addEventListener('input', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(analyzeAll, 250); // Analyze 250ms after user stops typing
+    });
 
-    inputText.addEventListener('input', analyzeText);
     removeAllBtn.addEventListener('click', () => {
         removeAllChars();
         copyCleanedText(true);
@@ -295,6 +415,6 @@ This text has a zero​width space right here. And this space -> <- is a non-br
     clearBtn.addEventListener('click', clearText);
     copyBtn.addEventListener('click', () => copyCleanedText(false));
 
-    analyzeText();
+    analyzeAll();
 })();
 </script>
