@@ -1,420 +1,517 @@
-<style>
-    .highlight {
-        background-color: #fef08a; /* yellow-200 */
-        color: #1e293b; /* slate-800 */
-        border-radius: 3px;
-        padding: 1px 2px;
-        box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
-    }
-    .detected-character-card {
-        transition: all 0.2s ease-in-out;
-    }
-    .progress-bar {
-        background-color: #e5e7eb;
-        border-radius: 9999px;
-        overflow: hidden;
-        height: 1rem;
-    }
-    .progress-bar-inner {
-        height: 100%;
-        transition: width 0.5s ease-in-out;
-        border-radius: 9999px;
-    }
-    /* Dark mode specific styles */
-    html.dark .highlight {
-        background-color: #facc15; /* yellow-400 */
-        color: #1f2937; /* gray-800 */
-    }
-    html.dark .progress-bar {
-        background-color: #374151; /* gray-700 */
-    }
-</style>
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Enhanced AI & Invisible Text Detector (Browser-only)</title>
 
-<div class="container mx-auto p-4 md:p-8 max-w-7xl">
+  <!-- Dev-only Tailwind CDN. For production, build Tailwind locally. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+
+  <style>
+    :root { --highlight-bg:#fef08a; --highlight-color:#1f2937; --progress-bar-bg:#e5e7eb; }
+    html.dark { --highlight-bg:#facc15; --highlight-color:#1f2937; --progress-bar-bg:#374151; }
+    body { font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#111827; color:#d1d5db; }
+    .highlight { background:var(--highlight-bg); color:var(--highlight-color); border-radius:3px; padding:1px 2px; box-shadow:0 0 5px rgba(254,240,138,.8); }
+    .detected-character-card { transition: all .2s ease-in-out; }
+    .progress-bar { background:var(--progress-bar-bg); border-radius:9999px; overflow:hidden; height:1rem; }
+    .progress-bar-inner { height:100%; transition:width .5s ease-in-out; border-radius:9999px; }
+    .card { background:#1f2937; border:1px solid #374151; border-radius:.75rem; box-shadow:0 10px 15px -3px rgba(0,0,0,.3), 0 4px 6px -2px rgba(0,0,0,.2); }
+    .card-header { color:#f9fafb; }
+    .stat-value { transition: color .3s; }
+    .info-text { color:#9ca3af; }
+    textarea { background:#374151; border:1px solid #4b5563; color:#d1d5db; }
+  </style>
+
+  <!-- Compromise UMD (correct path) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/compromise@14.13.0/builds/compromise.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="container mx-auto p-4 md:p-8 max-w-7xl">
     <header class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-900">Invisible & AI Text Detector</h1>
-        <p class="mt-2 text-lg text-gray-600">Find hidden Unicode characters and analyze text for AI generation patterns.</p>
+      <h1 class="text-4xl font-bold text-white">Enhanced AI & Invisible Text Detector</h1>
+      <p class="mt-2 text-lg text-gray-400">Find hidden characters and analyze text with multi-signal AI detection.</p>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-2 space-y-8">
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">Input Text</h2>
-                    <div class="flex space-x-2">
-                         <button id="example-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors">See Example</button>
-                         <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Copy Text</button>
-                         <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Clear</button>
-                    </div>
-                </div>
-                <textarea id="inputText" class="w-full h-64 bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Paste your text here... For best AI detection results, use at least 50 words."></textarea>
-                <p id="char-count" class="text-right text-sm text-gray-500 mt-2">0/15000 characters</p>
+      <div class="lg:col-span-2 space-y-8">
+        <div class="card p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold card-header">Input Text</h2>
+            <div class="flex flex-wrap gap-2">
+              <button id="example-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2 px-4 rounded-lg">Example</button>
+              <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg">Copy</button>
+              <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg">Clear</button>
             </div>
-
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">Highlighted Characters</h2>
-                </div>
-                <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 border border-slate-300 rounded-lg p-4 text-slate-800 whitespace-pre-wrap break-words">
-                    <span class="text-gray-500">Your text with highlighted characters will appear here...</span>
-                </div>
-            </div>
+          </div>
+          <textarea id="inputText" class="w-full h-64 rounded-lg p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Paste your text here... Use at least 50 words for stronger AI analysis."></textarea>
+          <p id="char-count" class="text-right text-sm info-text mt-2">0/15000 characters</p>
         </div>
 
-        <div class="lg:col-span-1">
-            <div class="sticky top-24 space-y-6">
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-slate-200 pb-3">Invisible Character Analysis</h2>
-                    
-                    <div class="grid grid-cols-3 gap-4 text-center mb-6">
-                        <div>
-                            <p class="text-3xl font-bold text-green-600" id="visible-count">0</p>
-                            <p class="text-xs text-gray-500">Visible Chars</p>
-                        </div>
-                        <div>
-                            <p class="text-3xl font-bold text-red-500" id="invisible-count">0</p>
-                            <p class="text-xs text-gray-500">Invisible Chars</p>
-                        </div>
-                        <div>
-                            <p class="text-3xl font-bold text-blue-600" id="word-count">0</p>
-                            <p class="text-xs text-gray-500">Words</p>
-                        </div>
-                    </div>
-
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Detected Characters</h3>
-                    <div id="detected-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
-                        <p class="text-gray-500 italic">No special characters detected yet.</p>
-                    </div>
-
-                    <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
-                        Remove All & Copy
-                    </button>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-slate-200 pb-3">AI-Generated Text Analysis</h2>
-                    <div id="ai-detector-results" class="space-y-4">
-                        <div class="text-center">
-                            <p class="text-lg font-medium text-gray-500" id="ai-verdict">Enter at least 50 words</p>
-                            <div class="w-full progress-bar mt-2">
-                                <div id="ai-score-bar" class="progress-bar-inner bg-gray-400" style="width: 0%;"></div>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">AI Likelihood Score</p>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm">
-                                <span class="font-medium text-gray-700">Sentence Variation (Burstiness)</span>
-                                <span class="font-bold text-gray-900" id="ai-burstiness-score">-</span>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">Measures the variation in sentence length. AI text is often more uniform (lower score).</p>
-                        </div>
-                         <div>
-                            <div class="flex justify-between text-sm">
-                                <span class="font-medium text-gray-700">Predictability & Phrasing</span>
-                                <span class="font-bold text-gray-900" id="ai-predictability-score">-</span>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">Analyzes token patterns, formality, and repetition. AI text is often more predictable.</p>
-                        </div>
-                        <p class="text-xs text-gray-400 italic text-center pt-2">Disclaimer: This detection is based on statistical patterns and is not 100% accurate. It should be used as a guide, not a definitive judgment.</p>
-                    </div>
-                </div>
-            </div>
+        <div class="card p-6">
+          <h2 class="text-xl font-semibold card-header mb-4">Highlighted Text</h2>
+          <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-800 border border-slate-600 rounded-lg p-4 text-slate-200 whitespace-pre-wrap break-words">
+            <span class="info-text">Your text with highlighted characters will appear here...</span>
+          </div>
         </div>
+      </div>
+
+      <div class="lg:col-span-1">
+        <div class="sticky top-8 space-y-6">
+          <div class="card p-6">
+            <h2 class="text-xl font-semibold card-header mb-4 border-b border-slate-700 pb-3">Analysis Overview</h2>
+
+            <div class="grid grid-cols-3 gap-4 text-center mb-6">
+              <div><p class="text-3xl font-bold text-green-500 stat-value" id="visible-count">0</p><p class="text-xs info-text">Visible</p></div>
+              <div><p class="text-3xl font-bold text-red-500 stat-value" id="invisible-count">0</p><p class="text-xs info-text">Invisible</p></div>
+              <div><p class="text-3xl font-bold text-blue-400 stat-value" id="word-count">0</p><p class="text-xs info-text">Words</p></div>
+            </div>
+
+            <h3 class="text-lg font-semibold card-header mb-3">Detected Characters</h3>
+            <div id="detected-list" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+              <p class="info-text italic">No special characters detected yet.</p>
+            </div>
+
+            <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
+              Remove All & Copy
+            </button>
+          </div>
+
+          <div class="card p-6">
+            <h2 class="text-xl font-semibold card-header mb-4 border-b border-slate-700 pb-3">AI Generation Analysis</h2>
+            <div class="space-y-4">
+              <div class="text-center">
+                <p class="text-lg font-medium info-text" id="ai-verdict">Enter at least 50 words</p>
+                <div class="w-full progress-bar mt-2"><div id="ai-score-bar" class="progress-bar-inner bg-gray-400" style="width:0%"></div></div>
+                <p class="text-xs info-text mt-1">AI Likelihood Score</p>
+              </div>
+
+              <div class="space-y-3 pt-2">
+                <metric-row label="Sentence Variation (CV)" valueid="ai-burstiness-score" help="AI text often has uniform sentence lengths. Lower CV can signal AI."></metric-row>
+                <metric-row label="Vocabulary Richness (CTTR)" valueid="ai-vocab-score" help="Higher CTTR often signals human variety."></metric-row>
+                <metric-row label="Hedges per 100 words" valueid="ai-hedging-score" help="Heavy hedging can signal AI."></metric-row>
+                <metric-row label="Connectives per 100 words" valueid="ai-connectives-score" help="Overuse of connectives can indicate templated prose."></metric-row>
+                <metric-row label="Modals per 100 words" valueid="ai-modals-score" help="Modal-heavy writing can be AI-like."></metric-row>
+                <metric-row label="Adverbs (-ly) per 100 words" valueid="ai-ly-score" help="Overuse of -ly adverbs is common in AI paraphrases."></metric-row>
+                <metric-row label="Top-token dominance (%)" valueid="ai-topdom-score" help="One token repeated too often signals repetition."></metric-row>
+                <metric-row label="Function-word drift (chi^2)" valueid="ai-funcdrift-score" help="Distribution drift from a human baseline can signal AI."></metric-row>
+                <metric-row label="Punctuation rhythm (std/100w)" valueid="ai-punct-score" help="Very steady punctuation rates can be AI-like."></metric-row>
+              </div>
+
+              <div class="space-y-3 pt-2 border-t border-slate-700 mt-4">
+                <h3 class="text-sm font-semibold card-header">Linguistic/Structural Signals</h3>
+                <metric-row label="Entities per 100 words" valueid="entity-score" help="Very high or low entity density can be suspicious."></metric-row>
+                <metric-row label="Token entropy (norm)" valueid="entropy-score" help="Low entropy suggests repetitive, templated text."></metric-row>
+                <metric-row label="POS trigram repeats (%)" valueid="postrigram-score" help="Many repeated POS trigrams can signal templates."></metric-row>
+                <metric-row label="POS diversity CV" valueid="posdivcv-score" help="Low diversity across sentences can be AI-like."></metric-row>
+                <metric-row label="POS transition entropy" valueid="postrans-score" help="Low transition entropy suggests templates."></metric-row>
+                <metric-row label="Sentence cosine (top quartile)" valueid="sentsim-score" help="High similarity across sentences often signals AI."></metric-row>
+                <metric-row label="Paragraph uniformity (CV)" valueid="parauniform-score" help="Uniform paragraph structure can be AI-like."></metric-row>
+              </div>
+
+              <p class="text-xs text-gray-400 italic text-center pt-2">
+                Disclaimer: This uses statistical signals and cannot be 100% certain. Treat results as guidance.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-</div>
+  </div>
 
-<script>
-(function initTextDetector() {
-    const inputText = document.getElementById('inputText');
-    const highlightedOutput = document.getElementById('highlightedOutput');
-    const charCount = document.getElementById('char-count');
-    const visibleCount = document.getElementById('visible-count');
-    const invisibleCount = document.getElementById('invisible-count');
-    const wordCount = document.getElementById('word-count');
-    const detectedList = document.getElementById('detected-list');
-    const removeAllBtn = document.getElementById('remove-all-btn');
-    const exampleBtn = document.getElementById('example-btn');
-    const clearBtn = document.getElementById('clear-btn');
-    const copyBtn = document.getElementById('copy-btn');
+  <!-- Web Component: valid name + double-define guard -->
+  <script>
+    class MetricRow extends HTMLElement {
+      connectedCallback() {
+        const label = this.getAttribute('label') || '';
+        const valueId = this.getAttribute('valueid') || '';
+        const help = this.getAttribute('help') || '';
+        this.innerHTML =
+          '<div>' +
+            '<div class="flex justify-between text-sm">' +
+              '<span class="font-medium text-gray-300">' + label + '</span>' +
+              '<span class="font-bold text-gray-100" id="' + valueId + '">-</span>' +
+            '</div>' +
+            '<p class="text-xs info-text mt-1">' + help + '</p>' +
+          '</div>';
+      }
+    }
+    if (!customElements.get('metric-row')) {
+      customElements.define('metric-row', MetricRow);
+    }
+  </script>
 
-    // AI Detector UI Elements
-    const aiVerdictEl = document.getElementById('ai-verdict');
-    const aiScoreBarEl = document.getElementById('ai-score-bar');
-    const aiBurstinessScoreEl = document.getElementById('ai-burstiness-score');
-    const aiPredictabilityScoreEl = document.getElementById('ai-predictability-score');
-    
-    // A list of "invisible" or non-standard characters to detect.
-    const INVISIBLE_CHARS = {
-        'U+00A0': { name: 'Non-Breaking Space', char: '\u00A0', fix: ' ', description: 'Prevents line breaks between words.' },
-        'U+00AD': { name: 'Soft Hyphen', char: '\u00AD', fix: '', description: 'An invisible character suggesting a hyphenation point.' },
-        'U+2000': { name: 'En Quad', char: '\u2000', fix: ' ', description: 'A space equal to one en.' },
-        'U+2001': { name: 'Em Quad', char: '\u2001', fix: ' ', description: 'A space equal to one em.' },
-        'U+2002': { name: 'En Space', char: '\u2002', fix: ' ', description: 'A space equal to half an em.' },
-        'U+2003': { name: 'Em Space', char: '\u2003', fix: ' ', description: 'A space equal to the point size of the font.' },
-        'U+2004': { name: 'Three-Per-Em Space', char: '\u2004', fix: ' ', description: 'A space equal to 1/3 of an em.' },
-        'U+2005': { name: 'Four-Per-Em Space', char: '\u2005', fix: ' ', description: 'A space equal to 1/4 of an em.' },
-        'U+2006': { name: 'Six-Per-Em Space', char: '\u2006', fix: ' ', description: 'A space equal to 1/6 of an em.' },
-        'U+2007': { name: 'Figure Space', char: '\u2007', fix: ' ', description: 'A space equal to the width of a digit.' },
-        'U+2008': { name: 'Punctuation Space', char: '\u2008', fix: ' ', description: 'A space equal to the width of a period.' },
-        'U+2009': { name: 'Thin Space', char: '\u2009', fix: ' ', description: 'A thin space, typically 1/5 of an em.' },
-        'U+200A': { name: 'Hair Space', char: '\u200A', fix: ' ', description: 'The thinnest space character.' },
-        'U+200B': { name: 'Zero-Width Space', char: '\u200B', fix: '', description: 'Invisible, used for line break opportunities.' },
-        'U+200C': { name: 'Zero-Width Non-Joiner', char: '\u200C', fix: '', description: 'Prevents adjacent characters from joining.' },
-        'U+200D': { name: 'Zero-Width Joiner', char: '\u200D', fix: '', description: 'Joins characters that would not normally connect.' },
-        'U+2013': { name: 'En Dash', char: '–', fix: '-', description: 'Used for ranges (e.g., 1–10).' },
-        'U+2014': { name: 'Em Dash', char: '—', fix: '--', description: 'Used for a break in a sentence.' },
-        'U+2018': { name: 'Left Single Quotation Mark', char: '‘', fix: '\'', description: 'A “curly” single quote.' },
-        'U+2019': { name: 'Right Single Quotation Mark', char: '’', fix: '\'', description: 'A “curly” single quote or apostrophe.' },
-        'U+201C': { name: 'Left Double Quotation Mark', char: '“', fix: '"', description: 'A “curly” double quote.' },
-        'U+201D': { name: 'Right Double Quotation Mark', char: '”', fix: '"', description: 'A “curly” double quote.' },
-        'U+2026': { name: 'Horizontal Ellipsis', char: '…', fix: '...', description: 'Represents omitted text.' },
-        'U+2028': { name: 'Line Separator', char: '\u2028', fix: '\n', description: 'Represents a line break.' },
-        'U+2029': { name: 'Paragraph Separator', char: '\u2029', fix: '\n\n', description: 'Represents a paragraph break.' },
-        'U+202F': { name: 'Narrow No-Break Space', char: '\u202F', fix: ' ', description: 'A narrow non-breaking space.' },
-        'U+3000': { name: 'Ideographic Space', char: '\u3000', fix: ' ', description: 'A wide space, used in East Asian typography.' },
-        'U+FEFF': { name: 'Byte Order Mark (BOM)', char: '\uFEFF', fix: '', description: 'Invisible, indicates text encoding.' }
-    };
+  <!-- App (browser-only; Compromise + heuristics) -->
+  <script>
+  (function () {
+    // ===== Helpers =====
+    function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+    function mean(a){ return a.length?(a.reduce(function(x,y){return x+y;},0)/a.length):0; }
+    function stdev(a){ if(!a.length) return 0; var m=mean(a); return Math.sqrt(mean(a.map(function(x){return (x-m)*(x-m);}))); }
+    function uniq(a){ return Array.from(new Set(a)); }
+    var WORD_RE = /[a-z\u00C0-\u024F\u1E00-\u1EFF]+(?:'[a-z\u00C0-\u024F\u1E00-\u1EFF]+)?/gi;
+    function tokenizeWords(text){ var m=text.match(WORD_RE)||[]; return m.map(function(w){ return w.toLowerCase(); }); }
+    function splitSentences(text){ return text.replace(/([.!?])+/g,"$1|").split("|").map(function(s){return s.trim();}).filter(Boolean); }
+    function splitParagraphs(text){ return text.split(/\n{2,}/).map(function(p){return p.trim();}).filter(Boolean); }
 
-    const analyzeAll = () => {
-        analyzeInvisibleChars();
-        analyzeAIGeneratedText();
+    // ===== DOM =====
+    function $(id){ return document.getElementById(id); }
+    var inputText=$('inputText'), highlightedOutput=$('highlightedOutput'),
+        charCount=$('char-count'), visibleCount=$('visible-count'),
+        invisibleCount=$('invisible-count'), wordCount=$('word-count'),
+        detectedList=$('detected-list'), removeAllBtn=$('remove-all-btn'),
+        exampleBtn=$('example-btn'), clearBtn=$('clear-btn'), copyBtn=$('copy-btn'),
+        aiVerdictEl=$('ai-verdict'), aiScoreBarEl=$('ai-score-bar');
+
+    // Metric IDs (resolved lazily to avoid race with custom elements)
+    var metricIds = [
+      'ai-burstiness-score','ai-vocab-score','ai-hedging-score','ai-connectives-score','ai-modals-score',
+      'ai-ly-score','ai-topdom-score','ai-funcdrift-score','ai-punct-score',
+      'entity-score','entropy-score','postrigram-score','posdivcv-score',
+      'postrans-score','sentsim-score','parauniform-score'
+    ];
+    var ids = {}; // cache
+    function resolveMetricIds() {
+      for (var i=0;i<metricIds.length;i++) {
+        var id = metricIds[i];
+        if (!ids[id]) ids[id] = $(id);
+      }
+    }
+    function setMetricText(id, text) {
+      if (!ids[id]) resolveMetricIds();
+      var el = ids[id] || $(id);
+      if (el) el.textContent = text;
     }
 
-    const analyzeInvisibleChars = () => {
-        const text = inputText.value;
-        let highlightedText = '';
-        let detected = {};
-        let invisibleCharCount = 0;
-
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            const charCode = 'U+' + char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
-            
-            if (INVISIBLE_CHARS[charCode]) {
-                highlightedText += `<span class="highlight" title="${INVISIBLE_CHARS[charCode].name} (${charCode})">${char}</span>`;
-                invisibleCharCount++;
-                if (!detected[charCode]) {
-                    detected[charCode] = { ...INVISIBLE_CHARS[charCode], count: 0 };
-                }
-                detected[charCode].count++;
-            } else {
-                highlightedText += char.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            }
-        }
-        
-        highlightedOutput.innerHTML = highlightedText || `<span class="text-gray-500">Your text with highlighted characters will appear here...</span>`;
-        charCount.textContent = `${text.length}/15000 characters`;
-        invisibleCount.textContent = invisibleCharCount;
-        visibleCount.textContent = text.length - invisibleCharCount;
-        wordCount.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
-
-        updateDetectedList(detected);
-
-        removeAllBtn.disabled = invisibleCharCount <= 0;
+    // ===== Data =====
+    var MAX_CHARS=15000;
+    var STOPWORDS=new Set(["a","about","above","after","again","against","all","am","an","and","any","are","as","at","be","because","been","before","being","below","between","both","but","by","could","did","do","does","doing","down","during","each","few","for","from","further","had","has","have","having","he","her","here","hers","herself","him","himself","his","how","i","if","in","into","is","it","its","itself","just","me","more","most","my","myself","no","nor","not","now","of","off","on","once","only","or","other","our","ours","ourselves","out","over","own","same","she","should","so","some","such","than","that","the","their","theirs","them","themselves","then","there","these","they","this","those","through","to","too","under","until","up","very","was","we","were","what","when","where","which","while","who","whom","why","with","would","you","your","yours","yourself","yourselves"]);
+    var FUNCTION_WORDS=["a","about","after","all","an","and","any","as","at","be","because","been","but","by","can","could","do","for","from","had","has","have","he","her","him","his","i","if","in","is","it","its","may","might","more","most","not","of","on","one","or","our","should","that","the","their","there","they","this","to","we","which","with","would","you","your"];
+    var HUMAN_BASELINE={"a":2.5,"about":0.5,"after":0.4,"all":0.8,"an":0.6,"and":3.6,"any":0.3,"as":1.4,"at":1.0,"be":1.6,"because":0.3,"been":0.4,"but":0.9,"by":1.1,"can":0.5,"could":0.3,"do":0.6,"for":2.6,"from":1.1,"had":0.6,"has":0.7,"have":1.1,"he":0.7,"her":0.4,"him":0.2,"his":0.3,"i":1.1,"if":0.7,"in":3.1,"is":3.0,"it":2.4,"its":0.3,"may":0.2,"might":0.2,"more":0.5,"most":0.2,"not":1.1,"of":4.6,"on":1.7,"one":0.4,"or":1.5,"our":0.4,"should":0.2,"that":2.1,"the":6.5,"their":0.7,"there":0.5,"they":0.9,"this":1.0,"to":5.5,"we":0.9,"which":0.7,"with":1.3,"would":0.4,"you":0.8,"your":0.6};
+    var HEDGE_PHRASES=["may","might","could","can","often","likely","possibly","perhaps","seems","appears","in some cases","tends to","suggests that","it is important to note","overall","in general","arguably","it is worth noting","to some extent","it seems that","it appears that","potentially","typically","broadly speaking"];
+    var CONNECTIVES=["however","moreover","furthermore","additionally","in addition","consequently","therefore","thus","overall","importantly","notably","in contrast","on the other hand"];
+    var MODALS=["can","could","may","might","must","shall","should","will","would"];
+    var AI_BOILERPLATE=["as an ai language model","as an artificial intelligence","i do not have access to real-time data","i am unable to browse","my knowledge cutoff is","i cannot assist with that request"];
+    var INVISIBLE_CHARS={
+      "U+00A0":{name:"Non-breaking Space",char:"\u00A0",fix:" "},
+      "U+00AD":{name:"Soft Hyphen",char:"\u00AD",fix:""},
+      "U+2000":{name:"En Quad",char:"\u2000",fix:" "},
+      "U+2001":{name:"Em Quad",char:"\u2001",fix:" "},
+      "U+2002":{name:"En Space",char:"\u2002",fix:" "},
+      "U+2003":{name:"Em Space",char:"\u2003",fix:" "},
+      "U+200B":{name:"Zero-Width Space",char:"\u200B",fix:""},
+      "U+200C":{name:"Zero-Width Non-Joiner",char:"\u200C",fix:""},
+      "U+200D":{name:"Zero-Width Joiner",char:"\u200D",fix:""},
+      "U+2018":{name:"Left Single Quote",char:"\u2018",fix:"'"},
+      "U+2019":{name:"Right Single Quote",char:"\u2019",fix:"'"},
+      "U+201C":{name:"Left Double Quote",char:"\u201C",fix:"\""},
+      "U+201D":{name:"Right Double Quote",char:"\u201D",fix:"\""},
+      "U+2028":{name:"Line Separator",char:"\u2028",fix:"\n"},
+      "U+2029":{name:"Paragraph Separator",char:"\u2029",fix:"\n\n"},
+      "U+FEFF":{name:"Byte Order Mark (BOM)",char:"\uFEFF",fix:""}
     };
 
-    const analyzeAIGeneratedText = () => {
-        const text = inputText.value.trim();
-        const words = text.split(/\s+/).filter(w => w.length > 0);
-
-        if (words.length < 50) {
-            aiVerdictEl.textContent = 'Enter at least 50 words';
-            aiScoreBarEl.style.width = '0%';
-            aiScoreBarEl.className = 'progress-bar-inner bg-gray-400';
-            aiBurstinessScoreEl.textContent = '-';
-            aiPredictabilityScoreEl.textContent = '-';
-            return;
-        }
-
-        // 1. Burstiness (Sentence Length Variation)
-        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-        const sentenceLengths = sentences.map(s => s.split(/\s+/).length);
-        const avgLength = sentenceLengths.reduce((a, b) => a + b, 0) / sentenceLengths.length;
-        const stdDev = Math.sqrt(sentenceLengths.map(len => Math.pow(len - avgLength, 2)).reduce((a, b) => a + b, 0) / sentenceLengths.length);
-        let burstinessScore = Math.max(0, 100 - (stdDev * 12.5)); 
-        aiBurstinessScoreEl.textContent = stdDev.toFixed(2);
-
-        // 2. Predictability & Phrasing
-        const lowerCaseText = text.toLowerCase();
-        let predictabilitySubScore = 0;
-
-        // a. Overly formal/common AI phrases
-        const aiPhrases = ['it is important to note', 'it is worth noting', 'in conclusion', 'as a large language model', 'plays a pivotal role', 'plays a crucial role', 'the landscape of', 'it should be noted', 'harnessing the power', 'delve into'];
-        let phraseCount = 0;
-        aiPhrases.forEach(phrase => {
-            phraseCount += (lowerCaseText.match(new RegExp(phrase, 'g')) || []).length;
-        });
-        predictabilitySubScore += Math.min(40, (phraseCount / words.length) * 2000); // Heavy penalty for these phrases
-
-        // b. Lack of contractions
-        const contractions = (lowerCaseText.match(/(\w+(?=['’]t))|(\w+(?=['’]s))|(\w+(?=['’]ve))/g) || []).length;
-        const uncontracted = (lowerCaseText.match(/\b(is not|are not|do not|does not|have not|has not|was not|were not|will not|would not)\b/g) || []).length;
-        const totalContractions = contractions + uncontracted;
-        if (totalContractions > 2) {
-             predictabilitySubScore += Math.min(30, (1 - (contractions / totalContractions)) * 60);
-        }
-
-        // c. Repetitive sentence starts
-        const sentenceStarts = sentences.map(s => s.trim().split(/\s+/).slice(0, 3).join(' ').toLowerCase());
-        const startCounts = sentenceStarts.reduce((acc, start) => { acc[start] = (acc[start] || 0) + 1; return acc; }, {});
-        const repetitionPenalty = Object.values(startCounts).reduce((acc, count) => acc + (count > 1 ? count * 5 : 0), 0);
-        predictabilitySubScore += Math.min(30, repetitionPenalty);
-        
-        const finalPredictabilityScore = Math.min(100, Math.round(predictabilitySubScore));
-        aiPredictabilityScoreEl.textContent = `${finalPredictabilityScore} / 100`;
-        
-        // Final combined score (weighted)
-        const finalScore = Math.round((burstinessScore * 0.5) + (finalPredictabilityScore * 0.5));
-        
-        aiScoreBarEl.style.width = `${finalScore}%`;
-
-        if (finalScore < 35) {
-            aiVerdictEl.textContent = '✅ Likely Human-Written';
-            aiScoreBarEl.className = 'progress-bar-inner bg-green-500';
-        } else if (finalScore < 65) {
-            aiVerdictEl.textContent = '⚠️ Potentially AI-Generated';
-            aiScoreBarEl.className = 'progress-bar-inner bg-yellow-500';
+    // ===== Invisible character analysis =====
+    function escapeHTML(s){ return s.replace(/[&<>\"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];}); }
+    function updateDetectedList(detected){
+      var keys=Object.keys(detected);
+      if(!keys.length){ detectedList.innerHTML='<p class="info-text italic">No special characters detected yet.</p>'; return; }
+      detectedList.innerHTML='';
+      keys.forEach(function(code){
+        var info=detected[code];
+        var card=document.createElement('div');
+        card.className='detected-character-card bg-slate-800 p-3 rounded-lg border border-slate-700';
+        card.innerHTML =
+          '<div class="flex justify-between items-center">' +
+            '<div>' +
+              '<div class="flex items-center">' +
+                '<span class="font-bold text-slate-200 mr-2">' + escapeHTML(info.name) + '</span>' +
+                '<span class="text-xs bg-blue-500 text-white font-semibold rounded-full px-2 py-0.5">' + info.count + '</span>' +
+              '</div>' +
+              '<p class="text-xs text-gray-400 mt-1">Unicode: ' + escapeHTML(code) + '</p>' +
+            '</div>' +
+            '<button class="remove-char-btn text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md" data-code="' + escapeHTML(code) + '">Remove</button>' +
+          '</div>';
+        detectedList.appendChild(card);
+      });
+      detectedList.querySelectorAll('.remove-char-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){ removeSpecificChar(btn.getAttribute('data-code')); });
+      });
+    }
+    function removeSpecificChar(code){
+      var info=INVISIBLE_CHARS[code]; if(!info) return;
+      inputText.value = inputText.value.split(info.char).join(info.fix);
+      analyzeAll(); copyCleanedText(true,'Removed & Copied!');
+    }
+    function removeAllChars(){
+      var t=inputText.value;
+      for(var code in INVISIBLE_CHARS){ var c=INVISIBLE_CHARS[code]; if(c && c.char && t.indexOf(c.char)>-1){ t=t.split(c.char).join(c.fix); } }
+      inputText.value=t; analyzeAll();
+    }
+    function analyzeInvisibleChars(){
+      var text=inputText.value||"";
+      var chunks=[], detected={}, invCount=0;
+      Array.from(text).forEach(function(ch){
+        var cp=ch.codePointAt(0);
+        var code='U+'+cp.toString(16).toUpperCase().padStart(4,'0');
+        if(INVISIBLE_CHARS[code]){
+          var label=INVISIBLE_CHARS[code].name+' ('+code+')';
+          chunks.push('<span class="highlight" title="'+label.replace(/"/g,'&quot;')+'">'+escapeHTML(ch)+'</span>');
+          invCount++; if(!detected[code]) detected[code]={ name: INVISIBLE_CHARS[code].name, count:0 }; detected[code].count++;
         } else {
-            aiVerdictEl.textContent = '❌ Likely AI-Generated';
-            aiScoreBarEl.className = 'progress-bar-inner bg-red-500';
+          chunks.push(escapeHTML(ch));
         }
-    };
+      });
+      highlightedOutput.innerHTML = chunks.length ? chunks.join('') : '<span class="info-text">Your text with highlighted characters will appear here...</span>';
+      charCount.textContent = (text.length)+'/'+MAX_CHARS+' characters';
+      invisibleCount.textContent = invCount;
+      visibleCount.textContent = Math.max(0, text.length - invCount);
+      wordCount.textContent = tokenizeWords(text).length;
+      updateDetectedList(detected);
+      removeAllBtn.disabled = invCount <= 0;
+    }
 
-
-    const updateDetectedList = (detected) => {
-        if (Object.keys(detected).length === 0) {
-            detectedList.innerHTML = '<p class="text-gray-500 italic">No special characters detected yet.</p>';
-            return;
+    // ===== POS helpers via Compromise =====
+    function posFromCompromise(sentence){
+      try{
+        var d=window.nlp(sentence); d.compute('penn');
+        var json=d.json(); var terms=(Array.isArray(json)&&json[0]&&Array.isArray(json[0].terms))? json[0].terms : d.terms().json();
+        var tags=[]; for(var i=0;i<terms.length;i++){ var t=terms[i];
+          if (t.penn && typeof t.penn==='string') tags.push(t.penn);
+          else if (Array.isArray(t.tags) && t.tags.length) tags.push(t.tags[0]);
+          else if (t.tags && typeof t.tags==='object') tags.push(Object.keys(t.tags)[0] || 'Word');
+          else tags.push('Word');
         }
+        return tags;
+      } catch(e){ return []; }
+    }
 
-        detectedList.innerHTML = '';
-        for (const charCode in detected) {
-            const { name, description, count, char } = detected[charCode];
-            const card = document.createElement('div');
-            card.className = 'detected-character-card bg-slate-50 p-3 rounded-lg border border-slate-200';
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <div class="flex items-center">
-                            <span class="font-bold text-slate-800 mr-2">${name}</span>
-                            <span class="text-xs bg-blue-500 text-white font-semibold rounded-full px-2 py-0.5">${count}</span>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">${description}</p>
-                        <p class="text-xs text-gray-400 mt-1">Unicode: ${charCode}</p>
-                    </div>
-                    <button class="remove-char-btn text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md transition-colors" data-char="${char}">
-                        Remove
-                    </button>
-                </div>
-            `;
-            detectedList.appendChild(card);
+    // ===== AI heuristics + structural features =====
+    function analyzeAIGeneratedText(){
+      resolveMetricIds(); // ensure metric targets exist
+
+      var raw=inputText.value.trim();
+      var words=tokenizeWords(raw);
+      if (words.length < 50){
+        aiVerdictEl.textContent='Enter at least 50 words';
+        aiScoreBarEl.style.width='0%';
+        aiScoreBarEl.className='progress-bar-inner bg-gray-400';
+        for (var i=0;i<metricIds.length;i++) setMetricText(metricIds[i], '-');
+        aiVerdictEl.removeAttribute('title');
+        return;
+      }
+
+      var sentences=splitSentences(raw);
+      var paragraphs=splitParagraphs(raw);
+      var sentLens=sentences.map(function(s){ return tokenizeWords(s).length; }).filter(function(n){return n>0;});
+      var avgLen=mean(sentLens)||0, sdLen=stdev(sentLens)||0, cvLen=avgLen>0? sdLen/avgLen : 0;
+
+      // Heuristics
+      var burstinessAI=clamp((1 - clamp(cvLen,0,1.1))*100,0,100);
+      setMetricText('ai-burstiness-score', cvLen.toFixed(2));
+
+      var types=uniq(words).length;
+      var cttr=types/Math.sqrt(2*words.length);
+      var vocabAI=clamp(((1.0 - Math.min(cttr,1.0))/0.7)*100,0,100);
+      setMetricText('ai-vocab-score', cttr.toFixed(3));
+
+      var lower=raw.toLowerCase();
+      function countList(list){
+        var sum=0;
+        for (var i=0;i<list.length;i++){
+          var p=list[i].replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+          var re=new RegExp('\\b'+p+'\\b','g');
+          var m=lower.match(re); sum += m? m.length : 0;
         }
-        
-        document.querySelectorAll('.remove-char-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const charToRemove = e.target.getAttribute('data-char');
-                removeSpecificChar(charToRemove);
-            });
-        });
-    };
-    
-    const removeSpecificChar = (charToRemove) => {
-        const charCode = 'U+' + charToRemove.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
-        const fixChar = INVISIBLE_CHARS[charCode]?.fix || '';
-        inputText.value = inputText.value.split(charToRemove).join(fixChar);
-        analyzeAll();
-        copyCleanedText(true);
-    };
-    
-    const removeAllChars = () => {
-        let text = inputText.value;
-        for(const charCode in INVISIBLE_CHARS) {
-            const charData = INVISIBLE_CHARS[charCode];
-            const regex = new RegExp(charData.char, 'g');
-            text = text.replace(regex, charData.fix);
+        return sum;
+      }
+      var hedges=countList(HEDGE_PHRASES);
+      var connects=countList(CONNECTIVES);
+      var modals= countList(MODALS);
+      var hedgesPer100=(hedges/words.length)*100;
+      var connPer100=(connects/words.length)*100;
+      var modalsPer100=(modals/words.length)*100;
+      var hedgingAI=clamp(((hedgesPer100-1)/5)*100,0,100);
+      var connectivesAI=clamp((connPer100/3)*100,0,100);
+      var modalAI=clamp(((modalsPer100-0.8)/2.5)*100,0,100);
+      setMetricText('ai-hedging-score', String(hedges));
+      setMetricText('ai-connectives-score', connPer100.toFixed(2));
+      setMetricText('ai-modals-score', modalsPer100.toFixed(2));
+
+      var ly=(raw.match(/\b[a-zA-Z]{3,}ly\b/g)||[]).length;
+      var lyPer100=(ly/words.length)*100;
+      var lyAI=clamp(((lyPer100-1.2)/3.0)*100,0,100);
+      setMetricText('ai-ly-score', lyPer100.toFixed(2));
+
+      var freq=Object.create(null);
+      for (var i2=0;i2<words.length;i2++){ var w=words[i2]; freq[w]=(freq[w]||0)+1; }
+      var topCount=0; for (var k in freq){ if(freq[k]>topCount) topCount=freq[k]; }
+      var topDomPct=(topCount/words.length)*100;
+      var topDomAI=clamp(((topDomPct-3.0)/5.0)*100,0,100);
+      setMetricText('ai-topdom-score', topDomPct.toFixed(2));
+
+      var fnCounts=FUNCTION_WORDS.map(function(w){ return freq[w]||0; });
+      var totalTokens=words.length||1;
+      var expected=FUNCTION_WORDS.map(function(w){ return (HUMAN_BASELINE[w]||0)*totalTokens/100; });
+      var chi2=0; for (i2=0;i2<fnCounts.length;i2++){ var e=expected[i2]||1e-6; var diff=fnCounts[i2]-e; chi2 += (diff*diff)/e; }
+      var funcDriftAI=clamp((chi2/(FUNCTION_WORDS.length*0.8))*100,0,100);
+      setMetricText('ai-funcdrift-score', chi2.toFixed(1));
+
+      var pCounts=[(raw.match(/,/g)||[]).length,(raw.match(/;/g)||[]).length,(raw.match(/:/g)||[]).length,(raw.match(/[()]/g)||[]).length];
+      var pStd=stdev(pCounts.map(function(c){ return (c/words.length)*100; }));
+      var punctAI=clamp(((0.6 - Math.min(pStd,0.6))/0.6)*100,0,100);
+      setMetricText('ai-punct-score', pStd.toFixed(3));
+
+      // Entities via Compromise
+      var entPer100=0;
+      try{
+        var d=window.nlp(raw);
+        var entities=d.people().out('array').length + d.places().out('array').length + d.organizations().out('array').length;
+        entPer100=(entities/Math.max(1,words.length))*100;
+      } catch(e){}
+      var entityAI=clamp((Math.abs(entPer100-2.5)/5)*100,0,100);
+      setMetricText('entity-score', entPer100.toFixed(2));
+
+      // Token entropy
+      var total=words.length||1, H=0, uniqCnt=Object.keys(freq).length||1;
+      for (k in freq){ var p=freq[k]/total; H += -p*Math.log2(p); }
+      var Hnorm=uniqCnt ? (H/Math.log2(uniqCnt)) : 0;
+      var entropyAI=clamp(((0.95 - Math.min(Math.max(Hnorm,0.3),0.95))/0.65)*100,0,100);
+      setMetricText('entropy-score', Hnorm.toFixed(3));
+
+      // POS-based metrics using Compromise
+      var posSeqs=sentences.map(function(s){ return posFromCompromise(s)||[]; });
+      var posTris=[], triSeen=Object.create(null), triRepeat=0;
+      posSeqs.forEach(function(seq){
+        for (var j=0;j<seq.length-2;j++){
+          var t3=seq[j]+'-'+seq[j+1]+'-'+seq[j+2];
+          posTris.push(t3); triSeen[t3]=(triSeen[t3]||0)+1; if (triSeen[t3]===2) triRepeat++;
         }
-        inputText.value = text;
-        analyzeAll();
-    };
+      });
+      var triRepeatRatio=posTris.length ? (triRepeat/posTris.length) : 0;
+      var posPatternAI=clamp(triRepeatRatio*700,0,100);
+      setMetricText('postrigram-score', (triRepeatRatio*100).toFixed(1));
 
-    const setExampleText = () => {
-        inputText.value = `This is an example sentence—it’s great!
-Here’s a range: 1–5. …and some "curly quotes."
-This text has a zero​width space right here. And this space -> <- is a non-breaking one. Furthermore, it is important to note that the integration of synergistic frameworks plays a pivotal role in the ongoing development of scalable solutions. This methodology underscores the importance of robust data-driven analysis.`;
-        analyzeAll();
-    };
+      var posDivPerSent=posSeqs.map(function(seq){ return uniq(seq).length; });
+      var posDivCV=(mean(posDivPerSent)||1)? (stdev(posDivPerSent)/(mean(posDivPerSent)||1)) : 0;
+      var posDivAI=clamp(((0.35 - Math.min(posDivCV,0.35))/0.35)*100,0,100);
+      setMetricText('posdivcv-score', posDivCV.toFixed(2));
 
-    const clearText = () => {
-        inputText.value = '';
-        analyzeAll();
-    };
-
-    const copyCleanedText = (isAutomatic = false) => {
-        const textToCopy = inputText.value;
-        
-        if (isAutomatic && !textToCopy && invisibleCount.textContent === '0') return;
-
-        const originalText = 'Copy Text';
-        const buttonToUpdate = isAutomatic ? removeAllBtn : copyBtn;
-        const originalMainButtonText = 'Remove All & Copy';
-
-        const doCopy = () => navigator.clipboard.writeText(textToCopy).then(() => {
-            if (isAutomatic) {
-                buttonToUpdate.textContent = 'Removed & Copied!';
-            } else {
-                buttonToUpdate.textContent = 'Copied!';
-            }
-            setTimeout(() => { 
-                buttonToUpdate.textContent = isAutomatic ? originalMainButtonText : originalText;
-            }, 2000);
-        }, () => {
-            buttonToUpdate.textContent = 'Copy Failed';
-             setTimeout(() => { 
-                buttonToUpdate.textContent = isAutomatic ? originalMainButtonText : originalText;
-            }, 2000);
-        });
-
-        if (navigator.clipboard && window.isSecureContext) {
-            doCopy();
-        } else {
-            const ta = document.createElement('textarea');
-            ta.value = textToCopy;
-            ta.style.position='fixed'; ta.style.left='-9999px';
-            document.body.appendChild(ta);
-            ta.select();
-            try {
-                document.execCommand('copy');
-                 if (isAutomatic) {
-                    buttonToUpdate.textContent = 'Removed & Copied!';
-                } else {
-                    buttonToUpdate.textContent = 'Copied!';
-                }
-            } catch (err) {
-                buttonToUpdate.textContent = 'Copy Failed';
-            } finally {
-                setTimeout(() => { 
-                    buttonToUpdate.textContent = isAutomatic ? originalMainButtonText : originalText;
-                }, 2000);
-                ta.remove();
-            }
+      var trans=Object.create(null), states=0, condEntropy=0;
+      posSeqs.forEach(function(seq){
+        for (var m=0;m<seq.length-1;m++){
+          var a=seq[m], b=seq[m+1];
+          if(!trans[a]) trans[a]=Object.create(null);
+          trans[a][b]=(trans[a][b]||0)+1;
         }
-    };
-    
-    // Debounce input to avoid excessive calculations
-    let timeout;
-    inputText.addEventListener('input', () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(analyzeAll, 250); // Analyze 250ms after user stops typing
-    });
+      });
+      for (var a in trans){
+        var outs=trans[a], sum=0; for (var b in outs){ sum+=outs[b]; }
+        var Hout=0, kN=0; for (b in outs){ var pr=outs[b]/sum; Hout += -pr*Math.log2(pr); kN++; }
+        var maxH=kN? Math.log2(kN):1; condEntropy += (maxH? (Hout/maxH):1); states++;
+      }
+      var posTransNorm=states? (condEntropy/states):1;
+      var posTransAI=clamp(((0.55 - Math.min(posTransNorm,0.55))/0.55)*100,0,100);
+      setMetricText('postrans-score', posTransNorm.toFixed(2));
 
-    removeAllBtn.addEventListener('click', () => {
-        removeAllChars();
-        copyCleanedText(true);
-    });
+      var sTokens=sentences.map(function(s){ return tokenizeWords(s).filter(function(w){return !STOPWORDS.has(w);}); });
+      function bow(arr){ var m=new Map(); arr.forEach(function(w){ m.set(w,(m.get(w)||0)+1); }); return m; }
+      function cosine(aMap,bMap){ var dot=0,na=0,nb=0; aMap.forEach(function(v,k){ na+=v*v; if(bMap.has(k)) dot+=v*bMap.get(k); }); bMap.forEach(function(v){ nb+=v*v; }); return (na===0||nb===0)?0:(dot/Math.sqrt(na*nb)); }
+      var vecs=sTokens.map(bow), sims=[];
+      for (var si=0;si<vecs.length;si++){ for (var sj=si+1;sj<vecs.length;sj++){ sims.push(cosine(vecs[si],vecs[sj])); if (sims.length>200) break; } if (sims.length>200) break; }
+      var sorted=sims.slice().sort(function(a,b){return b-a;});
+      var topQuartSim = sims.length ? mean(sorted.slice(0, Math.max(1, Math.floor(sims.length/4)))) : 0;
+      var sentSimAI=clamp(((Math.min(Math.max(topQuartSim,0),0.95)-0.35)/(0.95-0.35))*100,0,100);
+      setMetricText('sentsim-score', topQuartSim.toFixed(2));
+
+      var sentPerPara=paragraphs.map(function(p){ return splitSentences(p).length; }).filter(function(x){return x>0;});
+      var spMean=mean(sentPerPara)||1;
+      var spCV=spMean? (stdev(sentPerPara)/spMean) : 0;
+      var paraAI=clamp(((0.45 - Math.min(spCV,0.45))/0.45)*100,0,100);
+      setMetricText('parauniform-score', spCV.toFixed(2));
+
+      var boilerAI = AI_BOILERPLATE.some(function(flag){ return lower.indexOf(flag)>-1; }) ? 100 : 0;
+
+      var weights={burstinessAI:0.08,vocabAI:0.07,hedgingAI:0.05,connectivesAI:0.05,modalAI:0.05,lyAI:0.04,topDomAI:0.05,funcDriftAI:0.08,punctAI:0.04,entityAI:0.05,entropyAI:0.08,posPatternAI:0.09,posDivAI:0.06,posTransAI:0.08,sentSimAI:0.08,paraAI:0.09};
+      if (words.length>400){ weights.sentSimAI+=0.02; weights.paraAI+=0.02; }
+      var feat={burstinessAI:burstinessAI,vocabAI:vocabAI,hedgingAI:hedgingAI,connectivesAI:connectivesAI,modalAI:modalAI,lyAI:lyAI,topDomAI:topDomAI,funcDriftAI:funcDriftAI,punctAI:punctAI,entityAI:entityAI,entropyAI:entropyAI,posPatternAI:posPatternAI,posDivAI:posDivAI,posTransAI:posTransAI,sentSimAI:sentSimAI,paraAI:paraAI};
+      var used=0, score=0; for (var key in feat){ var w=weights[key]||0; var v=feat[key]; if (isFinite(v)){ used+=w; score+=w*v; } }
+      var finalScore= used? (score/used) : 50;
+      if (boilerAI===100) finalScore=Math.max(finalScore,90);
+      if (sentences.length<3) finalScore=clamp(finalScore*0.9+5,0,100);
+
+      var pct=Math.round(finalScore);
+      aiScoreBarEl.style.width=pct+'%';
+      if (pct<35){ aiVerdictEl.textContent='✅ Likely Human-Written'; aiScoreBarEl.className='progress-bar-inner bg-green-500'; }
+      else if (pct<65){ aiVerdictEl.textContent='⚠️ Potentially AI-Generated'; aiScoreBarEl.className='progress-bar-inner bg-yellow-500'; }
+      else { aiVerdictEl.textContent='❌ Likely AI-Generated'; aiScoreBarEl.className='progress-bar-inner bg-red-500'; }
+
+      aiVerdictEl.title =
+        'AI score: ' + pct + '/100\n' +
+        '• Burstiness CV: ' + cvLen.toFixed(2) + ' → ' + Math.round(burstinessAI) + '\n' +
+        '• CTTR: ' + cttr.toFixed(3) + ' → ' + Math.round(vocabAI) + '\n' +
+        '• Hedges/100w: ' + hedgesPer100.toFixed(2) + ' → ' + Math.round(hedgingAI) + '\n' +
+        '• Connectives/100w: ' + connPer100.toFixed(2) + ' → ' + Math.round(connectivesAI) + '\n' +
+        '• Modals/100w: ' + modalsPer100.toFixed(2) + ' → ' + Math.round(modalAI) + '\n' +
+        '• -ly adverbs/100w: ' + lyPer100.toFixed(2) + ' → ' + Math.round(lyAI) + '\n' +
+        '• Top-token dominance: ' + topDomPct.toFixed(2) + '% → ' + Math.round(topDomAI) + '\n' +
+        '• Function-word chi^2: ' + chi2.toFixed(1) + ' → ' + Math.round(funcDriftAI) + '\n' +
+        '• Punct rhythm std/100w: ' + pStd.toFixed(3) + ' → ' + Math.round(punctAI) + '\n' +
+        '• Entities/100w: ' + entPer100.toFixed(2) + ' → ' + Math.round(entityAI) + '\n' +
+        '• Token entropy (norm): ' + Hnorm.toFixed(3) + ' → ' + Math.round(entropyAI) + '\n' +
+        '• POS trigram repeats: ' + (triRepeatRatio*100).toFixed(1) + '% → ' + Math.round(posPatternAI) + '\n' +
+        '• POS diversity CV: ' + posDivCV.toFixed(2) + ' → ' + Math.round(posDivAI) + '\n' +
+        '• POS transition entropy: ' + posTransNorm.toFixed(2) + ' → ' + Math.round(posTransAI) + '\n' +
+        '• Top-quartile sentence cosine: ' + topQuartSim.toFixed(2) + ' → ' + Math.round(sentSimAI) + '\n' +
+        '• Paragraph sentence CV: ' + spCV.toFixed(2) + ' → ' + Math.round(paraAI);
+    }
+
+    // ===== Tiny wrapper (this is the missing piece) =====
+    function analyzeAll() {
+      analyzeInvisibleChars();
+      analyzeAIGeneratedText();
+    }
+
+    // ===== UI wiring =====
+    function copyCleanedText(action, ok){
+      action = !!action; ok = ok || 'Copied!';
+      var textToCopy = action ? inputText.value : (highlightedOutput.innerText || inputText.value);
+      var button = action ? removeAllBtn : copyBtn;
+      var original = action ? 'Remove All & Copy' : 'Copy';
+      function done(txt){ button.textContent=txt; setTimeout(function(){button.textContent=original;},1600); }
+      if (navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(textToCopy).then(function(){ done(ok); }, function(){ done('Copy Failed'); });
+      } else {
+        var ta=document.createElement('textarea'); ta.value=textToCopy; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(ok); } catch(e){ done('Copy Failed'); } ta.remove();
+      }
+    }
+    function setExampleText(){
+      inputText.value =
+'This is a classic human sentence—it’s quirky, right? I wonder what will happen... This one uses “curly quotes.” and a zero\u200Bwidth space.\n\n' +
+'On the other hand, it is important to note that the holistic integration of synergistic frameworks may potentially play a pivotal role in the ongoing development of scalable, data-driven solutions. This methodology suggests that robust analysis typically improves outcomes, which appears to be a valid consideration. However, this may vary in some cases, and it tends to depend on context.\n\n' +
+'Overall, this approach seems promising for future applications. Therefore, it is worth noting that, in general, results will likely improve over time.';
+      analyzeAll();
+    }
+    function clearText(){ inputText.value=''; analyzeAll(); }
+
+    var debounce;
+    inputText.addEventListener('input', function(){ clearTimeout(debounce); debounce=setTimeout(analyzeAll,250); });
+    removeAllBtn.addEventListener('click', function(){ removeAllChars(); copyCleanedText(true,'Removed & Copied!'); });
     exampleBtn.addEventListener('click', setExampleText);
     clearBtn.addEventListener('click', clearText);
-    copyBtn.addEventListener('click', () => copyCleanedText(false));
+    copyBtn.addEventListener('click', function(){ copyCleanedText(false); });
 
-    analyzeAll();
-})();
-</script>
+    // ===== Boot once Compromise is ready =====
+    document.addEventListener('DOMContentLoaded', function(){
+      var tries=0; (function wait(){
+        if (typeof window.nlp === 'function'){ analyzeAll(); return; }
+        if (++tries>120){ analyzeAll(); return; } // fallback even if not ready
+        setTimeout(wait,50);
+      })();
+    });
+  })();
+  </script>
+</body>
+</html>
