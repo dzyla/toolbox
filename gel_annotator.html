@@ -8,11 +8,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
-      --panel-bg: #0f172a;
-      --panel-bg-2: #0b1220;
-      --border: #1f2a44;
-      --accent: #2563eb;
-      --accent-2: #0ea5e9;
+      --panel-bg: #f1f5f9;
+      --panel-bg-2: #eef2ff;
+      --border: #d1d5db;
+      --accent: #4f46e5;
+      --accent-2: #6366f1;
       --ok: #16a34a;
       --warn: #f59e0b;
       --bad: #ef4444;
@@ -27,12 +27,19 @@
       --crop-mask: rgba(2,6,23,0.55);
       --crop-edge: #22d3ee;
     }
+    html.dark {
+      --panel-bg: #0f172a;
+      --panel-bg-2: #0b1220;
+      --border: #1f2a44;
+      --accent: #2563eb;
+      --accent-2: #0ea5e9;
+    }
     html, body {
       height: 100%;
       overflow: hidden;
       font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: #0b1220;
-      color: #e5e7eb;
+      background: var(--bg-0);
+      color: var(--text-1);
     }
     .app { height: 100%; display: grid; grid-template-columns: 360px 1fr 340px; }
     @media (max-width: 1280px) { .app { grid-template-columns: 360px 1fr; grid-template-rows: 1fr 360px; } .rightbar { grid-column: 1 / -1; grid-row: 2; } }
@@ -83,7 +90,6 @@
 </head>
 <body>
   <div class="app">
-    <!-- Left Sidebar -->
     <aside class="panel p-4 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-xl">Gel Annotator</h2>
@@ -208,13 +214,11 @@
       </div>
     </aside>
 
-    <!-- Center: Canvas -->
     <main class="canvas-wrap panel p-3">
       <canvas id="main" width="1280" height="900"></canvas>
       <textarea id="floatingEditor"></textarea>
     </main>
 
-    <!-- Right Sidebar -->
     <aside class="rightbar panel p-4 overflow-y-auto">
       <div id="imagePanel" class="disabled-overlay">
         <div class="section">
