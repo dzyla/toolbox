@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Gel Annotation Tool — v3.0 (Multi-Gel Update)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --panel-bg: #0f172a;
+      --panel-bg-2: #0b1220;
+      --border: #1f2a44;
+      --accent: #2563eb;
+      --accent-2: #0ea5e9;
+      --ok: #16a34a;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --canvas-bg: #e5e7eb;
+      --checker-a: #f3f4f6;
+      --checker-b: #e5e7eb;
+      --grid: rgba(99,102,241,0.14);
+      --snap: rgba(37,99,235,0.75);
+      --outline: rgba(37,99,235,0.95);
+      --marquee: rgba(37,99,235,0.2);
+      --marquee-border: rgba(37,99,235,0.9);
+      --crop-mask: rgba(2,6,23,0.55);
+      --crop-edge: #22d3ee;
+    }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #0b1220;
+      color: #e5e7eb;
+    }
+    .app { height: 100%; display: grid; grid-template-columns: 360px 1fr 340px; }
+    @media (max-width: 1280px) { .app { grid-template-columns: 360px 1fr; grid-template-rows: 1fr 360px; } .rightbar { grid-column: 1 / -1; grid-row: 2; } }
+    .panel { background: var(--panel-bg); }
+    .panel h2 { font-weight: 700; letter-spacing: 0.2px; }
+    .btn { transition: transform 0.08s ease, background 0.2s ease; }
+    .btn:active { transform: translateY(1px); }
+    .btn-toggle.active { background: var(--accent); color: #fff; }
+    .chip { background: var(--panel-bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 4px 8px; font-size: 12px; }
+    .canvas-wrap { position: relative; background: var(--canvas-bg); display: grid; place-items: center; overflow: hidden; }
+    canvas#main {
+      background:
+        linear-gradient(45deg, var(--checker-a) 25%, transparent 25%) -8px 0/16px 16px,
+        linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%) -8px 0/16px 16px,
+        linear-gradient(45deg, transparent 75%, var(--checker-a) 75%) -8px 0/16px 16px,
+        linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%) -8px 0/16px 16px,
+        var(--checker-b);
+      border: 1px dashed #334155;
+      border-radius: 10px;
+      cursor: default;
+      image-rendering: auto;
+    }
+    #floatingEditor {
+      position: absolute;
+      display: none;
+      border: 2px solid var(--accent);
+      background: rgba(255,255,255,0.96);
+      color: #111827;
+      z-index: 1000;
+      padding: 6px;
+      border-radius: 6px;
+      min-width: 180px;
+      resize: both;
+      overflow: hidden;
+      line-height: 1.25;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+      transform-origin: center;
+    }
+    .section { border: 1px solid var(--border); background: var(--panel-bg-2); border-radius: 12px; padding: 12px; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    .label { font-size: 12px; color: #a5b4fc; }
+    .sub { font-size: 12px; color: #93c5fd; }
+    .slider { width: 100%; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; background: #0f172a; border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+    .pill { background: #0f172a; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; }
+    .disabled-overlay { pointer-events: none; opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Left Sidebar -->
+    <aside class="panel p-4 overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl">Gel Annotator</h2>
+        <span class="chip">v3.0</span>
+      </div>
+
+      <div class="section">
+        <div class="row">
+          <div>
+            <div class="label">1. Add Gel Image</div>
+            <div class="text-xs text-slate-400">Add one or more gels to the canvas</div>
+          </div>
+          <button id="addGelBtn" class="btn px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 font-semibold">Add Gel</button>
+          <input id="file" type="file" accept="image/*" class="hidden"/>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+            <button id="fitView" class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Fit Active Gel</button>
+            <button id="resetAll" class="btn px-3 py-2 rounded-md bg-rose-800 hover:bg-rose-700">Reset All</button>
+        </div>
+      </div>
+
+      <div class="section mt-3">
+        <div class="label mb-2">Canvas Size</div>
+        <div class="row mt-2">
+            <div class="sub">Width (px)</div>
+            <input id="canvasWidth" type="number" value="1280" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-white">
+        </div>
+        <div class="row mt-2">
+            <div class="sub">Height (px)</div>
+            <input id="canvasHeight" type="number" value="900" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-white">
+        </div>
+      </div>
+
+      <div class="section mt-3">
+        <div class="label mb-2">2. Tools</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="toolSelect"   class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700 active">Select <span class="ml-1 kbd">V</span></button>
+          <button id="toolCrop"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Crop <span class="ml-1 kbd">C</span></button>
+          <button id="toolText"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Text <span class="ml-1 kbd">T</span></button>
+          <button id="toolTextarea" class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Text Area</button>
+          <button id="toolRect"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Rectangle</button>
+          <button id="toolLine"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Line <span class="ml-1 kbd">L</span></button>
+          <button id="toolArrow"    class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Arrow <span class="ml-1 kbd">A</span></button>
+        </div>
+        <div class="text-xs text-slate-400 mt-2">
+          Shift-click to multi-select. Double-click or press <span class="kbd">Enter</span>/<span class="kbd">F2</span> to edit text.
+        </div>
+      </div>
+
+      <div class="section mt-3">
+        <div class="label mb-2">3. Snapping & Grid</div>
+        <div class="row">
+          <div>Snap to Elements</div>
+          <label class="inline-flex items-center cursor-pointer">
+            <input id="snapElements" type="checkbox" class="mr-2" checked>
+            <span class="pill">On</span>
+          </label>
+        </div>
+        <div class="row mt-2">
+          <div>Snap to Grid</div>
+          <label class="inline-flex items-center cursor-pointer">
+            <input id="snapGrid" type="checkbox" class="mr-2" checked>
+            <span class="pill">On</span>
+          </label>
+        </div>
+        <div class="mt-2">
+          <div class="sub mb-1">Grid Size (<span id="gridSizeVal">16</span> px)</div>
+          <input id="gridSize" type="range" min="4" max="64" step="1" value="16" class="slider">
+        </div>
+        <div class="mt-2">
+          <div class="sub mb-1">Snap Threshold (<span id="snapVal">6</span> px)</div>
+          <input id="snapThr" type="range" min="2" max="20" step="1" value="6" class="slider">
+        </div>
+      </div>
+
+      <div class="section mt-3">
+        <div class="label">4. Alignment & Distribution</div>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          <button id="alignLeft"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Left</button>
+          <button id="alignHMid"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">H-Center</button>
+          <button id="alignRight"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Right</button>
+          <button id="alignTop"    class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Top</button>
+          <button id="alignVMid"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">V-Center</button>
+          <button id="alignBottom" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bottom</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <button id="distH" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Distribute H</button>
+          <button id="distV" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Distribute V</button>
+        </div>
+      </div>
+
+      <div class="section mt-3">
+        <div class="label">5. Export</div>
+        <div class="row mt-2">
+          <div>White Background</div>
+          <label class="inline-flex items-center cursor-pointer">
+            <input id="exportWhite" type="checkbox" class="mr-2" checked>
+            <span class="pill">On</span>
+          </label>
+        </div>
+        <div class="row mt-2">
+          <div>Crop to Gel</div>
+          <label class="inline-flex items-center cursor-pointer">
+            <input id="exportCropGel" type="checkbox" class="mr-2">
+            <span class="pill">Off</span>
+          </label>
+        </div>
+        <div class="mt-2">
+          <div class="sub mb-1">Scale</div>
+          <select id="exportScale" class="w-full bg-slate-800 border border-slate-700 rounded-md px-2 py-2">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+        <button id="btnExport" class="btn mt-3 w-full px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 font-semibold">Export PNG</button>
+      </div>
+
+      <div class="mt-3 text-xs text-slate-400">
+        Shortcuts: <span class="kbd">Del</span> delete, <span class="kbd">Ctrl/Cmd+D</span> duplicate, <span class="kbd">Shift</span> multi-select, <span class="kbd">←↑→↓</span> move, <span class="kbd">Shift+Arrows</span> fast move, <span class="kbd">Enter</span>/<span class="kbd">F2</span> edit text, type to start editing.
+      </div>
+    </aside>
+
+    <!-- Center: Canvas -->
+    <main class="canvas-wrap panel p-3">
+      <canvas id="main" width="1280" height="900"></canvas>
+      <textarea id="floatingEditor"></textarea>
+    </main>
+
+    <!-- Right Sidebar -->
+    <aside class="rightbar panel p-4 overflow-y-auto">
+      <div id="imagePanel" class="disabled-overlay">
+        <div class="section">
+            <div class="label mb-2">Image Adjustments (Active Gel)</div>
+            <div class="row"><div>Exposure (<span id="expVal">0</span>)</div><div class="w-40"><input id="exposure" type="range" min="-100" max="100" value="0" class="slider"/></div></div>
+            <div class="row mt-2"><div>Contrast (<span id="conVal">0</span>)</div><div class="w-40"><input id="contrast" type="range" min="-100" max="100" value="0" class="slider"/></div></div>
+            <div class="row mt-2"><div>Saturation (<span id="satVal">100</span>%)</div><div class="w-40"><input id="saturation" type="range" min="0" max="300" value="100" class="slider"/></div></div>
+            <div class="row mt-2"><div>Invert (<span id="invVal">0</span>%)</div><div class="w-40"><input id="invert" type="range" min="0" max="100" value="0" class="slider"/></div></div>
+            <div class="grid grid-cols-3 gap-2 mt-3">
+            <button id="autoLevels" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Auto Levels</button>
+            <button id="equalize" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Equalize</button>
+            <button id="resetAdj" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Reset</button>
+            </div>
+            <div class="mt-3">
+            <div class="sub">Levels: Black / White (<span id="lvlBVal">0</span> / <span id="lvlWVal">255</span>)</div>
+            <div class="flex items-center gap-2">
+                <input id="levelB" type="range" min="0" max="254" value="0" class="slider">
+                <input id="levelW" type="range" min="1" max="255" value="255" class="slider">
+            </div>
+            </div>
+            <div class="mt-3">
+            <canvas id="hist" width="280" height="120" class="w-full rounded-md border border-slate-700"></canvas>
+            <div class="text-xs text-slate-400 mt-1">Histogram from current crop of active gel.</div>
+            </div>
+        </div>
+
+        <div class="section mt-3">
+            <div class="label">Image Rotation (Active Gel)</div>
+            <div class="row mt-2"><div>Angle (<span id="rotImgVal">0</span>°)</div><div class="w-40"><input id="imgRotation" type="range" min="-180" max="180" step="1" value="0" class="slider"/></div></div>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+            <button id="rotLeft90"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">-90°</button>
+            <button id="rotRight90" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">+90°</button>
+            </div>
+        </div>
+      </div>
+
+      <div id="selectionPanel" class="section mt-3 hidden">
+        <div class="label">Annotation Selection</div>
+        <div class="text-xs text-slate-400">Editing <span id="selCount">0</span> item(s).</div>
+
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <button id="btnGroup" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Group</button>
+          <button id="btnUngroup" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Ungroup</button>
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button id="bringFront" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bring Front</button>
+          <button id="sendBack"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Send Back</button>
+        </div>
+
+        <div class="mt-3">
+          <div class="sub mb-1">Stroke Color</div>
+          <input id="propColor" type="color" value="#000000" class="w-full h-10 rounded-md bg-slate-800 border border-slate-700"/>
+        </div>
+
+        <div id="textProps" class="mt-2">
+          <div class="sub mb-1">Font Size (<span id="fontVal">16</span> px)</div>
+          <input id="propFont" type="range" min="8" max="128" value="16" class="slider">
+          <div class="grid grid-cols-3 gap-2 mt-2">
+            <button id="propBold" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bold</button>
+            <button id="propItalic" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Italic</button>
+            <button id="toggleEditor" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Edit Text</button>
+          </div>
+        </div>
+
+        <div id="shapeProps" class="mt-2 hidden">
+          <div class="sub mb-1">Stroke Width (<span id="strokeVal">2</span> px)</div>
+          <input id="propStroke" type="range" min="1" max="24" value="2" class="slider">
+        </div>
+
+        <div class="mt-2">
+          <div class="sub mb-1">Opacity (<span id="opVal">100</span>%)</div>
+          <input id="propOpacity" type="range" min="10" max="100" value="100" class="slider">
+        </div>
+
+        <div class="mt-2">
+          <div class="sub mb-1">Rotation (<span id="rotVal">0</span>°)</div>
+          <input id="propRotation" type="range" min="0" max="360" step="1" value="0" class="slider">
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button id="btnDuplicate" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Duplicate</button>
+          <button id="btnDelete" class="btn px-2 py-2 rounded-md bg-rose-600 hover:bg-rose-500">Delete</button>
+        </div>
+
+        <div id="overflowWarn" class="mt-3 text-xs hidden">
+          <span class="bad font-semibold">Warning:</span> Some text exceeds the active gel area.
+        </div>
+      </div>
+
+      <div class="section mt-3">
+        <div class="label">Status</div>
+        <div id="status" class="text-xs text-slate-400 mt-1">Add a gel image to begin.</div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+  // ====== Canvas ======
+  const canvas = document.getElementById('main');
+  const ctx = canvas.getContext('2d');
+
+  // ====== UI Elements ======
+  const els = {
+    file: document.getElementById('file'),
+    addGelBtn: document.getElementById('addGelBtn'),
+    canvasWidth: document.getElementById('canvasWidth'),
+    canvasHeight: document.getElementById('canvasHeight'),
+    fitView: document.getElementById('fitView'),
+    resetAll: document.getElementById('resetAll'),
+    toolSelect: document.getElementById('toolSelect'),
+    toolCrop: document.getElementById('toolCrop'),
+    toolText: document.getElementById('toolText'),
+    toolTextarea: document.getElementById('toolTextarea'),
+    toolRect: document.getElementById('toolRect'),
+    toolLine: document.getElementById('toolLine'),
+    toolArrow: document.getElementById('toolArrow'),
+    snapElements: document.getElementById('snapElements'),
+    snapGrid: document.getElementById('snapGrid'),
+    gridSize: document.getElementById('gridSize'),
+    gridSizeVal: document.getElementById('gridSizeVal'),
+    snapThr: document.getElementById('snapThr'),
+    snapVal: document.getElementById('snapVal'),
+    alignLeft: document.getElementById('alignLeft'),
+    alignHMid: document.getElementById('alignHMid'),
+    alignRight: document.getElementById('alignRight'),
+    alignTop: document.getElementById('alignTop'),
+    alignVMid: document.getElementById('alignVMid'),
+    alignBottom: document.getElementById('alignBottom'),
+    distH: document.getElementById('distH'),
+    distV: document.getElementById('distV'),
+    exportWhite: document.getElementById('exportWhite'),
+    exportCropGel: document.getElementById('exportCropGel'),
+    exportScale: document.getElementById('exportScale'),
+    btnExport: document.getElementById('btnExport'),
+    imagePanel: document.getElementById('imagePanel'),
+    exposure: document.getElementById('exposure'),
+    contrast: document.getElementById('contrast'),
+    saturation: document.getElementById('saturation'),
+    invert: document.getElementById('invert'),
+    expVal: document.getElementById('expVal'),
+    conVal: document.getElementById('conVal'),
+    satVal: document.getElementById('satVal'),
+    invVal: document.getElementById('invVal'),
+    autoLevels: document.getElementById('autoLevels'),
+    equalize: document.getElementById('equalize'),
+    resetAdj: document.getElementById('resetAdj'),
+    levelB: document.getElementById('levelB'),
+    levelW: document.getElementById('levelW'),
+    lvlBVal: document.getElementById('lvlBVal'),
+    lvlWVal: document.getElementById('lvlWVal'),
+    hist: document.getElementById('hist'),
+    imgRotation: document.getElementById('imgRotation'),
+    rotImgVal: document.getElementById('rotImgVal'),
+    rotLeft90: document.getElementById('rotLeft90'),
+    rotRight90: document.getElementById('rotRight90'),
+    selectionPanel: document.getElementById('selectionPanel'),
+    selCount: document.getElementById('selCount'),
+    btnGroup: document.getElementById('btnGroup'),
+    btnUngroup: document.getElementById('btnUngroup'),
+    bringFront: document.getElementById('bringFront'),
+    sendBack: document.getElementById('sendBack'),
+    propColor: document.getElementById('propColor'),
+    propFont: document.getElementById('propFont'),
+    fontVal: document.getElementById('fontVal'),
+    propBold: document.getElementById('propBold'),
+    propItalic: document.getElementById('propItalic'),
+    toggleEditor: document.getElementById('toggleEditor'),
+    propStroke: document.getElementById('propStroke'),
+    strokeVal: document.getElementById('strokeVal'),
+    propOpacity: document.getElementById('propOpacity'),
+    opVal: document.getElementById('opVal'),
+    propRotation: document.getElementById('propRotation'),
+    rotVal: document.getElementById('rotVal'),
+    btnDuplicate: document.getElementById('btnDuplicate'),
+    btnDelete: document.getElementById('btnDelete'),
+    overflowWarn: document.getElementById('overflowWarn'),
+    status: document.getElementById('status'),
+    floatingEditor: document.getElementById('floatingEditor'),
+  };
+  const toolButtons = [els.toolSelect, els.toolCrop, els.toolText, els.toolTextarea, els.toolRect, els.toolLine, els.toolArrow];
+
+  // ====== State ======
+  let gels = [];
+  let activeGel = null;
+  let annotations = [];
+  let selection = [];
+  let zCounter = { gels: 1, annotations: 1 };
+  let tool = 'select';
+  let dragging = null;
+  let marquee = null;
+  let snapGuides = [];
+  let gridSize = 16;
+  let snapThreshold = 6;
+  
+  // ====== Utilities ======
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function deepCopy(o){ return JSON.parse(JSON.stringify(o)); }
+  function status(msg){ els.status.textContent = msg; }
+  function rad(d){ return d*Math.PI/180; }
+  function measureText(text, fontSize, bold, italic){
+    ctx.save(); ctx.font = `${italic?'italic ':''}${bold?'700':'400'} ${fontSize}px Inter`;
+    const lines = String(text).split('\n');
+    const widths = lines.map(line=>ctx.measureText(line).width);
+    const w = Math.max(1, ...widths) + 16; const h = lines.length * (fontSize*1.2) + 16;
+    ctx.restore(); return { w, h };
+  }
+
+  // ====== Gel Management ======
+  function createGelObject(image) {
+    const procCanvas = document.createElement('canvas');
+    const rotCanvas = document.createElement('canvas');
+    const rw = image.naturalWidth, rh = image.naturalHeight;
+    return {
+      id: Math.random().toString(36).slice(2),
+      img: image,
+      procCanvas,
+      procCtx: procCanvas.getContext('2d', { willReadFrequently: true }),
+      rotCanvas,
+      rotCtx: rotCanvas.getContext('2d', { willReadFrequently: true }),
+      adj: { exposure: 0, contrast: 0, levelB: 0, levelW: 255, equalize: false },
+      cssFilters: { saturation: 100, invert: 0 },
+      imgRotDeg: 0,
+      crop: { x: 0, y: 0, w: rw, h: rh },
+      x: canvas.width / 2, // position on main canvas
+      y: canvas.height / 2,
+      scale: 1,
+      z: zCounter.gels++,
+      needsProcessing: true,
+      needsHistogram: true,
+    };
+  }
+
+  function setActiveGel(gel) {
+    activeGel = gel;
+    updateImageControls();
+    redraw();
+  }
+
+  function updateImageControls() {
+    const enabled = !!activeGel;
+    els.imagePanel.classList.toggle('disabled-overlay', !enabled);
+    if (!enabled) {
+        const hctx = els.hist.getContext('2d');
+        hctx.clearRect(0, 0, els.hist.width, els.hist.height);
+        return;
+    }
+    const g = activeGel;
+    els.exposure.value = g.adj.exposure; els.expVal.textContent = g.adj.exposure;
+    els.contrast.value = g.adj.contrast; els.conVal.textContent = g.adj.contrast;
+    els.levelB.value = g.adj.levelB; els.lvlBVal.textContent = g.adj.levelB;
+    els.levelW.value = g.adj.levelW; els.lvlWVal.textContent = g.adj.levelW;
+    els.equalize.classList.toggle('active', g.adj.equalize);
+    els.saturation.value = g.cssFilters.saturation; els.satVal.textContent = g.cssFilters.saturation;
+    els.invert.value = g.cssFilters.invert; els.invVal.textContent = g.cssFilters.invert;
+    els.imgRotation.value = g.imgRotDeg; els.rotImgVal.textContent = g.imgRotDeg;
+  }
+
+  // ====== Image processing ======
+  function applyProcessing(gel){
+    if (!gel) return;
+    const { img, procCanvas, procCtx, adj } = gel;
+    procCanvas.width = img.naturalWidth;
+    procCanvas.height = img.naturalHeight;
+    procCtx.drawImage(img, 0, 0);
+    
+    const id = procCtx.getImageData(0,0,procCanvas.width,procCanvas.height); const d=id.data;
+    const lb=adj.levelB, lw=adj.levelW, scale = 255/Math.max(1,(lw-lb)); const exp=adj.exposure, con=adj.contrast; const conK=(259*(con+255))/(255*(259-con));
+    for(let i=0;i<d.length;i+=4){ let r=d[i],g=d[i+1],b=d[i+2]; r=clamp(Math.round((r-lb)*scale),0,255); g=clamp(Math.round((g-lb)*scale),0,255); b=clamp(Math.round((b-lb)*scale),0,255); r=clamp(r+exp,0,255); g=clamp(g+exp,0,255); b=clamp(b+exp,0,255); r=clamp(Math.round(conK*(r-128)+128),0,255); g=clamp(Math.round(conK*(g-128)+128),0,255); b=clamp(Math.round(conK* (b-128)+128),0,255); d[i]=r; d[i+1]=g; d[i+2]=b; }
+    procCtx.putImageData(id,0,0);
+    
+    if (adj.equalize){ const id2 = procCtx.getImageData(0,0,procCanvas.width,procCanvas.height); const px=id2.data; const hist=new Uint32Array(256); for(let i=0;i<px.length;i+=4){ const y=Math.round(0.2126*px[i]+0.7152*px[i+1]+0.0722*px[i+2]); hist[y]++; } const cdf=new Uint32Array(256); cdf[0]=hist[0]; for(let i=1;i<256;i++) cdf[i]=cdf[i-1]+hist[i]; const total=cdf[255]||1; const map=new Uint8Array(256); for(let i=0;i<256;i++) map[i]=Math.round((cdf[i]-cdf[0])/(total-cdf[0])*255); for(let i=0;i<px.length;i+=4){ const r=px[i],g=px[i+1],b=px[i+2]; const y=Math.round(0.2126*r+0.7152*g+0.0722*b); const y2=map[y]; const scaleY=y? (y2/y):0; let nr=y?clamp(Math.round(r*scaleY),0,255):y2; let ng=y?clamp(Math.round(g*scaleY),0,255):y2; let nb=y?clamp(Math.round(b*scaleY),0,255):y2; px[i]=nr; px[i+1]=ng; px[i+2]=nb; } procCtx.putImageData(id2,0,0);}
+    
+    gel.needsProcessing = false;
+    rebuildRotated(gel);
+    gel.needsHistogram = true;
+  }
+  
+  function rebuildRotated(gel){
+    const { procCanvas, rotCanvas, rotCtx, imgRotDeg } = gel;
+    const w = procCanvas.width, h = procCanvas.height;
+    const a = rad(imgRotDeg);
+    const cos = Math.abs(Math.cos(a)), sin = Math.abs(Math.sin(a));
+    const rw = Math.max(1, Math.floor(w * cos + h * sin));
+    const rh = Math.max(1, Math.floor(w * sin + h * cos));
+    rotCanvas.width = rw;
+    rotCanvas.height = rh;
+    rotCtx.save(); rotCtx.translate(rw/2, rh/2); rotCtx.rotate(a); rotCtx.drawImage(procCanvas, -w/2, -h/2); rotCtx.restore();
+    
+    const cx = gel.crop.x + gel.crop.w / 2, cy = gel.crop.y + gel.crop.h / 2;
+    gel.crop.w = Math.min(gel.crop.w, rw);
+    gel.crop.h = Math.min(gel.crop.h, rh);
+    gel.crop.x = clamp(cx - gel.crop.w / 2, 0, rw - gel.crop.w);
+    gel.crop.y = clamp(cy - gel.crop.h / 2, 0, rh - gel.crop.h);
+    
+    fitToView(gel, false);
+  }
+
+  // ====== Gel placement and draw ======
+  function getGelDisplayRect(gel) {
+    if (!gel) return null;
+    const dw = gel.crop.w * gel.scale;
+    const dh = gel.crop.h * gel.scale;
+    return { x: gel.x - dw / 2, y: gel.y - dh / 2, w: dw, h: dh };
+  }
+
+  function fitToView(gel, center = true) {
+    if (!gel) return;
+    const sw = gel.crop.w, sh = gel.crop.h;
+    if (sw === 0 || sh === 0) return;
+    const hRatio = canvas.width / sw, vRatio = canvas.height / sh;
+    gel.scale = Math.min(hRatio, vRatio) * 0.95; // Add some padding
+    if (center) {
+        gel.x = canvas.width / 2;
+        gel.y = canvas.height / 2;
+    }
+    redraw();
+  }
+  
+  function drawGels(){
+    const sortedGels = gels.slice().sort((a,b) => a.z - b.z);
+    for (const gel of sortedGels) {
+        if (gel.needsProcessing) applyProcessing(gel);
+
+        const { rotCanvas, crop, cssFilters, scale } = gel;
+        const dispRect = getGelDisplayRect(gel);
+        if (!dispRect) continue;
+        
+        ctx.save();
+        ctx.filter = `saturate(${cssFilters.saturation}%) invert(${cssFilters.invert}%)`;
+        ctx.drawImage(rotCanvas, crop.x, crop.y, crop.w, crop.h, dispRect.x, dispRect.y, dispRect.w, dispRect.h);
+        ctx.restore();
+
+        if (gel === activeGel) {
+            ctx.save();
+            ctx.strokeStyle = (tool === 'crop') ? 'transparent' : '#3b82f6';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(dispRect.x, dispRect.y, dispRect.w, dispRect.h);
+            ctx.restore();
+        }
+    }
+  }
+
+  function drawGrid(){ if(!els.snapGrid.checked) return; ctx.save(); ctx.strokeStyle='rgba(99,102,241,0.18)'; ctx.lineWidth=1; for(let x=0;x<canvas.width;x+=gridSize){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); } for(let y=0;y<canvas.height;y+=gridSize){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); } ctx.restore(); }
+  function drawSnapGuides(){ if(!snapGuides.length) return; ctx.save(); ctx.strokeStyle='rgba(37,99,235,0.75)'; ctx.setLineDash([6,6]); ctx.lineWidth=1; snapGuides.forEach(g=>{ ctx.beginPath(); if(g.x!=null){ ctx.moveTo(g.x,0); ctx.lineTo(g.x,canvas.height);} if(g.y!=null){ ctx.moveTo(0,g.y); ctx.lineTo(canvas.width,g.y);} ctx.stroke(); }); ctx.restore(); }
+
+  function computeHistogram(gel){ const {rotCtx, crop} = gel; const {x,y,w,h}=crop; const data=rotCtx.getImageData(x,y,w,h).data; const hist=new Uint32Array(256); for(let i=0;i<data.length;i+=4){ const r=data[i],g=data[i+1],b=data[i+2]; const lum=Math.round(0.2126*r+0.7152*g+0.0722*b); hist[lum]++; } return hist; }
+  function renderHistogram(gel){ if(!gel) return; const hctx=els.hist.getContext('2d'); hctx.clearRect(0,0,els.hist.width,els.hist.height); const hist=computeHistogram(gel); const max=Math.max(...hist)||1; hctx.save(); hctx.fillStyle='#0b1220'; hctx.fillRect(0,0,els.hist.width,els.hist.height); hctx.strokeStyle='#1f2a44'; hctx.strokeRect(0,0,els.hist.width,els.hist.height); hctx.fillStyle='#60a5fa'; for(let i=0;i<256;i++){ const v=hist[i]/max; const x=i/256*els.hist.width; const hh=v*(els.hist.height-4); hctx.fillRect(x, els.hist.height-2-hh, Math.ceil(els.hist.width/256)+1, hh); } hctx.restore(); gel.needsHistogram=false;}
+
+  // ====== Drawing annotations ======
+  function aabbOfRotatedRect(cx,cy,w,h,rotDeg){ const r=rad(rotDeg); const c=Math.cos(r), s=Math.sin(r); const hw=w/2, hh=h/2; const pts=[{x:-hw,y:-hh},{x:hw,y:-hh},{x:hw,y:hh},{x:-hw,y:hh}].map(p=>({x:cx+p.x*c-p.y*s, y:cy+p.x*s+p.y*c})); const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y); return { x:Math.min(...xs), y:Math.min(...ys), w:Math.max(...xs)-Math.min(...xs), h:Math.max(...ys)-Math.min(...ys) } }
+  function getAnnAABB(a){ if(a.type==='line'||a.type==='arrow'){ const minX=Math.min(a.x,a.x2), minY=Math.min(a.y,a.y2); const maxX=Math.max(a.x,a.x2), maxY=Math.max(a.y,a.y2); return { x:minX,y:minY,w:maxX-minX,h:maxY-minY }; } else if(a.type==='group'){ const boxes=a.children.map(ch=>getAnnAABB(worldChild(a,ch))); const minX=Math.min(...boxes.map(b=>b.x)), minY=Math.min(...boxes.map(b=>b.y)); const maxX=Math.max(...boxes.map(b=>b.x+b.w)), maxY=Math.max(...boxes.map(b=>b.y+b.h)); return { x:minX, y:minY, w:maxX-minX, h:maxY-minY }; } else { return aabbOfRotatedRect(a.x,a.y,a.w,a.h,a.rotation); } }
+  function worldChild(g,ch){ return { ...ch, x: ch.x+g.x, y: ch.y+g.y, rotation:(ch.rotation||0)+(g.rotation||0) }; }
+  function drawAnnotation(a){ if(a.type==='group'){ a.children.forEach(ch=>drawAnnotation(worldChild(a,ch))); if(selection.includes(a)){ const bb=getAnnAABB(a); drawBox(bb.x,bb.y,bb.w,bb.h,true); } return; }
+    if(a.type==='line'||a.type==='arrow'){ ctx.save(); ctx.globalAlpha=a.opacity; ctx.strokeStyle=a.color; ctx.lineWidth=a.strokeWidth; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x2,a.y2); ctx.stroke(); if(a.type==='arrow'){ const angle=Math.atan2(a.y2-a.y,a.x2-a.x); const size=8+(a.strokeWidth||0); ctx.beginPath(); ctx.moveTo(a.x2,a.y2); ctx.lineTo(a.x2 - size*Math.cos(angle-Math.PI/6), a.y2 - size*Math.sin(angle-Math.PI/6)); ctx.lineTo(a.x2 - size*Math.cos(angle+Math.PI/6), a.y2 - size*Math.sin(angle+Math.PI/6)); ctx.closePath(); ctx.fillStyle=a.color; ctx.fill(); } ctx.restore(); if(selection.includes(a)) drawLineHandles(a); return; }
+    if(a.type==='rect'){ ctx.save(); ctx.globalAlpha=a.opacity; ctx.translate(a.x,a.y); ctx.rotate(rad(a.rotation)); ctx.strokeStyle=a.color; ctx.lineWidth=a.strokeWidth; ctx.strokeRect(-a.w/2,-a.h/2,a.w,a.h); ctx.restore(); if(selection.includes(a)) drawRectHandles(a); return; }
+    // text & textarea
+    ctx.save(); ctx.globalAlpha=a.opacity; ctx.translate(a.x,a.y); ctx.rotate(rad(a.rotation)); ctx.fillStyle=a.color; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`${a.fontItalic?'italic ':''}${a.fontBold?'700':'400'} ${a.fontSize}px Inter`; const lines=String(a.text).split('\n'); const lh=a.fontSize*1.2; let y=-(lines.length-1)*lh/2; lines.forEach(line=>{ ctx.fillText(line,0,y); y+=lh; }); ctx.restore(); if(selection.includes(a)) drawRectHandles(a); }
+  function drawRectHandles(a){ const bb=getAnnAABB(a); drawBox(bb.x,bb.y,bb.w,bb.h,true); const cx=bb.x+bb.w/2, cy=bb.y; const ry=cy-24; ctx.save(); ctx.strokeStyle='#3b82f6'; ctx.fillStyle='#3b82f6'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx,ry); ctx.stroke(); ctx.beginPath(); ctx.arc(cx,ry,7,0,2*Math.PI); ctx.fill(); ctx.restore(); }
+  function drawLineHandles(a){ const bb=getAnnAABB(a); drawBox(bb.x,bb.y,bb.w,bb.h,false); ctx.save(); ctx.fillStyle='#3b82f6'; ctx.strokeStyle='#3b82f6'; ctx.beginPath(); ctx.arc(a.x,a.y,7,0,2*Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(a.x2,a.y2,7,0,2*Math.PI); ctx.fill(); const top={ x:bb.x+bb.w/2, y:bb.y }; const ry=top.y-24; ctx.beginPath(); ctx.moveTo(top.x,top.y); ctx.lineTo(top.x,ry); ctx.stroke(); ctx.beginPath(); ctx.arc(top.x,ry,7,0,2*Math.PI); ctx.fill(); ctx.restore(); }
+  function drawBox(x,y,w,h,showCorners){ ctx.save(); ctx.strokeStyle='#3b82f6'; ctx.setLineDash([6,4]); ctx.lineWidth=1; ctx.strokeRect(x,y,w,h); ctx.setLineDash([]); if(showCorners){ const hs=8, corners=[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}]; ctx.fillStyle='#3b82f6'; corners.forEach(c=>ctx.fillRect(c.x-hs/2,c.y-hs/2,hs,hs)); } ctx.restore(); }
+  function drawSelectionMarquee(){ if(!marquee) return; ctx.save(); ctx.fillStyle='rgba(37,99,235,0.18)'; ctx.strokeStyle='rgba(37,99,235,0.9)'; ctx.lineWidth=1; const {x,y,w,h}=marqueeRect(marquee); ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); ctx.restore(); }
+  function drawOverflowWarnings(){ const gelRect = getGelDisplayRect(activeGel); if(!gelRect) return; let any=false; annotations.forEach(a=>{ if(a.type==='text'||a.type==='textarea'){ const bb=getAnnAABB(a); if(!(bb.x>=gelRect.x && bb.y>=gelRect.y && bb.x+bb.w<=gelRect.x+gelRect.w && bb.y+bb.h<=gelRect.y+gelRect.h)){ any=true; ctx.save(); ctx.strokeStyle='#ef4444'; ctx.lineWidth=2; ctx.setLineDash([6,4]); ctx.strokeRect(bb.x,bb.y,bb.w,bb.h); ctx.restore(); } } }); els.overflowWarn.classList.toggle('hidden', !any); }
+  
+  function redraw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawGrid();
+    drawGels();
+    if(tool === 'crop' && activeGel) drawCropOverlay(activeGel);
+    annotations.slice().sort((a,b)=>a.z-b.z).forEach(drawAnnotation);
+    drawSelectionMarquee();
+    drawSnapGuides();
+    if(activeGel) drawOverflowWarnings();
+    if(activeGel && activeGel.needsHistogram) renderHistogram(activeGel);
+  }
+
+  // ====== Crop overlay ======
+  function drawCropOverlay(gel){
+    const gelRect = getGelDisplayRect(gel);
+    if (!gelRect) return;
+    ctx.save();
+    ctx.fillStyle='rgba(2,6,23,0.4)';
+    ctx.beginPath(); ctx.rect(0,0,canvas.width,canvas.height); ctx.rect(gelRect.x, gelRect.y, gelRect.w, gelRect.h); ctx.fill("evenodd");
+    ctx.strokeStyle='#22d3ee'; ctx.setLineDash([10,6]); ctx.lineWidth=2; ctx.strokeRect(gelRect.x,gelRect.y,gelRect.w,gelRect.h); ctx.setLineDash([]);
+    const handles = cropHandles(gelRect);
+    ctx.fillStyle='#22d3ee'; handles.forEach(h=>{ ctx.beginPath(); ctx.arc(h.x,h.y,9,0,2*Math.PI); ctx.fill(); });
+    ctx.restore();
+  }
+  function cropHandles(box){ const cx=box.x+box.w/2, cy=box.y+box.h/2; return [ {name:'nw',x:box.x,y:box.y},{name:'n',x:cx,y:box.y},{name:'ne',x:box.x+box.w,y:box.y},{name:'e',x:box.x+box.w,y:cy},{name:'se',x:box.x+box.w,y:box.y+box.h},{name:'s',x:cx,y:box.y+box.h},{name:'sw',x:box.x,y:box.y+box.h},{name:'w',x:box.x,y:cy} ]; }
+  function cropHandleHit(pt){ const gelRect = getGelDisplayRect(activeGel); if(!gelRect) return null; const hs=cropHandles(gelRect); for(const h of hs){ if(Math.hypot(pt.x-h.x,pt.y-h.y)<=12) return h.name; } if(pt.x>=gelRect.x&&pt.x<=gelRect.x+gelRect.w&&pt.y>=gelRect.y&&pt.y<=gelRect.y+gelRect.h) return 'move'; return null; }
+
+  // MODIFIED to maintain aspect ratio
+  function handleCropDrag(pt, gel) {
+      const start = dragging.start;
+      if (!start) return;
+
+      const dx = pt.x - start.pt.x;
+      const dy = pt.y - start.pt.y;
+
+      if (dragging.handle === 'move') {
+          const sx = dx / gel.scale;
+          const sy = dy / gel.scale;
+          gel.crop.x = clamp(start.crop.x + sx, 0, gel.rotCanvas.width - gel.crop.w);
+          gel.crop.y = clamp(start.crop.y + sy, 0, gel.rotCanvas.height - gel.crop.h);
+          gel.x = start.pos.x + dx;
+          gel.y = start.pos.y + dy;
+      } else {
+          let { x: newX, y: newY, w: newW, h: newH } = start.crop;
+          const aspect = start.crop.w / start.crop.h;
+          const sx = dx / gel.scale;
+          const sy = dy / gel.scale;
+          const handle = dragging.handle;
+
+          if (handle.includes('e')) newW += sx;
+          if (handle.includes('w')) { newW -= sx; newX += sx; }
+          if (handle.includes('s')) newH += sy;
+          if (handle.includes('n')) { newH -= sy; newY += sy; }
+          
+          if (handle.length === 1) { // Edge drag
+              if (handle === 'n' || handle === 's') {
+                  const oldW = newW;
+                  newW = newH * aspect;
+                  newX -= (newW - oldW) / 2;
+              } else {
+                  const oldH = newH;
+                  newH = newW / aspect;
+                  newY -= (newH - oldH) / 2;
+              }
+          } else { // Corner drag
+              if (Math.abs(sx) > Math.abs(sy)) {
+                  const oldH = newH;
+                  newH = newW / aspect;
+                  if (handle.includes('n')) newY += (oldH - newH);
+              } else {
+                  const oldW = newW;
+                  newW = newH * aspect;
+                  if (handle.includes('w')) newX += (oldW - newW);
+              }
+          }
+
+          if (newW < 16 || newH < 16) return;
+
+          // Clamp to image boundaries
+          if (newX < 0) { newW += newX; newX = 0; }
+          if (newY < 0) { newH += newY; newY = 0; }
+          if (newX + newW > gel.rotCanvas.width) newW = gel.rotCanvas.width - newX;
+          if (newY + newH > gel.rotCanvas.height) newH = gel.rotCanvas.height - newY;
+          
+          gel.crop = { x: newX, y: newY, w: newW, h: newH };
+          fitToView(gel, false); 
+      }
+      gel.needsHistogram = true;
+  }
+  
+  // ====== Hit testing ======
+  function pointToSegmentDistance(px,py,x1,y1,x2,y2){ const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=len? dot/len:0; t=clamp(t,0,1); const nx=x1+C*t, ny=y1+D*t; return Math.hypot(px-nx,py-ny); }
+  function hitTest(pt){ if(selection.length===1){ const h=handleHit(pt,selection[0]); if(h) return { target: selection[0], handle:h }; }
+    const list=annotations.slice().sort((a,b)=>b.z-a.z); for(const a of list){ if(a.type==='group'){ const bb=getAnnAABB(a); if(pt.x>=bb.x&&pt.x<=bb.x+bb.w&&pt.y>=bb.y&&pt.y<=bb.y+bb.h) return { target:a, handle:'move' }; } else if(a.type==='line'||a.type==='arrow'){ if(Math.hypot(pt.x-a.x,pt.y-a.y)<=10) return { target:a, handle:'p1' }; if(Math.hypot(pt.x-a.x2,pt.y-a.y2)<=10) return { target:a, handle:'p2' }; const dist=pointToSegmentDistance(pt.x,pt.y,a.x,a.y,a.x2,a.y2); if(dist<=Math.max(6,a.strokeWidth+3)) return { target:a, handle:'move' }; const bb=getAnnAABB(a); const top={x:bb.x+bb.w/2,y:bb.y}; const ry=top.y-24; if(Math.hypot(pt.x-top.x,pt.y-ry)<=10) return { target:a, handle:'rotate' }; } else { const bb=getAnnAABB(a); if(pt.x>=bb.x&&pt.x<=bb.x+bb.w&&pt.y>=bb.y&&pt.y<=bb.y+bb.h) return { target:a, handle:'move' }; const cx=bb.x+bb.w/2, cy=bb.y; const ry=cy-24; if(Math.hypot(pt.x-cx,pt.y-ry)<=10) return { target:a, handle:'rotate' }; const corners=[{n:'nw',x:bb.x,y:bb.y},{n:'ne',x:bb.x+bb.w,y:bb.y},{n:'se',x:bb.x+bb.w,y:bb.y+bb.h},{n:'sw',x:bb.x,y:bb.y+bb.h}]; for(const c of corners){ if(Math.hypot(pt.x-c.x,pt.y-c.y)<=9) return { target:a, handle:'resize-'+c.n }; } } } return null; }
+  function handleHit(pt,a){ if(a.type==='line'||a.type==='arrow'){ if(Math.hypot(pt.x-a.x,pt.y-a.y)<=10) return 'p1'; if(Math.hypot(pt.x-a.x2,pt.y-a.y2)<=10) return 'p2'; const bb=getAnnAABB(a); const top={x:bb.x+bb.w/2,y:bb.y}; const ry=top.y-24; if(Math.hypot(pt.x-top.x,pt.y-ry)<=10) return 'rotate'; const dist=pointToSegmentDistance(pt.x,pt.y,a.x,a.y,a.x2,a.y2); if(dist<=Math.max(6,a.strokeWidth+3)) return 'move'; return null; } const bb=getAnnAABB(a); const cx=bb.x+bb.w/2, cy=bb.y; const ry=cy-24; if(Math.hypot(pt.x-cx,pt.y-ry)<=10) return 'rotate'; const corners=[{n:'nw',x:bb.x,y:bb.y},{n:'ne',x:bb.x+bb.w,y:bb.y},{n:'se',x:bb.x+bb.w,y:bb.y+bb.h},{n:'sw',x:bb.x,y:bb.y+bb.h}]; for(const c of corners){ if(Math.hypot(pt.x-c.x,pt.y-c.y)<=9) return { target:a, handle:'resize-'+c.n }; } if(pt.x>=bb.x&&pt.x<=bb.x+bb.w&&pt.y>=bb.y&&pt.y<=bb.y+bb.h) return 'move'; return null; }
+
+  // ====== Selection and transforms ======
+  function selectPreserveOrReplace(target, additive, clickedInside){ if(!target){ if(!additive) selection.length=0; updateSelectionPanel(); redraw(); return; } if(clickedInside){ updateSelectionPanel(); redraw(); return; } if(additive){ const i=selection.indexOf(target); if(i>=0) selection.splice(i,1); else selection.push(target); } else { selection=[target]; } updateSelectionPanel(); redraw(); }
+  function updateSelectionPanel(){ const n=selection.length; els.selectionPanel.classList.toggle('hidden', n===0); els.selCount.textContent=n; const hasText=selection.some(a=>a.type==='text'||a.type==='textarea'); const hasShape=selection.some(a=>a.type==='line'||a.type==='arrow'||a.type==='rect'); document.getElementById('textProps').classList.toggle('hidden', !hasText); document.getElementById('shapeProps').classList.toggle('hidden', !hasShape); if(n>0){ const a=selection[0]; els.propColor.value=a.color||'#000000'; els.propOpacity.value=Math.round((a.opacity??1)*100); els.opVal.textContent=els.propOpacity.value; els.propRotation.value=Math.round((a.rotation??0)%360); els.rotVal.textContent=els.propRotation.value; if(hasText){ const t=selection.find(s=>s.type==='text'||s.type==='textarea')||a; els.propFont.value=t.fontSize??16; els.fontVal.textContent=els.propFont.value; els.propBold.classList.toggle('active', !!t.fontBold); els.propItalic.classList.toggle('active', !!t.fontItalic); } if(hasShape){ const s=selection.find(s=>s.type==='line'||s.type==='arrow'||s.type==='rect')||a; els.propStroke.value=s.strokeWidth??2; els.strokeVal.textContent=els.propStroke.value; } } }
+  function applyToSelection(fn){ selection.forEach(fn); redraw(); }
+  function bringToFront(){ selection.forEach(a=>a.z=zCounter.annotations++); redraw(); }
+  function sendToBack(){ selection.forEach(a=>a.z=0); let list=annotations.slice().sort((a,b)=>a.z-b.z); let n=1; list.forEach(a=>a.z=n++); zCounter.annotations=n+1; redraw(); }
+  
+  function baseAnnotation(overrides){ return Object.assign({ id: Math.random().toString(36).slice(2), type:'text', x: canvas.width/2, y: canvas.height/2, w:120, h:34, x2:null, y2:null, rotation:0, color:'#000000', fontSize:16, fontBold:true, fontItalic:false, opacity:1, strokeWidth:2, text:'Label', z: zCounter.annotations++, children:null }, overrides||{}); }
+  function updateTextSize(a){ const m = measureText(a.text, a.fontSize, a.fontBold, a.fontItalic); a.w=m.w; a.h=m.h; }
+
+  // ====== Snapping ======
+  function snapPosition(nx,ny){ snapGuides=[]; let x=nx,y=ny; if(els.snapGrid.checked){ const cx=Math.round(x/gridSize)*gridSize; const cy=Math.round(y/gridSize)*gridSize; if(Math.abs(cx-x)<=snapThreshold){ x=cx; snapGuides.push({x:cx}); } if(Math.abs(cy-y)<=snapThreshold){ y=cy; snapGuides.push({y:cy}); } } if(els.snapElements.checked){ const others=annotations.filter(o=>!selection.includes(o)); const aabb=selection.length===1? getAnnAABB(selection[0]) : (()=>{ const boxes=selection.map(getAnnAABB); const minX=Math.min(...boxes.map(b=>b.x)), minY=Math.min(...boxes.map(b=>b.y)); const maxX=Math.max(...boxes.map(b=>b.x+b.w)), maxY=Math.max(...boxes.map(b=>b.y+b.h)); return { x:minX,y:minY,w:maxX-minX,h:maxY-minY }; })(); const centersA={ cx:x, cy:y }; const edgesA={ l:x-aabb.w/2, r:x+aabb.w/2, t:y-aabb.h/2, b:y+aabb.h/2 }; let doneX=false, doneY=false; for(const o of others){ const bb=getAnnAABB(o); const centersB={ cx:(bb.x+bb.x+bb.w)/2, cy:(bb.y+bb.y+bb.h)/2 }; const edgesB={ l:bb.x, r:bb.x+bb.w, t:bb.y, b:bb.y+bb.h }; if(!doneX && Math.abs(centersB.cx-centersA.cx)<=snapThreshold){ x+=(centersB.cx-centersA.cx); snapGuides.push({x:centersB.cx}); doneX=true; } if(!doneX && Math.abs(edgesB.l-edgesA.l)<=snapThreshold){ x+=(edgesB.l-edgesA.l); snapGuides.push({x:edgesB.l}); doneX=true; } if(!doneX && Math.abs(edgesB.r-edgesA.r)<=snapThreshold){ x+=(edgesB.r-edgesA.r); snapGuides.push({x:edgesB.r}); doneX=true; } if(!doneY && Math.abs(centersB.cy-centersA.cy)<=snapThreshold){ y+=(centersB.cy-centersA.cy); snapGuides.push({y:centersB.cy}); doneY=true; } if(!doneY && Math.abs(edgesB.t-edgesA.t)<=snapThreshold){ y+=(edgesB.t-edgesA.t); snapGuides.push({y:edgesB.t}); doneY=true; } if(!doneY && Math.abs(edgesB.b-edgesA.b)<=snapThreshold){ y+=(edgesB.b-edgesA.b); snapGuides.push({y:edgesB.b}); doneY=true; } if(doneX&&doneY) break; } } return {x,y}; }
+
+  // ====== Interaction ======
+  function setTool(name){ tool=name; toolButtons.forEach(b=>b.classList.toggle('active', b.id==='tool'+name.charAt(0).toUpperCase()+name.slice(1))); status(`Tool: ${name}`); redraw(); }
+  function marqueeRect(m){ const x=Math.min(m.x,m.x+m.w), y=Math.min(m.y,m.y+m.h), w=Math.abs(m.w), h=Math.abs(m.h); return {x,y,w,h}; }
+  function selectMarquee(m){ const r=marqueeRect(m); selection=annotations.filter(a=>{ const bb=getAnnAABB(a); return !(bb.x+bb.w<r.x || r.x+r.w<bb.x || bb.y+bb.h<r.y || r.y+r.h<bb.y); }); updateSelectionPanel(); redraw(); }
+
+  canvas.addEventListener('mousedown', (e)=>{
+    const rect=canvas.getBoundingClientRect(); const pt={ x:e.clientX-rect.left, y:e.clientY-rect.top };
+    
+    if(tool==='crop'){ if(!activeGel) return; const hit=cropHandleHit(pt); if(hit){ dragging={ mode: 'crop', handle: hit, target: activeGel, start: { pt, crop: {...activeGel.crop}, pos: { x: activeGel.x, y: activeGel.y }}}; } return; }
+    
+    if(tool==='select'){
+      const hit=hitTest(pt);
+      const clickedInside = hit && selection.includes(hit.target);
+      selectPreserveOrReplace(hit&&hit.target, e.shiftKey, clickedInside);
+      if(hit){
+        dragging={ mode:'annotation', handle:hit.handle, start:pt, last:pt, target:hit.target };
+      } else {
+        let gelHit = null;
+        for(let i=gels.length-1; i>=0; i--) {
+            const g = gels[i]; const r = getGelDisplayRect(g);
+            if(r && pt.x>r.x && pt.x<r.x+r.w && pt.y>r.y && pt.y<r.y+r.h) { gelHit=g; break; }
+        }
+        if (gelHit) {
+            setActiveGel(gelHit);
+            dragging = { mode: 'move-gel', target: gelHit, startPt: pt, startPos: { x: gelHit.x, y: gelHit.y }};
+        } else {
+            marquee={ x:pt.x, y:pt.y, w:0, h:0 };
+        }
+      }
+      redraw(); return;
+    }
+    
+    if(tool==='text' || tool==='textarea'){ const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, text: tool==='text'?'Label':'Notes\nWrite here' }); updateTextSize(a); annotations.push(a); selection=[a]; updateSelectionPanel(); openFloatingEditor(a); setTool('select'); return; }
+    if(tool==='rect'){ const a=baseAnnotation({ type:'rect', x:pt.x, y:pt.y, w:120, h:60, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'resize-se', start:pt, last:pt, target:a, rectStart:{x:a.x,y:a.y,w:a.w,h:a.h} }; setTool('select'); redraw(); return; }
+    if(tool==='line' || tool==='arrow'){ const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, x2:pt.x+1, y2:pt.y+1, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'p2', start:pt, last:pt, target:a }; setTool('select'); redraw(); return; }
+  });
+
+  canvas.addEventListener('dblclick', (e)=>{
+    const rect=canvas.getBoundingClientRect(); const pt={ x:e.clientX-rect.left, y:e.clientY-rect.top };
+    const hit=hitTest(pt);
+    if(hit && (hit.target.type==='text' || hit.target.type==='textarea')){
+      selection=[hit.target]; updateSelectionPanel(); openFloatingEditor(hit.target); redraw();
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e)=>{
+    const rect=canvas.getBoundingClientRect(); const pt={ x:e.clientX-rect.left, y:e.clientY-rect.top };
+    
+    if (dragging && dragging.mode === 'crop') { handleCropDrag(pt, dragging.target); redraw(); return; }
+    if (dragging && dragging.mode === 'move-gel') {
+        const gel = dragging.target;
+        const dx = pt.x - dragging.startPt.x;
+        const dy = pt.y - dragging.startPt.y;
+        gel.x = dragging.startPos.x + dx;
+        gel.y = dragging.startPos.y + dy;
+        redraw();
+        return;
+    }
+    if(marquee){ marquee.w=pt.x-marquee.x; marquee.h=pt.y-marquee.y; selectMarquee(marquee); return; }
+    
+    if(!dragging || dragging.mode !== 'annotation') return;
+    const { handle, last, target, rectStart } = dragging;
+    const dx=pt.x-last.x, dy=pt.y-last.y;
+    
+    if(handle==='move' && selection.length){
+        snapGuides=[];
+        if (selection.length === 1) {
+            const a = selection[0];
+            let nx = a.x + dx, ny = a.y + dy;
+            const sn = snapPosition(nx, ny);
+            const sdx = sn.x - a.x, sdy = sn.y - a.y;
+            moveAnnotation(a, sdx, sdy);
+        } else {
+            const boxes=selection.map(getAnnAABB);
+            const minX=Math.min(...boxes.map(b=>b.x)), minY=Math.min(...boxes.map(b=>b.y));
+            const maxX=Math.max(...boxes.map(b=>b.x+b.w)), maxY=Math.max(...boxes.map(b=>b.y+b.h));
+            const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+            const sn=snapPosition(cx+dx, cy+dy);
+            const gdx=sn.x-cx, gdy=sn.y-cy;
+            selection.forEach(a=>moveAnnotation(a,gdx,gdy));
+        }
+        dragging.last=pt; redraw(); return;
+    }
+    const a=target; if(!a){ dragging=null; return; }
+    if(handle.startsWith('resize-') && (a.type==='text'||a.type==='textarea'||a.type==='rect')){ const start=rectStart||{x:a.x,y:a.y,w:a.w,h:a.h}; const sign={ 'nw':[-1,-1], 'ne':[1,-1], 'se':[1,1], 'sw':[-1,1] }[handle.split('-')[1]]; const dw=(pt.x-dragging.start.x)*sign[0], dh=(pt.y-dragging.start.y)*sign[1]; a.w=Math.max(16, start.w+dw); a.h=Math.max(16, start.h+dh); redraw(); return; }
+    if(handle==='rotate'){ let cx,cy; if(a.type==='line'||a.type==='arrow'){ cx=(a.x+a.x2)/2; cy=(a.y+a.y2)/2; } else { cx=a.x; cy=a.y; } const ang=Math.atan2(pt.y-cy, pt.x-cx); const deg=(ang*180/Math.PI)+90; if(a.type==='line'||a.type==='arrow'){ const r=rad(deg-90); const len=Math.hypot(a.x2-a.x,a.y2-a.y)/2; a.x=cx-Math.cos(r)*len; a.y=cy-Math.sin(r)*len; a.x2=cx+Math.cos(r)*len; a.y2=cy+Math.sin(r)*len; } else { a.rotation=(deg+360)%360; } dragging.last=pt; redraw(); return; }
+    if((handle==='p1'||handle==='p2') && (a.type==='line'||a.type==='arrow')){ if(handle==='p1'){ a.x+=dx; a.y+=dy; } else { a.x2+=dx; a.y2+=dy; } dragging.last=pt; redraw(); return; }
+  });
+
+  window.addEventListener('mouseup', ()=>{ if(dragging){ dragging=null; snapGuides=[]; redraw(); } marquee=null; });
+  window.addEventListener('keydown', (e)=>{
+    const isEditing = els.floatingEditor.style.display==='block';
+    if(!isEditing && selection.length===1 && (selection[0].type==='text'||selection[0].type==='textarea')){ if(e.key==='Enter' || e.key==='F2'){ e.preventDefault(); openFloatingEditor(selection[0]); return; } if(e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){ const t = selection[0]; const old=t.text; openFloatingEditor(t); const ed = els.floatingEditor; ed.value = old + e.key; ed.setSelectionRange(ed.value.length, ed.value.length); if(ed.oninput) ed.oninput(); e.preventDefault(); return; } }
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
+    if(e.key==='Delete' || e.key==='Backspace'){ if(selection.length && !isEditing){ annotations = annotations.filter(a=>!selection.includes(a)); selection=[]; updateSelectionPanel(); redraw(); } }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ e.preventDefault(); if(!isEditing) duplicateSelection(); }
+    if(!isEditing){ if(e.key.toLowerCase()==='v') setTool('select'); if(e.key.toLowerCase()==='c') setTool('crop'); if(e.key.toLowerCase()==='t') setTool('text'); if(e.key.toLowerCase()==='l') setTool('line'); if(e.key.toLowerCase()==='a') setTool('arrow'); }
+    if(selection.length && !isEditing && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){ const step = e.shiftKey? 10 : 1; const dx=(e.key==='ArrowLeft'?-step:e.key==='ArrowRight'?step:0); const dy=(e.key==='ArrowUp'?-step:e.key==='ArrowDown'?step:0); selection.forEach(a=>moveAnnotation(a,dx,dy)); redraw(); }
+  });
+
+  function moveAnnotation(a,dx,dy){ if(a.type==='line'||a.type==='arrow'){ a.x+=dx; a.y+=dy; a.x2+=dx; a.y2+=dy; } else if(a.type==='group'){ a.children.forEach(ch=>{ ch.x+=dx; ch.y+=dy; }); a.x+=dx; a.y+=dy; } else { a.x+=dx; a.y+=dy; } }
+  
+  // ====== Selection panel actions ======
+  function duplicateSelection(){ if(!selection.length) return; const copies=selection.map(a=>{ const c=deepCopy(a); c.id=Math.random().toString(36).slice(2); c.x+=12; c.y+=12; if(c.x2!=null){ c.x2+=12; c.y2+=12; } c.z=zCounter.annotations++; return c; }); annotations.push(...copies); selection=copies; updateSelectionPanel(); redraw(); }
+  function groupSelection(){ if(selection.length<2) return; const boxes=selection.map(getAnnAABB); const minX=Math.min(...boxes.map(b=>b.x)), minY=Math.min(...boxes.map(b=>b.y)); const maxX=Math.max(...boxes.map(b=>b.x+b.w)), maxY=Math.max(...boxes.map(b=>b.y+b.h)); const cx=(minX+maxX)/2, cy=(minY+maxY)/2; const group=baseAnnotation({ type:'group', x:cx, y:cy, w:maxX-minX, h:maxY-minY, rotation:0, children:[] }); selection.forEach(a=>{ annotations.splice(annotations.indexOf(a),1); if(a.type==='group'){ a.children.forEach(ch=> group.children.push({ ...ch })); } else { group.children.push({ ...a, x:a.x-cx, y:a.y-cy }); } }); annotations.push(group); selection=[group]; updateSelectionPanel(); redraw(); }
+  function ungroupSelection(){ if(selection.length!==1 || selection[0].type!=='group') return; const g=selection[0]; const idx=annotations.indexOf(g); if(idx>=0) annotations.splice(idx,1); const restored=g.children.map(ch=>{ const world={ ...ch, x:ch.x+g.x, y:ch.y+g.y }; annotations.push(world); return world; }); selection=restored; updateSelectionPanel(); redraw(); }
+
+  // ====== Export ======
+  function exportPNG(){ if(!gels.length) return;
+    const scale=parseInt(els.exportScale.value,10)||1;
+    const white=els.exportWhite.checked;
+    const cropToGel=els.exportCropGel.checked; // This option now crops to the bounding box of ALL gels
+
+    let bounds;
+    if (cropToGel) {
+        const rects = gels.map(getGelDisplayRect);
+        const minX = Math.min(...rects.map(r => r.x));
+        const minY = Math.min(...rects.map(r => r.y));
+        const maxX = Math.max(...rects.map(r => r.x + r.w));
+        const maxY = Math.max(...rects.map(r => r.y + r.h));
+        bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    } else {
+        bounds = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+    }
+
+    const out=document.createElement('canvas'); out.width=Math.round(bounds.w*scale); out.height=Math.round(bounds.h*scale); const octx=out.getContext('2d');
+    if(white){ octx.fillStyle='#ffffff'; octx.fillRect(0,0,out.width,out.height); }
+    
+    octx.scale(scale, scale);
+    octx.translate(-bounds.x, -bounds.y);
+
+    // Draw gels first
+    gels.slice().sort((a,b) => a.z - b.z).forEach(gel => {
+        const { rotCanvas, crop, cssFilters } = gel;
+        const dispRect = getGelDisplayRect(gel);
+        if (!dispRect) return;
+        octx.save();
+        octx.filter = `saturate(${cssFilters.saturation}%) invert(${cssFilters.invert}%)`;
+        octx.drawImage(rotCanvas, crop.x, crop.y, crop.w, crop.h, dispRect.x, dispRect.y, dispRect.w, dispRect.h);
+        octx.restore();
+    });
+
+    // Draw annotations
+    annotations.slice().sort((a,b)=>a.z-b.z).forEach(a=>{
+        if(a.type==='group'){
+            a.children.forEach(ch=> drawExportAnn(octx, worldChild(a,ch), 0, 0));
+        } else {
+            drawExportAnn(octx, a, 0, 0);
+        }
+    });
+
+    const url=out.toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download='gel_annotator_export.png'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function drawExportAnn(sctx,a,ox,oy){ sctx.save(); sctx.globalAlpha=a.opacity??1; if(a.type==='line'||a.type==='arrow'){ sctx.strokeStyle=a.color||'#000'; sctx.lineWidth=a.strokeWidth||2; sctx.lineCap='round'; sctx.beginPath(); sctx.moveTo(a.x+ox,a.y+oy); sctx.lineTo(a.x2+ox,a.y2+oy); sctx.stroke(); if(a.type==='arrow'){ const ang=Math.atan2(a.y2-a.y,a.x2-a.x); const sz=8+(a.strokeWidth||2); sctx.beginPath(); sctx.moveTo(a.x2+ox,a.y2+oy); sctx.lineTo(a.x2+ox - sz*Math.cos(ang-Math.PI/6), a.y2+oy - sz*Math.sin(ang-Math.PI/6)); sctx.lineTo(a.x2+ox - sz*Math.cos(ang+Math.PI/6), a.y2+oy - sz*Math.sin(ang+Math.PI/6)); sctx.closePath(); sctx.fillStyle=a.color||'#000'; sctx.fill(); } } else if(a.type==='rect'){ sctx.translate(a.x+ox,a.y+oy); sctx.rotate(rad(a.rotation||0)); sctx.strokeStyle=a.color||'#000'; sctx.lineWidth=a.strokeWidth||2; sctx.strokeRect(-a.w/2,-a.h/2,a.w,a.h); } else if(a.type==='text'||a.type==='textarea'){ sctx.translate(a.x+ox,a.y+oy); sctx.rotate(rad(a.rotation||0)); sctx.fillStyle=a.color||'#000'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font=`${a.fontItalic?'italic ':''}${a.fontBold?'700':'400'} ${a.fontSize||16}px Inter`; const lines=String(a.text||'').split('\n'); const lh=(a.fontSize||16)*1.2; let y=-(lines.length-1)*lh/2; lines.forEach(line=>{ sctx.fillText(line,0,y); y+=lh; }); } sctx.restore(); }
+
+  // ====== Floating text editor ======
+  function openFloatingEditor(a){ const ed = els.floatingEditor; const bb = getAnnAABB(a); ed.style.left = (bb.x + bb.w/2) + 'px'; ed.style.top = (bb.y + bb.h/2) + 'px'; ed.style.transform = `translate(-50%,-50%) rotate(${a.rotation||0}deg)`; ed.style.fontSize = a.fontSize + 'px'; ed.style.display = 'block'; ed.value = a.text; ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); const original = a.text; const cleanup = ()=>{ ed.oninput = null; ed.removeEventListener('blur', onBlur); document.removeEventListener('keydown', onKey); }; const onBlur = ()=>{ a.text = ed.value; updateTextSize(a); ed.style.display='none'; cleanup(); redraw(); }; const onKey = (event)=>{ if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); a.text = ed.value; updateTextSize(a); ed.style.display='none'; cleanup(); redraw(); } if(event.key==='Escape'){ event.preventDefault(); a.text = original; updateTextSize(a); ed.style.display='none'; cleanup(); redraw(); } }; ed.oninput = ()=>{ a.text = ed.value; updateTextSize(a); redraw(); }; ed.addEventListener('blur', onBlur); document.addEventListener('keydown', onKey); }
+
+  // ====== Alignment & distribution ======
+  function alignSelection(dir){ if(selection.length<2) return; const boxes=selection.map(getAnnAABB); const minX=Math.min(...boxes.map(b=>b.x)), minY=Math.min(...boxes.map(b=>b.y)); const maxX=Math.max(...boxes.map(b=>b.x+b.w)), maxY=Math.max(...boxes.map(b=>b.y+b.h)); const cx=(minX+maxX)/2, cy=(minY+maxY)/2; applyToSelection(a=>{ const bb=getAnnAABB(a); if(dir==='left') moveAnnotation(a, (minX-bb.x), 0); if(dir==='right') moveAnnotation(a, ((maxX-bb.w)-bb.x), 0); if(dir==='top') moveAnnotation(a, 0, (minY-bb.y)); if(dir==='bottom') moveAnnotation(a, 0, ((maxY-bb.h)-bb.y)); if(dir==='hm') moveAnnotation(a, (cx-(bb.x+bb.w/2)), 0); if(dir==='vm') moveAnnotation(a, 0, (cy-(bb.y+bb.h/2))); }); }
+  function distributeSelection(axis){ if(selection.length<3) return; const list=selection.slice().sort((a,b)=>{ const A=getAnnAABB(a), B=getAnnAABB(b); return axis==='h'? (A.x-B.x) : (A.y-B.y); }); const bbs=list.map(getAnnAABB); const first=bbs[0], last=bbs[bbs.length-1]; const span=axis==='h'? (last.x-first.x) : (last.y-first.y); const gaps=list.length-1; const step=span/gaps; for(let i=1;i<list.length-1;i++){ const bb=bbs[i]; if(axis==='h'){ const tx=first.x+step*i; moveAnnotation(list[i], tx-bb.x, 0); } else { const ty=first.y+step*i; moveAnnotation(list[i], 0, ty-bb.y); } } redraw(); }
+
+  // ====== Wiring ======
+  function setBtnTool(btn,name){ btn.addEventListener('click', ()=>setTool(name)); }
+  setBtnTool(els.toolSelect,'select'); setBtnTool(els.toolCrop,'crop'); setBtnTool(els.toolText,'text'); setBtnTool(els.toolTextarea,'textarea'); setBtnTool(els.toolRect,'rect'); setBtnTool(els.toolLine,'line'); setBtnTool(els.toolArrow,'arrow');
+  
+  els.addGelBtn.addEventListener('click', () => els.file.click());
+  els.file.addEventListener('change', (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const image=new Image(); image.onload=()=>{ const newGel = createGelObject(image); gels.push(newGel); setActiveGel(newGel); fitToView(newGel, true); status(`Gel loaded: ${image.naturalWidth}×${image.naturalHeight}`); }; image.src=URL.createObjectURL(f); e.target.value = ''; });
+  
+  els.canvasWidth.addEventListener('change', e => { const newWidth = parseInt(e.target.value, 10); if (newWidth >= 200) { canvas.width = newWidth; if(activeGel) fitToView(activeGel, true); else redraw(); } });
+  els.canvasHeight.addEventListener('change', e => { const newHeight = parseInt(e.target.value, 10); if (newHeight >= 200) { canvas.height = newHeight; if(activeGel) fitToView(activeGel, true); else redraw(); } });
+
+  els.fitView.addEventListener('click', ()=>fitToView(activeGel, true));
+  els.resetAll.addEventListener('click', ()=>{ gels = []; activeGel = null; annotations=[]; selection=[]; gridSize=16; els.gridSize.value=16; els.gridSizeVal.textContent='16'; snapThreshold=6; els.snapThr.value=6; els.snapVal.textContent='6'; zCounter={gels:1, annotations:1}; updateImageControls(); redraw(); });
+  els.gridSize.addEventListener('input', e=>{ gridSize=parseInt(e.target.value,10)||16; els.gridSizeVal.textContent=gridSize; redraw(); });
+  els.snapThr.addEventListener('input', e=>{ snapThreshold=parseInt(e.target.value,10)||6; els.snapVal.textContent=snapThreshold; });
+  els.alignLeft.addEventListener('click', ()=>alignSelection('left')); els.alignRight.addEventListener('click', ()=>alignSelection('right')); els.alignTop.addEventListener('click', ()=>alignSelection('top')); els.alignBottom.addEventListener('click', ()=>alignSelection('bottom')); els.alignHMid.addEventListener('click', ()=>alignSelection('hm')); els.alignVMid.addEventListener('click', ()=>alignSelection('vm')); els.distH.addEventListener('click', ()=>distributeSelection('h')); els.distV.addEventListener('click', ()=>distributeSelection('v'));
+  els.btnExport.addEventListener('click', exportPNG);
+  
+  // Image panel listeners
+  els.exposure.addEventListener('input', e=>{ if(!activeGel) return; activeGel.adj.exposure=parseInt(e.target.value,10)||0; els.expVal.textContent=activeGel.adj.exposure; activeGel.needsProcessing=true; redraw(); });
+  els.contrast.addEventListener('input', e=>{ if(!activeGel) return; activeGel.adj.contrast=parseInt(e.target.value,10)||0; els.conVal.textContent=activeGel.adj.contrast; activeGel.needsProcessing=true; redraw(); });
+  els.saturation.addEventListener('input', e=>{ if(!activeGel) return; activeGel.cssFilters.saturation=parseInt(e.target.value,10)||100; els.satVal.textContent=activeGel.cssFilters.saturation; redraw(); });
+  els.invert.addEventListener('input', e=>{ if(!activeGel) return; activeGel.cssFilters.invert=parseInt(e.target.value,10)||0; els.invVal.textContent=activeGel.cssFilters.invert; redraw(); });
+  els.levelB.addEventListener('input', e=>{ if(!activeGel) return; activeGel.adj.levelB=parseInt(e.target.value,10)||0; els.lvlBVal.textContent=activeGel.adj.levelB; if(activeGel.adj.levelB>=activeGel.adj.levelW){ activeGel.adj.levelB=activeGel.adj.levelW-1; els.levelB.value=activeGel.adj.levelB; els.lvlBVal.textContent=activeGel.adj.levelB; } activeGel.needsProcessing=true; redraw(); });
+  els.levelW.addEventListener('input', e=>{ if(!activeGel) return; activeGel.adj.levelW=parseInt(e.target.value,10)||255; els.lvlWVal.textContent=activeGel.adj.levelW; if(activeGel.adj.levelW<=activeGel.adj.levelB){ activeGel.adj.levelW=activeGel.adj.levelB+1; els.levelW.value=activeGel.adj.levelW; els.lvlWVal.textContent=activeGel.adj.levelW; } activeGel.needsProcessing=true; redraw(); });
+  els.autoLevels.addEventListener('click', ()=>{ if(!activeGel) return; const hist=computeHistogram(activeGel); const total=hist.reduce((a,b)=>a+b,0); const p1=total*0.01, p99=total*0.99; let acc=0, lb=0, lw=255; for(let i=0;i<256;i++){ acc+=hist[i]; if(acc>=p1){ lb=i; break; } } acc=0; for(let i=255;i>=0;i--){ acc+=hist[i]; if(acc>=total-p99){ lw=i; break; } } activeGel.adj.levelB=lb; activeGel.adj.levelW=lw; activeGel.needsProcessing=true; updateImageControls(); redraw(); });
+  els.equalize.addEventListener('click', ()=>{ if(!activeGel) return; activeGel.adj.equalize=!activeGel.adj.equalize; els.equalize.classList.toggle('active', activeGel.adj.equalize); activeGel.needsProcessing=true; redraw(); });
+  els.resetAdj.addEventListener('click', ()=>{ if(!activeGel) return; activeGel.adj = { exposure: 0, contrast: 0, levelB: 0, levelW: 255, equalize: false }; activeGel.cssFilters = { saturation: 100, invert: 0 }; activeGel.needsProcessing=true; updateImageControls(); redraw(); });
+  els.imgRotation.addEventListener('input', e=>{ if(!activeGel) return; activeGel.imgRotDeg=parseInt(e.target.value,10)||0; els.rotImgVal.textContent=activeGel.imgRotDeg; rebuildRotated(activeGel); redraw(); });
+  els.rotLeft90.addEventListener('click', ()=>{ if(!activeGel) return; activeGel.imgRotDeg-=90; rebuildRotated(activeGel); updateImageControls(); redraw(); });
+  els.rotRight90.addEventListener('click', ()=>{ if(!activeGel) return; activeGel.imgRotDeg+=90; rebuildRotated(activeGel); updateImageControls(); redraw(); });
+  
+  // Annotation panel listeners
+  els.propColor.addEventListener('input', e=> applyToSelection(a=> a.color=e.target.value));
+  els.propFont.addEventListener('input', e=>{ const v=parseInt(e.target.value,10)||16; els.fontVal.textContent=v; applyToSelection(a=>{ if(a.type==='text'||a.type==='textarea'){ a.fontSize=v; updateTextSize(a); } }); });
+  els.propBold.addEventListener('click', ()=>{ const on=!els.propBold.classList.contains('active'); els.propBold.classList.toggle('active', on); applyToSelection(a=>{ if(a.type==='text'||a.type==='textarea'){ a.fontBold=on; updateTextSize(a); } }); });
+  els.propItalic.addEventListener('click', ()=>{ const on=!els.propItalic.classList.contains('active'); els.propItalic.classList.toggle('active', on); applyToSelection(a=>{ if(a.type==='text'||a.type==='textarea'){ a.fontItalic=on; updateTextSize(a); } }); });
+  els.toggleEditor.addEventListener('click', ()=>{ if(selection.length===1 && (selection[0].type==='text'||selection[0].type==='textarea')) openFloatingEditor(selection[0]); });
+  els.propStroke.addEventListener('input', e=>{ const v=parseInt(e.target.value,10)||2; els.strokeVal.textContent=v; applyToSelection(a=>{ if(a.type==='line'||a.type==='arrow'||a.type==='rect') a.strokeWidth=v; }); });
+  els.propOpacity.addEventListener('input', e=>{ const v=(parseInt(e.target.value,10)||100)/100; els.opVal.textContent=Math.round(v*100); applyToSelection(a=> a.opacity=v); });
+  els.propRotation.addEventListener('input', e=>{ const v=parseInt(e.target.value,10)||0; els.rotVal.textContent=v; applyToSelection(a=>{ if(a.type==='line'||a.type==='arrow'){ const cx=(a.x+a.x2)/2, cy=(a.y+a.y2)/2; const r=rad(v-90); const len=Math.hypot(a.x2-a.x,a.y2-a.y)/2; a.x=cx-Math.cos(r)*len; a.y=cy-Math.sin(r)*len; a.x2=cx+Math.cos(r)*len; a.y2=cy+Math.sin(r)*len; } else { a.rotation=v; } }); });
+  els.btnDuplicate.addEventListener('click', duplicateSelection);
+  els.btnDelete.addEventListener('click', ()=>{ annotations = annotations.filter(a=>!selection.includes(a)); selection=[]; updateSelectionPanel(); redraw(); });
+  els.btnGroup.addEventListener('click', groupSelection);
+  els.btnUngroup.addEventListener('click', ungroupSelection);
+  els.bringFront.addEventListener('click', bringToFront);
+  els.sendBack.addEventListener('click', sendToBack);
+
+  (function init(){ setTool('select'); updateImageControls(); status('Add a gel image to begin.'); redraw(); })();
+  </script>
+</body>
+</html>
