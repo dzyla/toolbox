@@ -22,7 +22,6 @@
     .nav-button { padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; border-radius: 9999px; border: 2px solid transparent; transition: all .25s ease; color: #475569; cursor: pointer; background: transparent; }
     .nav-button:hover { background-color: #f1f5f9; }
     .active-nav-button { color: #4f46e5; border-color: #a5b4fc; background-color: #eef2ff; }
-    main { min-height: calc(100vh - 80px); }
 
     :root { --bg-0:#f1f5f9; --text-1:#0f172a; --text-2:#334155; }
     html.dark {
@@ -35,59 +34,20 @@
 
     #topnav { backdrop-filter: blur(8px); }
     html.dark #topnav { background-color: rgba(2, 6, 23, 0.8) !important; }
-    html.dark footer { background-color: var(--surface-1) !important; color: var(--text-2) !important; }
 
     html.dark .nav-button { color: var(--text-2); border-color: transparent; }
     html.dark .nav-button:hover { background-color: var(--muted-1); }
     html.dark .active-nav-button { color: var(--accent-2); border-color: var(--accent-1); background-color: rgba(99,102,241,0.12); }
 
-    html.dark .bg-white        { background-color: var(--surface-1) !important; }
-    html.dark .bg-gray-50      { background-color: var(--surface-2) !important; }
-    html.dark .bg-slate-100    { background-color: var(--surface-2) !important; }
-    html.dark .bg-indigo-50    { background-color: rgba(99,102,241,0.12) !important; }
-
-    html.dark .border-gray-100,
-    html.dark .border-gray-200,
-    html.dark .border-gray-300,
-    html.dark .border-slate-300 { border-color: var(--border-1) !important; }
-
-    html.dark .text-slate-800,
-    html.dark .text-gray-800,
-    html.dark .text-gray-700 { color: var(--text-1) !important; }
-    html.dark .text-gray-600,
-    html.dark .text-gray-500,
-    html.dark .text-slate-500 { color: var(--text-2) !important; }
-    html.dark .text-indigo-700 { color: #c7d2fe !important; }
-
-    html.dark input, html.dark select, html.dark textarea { background-color: var(--surface-1) !important; color: var(--text-1) !important; border-color: var(--border-1) !important; }
-    html.dark input::placeholder, html.dark textarea::placeholder { color: var(--text-2) !important; }
-
-    html.dark .hover\:bg-slate-50:hover,
-    html.dark .bg-slate-50 { background-color: var(--muted-1) !important; }
-
-    html.dark table { color: var(--text-1); }
-    html.dark thead th { color: var(--text-2); }
-
-    html.dark .note { color: var(--text-2) !important; }
-    html.dark .note b { color: var(--text-1) !important; }
-    html.dark .chart-title { color: var(--text-2) !important; }
-
-    html.dark .feature-list-item:hover { background-color: rgba(99,102,241,0.12) !important; }
-    html.dark .feature-list-item.active { background-color: rgba(99,102,241,0.18) !important; outline-color: var(--accent-1) !important; }
-
-    html.dark #svg-tooltip { color: #fff !important; }
-
     html.dark ::-webkit-scrollbar{ width:8px; height:8px;}
     html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
     html.dark ::-webkit-scrollbar-thumb{ background:#475569; border-radius:4px;}
     html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b;}
-
-    #content-area { transition: background-color .2s ease, color .2s ease; }
   </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 antialiased transition-colors">
-  <nav id="topnav" class="bg-white/80 shadow-sm sticky top-0 z-20">
+<body class="bg-slate-100 text-slate-800 antialiased transition-colors flex flex-col h-screen overflow-hidden">
+  <nav id="topnav" class="bg-white/80 shadow-sm sticky top-0 z-20 flex-none">
     <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
       <div class="flex justify-center flex-wrap gap-2 md:gap-4">
         <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
@@ -95,7 +55,7 @@
         <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calculator</button>
         <button class="nav-button" data-src="text_counter.html">📝 Text Counter</button>
         <button class="nav-button" data-src="text_detector.html">🔎 Text Detector</button>
- 		<button class="nav-button" data-src="gel_annotator.html">🎨 Gel Annotator</button>
+		<button class="nav-button" data-src="gel_annotator.html">🎨 Gel Annotator</button>
       </div>
 
       <button id="theme-toggle"
@@ -109,15 +69,13 @@
     </div>
   </nav>
 
-  <main id="content-area"></main>
-
-  <footer class="text-center text-sm text-slate-500 py-8 bg-slate-100">
-    Created by <a href="https://github.com/dzyla" class="text-indigo-600 hover:underline">Dawid Zyla</a>
-  </footer>
+  <main class="flex-grow w-full h-full relative bg-slate-50 dark:bg-[#0b1220]">
+    <iframe id="content-frame" class="w-full h-full border-0 absolute inset-0" title="Tool Content"></iframe>
+  </main>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const contentArea = document.getElementById('content-area');
+      const frame = document.getElementById('content-frame');
       const navButtons  = document.querySelectorAll('.nav-button[data-src]');
       const themeBtn    = document.getElementById('theme-toggle');
       const docEl       = document.documentElement;
@@ -138,6 +96,17 @@
           themeBtn.setAttribute('aria-pressed', 'false');
         }
         if (persist) localStorage.setItem('theme', isDark ? 'dark' : 'light');
+
+        // Propagate theme to iframe
+        if (frame && frame.contentWindow) {
+            try {
+                const frameDoc = frame.contentDocument;
+                if (frameDoc) {
+                    if (isDark) frameDoc.documentElement.classList.add('dark');
+                    else frameDoc.documentElement.classList.remove('dark');
+                }
+            } catch(e) { console.warn("Cannot access iframe DOM"); }
+        }
       }
       applyTheme(startDark, false);
 
@@ -146,33 +115,17 @@
         applyTheme(nowDark, true);
       });
 
-      /* Load embedded tool into main area */
-      async function loadContent(src) {
-        try {
-          const response = await fetch(src);
-          if (!response.ok) throw new Error(`Failed to load ${src}: ${response.status} ${response.statusText}`);
-          const text = await response.text();
-          contentArea.innerHTML = '';
-
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = text;
-          while (tempDiv.firstChild) contentArea.appendChild(tempDiv.firstChild);
-
-          // Re-execute scripts from embedded HTML
-          const scripts = contentArea.querySelectorAll('script');
-          scripts.forEach((script) => {
-            const s = document.createElement('script');
-            for (let i = 0; i < script.attributes.length; i++) {
-              const a = script.attributes[i]; s.setAttribute(a.name, a.value);
-            }
-            s.textContent = script.textContent;
-            script.parentNode.replaceChild(s, script);
-          });
-        } catch (err) {
-          contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${err.message}</p>`;
-          console.error('Fetch error:', err);
-        }
-      }
+      // Re-apply theme when iframe loads
+      frame.addEventListener('load', () => {
+         const isDark = docEl.classList.contains('dark');
+         try {
+             const frameDoc = frame.contentDocument;
+             if (frameDoc) {
+                 if (isDark) frameDoc.documentElement.classList.add('dark');
+                 else frameDoc.documentElement.classList.remove('dark');
+             }
+         } catch(e) { }
+      });
 
       // Nav interactions
       navButtons.forEach(button => {
@@ -180,11 +133,11 @@
           const src = button.getAttribute('data-src');
           navButtons.forEach(btn => btn.classList.remove('active-nav-button'));
           button.classList.add('active-nav-button');
-          loadContent(src);
+          frame.src = src;
         });
       });
 
-      // Auto-load the first tool (Protein Workbench now first)
+      // Auto-load the first tool
       if (navButtons.length > 0) navButtons[0].click();
     });
   </script>

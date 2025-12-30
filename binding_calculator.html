@@ -361,6 +361,7 @@
     if (P1_tot <= 0 || P2_tot <= 0) return 0;
     // Bisection bracket
     for (let i = 0; i < 200; i++) {
+      if (Math.abs(high - low) < 1e-9) break;
       const mid = 0.5 * (low + high);
       const fmid = f_single_step(mid, P1_tot, P2_tot, Kd_int, n);
       if (Math.abs(fmid) < 1e-12) return mid;
@@ -418,6 +419,11 @@
 
   let chartInstance = null;
   let lastCurveData = null; // for CSV export
+
+  // Cleanup on unload to prevent leaks if iframe reloaded
+  window.addEventListener('unload', () => {
+      if(chartInstance) chartInstance.destroy();
+  });
 
   function updatePlot() {
     const model = els.model.value;

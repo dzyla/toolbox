@@ -8,17 +8,19 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
+      /* Matches index.html --bg-0 */
       --panel-bg: #f1f5f9;
+      /* Slightly darker/tinted for sections */
       --panel-bg-2: #eef2ff;
-      --border: #d1d5db;
+      --border: #cbd5e1;
       --accent: #4f46e5;
       --accent-2: #6366f1;
       --ok: #16a34a;
       --warn: #f59e0b;
       --bad: #ef4444;
-      --canvas-bg: #e5e7eb;
-      --checker-a: #f3f4f6;
-      --checker-b: #e5e7eb;
+      --canvas-bg: #e2e8f0;
+      --checker-a: #f1f5f9;
+      --checker-b: #e2e8f0;
       --grid: rgba(99,102,241,0.14);
       --snap: rgba(37,99,235,0.75);
       --outline: rgba(37,99,235,0.95);
@@ -28,11 +30,16 @@
       --crop-edge: #22d3ee;
     }
     html.dark {
+      /* Matches index.html --surface-1 */
       --panel-bg: #0f172a;
-      --panel-bg-2: #0b1220;
-      --border: #1f2a44;
-      --accent: #2563eb;
-      --accent-2: #0ea5e9;
+      /* Matches index.html --surface-2 or --bg-0 */
+      --panel-bg-2: #1e293b;
+      --border: #334155;
+      --accent: #6366f1;
+      --accent-2: #818cf8;
+      --canvas-bg: #0b1220;
+      --checker-a: #1e293b;
+      --checker-b: #0f172a;
     }
     html, body {
       height: 100%;
@@ -49,7 +56,7 @@
     .btn:active { transform: translateY(1px); }
     .btn-toggle.active { background: var(--accent); color: #fff; }
     .chip { background: var(--panel-bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 4px 8px; font-size: 12px; }
-    .canvas-wrap { position: relative; background: var(--canvas-bg); display: grid; place-items: center; overflow: hidden; }
+    .canvas-wrap { position: relative; background: var(--canvas-bg); display: grid; place-items: center; overflow: auto; }
     canvas#main {
       background:
         linear-gradient(45deg, var(--checker-a) 25%, transparent 25%) -8px 0/16px 16px,
@@ -102,12 +109,12 @@
             <div class="label">1. Add Gel Image</div>
             <div class="text-xs text-slate-400">Add one or more gels to the canvas</div>
           </div>
-          <button id="addGelBtn" class="btn px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 font-semibold">Add Gel</button>
+          <button id="addGelBtn" class="btn px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold">Add Gel</button>
           <input id="file" type="file" accept="image/*" class="hidden"/>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
-            <button id="fitView" class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Fit Active Gel</button>
-            <button id="resetAll" class="btn px-3 py-2 rounded-md bg-rose-800 hover:bg-rose-700">Reset All</button>
+            <button id="fitView" class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Fit Active Gel</button>
+            <button id="resetAll" class="btn px-3 py-2 rounded-lg bg-rose-800 hover:bg-rose-700">Reset All</button>
         </div>
       </div>
 
@@ -115,24 +122,34 @@
         <div class="label mb-2">Canvas Size</div>
         <div class="row mt-2">
             <div class="sub">Width (px)</div>
-            <input id="canvasWidth" type="number" value="1280" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-white">
+            <input id="canvasWidth" type="number" value="1280" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white">
         </div>
         <div class="row mt-2">
             <div class="sub">Height (px)</div>
-            <input id="canvasHeight" type="number" value="900" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-white">
+            <input id="canvasHeight" type="number" value="900" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white">
+        </div>
+        <div class="row mt-2">
+          <div class="sub">Viewport Zoom</div>
+          <div class="flex items-center gap-1 w-full">
+            <button id="zoomOut" class="btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">-</button>
+            <input id="zoomLevel" type="range" min="10" max="500" value="100" class="flex-1">
+            <button id="zoomIn" class="btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">+</button>
+            <button id="zoomFit" class="btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white text-xs">Fit</button>
+          </div>
+          <div class="text-xs text-right text-slate-400"><span id="zoomVal">100</span>%</div>
         </div>
       </div>
 
       <div class="section mt-3">
         <div class="label mb-2">2. Tools</div>
         <div class="grid grid-cols-2 gap-2">
-          <button id="toolSelect"   class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700 active">Select <span class="ml-1 kbd">V</span></button>
-          <button id="toolCrop"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Crop <span class="ml-1 kbd">C</span></button>
-          <button id="toolText"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Text <span class="ml-1 kbd">T</span></button>
-          <button id="toolTextarea" class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Text Area</button>
-          <button id="toolRect"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Rectangle</button>
-          <button id="toolLine"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Line <span class="ml-1 kbd">L</span></button>
-          <button id="toolArrow"    class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Arrow <span class="ml-1 kbd">A</span></button>
+          <button id="toolSelect"   class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active">Select <span class="ml-1 kbd">V</span></button>
+          <button id="toolCrop"     class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Crop <span class="ml-1 kbd">C</span></button>
+          <button id="toolText"     class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Text <span class="ml-1 kbd">T</span></button>
+          <button id="toolTextarea" class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Text Area</button>
+          <button id="toolRect"     class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Rectangle</button>
+          <button id="toolLine"     class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Line <span class="ml-1 kbd">L</span></button>
+          <button id="toolArrow"    class="btn btn-toggle px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Arrow <span class="ml-1 kbd">A</span></button>
         </div>
         <div class="text-xs text-slate-400 mt-2">
           Shift-click to multi-select. Double-click or press <span class="kbd">Enter</span>/<span class="kbd">F2</span> to edit text.
@@ -168,16 +185,16 @@
       <div class="section mt-3">
         <div class="label">4. Alignment & Distribution</div>
         <div class="grid grid-cols-3 gap-2 mt-2">
-          <button id="alignLeft"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Left</button>
-          <button id="alignHMid"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">H-Center</button>
-          <button id="alignRight"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Right</button>
-          <button id="alignTop"    class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Top</button>
-          <button id="alignVMid"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">V-Center</button>
-          <button id="alignBottom" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bottom</button>
+          <button id="alignLeft"   class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Left</button>
+          <button id="alignHMid"   class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">H-Center</button>
+          <button id="alignRight"  class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Right</button>
+          <button id="alignTop"    class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Top</button>
+          <button id="alignVMid"   class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">V-Center</button>
+          <button id="alignBottom" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Bottom</button>
         </div>
         <div class="grid grid-cols-2 gap-2 mt-2">
-          <button id="distH" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Distribute H</button>
-          <button id="distV" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Distribute V</button>
+          <button id="distH" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Distribute H</button>
+          <button id="distV" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Distribute V</button>
         </div>
       </div>
 
@@ -199,14 +216,14 @@
         </div>
         <div class="mt-2">
           <div class="sub mb-1">Scale</div>
-          <select id="exportScale" class="w-full bg-slate-800 border border-slate-700 rounded-md px-2 py-2">
+          <select id="exportScale" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-2">
             <option value="1">1×</option>
             <option value="2">2×</option>
             <option value="3">3×</option>
             <option value="4">4×</option>
           </select>
         </div>
-        <button id="btnExport" class="btn mt-3 w-full px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 font-semibold">Export PNG</button>
+        <button id="btnExport" class="btn mt-3 w-full px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold">Export PNG</button>
       </div>
 
       <div class="mt-3 text-xs text-slate-400">
@@ -228,9 +245,9 @@
             <div class="row mt-2"><div>Saturation (<span id="satVal">100</span>%)</div><div class="w-40"><input id="saturation" type="range" min="0" max="300" value="100" class="slider"/></div></div>
             <div class="row mt-2"><div>Invert (<span id="invVal">0</span>%)</div><div class="w-40"><input id="invert" type="range" min="0" max="100" value="0" class="slider"/></div></div>
             <div class="grid grid-cols-3 gap-2 mt-3">
-            <button id="autoLevels" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Auto Levels</button>
-            <button id="equalize" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Equalize</button>
-            <button id="resetAdj" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Reset</button>
+            <button id="autoLevels" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Auto Levels</button>
+            <button id="equalize" class="btn btn-toggle px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Equalize</button>
+            <button id="resetAdj" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Reset</button>
             </div>
             <div class="mt-3">
             <div class="sub">Levels: Black / White (<span id="lvlBVal">0</span> / <span id="lvlWVal">255</span>)</div>
@@ -240,7 +257,7 @@
             </div>
             </div>
             <div class="mt-3">
-            <canvas id="hist" width="280" height="120" class="w-full rounded-md border border-slate-700"></canvas>
+            <canvas id="hist" width="280" height="120" class="w-full rounded-lg border border-slate-700"></canvas>
             <div class="text-xs text-slate-400 mt-1">Histogram from current crop of active gel.</div>
             </div>
         </div>
@@ -249,8 +266,8 @@
             <div class="label">Image Rotation (Active Gel)</div>
             <div class="row mt-2"><div>Angle (<span id="rotImgVal">0</span>°)</div><div class="w-40"><input id="imgRotation" type="range" min="-180" max="180" step="1" value="0" class="slider"/></div></div>
             <div class="grid grid-cols-2 gap-2 mt-2">
-            <button id="rotLeft90"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">-90°</button>
-            <button id="rotRight90" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">+90°</button>
+            <button id="rotLeft90"  class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">-90°</button>
+            <button id="rotRight90" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">+90°</button>
             </div>
         </div>
       </div>
@@ -260,27 +277,27 @@
         <div class="text-xs text-slate-400">Editing <span id="selCount">0</span> item(s).</div>
 
         <div class="mt-2 grid grid-cols-2 gap-2">
-          <button id="btnGroup" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Group</button>
-          <button id="btnUngroup" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Ungroup</button>
+          <button id="btnGroup" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Group</button>
+          <button id="btnUngroup" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Ungroup</button>
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button id="bringFront" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bring Front</button>
-          <button id="sendBack"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Send Back</button>
+          <button id="bringFront" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Bring Front</button>
+          <button id="sendBack"  class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Send Back</button>
         </div>
 
         <div class="mt-3">
           <div class="sub mb-1">Stroke Color</div>
-          <input id="propColor" type="color" value="#000000" class="w-full h-10 rounded-md bg-slate-800 border border-slate-700"/>
+          <input id="propColor" type="color" value="#000000" class="w-full h-10 rounded-lg bg-slate-800 border border-slate-700"/>
         </div>
 
         <div id="textProps" class="mt-2">
           <div class="sub mb-1">Font Size (<span id="fontVal">16</span> px)</div>
           <input id="propFont" type="range" min="8" max="128" value="16" class="slider">
           <div class="grid grid-cols-3 gap-2 mt-2">
-            <button id="propBold" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bold</button>
-            <button id="propItalic" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Italic</button>
-            <button id="toggleEditor" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Edit Text</button>
+            <button id="propBold" class="btn btn-toggle px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Bold</button>
+            <button id="propItalic" class="btn btn-toggle px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Italic</button>
+            <button id="toggleEditor" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Edit Text</button>
           </div>
         </div>
 
@@ -300,8 +317,8 @@
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button id="btnDuplicate" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Duplicate</button>
-          <button id="btnDelete" class="btn px-2 py-2 rounded-md bg-rose-600 hover:bg-rose-500">Delete</button>
+          <button id="btnDuplicate" class="btn px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Duplicate</button>
+          <button id="btnDelete" class="btn px-2 py-2 rounded-lg bg-rose-600 hover:bg-rose-500">Delete</button>
         </div>
 
         <div id="overflowWarn" class="mt-3 text-xs hidden">
@@ -398,6 +415,11 @@
     overflowWarn: document.getElementById('overflowWarn'),
     status: document.getElementById('status'),
     floatingEditor: document.getElementById('floatingEditor'),
+    zoomLevel: document.getElementById('zoomLevel'),
+    zoomVal: document.getElementById('zoomVal'),
+    zoomOut: document.getElementById('zoomOut'),
+    zoomIn: document.getElementById('zoomIn'),
+    zoomFit: document.getElementById('zoomFit'),
   };
   const toolButtons = [els.toolSelect, els.toolCrop, els.toolText, els.toolTextarea, els.toolRect, els.toolLine, els.toolArrow];
 
@@ -413,7 +435,101 @@
   let snapGuides = [];
   let gridSize = 16;
   let snapThreshold = 6;
+  let zoom = 1.0;
+
+  // Undo/Redo Stacks
+  const history = { undo: [], redo: [] };
+  function saveState(){
+    const state = {
+        gels: gels.map(g => {
+            // Can't easily clone canvases in JSON, but we can store properties.
+            // Ideally we re-create canvases or store DataURLs but that's heavy.
+            // Since we don't modify the image pixel data *destructively* except via filter params, we can store params.
+            // Actually, we store 'gels' array references which is dangerous if we mutate objects.
+            // We need a way to snapshot key properties.
+            return { ...g,
+                crop: {...g.crop},
+                adj: {...g.adj},
+                cssFilters: {...g.cssFilters},
+                // Reference the original img object to avoid reloading
+                img: g.img,
+                // We'll need to rebuild canvases on restore
+            };
+        }),
+        annotations: JSON.parse(JSON.stringify(annotations)),
+        activeGelId: activeGel ? activeGel.id : null,
+        zCounter: {...zCounter}
+    };
+    history.undo.push(state);
+    if (history.undo.length > 20) history.undo.shift();
+    history.redo = [];
+  }
+
+  function restoreState(state){
+    // Restore annotations
+    annotations = state.annotations;
+    zCounter = state.zCounter;
+
+    // Restore Gels
+    // We need to match existing gels by ID to preserve their canvases if possible, otherwise rebuild.
+    const newGels = state.gels.map(sGel => {
+        // Check if we have this gel in current gels (to reuse canvases)
+        const existing = gels.find(g => g.id === sGel.id);
+        if(existing) {
+            Object.assign(existing, sGel);
+            existing.crop = {...sGel.crop};
+            existing.adj = {...sGel.adj};
+            existing.cssFilters = {...sGel.cssFilters};
+            existing.needsProcessing = true; // force re-render
+            existing.needsHistogram = true;
+            return existing;
+        } else {
+            // It was deleted, or new? If deleted, we might still have the img object.
+            // We need to re-create the gel object wrapper.
+            const g = createGelObject(sGel.img);
+            Object.assign(g, sGel);
+            // Overwrite the fresh canvases with state props (crop, etc)
+            g.needsProcessing = true;
+            g.needsHistogram = true;
+            return g;
+        }
+    });
+    gels = newGels;
+
+    if(state.activeGelId) activeGel = gels.find(g => g.id === state.activeGelId) || null;
+    else activeGel = null;
+
+    updateImageControls();
+    updateSelectionPanel();
+    redraw();
+  }
+
+  function performUndo(){
+    if(!history.undo.length) return;
+    const current = {
+        gels: gels.map(g => ({...g, crop:{...g.crop}, adj:{...g.adj}, cssFilters:{...g.cssFilters}, img:g.img})),
+        annotations: JSON.parse(JSON.stringify(annotations)),
+        activeGelId: activeGel?activeGel.id:null,
+        zCounter: {...zCounter}
+    };
+    history.redo.push(current);
+    const prev = history.undo.pop();
+    restoreState(prev);
+  }
   
+  function performRedo(){
+    if(!history.redo.length) return;
+    const current = {
+        gels: gels.map(g => ({...g, crop:{...g.crop}, adj:{...g.adj}, cssFilters:{...g.cssFilters}, img:g.img})),
+        annotations: JSON.parse(JSON.stringify(annotations)),
+        activeGelId: activeGel?activeGel.id:null,
+        zCounter: {...zCounter}
+    };
+    history.undo.push(current);
+    const next = history.redo.pop();
+    restoreState(next);
+  }
+
   // ====== Utilities ======
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function deepCopy(o){ return JSON.parse(JSON.stringify(o)); }
@@ -425,6 +541,29 @@
     const widths = lines.map(line=>ctx.measureText(line).width);
     const w = Math.max(1, ...widths) + 16; const h = lines.length * (fontSize*1.2) + 16;
     ctx.restore(); return { w, h };
+  }
+
+  function getPointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom
+    };
+  }
+
+  function setZoom(z, center) {
+    z = clamp(z, 0.1, 5.0);
+    zoom = z;
+    els.zoomVal.textContent = Math.round(z * 100);
+    els.zoomLevel.value = Math.round(z * 100);
+
+    // Update canvas visual size
+    canvas.style.width = (canvas.width * z) + 'px';
+    canvas.style.height = (canvas.height * z) + 'px';
+
+    // If center provided (screen coords), try to keep it centered
+    // This is complex with native scroll, so we'll stick to basic zoom for now
+    // or rely on browser's scroll behavior if we don't manually scroll.
   }
 
   // ====== Gel Management ======
@@ -610,8 +749,7 @@
   function cropHandles(box){ const cx=box.x+box.w/2, cy=box.y+box.h/2; return [ {name:'nw',x:box.x,y:box.y},{name:'n',x:cx,y:box.y},{name:'ne',x:box.x+box.w,y:box.y},{name:'e',x:box.x+box.w,y:cy},{name:'se',x:box.x+box.w,y:box.y+box.h},{name:'s',x:cx,y:box.y+box.h},{name:'sw',x:box.x,y:box.y+box.h},{name:'w',x:box.x,y:cy} ]; }
   function cropHandleHit(pt){ const gelRect = getGelDisplayRect(activeGel); if(!gelRect) return null; const hs=cropHandles(gelRect); for(const h of hs){ if(Math.hypot(pt.x-h.x,pt.y-h.y)<=12) return h.name; } if(pt.x>=gelRect.x&&pt.x<=gelRect.x+gelRect.w&&pt.y>=gelRect.y&&pt.y<=gelRect.y+gelRect.h) return 'move'; return null; }
 
-  // MODIFIED to maintain aspect ratio
-  function handleCropDrag(pt, gel) {
+  function handleCropDrag(pt, gel, shiftKey) {
       const start = dragging.start;
       if (!start) return;
 
@@ -627,41 +765,37 @@
           gel.y = start.pos.y + dy;
       } else {
           let { x: newX, y: newY, w: newW, h: newH } = start.crop;
-          const aspect = start.crop.w / start.crop.h;
+          const ratio = start.crop.w / start.crop.h;
           const sx = dx / gel.scale;
           const sy = dy / gel.scale;
           const handle = dragging.handle;
+
+          // Free resize unless shift is held (or edge drag which forces aspect in logic below?)
+          // Standard: Corners are free unless Shift. Edges usually change only one dim.
+          // User request: "Implement Shift key detection to lock aspect ratio".
 
           if (handle.includes('e')) newW += sx;
           if (handle.includes('w')) { newW -= sx; newX += sx; }
           if (handle.includes('s')) newH += sy;
           if (handle.includes('n')) { newH -= sy; newY += sy; }
-          
-          if (handle.length === 1) { // Edge drag
-              if (handle === 'n' || handle === 's') {
-                  const oldW = newW;
-                  newW = newH * aspect;
-                  newX -= (newW - oldW) / 2;
-              } else {
-                  const oldH = newH;
-                  newH = newW / aspect;
-                  newY -= (newH - oldH) / 2;
-              }
-          } else { // Corner drag
-              if (Math.abs(sx) > Math.abs(sy)) {
-                  const oldH = newH;
-                  newH = newW / aspect;
-                  if (handle.includes('n')) newY += (oldH - newH);
-              } else {
-                  const oldW = newW;
-                  newW = newH * aspect;
-                  if (handle.includes('w')) newX += (oldW - newW);
-              }
+
+          if (shiftKey && handle.length > 1) { // Corner drag + Shift
+             // Preserve aspect ratio based on width dominance or simple projection
+             // Simple: use the larger delta or specific axis
+             if (Math.abs(newW / ratio) > Math.abs(newH)) {
+                 // Width is driver
+                 newH = newW / ratio;
+                 if (handle.includes('n')) newY = start.crop.y + (start.crop.h - newH);
+             } else {
+                 newW = newH * ratio;
+                 if (handle.includes('w')) newX = start.crop.x + (start.crop.w - newW);
+             }
           }
 
-          if (newW < 16 || newH < 16) return;
+          if (newW < 16) newW = 16;
+          if (newH < 16) newH = 16;
 
-          // Clamp to image boundaries
+          // Clamp
           if (newX < 0) { newW += newX; newX = 0; }
           if (newY < 0) { newH += newY; newY = 0; }
           if (newX + newW > gel.rotCanvas.width) newW = gel.rotCanvas.width - newX;
@@ -698,15 +832,17 @@
   function selectMarquee(m){ const r=marqueeRect(m); selection=annotations.filter(a=>{ const bb=getAnnAABB(a); return !(bb.x+bb.w<r.x || r.x+r.w<bb.x || bb.y+bb.h<r.y || r.y+r.h<bb.y); }); updateSelectionPanel(); redraw(); }
 
   canvas.addEventListener('mousedown', (e)=>{
-    const rect=canvas.getBoundingClientRect(); const pt={ x:e.clientX-rect.left, y:e.clientY-rect.top };
+    if (e.button !== 0) return; // Only left click
+    const pt = getPointerPos(e);
     
-    if(tool==='crop'){ if(!activeGel) return; const hit=cropHandleHit(pt); if(hit){ dragging={ mode: 'crop', handle: hit, target: activeGel, start: { pt, crop: {...activeGel.crop}, pos: { x: activeGel.x, y: activeGel.y }}}; } return; }
+    if(tool==='crop'){ if(!activeGel) return; const hit=cropHandleHit(pt); if(hit){ saveState(); dragging={ mode: 'crop', handle: hit, target: activeGel, start: { pt, crop: {...activeGel.crop}, pos: { x: activeGel.x, y: activeGel.y }}}; } return; }
     
     if(tool==='select'){
       const hit=hitTest(pt);
       const clickedInside = hit && selection.includes(hit.target);
       selectPreserveOrReplace(hit&&hit.target, e.shiftKey, clickedInside);
       if(hit){
+        saveState(); // Dragging might change state
         dragging={ mode:'annotation', handle:hit.handle, start:pt, last:pt, target:hit.target };
       } else {
         let gelHit = null;
@@ -724,13 +860,13 @@
       redraw(); return;
     }
     
-    if(tool==='text' || tool==='textarea'){ const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, text: tool==='text'?'Label':'Notes\nWrite here' }); updateTextSize(a); annotations.push(a); selection=[a]; updateSelectionPanel(); openFloatingEditor(a); setTool('select'); return; }
-    if(tool==='rect'){ const a=baseAnnotation({ type:'rect', x:pt.x, y:pt.y, w:120, h:60, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'resize-se', start:pt, last:pt, target:a, rectStart:{x:a.x,y:a.y,w:a.w,h:a.h} }; setTool('select'); redraw(); return; }
-    if(tool==='line' || tool==='arrow'){ const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, x2:pt.x+1, y2:pt.y+1, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'p2', start:pt, last:pt, target:a }; setTool('select'); redraw(); return; }
+    if(tool==='text' || tool==='textarea'){ saveState(); const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, text: tool==='text'?'Label':'Notes\nWrite here' }); updateTextSize(a); annotations.push(a); selection=[a]; updateSelectionPanel(); openFloatingEditor(a); setTool('select'); return; }
+    if(tool==='rect'){ saveState(); const a=baseAnnotation({ type:'rect', x:pt.x, y:pt.y, w:120, h:60, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'resize-se', start:pt, last:pt, target:a, rectStart:{x:a.x,y:a.y,w:a.w,h:a.h} }; setTool('select'); redraw(); return; }
+    if(tool==='line' || tool==='arrow'){ saveState(); const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, x2:pt.x+1, y2:pt.y+1, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'p2', start:pt, last:pt, target:a }; setTool('select'); redraw(); return; }
   });
 
   canvas.addEventListener('dblclick', (e)=>{
-    const rect=canvas.getBoundingClientRect(); const pt={ x:e.clientX-rect.left, y:e.clientY-rect.top };
+    const pt = getPointerPos(e);
     const hit=hitTest(pt);
     if(hit && (hit.target.type==='text' || hit.target.type==='textarea')){
       selection=[hit.target]; updateSelectionPanel(); openFloatingEditor(hit.target); redraw();
@@ -738,9 +874,9 @@
   });
 
   canvas.addEventListener('mousemove', (e)=>{
-    const rect=canvas.getBoundingClientRect(); const pt={ x:e.clientX-rect.left, y:e.clientY-rect.top };
+    const pt = getPointerPos(e);
     
-    if (dragging && dragging.mode === 'crop') { handleCropDrag(pt, dragging.target); redraw(); return; }
+    if (dragging && dragging.mode === 'crop') { handleCropDrag(pt, dragging.target, e.shiftKey); redraw(); return; }
     if (dragging && dragging.mode === 'move-gel') {
         const gel = dragging.target;
         const dx = pt.x - dragging.startPt.x;
@@ -786,8 +922,9 @@
     const isEditing = els.floatingEditor.style.display==='block';
     if(!isEditing && selection.length===1 && (selection[0].type==='text'||selection[0].type==='textarea')){ if(e.key==='Enter' || e.key==='F2'){ e.preventDefault(); openFloatingEditor(selection[0]); return; } if(e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){ const t = selection[0]; const old=t.text; openFloatingEditor(t); const ed = els.floatingEditor; ed.value = old + e.key; ed.setSelectionRange(ed.value.length, ed.value.length); if(ed.oninput) ed.oninput(); e.preventDefault(); return; } }
     if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
-    if(e.key==='Delete' || e.key==='Backspace'){ if(selection.length && !isEditing){ annotations = annotations.filter(a=>!selection.includes(a)); selection=[]; updateSelectionPanel(); redraw(); } }
-    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ e.preventDefault(); if(!isEditing) duplicateSelection(); }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); if(e.shiftKey) performRedo(); else performUndo(); }
+    if(e.key==='Delete' || e.key==='Backspace'){ if(selection.length && !isEditing){ saveState(); annotations = annotations.filter(a=>!selection.includes(a)); selection=[]; updateSelectionPanel(); redraw(); } }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ e.preventDefault(); if(!isEditing) { saveState(); duplicateSelection(); } }
     if(!isEditing){ if(e.key.toLowerCase()==='v') setTool('select'); if(e.key.toLowerCase()==='c') setTool('crop'); if(e.key.toLowerCase()==='t') setTool('text'); if(e.key.toLowerCase()==='l') setTool('line'); if(e.key.toLowerCase()==='a') setTool('arrow'); }
     if(selection.length && !isEditing && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){ const step = e.shiftKey? 10 : 1; const dx=(e.key==='ArrowLeft'?-step:e.key==='ArrowRight'?step:0); const dy=(e.key==='ArrowUp'?-step:e.key==='ArrowDown'?step:0); selection.forEach(a=>moveAnnotation(a,dx,dy)); redraw(); }
   });
@@ -901,7 +1038,12 @@
   els.bringFront.addEventListener('click', bringToFront);
   els.sendBack.addEventListener('click', sendToBack);
 
-  (function init(){ setTool('select'); updateImageControls(); status('Add a gel image to begin.'); redraw(); })();
+  els.zoomIn.addEventListener('click', ()=> setZoom(zoom + 0.1));
+  els.zoomOut.addEventListener('click', ()=> setZoom(zoom - 0.1));
+  els.zoomLevel.addEventListener('input', (e)=> setZoom(parseInt(e.target.value, 10)/100));
+  els.zoomFit.addEventListener('click', ()=> { setZoom(1.0); if(activeGel) fitToView(activeGel, true); else { canvas.style.width = canvas.width+'px'; canvas.style.height=canvas.height+'px'; }});
+
+  (function init(){ setTool('select'); updateImageControls(); status('Add a gel image to begin.'); setZoom(1.0); redraw(); })();
   </script>
 </body>
 </html>
