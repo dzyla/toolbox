@@ -8,16 +8,19 @@
   <!-- Dev-only Tailwind CDN. For production, build Tailwind locally. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <link rel="stylesheet" href="global.css">
 
   <style>
     :root { --highlight-bg:#fef08a; --highlight-color:#1f2937; --progress-bar-bg:#e5e7eb; }
     html.dark { --highlight-bg:#facc15; --highlight-color:#1f2937; --progress-bar-bg:#374151; }
-    body { font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#111827; color:#d1d5db; }
     .highlight { background:var(--highlight-bg); color:var(--highlight-color); border-radius:3px; padding:1px 2px; box-shadow:0 0 5px rgba(254,240,138,.8); }
     .detected-character-card { transition: all .2s ease-in-out; }
     .progress-bar { background:var(--progress-bar-bg); border-radius:9999px; overflow:hidden; height:1rem; }
     .progress-bar-inner { height:100%; transition:width .5s ease-in-out; border-radius:9999px; }
     .card { background:#1f2937; border:1px solid #374151; border-radius:.75rem; box-shadow:0 10px 15px -3px rgba(0,0,0,.3), 0 4px 6px -2px rgba(0,0,0,.2); }
+    html.dark .card { background:#1f2937; border-color:#374151; }
+    /* Override for light mode card if needed, assuming default is dark in this file based on initial CSS */
+
     .card-header { color:#f9fafb; }
     .stat-value { transition: color .3s; }
     .info-text { color:#9ca3af; }
@@ -521,5 +524,6 @@
     });
   })();
   </script>
+<script>window.addEventListener("message", (e) => { if (e.data.type === "theme") { if (e.data.theme === "dark") document.documentElement.classList.add("dark"); else document.documentElement.classList.remove("dark"); } });</script>
 </body>
 </html>

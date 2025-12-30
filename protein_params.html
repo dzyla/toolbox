@@ -2,6 +2,7 @@
 <!-- This file works standalone (auto-loads Tailwind + d3 if missing) and inside index.html (uses html.dark). -->
 
 <!-- Optional dependency loader for standalone use -->
+<link rel="stylesheet" href="global.css">
 <script>
 (function ensureDeps(){
   // Tailwind (for standalone)
@@ -20,14 +21,7 @@
 
 <style>
   /* Base fonts */
-  body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans"; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-
-  /* Scrollbars */
-  ::-webkit-scrollbar{ width:8px; height:8px;}
-  ::-webkit-scrollbar-track{ background:#f8fafc;}
-  ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
-  ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
 
   /* Track (inline and modal) */
   .feature-track-svg { cursor: crosshair; user-select:none; -webkit-user-select:none; }
@@ -1419,3 +1413,4 @@ els.modalReset.addEventListener('click', ()=>{
 
 })(); // end init
 </script>
+<script>window.addEventListener("message", (e) => { if (e.data.type === "theme") { if (e.data.theme === "dark") document.documentElement.classList.add("dark"); else document.documentElement.classList.remove("dark"); } });</script>

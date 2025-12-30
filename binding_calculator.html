@@ -1,11 +1,10 @@
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="global.css">
 <style>
     .input-group { display: flex; align-items: center; }
     .input-group input { border-top-right-radius: 0; border-bottom-right-radius: 0; flex-grow: 1; }
     .input-group select { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 0; }
-    .prose strong { color: #4f46e5; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .btn { @apply bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500; }
-    .btn-secondary { @apply bg-gray-800 hover:bg-black text-white font-semibold py-2 px-4 rounded-lg; }
 </style>
 
 <div class="container mx-auto p-4 md:p-8 max-w-7xl">
@@ -817,3 +816,4 @@
   runAll();
 })();
 </script>
+<script>window.addEventListener("message", (e) => { if (e.data.type === "theme") { if (e.data.theme === "dark") document.documentElement.classList.add("dark"); else document.documentElement.classList.remove("dark"); } });</script>

@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Advanced Color Palette Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="global.css">
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
-  :root { color-scheme: light dark; }
-  /* REMOVED the global 'body' style that was causing the layout issue. */
-
   /* ===== Tight, masonry-free grid with no vertical stretching ===== */
   .color-card-container {
     display: grid;
@@ -28,7 +27,7 @@
     box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
     transition: transform 300ms ease;
     cursor: pointer;
-    background: transparent;
+    background-color: transparent;
   }
   .color-card:hover { transform: translateY(-4px); }
 
@@ -39,18 +38,18 @@
   }
 
   .color-meta {
-    background: #fff;
+    background-color: var(--surface-1);
     padding: 0.75rem;
   }
   .color-meta p {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 0.875rem;
-    color: #334155;
+    color: var(--text-2);
     font-weight: 600;
     margin: 0;                    /* remove extra vertical space */
   }
 
-  input:disabled { background-color: #e2e8f0; cursor: not-allowed; }
+  input:disabled { background-color: var(--muted-1); cursor: not-allowed; }
 
   .feedback-anim { animation: fadeAndScale 1s ease-out forwards; }
   @keyframes fadeAndScale {
@@ -66,6 +65,13 @@
 
   /* Smooth scroll targeting panels below sticky controls */
   #shade-panel { scroll-margin-top: 5rem; }
+
+  /* Manual overrides for dark mode compatibility if not using Tailwind classes everywhere */
+  html.dark .bg-white { background-color: var(--surface-1); }
+  html.dark .text-gray-700 { color: var(--text-1); }
+  html.dark .text-gray-900 { color: var(--text-1); }
+  html.dark .text-gray-600 { color: var(--text-2); }
+  html.dark .border-gray-300 { border-color: var(--border-1); }
 </style>
 </head>
 <body>
@@ -250,5 +256,6 @@
       init();
     })();
   </script>
+<script>window.addEventListener("message", (e) => { if (e.data.type === "theme") { if (e.data.theme === "dark") document.documentElement.classList.add("dark"); else document.documentElement.classList.remove("dark"); } });</script>
 </body>
 </html>

@@ -1,10 +1,16 @@
-<!-- This file contains only the content for the Text Counter tool. -->
-<!-- It will be loaded into the main index.html file. -->
-
-<!-- Styles specific to this tool -->
-<style>
-    .stat-card { transition: all 0.3s ease; }
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Counter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="global.css">
+    <style>
+        .stat-card { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-[#0b1220]">
 
 <!-- Main container for the tool -->
 <div class="flex items-center justify-center py-8 md:py-12 px-4">
@@ -74,10 +80,10 @@
             const totalWordCount = words.length;
             const articleMatches = text.match(/\b(a|an|the)\b/gi) || [];
             const articleCount = articleMatches.length;
-            
+
             letterCountEl.textContent = countSpacesToggle.checked ? text.length : text.replace(/\s/g, '').length;
             spaceCountEl.textContent = (text.match(/ /g) || []).length;
-            
+
             if (countArticlesToggle.checked) {
                 wordCountEl.textContent = totalWordCount;
                 articleCountEl.textContent = articleCount;
@@ -99,3 +105,6 @@
         updateCounts();
     })();
 </script>
+<script>window.addEventListener("message", (e) => { if (e.data.type === "theme") { if (e.data.theme === "dark") document.documentElement.classList.add("dark"); else document.documentElement.classList.remove("dark"); } });</script>
+</body>
+</html>

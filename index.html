@@ -99,13 +99,18 @@
 
         // Propagate theme to iframe
         if (frame && frame.contentWindow) {
+            // Try direct access first (works for same-origin)
             try {
                 const frameDoc = frame.contentDocument;
                 if (frameDoc) {
                     if (isDark) frameDoc.documentElement.classList.add('dark');
                     else frameDoc.documentElement.classList.remove('dark');
                 }
-            } catch(e) { console.warn("Cannot access iframe DOM"); }
+            } catch(e) { console.log("Direct access blocked"); }
+
+            // Also send postMessage as backup
+            console.log("Sending theme update to iframe:", isDark ? 'dark' : 'light');
+            frame.contentWindow.postMessage({ type: 'theme', theme: isDark ? 'dark' : 'light' }, '*');
         }
       }
       applyTheme(startDark, false);
@@ -118,13 +123,9 @@
       // Re-apply theme when iframe loads
       frame.addEventListener('load', () => {
          const isDark = docEl.classList.contains('dark');
-         try {
-             const frameDoc = frame.contentDocument;
-             if (frameDoc) {
-                 if (isDark) frameDoc.documentElement.classList.add('dark');
-                 else frameDoc.documentElement.classList.remove('dark');
-             }
-         } catch(e) { }
+         if (frame && frame.contentWindow) {
+             frame.contentWindow.postMessage({ type: 'theme', theme: isDark ? 'dark' : 'light' }, '*');
+         }
       });
 
       // Nav interactions

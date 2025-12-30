@@ -5,12 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Gel Annotation Tool — v3.0 (Multi-Gel Update)</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="global.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
-      /* Matches index.html --bg-0 */
       --panel-bg: #f1f5f9;
-      /* Slightly darker/tinted for sections */
       --panel-bg-2: #eef2ff;
       --border: #cbd5e1;
       --accent: #4f46e5;
@@ -30,9 +29,7 @@
       --crop-edge: #22d3ee;
     }
     html.dark {
-      /* Matches index.html --surface-1 */
       --panel-bg: #0f172a;
-      /* Matches index.html --surface-2 or --bg-0 */
       --panel-bg-2: #1e293b;
       --border: #334155;
       --accent: #6366f1;
@@ -44,9 +41,6 @@
     html, body {
       height: 100%;
       overflow: hidden;
-      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: var(--bg-0);
-      color: var(--text-1);
     }
     .app { height: 100%; display: grid; grid-template-columns: 360px 1fr 340px; }
     @media (max-width: 1280px) { .app { grid-template-columns: 360px 1fr; grid-template-rows: 1fr 360px; } .rightbar { grid-column: 1 / -1; grid-row: 2; } }
@@ -57,6 +51,7 @@
     .btn-toggle.active { background: var(--accent); color: #fff; }
     .chip { background: var(--panel-bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 4px 8px; font-size: 12px; }
     .canvas-wrap { position: relative; background: var(--canvas-bg); display: grid; place-items: center; overflow: auto; }
+    body { background-color: var(--bg-0); color: var(--text-1); }
     canvas#main {
       background:
         linear-gradient(45deg, var(--checker-a) 25%, transparent 25%) -8px 0/16px 16px,
@@ -1045,5 +1040,19 @@
 
   (function init(){ setTool('select'); updateImageControls(); status('Add a gel image to begin.'); setZoom(1.0); redraw(); })();
   </script>
+<script>
+window.addEventListener("message", (e) => {
+    console.log("Iframe received message:", e.data);
+    if (e.data.type === "theme") {
+        if (e.data.theme === "dark") {
+            document.documentElement.classList.add("dark");
+            console.log("Applied dark mode");
+        } else {
+            document.documentElement.classList.remove("dark");
+            console.log("Applied light mode");
+        }
+    }
+});
+</script>
 </body>
 </html>

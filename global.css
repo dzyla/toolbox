@@ -1,0 +1,81 @@
+:root {
+  /* Default (Light) Theme Variables */
+  --bg-0: #f1f5f9;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --text-1: #0f172a;
+  --text-2: #334155;
+  --border-1: #e2e8f0;
+  --accent-1: #6366f1;
+  --accent-2: #4f46e5;
+  --muted-1: #f1f5f9;
+}
+
+/* Dark Mode Variables */
+html.dark {
+  color-scheme: dark;
+  --bg-0: #0b1220;
+  --surface-1: #0f172a;
+  --surface-2: #1e293b;
+  --text-1: #e5e7eb;
+  --text-2: #94a3b8;
+  --border-1: #334155;
+  --accent-1: #818cf8;
+  --accent-2: #6366f1;
+  --muted-1: #1f2937;
+}
+
+body {
+  background-color: var(--bg-0);
+  color: var(--text-1);
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans";
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dark Mode Overrides for Common Utility Classes (if using Tailwind) */
+html.dark .bg-white { background-color: var(--surface-1) !important; }
+html.dark .bg-gray-50 { background-color: var(--surface-2) !important; }
+html.dark .bg-slate-50 { background-color: var(--surface-2) !important; }
+html.dark .bg-slate-100 { background-color: var(--surface-2) !important; }
+html.dark .bg-indigo-50 { background-color: rgba(99,102,241,0.12) !important; }
+
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-slate-200,
+html.dark .border-slate-300 { border-color: var(--border-1) !important; }
+
+html.dark .text-slate-800,
+html.dark .text-gray-800,
+html.dark .text-gray-900,
+html.dark .text-gray-700 { color: var(--text-1) !important; }
+
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-slate-500,
+html.dark .text-slate-600 { color: var(--text-2) !important; }
+
+html.dark .text-indigo-600,
+html.dark .text-indigo-700,
+html.dark .text-blue-600 { color: var(--accent-1) !important; }
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--surface-1) !important;
+  color: var(--text-1) !important;
+  border-color: var(--border-1) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: var(--text-2) !important; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-0); }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+html.dark ::-webkit-scrollbar-track { background: var(--bg-0); }
+html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
