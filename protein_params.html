@@ -795,7 +795,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                   <label class="block text-xs">ε<sub>280</sub> type</label>
                   <select class="w-full p-2 border rounded-lg" data-a280-eps-type="${obj.id}">
                     <option value="red">Reduced (Y+W)</option>
-                    <option value="cys">+Cystines (Y+W + Cys pairs)</option>
+                    <option value="cys" selected>+Cystines (Y+W + Cys pairs)</option>
                   </select>
                 </div>
                 <div>
@@ -856,11 +856,11 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   }
 
   /* ===== Map rendering (inline) ===== */
-  function renderGraphicalMap(containerId, byLane, seqLen, seq) {
+  function renderGraphicalMap(containerId, byLane, seqLen, seq, vbWidth = 1000) {
     const container = document.getElementById(containerId);
     const laneOrder = Object.keys(byLane).sort();
     const hLane = 18, hSeq = 22, topPad = 5, leftPad = 80, rightPad = 10;
-    const vbW = 1000;
+    const vbW = vbWidth;
     const height = (laneOrder.length * hLane) + hSeq + topPad + 24;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -925,7 +925,14 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     svg.appendChild(ticksGroup); container.appendChild(svg);
 
     // Hover tooltip (inline)
-    function clientToSvgX(evt){ const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY; const local = pt.matrixTransform(svg.getScreenCTM().inverse()); return local.x; }
+    function clientToSvgX(evt){
+      const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+      const wrap = svg.querySelector('g[data-zoom-wrap="1"]');
+      const matrix = wrap ? wrap.getScreenCTM() : svg.getScreenCTM();
+      if(!matrix) return 0;
+      const local = pt.matrixTransform(matrix.inverse());
+      return local.x;
+    }
     const allFeatures = []; Object.values(byLane).forEach(arr => arr.forEach(f => allFeatures.push(f)));
     svg.addEventListener('mousemove', e => {
       const vbW = parseFloat(svg.dataset.vbW), leftPad = parseFloat(svg.dataset.leftPad), rightPad = parseFloat(svg.dataset.rightPad);
@@ -1197,7 +1204,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       show(`From A=${A}: ${isFinite(mgml)?mgml.toFixed(6):'—'} mg/mL • ${isFinite(uM)?uM.toFixed(3):'—'} μM`);
     });
 
-    [pathEl, epsSel, mgEl, umEl, aEl].forEach(el=>{
+    [pathEl, epsSel, mgEl, umEl].forEach(el=>{
       el.addEventListener('change', ()=>{
         const eps = chosenEps(); const path = Number(pathEl.value);
         const mgml = Number(mgEl.value); const um = Number(umEl.value);
@@ -1339,12 +1346,11 @@ function openMapModal(obj, byLane){
   els.modalBody.appendChild(holder);
 
   // Render map, then widen the viewBox for better zooming
-  renderGraphicalMap(holder.id, byLane, obj.length, obj.seq);
+  renderGraphicalMap(holder.id, byLane, obj.length, obj.seq, MODAL_VB_WIDTH);
   const svg = holder.querySelector('svg');
   const vbH = svg.viewBox.baseVal.height;
 
-  svg.setAttribute('viewBox', `0 0 ${MODAL_VB_WIDTH} ${vbH}`);
-  svg.dataset.vbW = String(MODAL_VB_WIDTH);
+  // The render function sets viewBox to [0 0 vbWidth height], so we just ensure it scales
   svg.style.width = '100%';
   svg.style.height = '100%';
   svg.style.display = 'block';
