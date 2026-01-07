@@ -158,21 +158,21 @@
           <p class="text-xs text-gray-500 mt-1">Upload a CSV with <code>Name,Sequence</code> to mark custom regions.</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           <div>
             <h3 class="text-sm font-semibold">Analysis Settings</h3>
             <div class="space-y-2 mt-1">
               <div>
                 <label class="block text-xs mb-1">Reference pH (Charge)</label>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                   <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
-                    class="w-20 p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+                    class="w-16 p-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
                   <input id="ref_pH_slider" type="range" min="0" max="14" step="0.1" value="7.4" class="w-full">
                 </div>
               </div>
               <div>
                 <label class="block text-xs mb-1">N-end rule Organism</label>
-                <select id="half_life_org" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
+                <select id="half_life_org" class="w-full p-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm">
                   <option value="mammal" selected>Mammalian</option>
                   <option value="yeast">Yeast</option>
                   <option value="ecoli">E. coli</option>
@@ -181,17 +181,29 @@
             </div>
           </div>
           <div>
+            <h3 class="text-sm font-semibold">Domain Detection</h3>
+            <div class="mt-1">
+              <label class="block text-xs mb-1">Min. Identity %</label>
+              <div class="flex items-center gap-2">
+                 <input id="domain_thr" type="number" min="50" max="100" step="1" value="95"
+                    class="w-16 p-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                 <input id="domain_thr_slider" type="range" min="50" max="100" step="1" value="95" class="w-full">
+              </div>
+              <p class="text-[10px] text-gray-500 mt-1">For Large Domains (e.g. GFP, GST).</p>
+            </div>
+          </div>
+          <div>
             <h3 class="text-sm font-semibold">Transmembrane</h3>
             <div class="grid grid-cols-2 gap-2 mt-1">
               <div>
                 <label class="block text-xs mb-1">Window (11–35)</label>
                 <input id="tm_window" type="number" min="11" max="35" step="1" value="19"
-                  class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+                  class="w-full p-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
               </div>
               <div>
                 <label class="block text-xs mb-1">KD threshold</label>
                 <input id="tm_thr" type="number" step="0.1" value="1.6"
-                  class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+                  class="w-full p-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
               </div>
             </div>
           </div>
@@ -286,6 +298,8 @@ window.initProteinWorkbench = function(){
     results: document.getElementById('results_section'),
     pH: document.getElementById('ref_pH'),
     pHslider: document.getElementById('ref_pH_slider'),
+    domainThr: document.getElementById('domain_thr'),
+    domainThrSlider: document.getElementById('domain_thr_slider'),
     tmWindow: document.getElementById('tm_window'),
     tmThr: document.getElementById('tm_thr'),
     loadExample: document.getElementById('load_example'),
@@ -498,7 +512,42 @@ window.initProteinWorkbench = function(){
     }
     return feats;
   }
-  function scanFeatures(seq){
+  function scanLargeDomains(seq, threshold){
+    const feats=[];
+    for(const name in LARGE_TAGS){
+        const def = LARGE_TAGS[name];
+        const query = def.seq;
+        const L = query.length;
+        if(seq.length < L) continue;
+
+        // Sliding window identity check
+        // Optimization: For long domains, we can step by 1.
+        for(let i=0; i <= seq.length - L; i++){
+            let matches = 0;
+            for(let j=0; j<L; j++){
+                if(seq[i+j] === query[j]) matches++;
+            }
+            const identity = (matches / L) * 100;
+            if(identity >= threshold){
+                // Found a match. Greedy approach: save and skip ahead to avoid overlapping matches of the same domain
+                const matchedSeq = seq.slice(i, i+L);
+                feats.push({
+                    start: i,
+                    end: i + L - 1,
+                    name: name,
+                    category: def.category || "Large Domain",
+                    color: def.color || "#a855f7",
+                    note: `${def.note || ""} (Identity: ${identity.toFixed(1)}%)`,
+                    match: matchedSeq
+                });
+                i += L - 1; // Skip the rest of this domain instance
+            }
+        }
+    }
+    return feats;
+  }
+
+  function scanFeatures(seq, threshold=100){
     const feats=[];
     for(const name in TAGS){
       const def = TAGS[name];
@@ -519,6 +568,10 @@ window.initProteinWorkbench = function(){
         if (len === 0) re.lastIndex++;
       }
     }
+    // Large Domains (fuzzy)
+    const largeFeats = scanLargeDomains(seq, threshold);
+    feats.push(...largeFeats);
+
     // User Defined Domains
     if(userDomains && userDomains.length > 0) {
         userDomains.forEach(ud => {
@@ -605,6 +658,14 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   els.pHslider.addEventListener('input', ()=>syncPHInputs('slider'));
   els.pH.addEventListener('change', ()=>syncPHInputs('box'));
 
+  function syncDomainThr(from){
+    if(from==='slider'){ els.domainThr.value = els.domainThrSlider.value; }
+    if(from==='box'){ els.domainThrSlider.value = els.domainThr.value; }
+    refreshAllCards();
+  }
+  els.domainThrSlider.addEventListener('input', ()=>syncDomainThr('slider'));
+  els.domainThr.addEventListener('change', ()=>syncDomainThr('box'));
+
   [
     els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys,
     els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg
@@ -637,10 +698,11 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   function analyzeSingle(item){
     const s = item.seq; const L = s.length; const c = countAA(s);
     const tmW = parseInt(els.tmWindow.value,10); const tmT = Number(els.tmThr.value);
+    const domThr = Number(els.domainThr.value);
     const mw = molecularWeight(c);
     const tmSegs = transmembranes(s, tmW, tmT);
     const spSegs = signalPeptideCandidates(s);
-    const motifSegs = scanFeatures(s);
+    const motifSegs = scanFeatures(s, domThr);
     const allFeats = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
     
     // New metrics
@@ -1311,8 +1373,8 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       svg.appendChild(xAxis);
 
       const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      yAxis.setAttribute('x1', margin.left); xAxis.setAttribute('x2', margin.left);
-      yAxis.setAttribute('y1', margin.top); xAxis.setAttribute('y2', H - margin.bottom);
+      yAxis.setAttribute('x1', margin.left); yAxis.setAttribute('x2', margin.left);
+      yAxis.setAttribute('y1', margin.top); yAxis.setAttribute('y2', H - margin.bottom);
       yAxis.setAttribute('stroke', '#000');
       svg.appendChild(yAxis);
 
