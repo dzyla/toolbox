@@ -753,10 +753,14 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                    <div>
                      <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">ESI Charge State Ladder</h5>
                      <div class="max-h-60 overflow-y-auto border rounded bg-white">
-                        <table class="lab-table">
+                        <table class="lab-table" id="charge-table-container-${obj.id}">
+                           <caption class="text-xs text-left p-1 text-gray-500" id="charge-caption-${obj.id}">Whole Protein</caption>
                            <thead><tr><th>z</th><th>m/z (M+zH)<sup>z+</sup></th></tr></thead>
                            <tbody id="charge-table-${obj.id}"></tbody>
                         </table>
+                     </div>
+                     <div class="mt-2">
+                       <button class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button>
                      </div>
                    </div>
                 </div>
@@ -828,6 +832,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                 let m;
                 while ((m = re.exec(obj.seq)) !== null) {
                     cutSites.add(m.index + m[0].length);
+                    if (m[0].length === 0) re.lastIndex++;
                 }
             }
         });
@@ -857,15 +862,37 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         });
     });
 
-    // Charge Ladder
-    const chargeBody = document.getElementById(`charge-table-${obj.id}`);
+    // Charge Ladder (initial)
+    updateChargeLadder(obj.id, obj.seq, obj.molecularWeight, "Whole Protein");
+  }
+
+  function updateChargeLadder(id, seq, mw, label){
+    const tbody = document.getElementById(`charge-table-${id}`);
+    const caption = document.getElementById(`charge-caption-${id}`);
+    const resetBtn = document.getElementById(`reset-charge-${id}`);
+    if(!tbody) return;
+
+    if(label) caption.textContent = `${label} (MW: ${mw.toFixed(2)})`;
+
+    // Heuristic: Max charge roughly #Basic residues + N-term
+    // Limit to reasonable range (e.g. 50)
+    let basicCount = 1; // N-term
+    for(const c of seq){ if(c==='K'||c==='R'||c==='H') basicCount++; }
+
+    // For small peptides, basicCount is accurate max. For large proteins, it can be higher due to unfolded state.
+    // Let's cap at basicCount for small, but allow more for large?
+    // Actually, basic sites are the main protonation sites in ESI.
+    // However, we want to be safe.
+    const maxZ = Math.min(60, Math.max(3, basicCount));
+
     let rows = '';
-    const mw = obj.molecularWeight;
-    for(let z=1; z<=30; z++){
+    for(let z=1; z<=maxZ; z++){
         const mz = (mw + z * 1.007276) / z;
         rows += `<tr><td class="mono font-semibold">+${z}</td><td class="mono">${mz.toFixed(2)}</td></tr>`;
     }
-    chargeBody.innerHTML = rows;
+    tbody.innerHTML = rows;
+
+    if(resetBtn) resetBtn.classList.toggle('hidden', label === "Whole Protein");
   }
 
   /* ===== Map rendering (inline) ===== */
