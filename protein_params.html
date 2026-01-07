@@ -1,9 +1,6 @@
 <!-- Protein Feature Workbench — fullscreen map + zoom, reordered cards, dark-mode aware -->
 <!-- This file works standalone (auto-loads Tailwind + d3 if missing) and inside index.html (uses html.dark). -->
 
-<!-- Load Definitions -->
-<script src="definitions.js"></script>
-
 <!-- Optional dependency loader for standalone use -->
 <script>
 (function ensureDeps(){
@@ -79,15 +76,9 @@
   .map-modal-body svg { display:block; width: 100%; height: auto; }
   .map-modal-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas; border:1px solid #cbd5e1; border-bottom-width:2px; padding: 0 0.4rem; border-radius:0.375rem; font-size: 0.75rem; }
 
-  /* Lab tools table */
-  .lab-table { width: 100%; font-size: 0.75rem; text-align: left; border-collapse: collapse; }
-  .lab-table th, .lab-table td { padding: 4px 8px; border-bottom: 1px solid #e5e7eb; }
-  .lab-table th { background: #f9fafb; font-weight: 600; color: #374151; }
-  .lab-table tr:hover { background: #f9fafb; }
-
   /* Dark mode fallbacks if Tailwind dark utilities are not present */
   html.dark .feature-track-svg .seq-bar-bg { fill: #1f2937; }
-  html.dark .chart-title, html.dark .note, html.dark .lab-table th { color: #94a3b8; }
+  html.dark .chart-title, html.dark .note { color: #94a3b8; }
   html.dark .feature-list-item:hover { background-color: rgba(99,102,241,0.12); }
   html.dark .feature-list-item.active { background-color: rgba(99,102,241,0.18); outline-color: #a5b4fc; }
   html.dark .map-modal-content { background:#0f172a; color:#e5e7eb; }
@@ -96,9 +87,6 @@
   html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
   html.dark ::-webkit-scrollbar-thumb{ background:#475569; }
   html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b; }
-  html.dark .lab-table th { background: #1e293b; border-color: #334155; }
-  html.dark .lab-table td { border-color: #334155; }
-  html.dark .lab-table tr:hover { background: #1e293b; }
 </style>
 <style id="map-modal-size-override">
   /* Make the zoom modal almost fullscreen for more vertical space */
@@ -154,23 +142,13 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <h3 class="text-sm font-semibold">Analysis Settings</h3>
+            <h3 class="text-sm font-semibold">Analysis</h3>
             <div class="space-y-2 mt-1">
-              <div>
-                <label class="block text-xs mb-1">Reference pH (Charge)</label>
-                <div class="flex items-center gap-3">
-                  <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
-                    class="w-20 p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
-                  <input id="ref_pH_slider" type="range" min="0" max="14" step="0.1" value="7.4" class="w-full">
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs mb-1">N-end rule Organism</label>
-                <select id="half_life_org" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
-                  <option value="mammal" selected>Mammalian</option>
-                  <option value="yeast">Yeast</option>
-                  <option value="ecoli">E. coli</option>
-                </select>
+              <label class="block text-xs mb-1">Reference pH for charge</label>
+              <div class="flex items-center gap-3">
+                <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
+                  class="w-24 p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+                <input id="ref_pH_slider" type="range" min="0" max="14" step="0.1" value="7.4" class="w-full">
               </div>
             </div>
           </div>
@@ -195,31 +173,31 @@
           <summary class="cursor-pointer text-sm font-semibold">Plots & advanced</summary>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
             <div>
-              <h4 class="text-xs font-semibold text-gray-500 uppercase">Plots Enabled</h4>
-              <div class="grid grid-cols-2 gap-2 mt-1">
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300" checked>Hydrophobicity</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300" checked>Charge</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_disorder" class="h-4 w-4 rounded border-gray-300">Disorder (FoldIndex)</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_moment" class="h-4 w-4 rounded border-gray-300">Hydrophobic Moment</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_secstruct" class="h-4 w-4 rounded border-gray-300">Sec. Struct (Chou-Fasman)</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300" checked>Cysteine positions</label>
-              </div>
+              <h4 class="text-sm font-semibold">Plots</h4>
+              <label class="flex items-center gap-2 text-sm mt-1"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300" checked>Hydrophobicity</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300" checked>Charge</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300" checked>Cysteine positions</label>
             </div>
-            <div>
-              <h4 class="text-xs font-semibold text-gray-500 uppercase">Smoothing Windows</h4>
-              <div class="grid grid-cols-2 gap-3 mt-1">
-                <div>
-                  <label class="block text-xs mb-1" for="hydro_window">Hydro</label>
-                  <select id="hydro_window" class="w-full p-1.5 border border-gray-200 rounded-lg text-sm">
-                    <option value="1">1</option><option value="3">3</option><option value="5" selected>5</option><option value="9">9</option><option value="13">13</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs mb-1" for="charge_window">Charge</label>
-                  <select id="charge_window" class="w-full p-1.5 border border-gray-200 rounded-lg text-sm">
-                    <option value="1">1</option><option value="5">5</option><option value="9" selected>9</option><option value="15">15</option>
-                  </select>
-                </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs mb-1" for="hydro_window">Hydrophobicity smoothing</label>
+                <select id="hydro_window" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
+                  <option value="1">None (1)</option>
+                  <option value="3">3</option>
+                  <option value="5" selected>5</option>
+                  <option value="7">7</option>
+                  <option value="9">9</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs mb-1" for="charge_window">Charge smoothing</label>
+                <select id="charge_window" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
+                  <option value="1">None (1)</option>
+                  <option value="3">3</option>
+                  <option value="5" selected>5</option>
+                  <option value="7">7</option>
+                  <option value="9">9</option>
+                </select>
               </div>
             </div>
           </div>
@@ -235,15 +213,15 @@
     </div>
 
     <p class="mt-3 text-xs text-gray-500">
-      Masses use monoisotopic residues (+H<sub>2</sub>O). Charge/pI use Henderson–Hasselbalch.
-      Experimental predictions (Disorder, Half-life) are estimates.
+      Masses use monoisotopic residues with one water (+18.01528 Da). Charge and isoelectric point use Henderson–Hasselbalch with fixed pKa values.
+      Extinction ε<sub>280</sub> uses Tyr/Trp and optional cystine pairs. Domains/PTMs and tags are detected by simple motif heuristics.
     </p>
   </section>
 
   <section id="results_section" class="mt-6 space-y-4"></section>
 </div>
 
-<!-- Fullscreen map modal (shared) -->
+<!-- Fullscreen map modal (shared; contents injected per card) -->
 <div id="map-modal" class="map-modal-backdrop" aria-hidden="true">
   <div class="map-modal-content">
     <div class="map-modal-header">
@@ -259,15 +237,181 @@
 
 <script>
 (function initProteinWorkbench(){
-  // Load Definitions from global object (or fallback to empty if missing)
-  const DEFS = window.PROTEIN_DEFS || {};
-  if(!DEFS.AA){ alert("Error: definitions.js not loaded. Some features will be missing."); return; }
+  /* ===== Scientific constants ===== */
+  const AA = {
+    mw: { A:71.0788,R:156.1875,N:114.1038,D:115.0886,C:103.1388,Q:128.1307,E:129.1155,G:57.0519,H:137.1411,I:113.1594,L:113.1594,K:128.1741,M:131.1926,F:147.1766,P:97.1167,S:87.0782,T:101.1051,W:186.2132,Y:163.1760,V:99.1326,U:150.0388,O:237.3018,B:114.5962,Z:128.6231,J:113.1594,X:110.0 },
+    ext: { Y:1490, W:5500, CYS_DISULFIDE_PAIR:125 },
+    kd: { A:1.8,R:-4.5,N:-3.5,D:-3.5,C:2.5,Q:-3.5,E:-3.5,G:-0.4,H:-3.2,I:4.5,L:3.8,K:-3.9,M:1.9,F:2.8,P:-1.6,S:-0.8,T:-0.7,W:-0.9,Y:-1.3,V:4.2,U:0.0,O:0.0,B:-3.5,Z:-3.5,J:3.8,X:0.0 },
+    pKa_side: { C:8.5, D:3.9, E:4.07, H:6.5, K:10.4, R:12.5, Y:10.0 },
+    pKa_term: { N:8.6, C:3.55 }
+  };
 
-  const AA = DEFS.AA;
-  const DIWV = DEFS.DIWV;
-  const TAGS = DEFS.TAGS;
-  const MOTIFS = DEFS.MOTIFS;
-  const LARGE_TAGS = DEFS.LARGE_TAGS;
+  /* DIWV unstable dipeptides (instability index) */
+  const DIWV = {A:{A:4,C:0,D:-2,E:-1,F:-3,G:0,H:-2,I:-1,K:-1,L:-2,M:-1,N:-2,P:-1,Q:-1,R:-1,S:1,T:0,V:0,W:-3,Y:-2},C:{A:0,C:9,D:-3,E:-4,F:-2,G:-3,H:-3,I:1,K:-3,L:-1,M:-1,N:-3,P:-3,Q:-3,R:-3,S:-1,T:-1,V:1,W:-2,Y:-2},D:{A:-2,C:-3,D:6,E:2,F:-3,G:-1,H:-1,I:-3,K:-1,L:-4,M:-3,N:1,P:-1,Q:0,R:-2,S:0,T:-1,V:-3,W:-4,Y:-3},E:{A:-1,C:-4,D:2,E:5,F:-3,G:-2,H:0,I:-3,K:1,L:-3,M:-2,N:0,P:-1,Q:2,R:0,S:0,T:-1,V:-2,W:-3,Y:-2},F:{A:-3,C:-2,D:-3,E:-3,F:6,G:-4,H:-1,I:0,K:-3,L:0,M:0,N:-3,P:-4,Q:-3,R:-3,S:-2,T:-2,V:-1,W:1,Y:3},G:{A:0,C:-3,D:-1,E:-2,F:-4,G:6,H:-2,I:-4,K:-2,L:-4,M:-3,N:0,P:-2,Q:-2,R:-2,S:0,T:-2,V:-3,W:-2,Y:-3},H:{A:-2,C:-3,D:-1,E:0,F:-1,G:-2,H:8,I:-3,K:-1,L:-3,M:-2,N:1,P:-2,Q:0,R:0,S:-1,T:-2,V:-3,W:-2,Y:2},I:{A:-1,C:1,D:-3,E:-3,F:0,G:-4,H:-3,I:4,K:-3,L:2,M:1,N:-3,P:-3,Q:-3,R:-3,S:-2,T:-1,V:3,W:-3,Y:-1},K:{A:-1,C:-3,D:-1,E:1,F:-3,G:-2,H:-1,I:-3,K:5,L:-2,M:-1,N:0,P:-1,Q:1,R:2,S:0,T:-1,V:-2,W:-3,Y:-2},L:{A:-2,C:-1,D:-4,E:-3,F:0,G:-4,H:-3,I:2,K:-2,L:4,M:2,N:-3,P:-3,Q:-2,R:-2,S:-2,T:-1,V:1,W:-2,Y:-1},M:{A:-1,C:-1,D:-3,E:-2,F:0,G:-3,H:-2,I:1,K:-1,L:2,M:5,N:-2,P:-2,Q:0,R:-1,S:-1,T:-1,V:1,W:-1,Y:-1},N:{A:-2,C:-3,D:1,E:0,F:-3,G:0,H:1,I:-3,K:0,L:-3,M:-2,N:6,P:-2,Q:0,R:0,S:1,T:0,V:-3,W:-4,Y:-2},P:{A:-1,C:-3,D:-1,E:-1,F:-4,G:-2,H:-2,I:-3,K:-1,L:-3,M:-2,N:-2,P:7,Q:-1,R:-2,S:-1,T:-1,V:-2,W:-4,Y:-3},Q:{A:-1,C:-3,D:0,E:2,F:-3,G:-2,H:0,I:-3,K:1,L:-2,M:0,N:0,P:-1,Q:5,R:1,S:0,T:-1,V:-2,W:-2,Y:-1},R:{A:-1,C:-3,D:-2,E:0,F:-3,G:-2,H:0,I:-3,K:2,L:-2,M:-1,N:0,P:-2,Q:1,R:5,S:-1,T:-1,V:-3,W:-3,Y:-2},S:{A:1,C:-1,D:0,E:0,F:-2,G:0,H:-1,I:-2,K:0,L:-2,M:-1,N:1,P:-1,Q:0,R:-1,S:4,T:1,V:-2,W:-3,Y:-2},T:{A:0,C:-1,D:-1,E:-1,F:-2,G:-2,H:-2,I:-1,K:-1,L:-1,M:-1,N:0,P:-1,Q:-1,R:-1,S:1,T:5,V:0,W:-2,Y:-2},V:{A:0,C:1,D:-3,E:-2,F:-1,G:-3,H:-3,I:3,K:-2,L:1,M:1,N:-3,P:-2,Q:-2,R:-3,S:-2,T:0,V:4,W:-3,Y:-1},W:{A:-3,C:-2,D:-4,E:-3,F:1,G:-2,H:-2,I:-3,K:-3,L:-2,M:-1,N:-4,P:-4,Q:-2,R:-3,S:-3,T:-2,V:-3,W:11,Y:2},Y:{A:-2,C:-2,D:-3,E:-2,F:3,G:-3,H:2,I:-1,K:-2,L:-1,M:-1,N:-2,P:-3,Q:-1,R:-2,S:-2,T:-2,V:-1,W:2,Y:7} };
+
+  /* === Combined, de-duplicated Tags & Motifs (drop-in replace this whole block) === */
+  const TAGS = {
+  /* ===== Small Purification & Detection Tags ===== */
+  "His-Tag (6x)":         { seqs:["HHHHHH"],                                  color:"#14b8a6", category:"Tags & Sites", note:"Purification via Immobilized Metal Affinity Chromatography (IMAC)." },
+  "His-Tag (8x–10x)":     { seqs:["HHHHHHHH","HHHHHHHHH","HHHHHHHHHH"],        color:"#0ea5e9", category:"Tags & Sites", note:"Longer His-tags for stronger binding to IMAC resins." },
+  "FLAG":                 { seqs:["DYKDDDDK"],                                color:"#6366f1", category:"Tags & Sites", note:"Hydrophilic; contains Enterokinase cleavage site." },
+  "3xFLAG":               { seqs:["DYKDHDGDYKDHDIDYKDDDDK"],                  color:"#7c3aed", category:"Tags & Sites", note:"Tandem tag for higher affinity detection and purification." },
+  "HA":                   { seqs:["YPYDVPDYA"],                               color:"#f59e0b", category:"Tags & Sites", note:"From Influenza Hemagglutinin; widely used for detection." },
+  "3xHA":                 { seqs:["YPYDVPDYAGYPYDVPDYAGYPYDVPDYA"],             color:"#fb923c", category:"Tags & Sites", note:"Tandem tag for higher affinity detection." },
+  "Myc":                  { seqs:["EQKLISEEDL"],                              color:"#ec4899", category:"Tags & Sites", note:"From human c-Myc. WARNING: Antibody binding (e.g., 9E10 clone) can be context-dependent." },
+  "V5":                   { seqs:["GKPIPNPLLGLDST"],                          color:"#22d3ee", category:"Tags & Sites", note:"From P and V proteins of Simian Virus 5." },
+  "T7":                   { seqs:["MASMTGGQQMG"],                             color:"#06b6d4", category:"Tags & Sites", note:"Leader sequence from T7 bacteriophage major capsid protein." },
+  "S-tag":                { seqs:["KETAAAKFERQHMDS"],                         color:"#8b5cf6", category:"Tags & Sites", note:"Binds to S-protein (derived from RNase A)." },
+  "Strep-II":             { seqs:["WSHPQFEK"],                                color:"#06b6d4", category:"Tags & Sites", note:"Binds with high affinity to Strep-Tactin resin." },
+  "Twin-Strep":           { seqs:["WSHPQFEKGGGSGGGSGGSAWSHPQFEK"],            color:"#0891b2", category:"Tags & Sites", note:"Tandem tag for enhanced binding to Strep-Tactin." },
+  "ALFA-tag":             { seqs:["SRLEEELRRRLTE"],                           color:"#ef4444", category:"Tags & Sites", note:"Small, stable alpha-helical tag for capture and detection." },
+  "AviTag":               { seqs:["GLNDIFEAQKIEWHE"],                         color:"#3b82f6", category:"Tags & Sites", note:"Site for specific in vivo or in vitro biotinylation by BirA ligase." },
+  "SBP-tag":              { seqs:["MDEKTTGWRGGHVVEGLAGELEQLRARLEHHPQGQREP"],  color:"#2563eb", category:"Tags & Sites", note:"Streptavidin-Binding Peptide for affinity purification." },
+  "Calmodulin-Binding":   { seqs:["KRRWKKNFIAVSAANRFKKISSSGAL"],              color:"#16a34a", category:"Tags & Sites", note:"Ca2+-dependent binding to Calmodulin resin; allows for gentle elution with EGTA." },
+  "Rho1D4":               { seqs:["TETSQVAPA"],                               color:"#059669", category:"Tags & Sites", note:"C-terminal tag for membrane protein purification." },
+  "VSV-G":                { seqs:["YTDIEMNRLGK"],                             color:"#0ea5e9", category:"Tags & Sites", note:"Epitope from Vesicular Stomatitis Virus Glycoprotein." },
+  "SpyTag":               { seqs:["AHIVMVDAYKPTK"],                           color:"#f472b6", category:"Tags & Sites", note:"Forms a spontaneous, covalent isopeptide bond with its SpyCatcher protein partner." },
+  "SnoopTag":             { seqs:["KLGDIEFIKVNK"],                            color:"#a78bfa", category:"Tags & Sites", note:"Forms a covalent bond with its SnoopCatcher partner; orthogonal to SpyTag." },
+  "Spot-Tag":             { seqs:["PDRVRAVSHWSS"],                            color:"#10b981", category:"Tags & Sites", note:"Binds Spot-Nanobody with high affinity for detection and IP." },
+  "HiBiT":                { seqs:["VSGWRLFKKIS"],                             color:"#14b8a6", category:"Tags & Sites", note:"Luminescent tag; reconstitutes NanoLuciferase with the LgBiT protein fragment." },
+
+  /* ===== Protease Cleavage Sites (Exact Sequences) ===== */
+  "TEV site":             { seqs:["ENLYFQG","ENLYFQS"],                       color:"#64748b", category:"Tags & Sites", note:"Tobacco Etch Virus protease site. Cleavage between Q and G/S." },
+  "Thrombin site":        { seqs:["LVPRGS"],                                  color:"#78716c", category:"Tags & Sites", note:"Common recognition site; cleaves after R. Can have off-target effects." },
+  "HRV 3C / PreScission": { seqs:["LEVLFQGP"],                                color:"#71717a", category:"Tags & Sites", note:"Human Rhinovirus 3C protease. Cleavage between Q and G." },
+  "Factor Xa site":       { seqs:["IEGR", "IDGR"],                            color:"#854d0e", category:"Tags & Sites", note:"Cleavage after R. Can have off-target effects." },
+  "Enterokinase site":    { seqs:["DDDDK"],                                   color:"#6366f1", category:"Tags & Sites", note:"Highly specific; cleaves after K." },
+
+  /* ===== Other Specific Sites ===== */
+  "RGD motif":            { seqs:["RGD"],                                     color:"#34d399", category:"Site",       note:"Integrin-binding motif involved in cell adhesion." }
+};
+
+/**
+ * LARGE_TAGS: Full-length proteins used as fusion tags.
+ * NOTE: Identifying these in a sequence is an alignment problem (e.g., using BLAST), not a simple string search.
+ * These sequences are provided as canonical references for this purpose.
+ */
+const LARGE_TAGS = {
+  "GST (S. japonicum)": {
+    seq: "MSPILGYWKIKGLVQPTRLLLEYLEEKYEEHLYERDEGDKWRNKKFELGLEFPNLPYYIDGDVKLTQSMAIIRYIADKHNMLGGCPKERAEISMLEGAVLDIRYGVSRIAYSKDFETLKVDFLSKLPEMLKMFEDRLCHKTYLNGDHVTHPDFMLYDALDVVLYMDPMCLDAFPKLVCFKKRIEAIPQIDKYLKSSKYIAWPLQGWQATFGGGDHPPKSD",
+    color: "#a16207", category: "Tags & Sites", note: "Glutathione S-Transferase (~26 kDa). Enhances solubility and allows for affinity purification on glutathione resin."
+  },
+  "MBP (E. coli)": {
+    seq: "MKIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKEIKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEALKDAQTRITK",
+    color: "#4d7c0f", category: "Tags & Sites", note: "Maltose-Binding Protein (~42 kDa). One of the most effective solubility-enhancing tags; allows purification on amylose resin."
+  },
+  "MBP (general)": {
+  seq: "KIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKELKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEAPKDAQT",
+    color: "#4d7c0f", category: "Tags & Sites", note: "Maltose-Binding Protein (~59 kDa). Generalized version for solubility enhancement; allows purification on amylose resin."
+  },
+  "Thioredoxin (E. coli)": {
+    seq: "SDKIIHLTDDSFDTDVLKADGAILVDFWAEWCGPCKMIAPILDEIADEYQGKLTVAKLNIDQNPGTAPKYGIRGIPTLLLFKNGEVAATKVGALSKGQLKEFLDANLA",
+    color: "#15803d", category: "Tags & Sites", note: "Thioredoxin 1 (~12 kDa). Enhances solubility and can aid in correct disulfide bond formation in the cytoplasm."
+  },
+  "SUMO (S. cerevisiae)": {
+    seq: "MSDSEVNQEAKPEVKPEVKPETHINLKVSDGSSEIFFKIKKTTPLRRLMEAFAKRQGKEMDSLRFLYDGIRIQADQTPEDLDMEDNDIIEAHREQIGG",
+    color: "#7e22ce", category: "Tags & Sites", note: "Smt3 protein (~11 kDa). Enhances solubility. Cleavage by a SUMO-specific protease (e.g., Ulp1) yields a native N-terminus."
+  },
+  "EGFP": {
+    seq: "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+    color: "#4ade80", category: "Tags & Sites", note: "Enhanced Green Fluorescent Protein (~27 kDa). Intrinsically fluorescent reporter for live-cell imaging."
+  },
+  "mCherry": {
+    seq: "MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQDGEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKMRLKLKDGGHYDAEVKTTYMAKKPVQLPGAYKTDIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYK",
+    color: "#f43f5e", category: "Tags & Sites", note: "Monomeric Red Fluorescent Protein (~27 kDa). Intrinsically fluorescent reporter for multicolor imaging."
+  }
+};
+
+/**
+ * MOTIFS: Features defined by regular expressions.
+ * Many biological motifs are degenerate and these regexes are often heuristics.
+ * Notes provide context on their function and predictive limitations.
+ */
+const MOTIFS = [
+  /* ===== Post-Translational Modifications (PTMs) ===== */
+  { name:"N-glycosylation (N-X-[ST])",   category:"PTM", color:"#f97316",
+    note:"N-linked glycosylation consensus (X cannot be Proline).", regex:/N[^P][ST]/g },
+  { name:"C-mannosylation (W-x-x-W)",    category:"PTM", color:"#fb923c",
+    note:"Tryptophan C-mannosylation motif.",                    regex:/W..W/g },
+  { name:"Tyrosine sulfation ([DE]Y)",   category:"PTM", color:"#f59e0b",
+    note:"Acidic residue before Tyr; common heuristic.",         regex:/[DE]Y/g },
+  { name:"SUMOylation (ψ-K-x-[DE])",     category:"PTM", color:"#84cc16",
+    note:"Hydrophobic ψ (V/I/L/M/F/Y/W/C) before Lys; acidic at +2.", regex:/[VILMFYWC]K.[DE]/g },
+  { name:"Lysine Acetylation (K)",       category:"PTM", color:"#a3e635",
+    note:"Heuristic for Lys acetylation. HIGH FALSE-POSITIVE RATE. Use dedicated predictors for validation.", regex:/K/g },
+  { name:"Arg Methylation (GAR motif)",  category:"PTM", color:"#4ade80",
+    note:"Glycine-Arginine Rich motif heuristic for PRMTs. HIGH FALSE-POSITIVE RATE.", regex:/G.{0,3}R.{0,3}G/g },
+  { name:"CK2 phosphorylation",          category:"PTM", color:"#22c55e",
+    note:"Casein Kinase 2 site: (S/T)xx(D/E).",                  regex:/[ST]..[DE]/g },
+  { name:"PKA phosphorylation",          category:"PTM", color:"#f59e0b",
+    note:"Protein Kinase A site: (R/K)(R/K)x(S/T), no Pro at +1.", regex:/(?:R|K){2}.[ST](?!P)/g },
+  { name:"PKC phosphorylation",          category:"PTM", color:"#f43f5e",
+    note:"Protein Kinase C site: (S/T)x(R/K).",                  regex:/[ST].[RK]/g },
+  { name:"Akt/PKB phosphorylation",      category:"PTM", color:"#10b981",
+    note:"Akt/PKB site: RxRxx(S/T).",                            regex:/R.R..[ST]/g },
+  { name:"CDK phosphorylation",          category:"PTM", color:"#0ea5e9",
+    note:"Cyclin-Dependent Kinase site: (S/T)P x (K/R).",        regex:/[ST]P.[KR]/g },
+  { name:"MAPK phosphorylation",         category:"PTM", color:"#ef4444",
+    note:"Mitogen-Activated Protein Kinase site: Px(S/T)P.",     regex:/P.[ST]P/g },
+  { name:"ATM/ATR phosphorylation",      category:"PTM", color:"#fbbf24",
+    note:"DNA damage response kinase site: (S/T)Q.",            regex:/[ST]Q/g },
+  { name:"N-myristoylation (N-term)",    category:"PTM", color:"#65a30d",
+    note:"Gly at pos 2 required; simple heuristic.",            regex:/^M?G(?![EDRKHP])[A-Z]{3}[STAGCNV]/g },
+  { name:"Prenylation (CaaX, C-term)",   category:"PTM", color:"#16a34a",
+    note:"Cys + two aliphatic + [LIVM] at C-terminus.",          regex:/C[AILVFM][A-Z][LIVM]$/g },
+  { name:"C-term Amidation (G-R/K-R/K)", category:"PTM", color:"#0d9488",
+    note:"PROSITE PS00009. Signal for C-terminal amidation of peptide hormones after cleavage.", regex:/G[RK][RK]$/g },
+
+  /* ===== Protease & Enzyme Sites (Regex-based) ===== */
+  { name:"Furin Cleavage (R-x-K/R-R)",   category:"Tags & Sites", color:"#a16207",
+    note:"Proprotein convertase site for maturation in secretory pathway.", regex:/R.[KR]R/g },
+  { name:"Caspase-3 Cleavage (DEVD)",    category:"Tags & Sites", color:"#991b1b",
+    note:"Apoptotic executioner caspase site.",                  regex:/DEVD/g },
+  { name:"Caspase-8 Cleavage ([IL]ETD)", category:"Tags & Sites", color:"#b91c1c",
+    note:"Apoptotic initiator caspase site.",                    regex:/[IL]ETD/g },
+  { name:"Sortase A (LPXTG)",            category:"Tags & Sites", color:"#0ea5e9",
+    note:"Transpeptidation signal in Gram-positive bacteria.",   regex:/LP[A-Z]TG/g },
+  { name:"Tetracysteine Tag",            category:"Tags & Sites", color:"#fb7185",
+    note:"Binds biarsenical dyes (FlAsH/ReAsH). Minimal motif is CCxxCC.", regex:/CC[A-Z]{2}CC/g },
+
+  /* ===== Localization Signals ===== */
+  { name:"Signal Peptide (N-term)",      category:"Localization", color:"#67e8f9",
+    note:"Heuristic for secretory signal peptide. HIGHLY VARIABLE. Use SignalP for validation.", regex:/^M[A-Z]{0,20}[KR][A-Z]{2,8}[LIFVAGMW]{8,15}/g },
+  { name:"Transmembrane Domain",         category:"Localization", color:"#22d3ee",
+    note:"Heuristic for hydrophobic transmembrane helix. HIGH FALSE-POSITIVE RATE. Use TMHMM for validation.", regex:/[LIFVAGMW]{18,25}/g },
+  { name:"Monopartite NLS",              category:"Localization", color:"#a855f7",
+    note:"Classical nuclear localization signal, K(K/R)x(K/R).", regex:/K[KR][A-Z][KR]/g },
+  { name:"Bipartite NLS",                category:"Localization", color:"#8b5cf6",
+    note:"Two basic clusters separated by ~10aa spacer.",        regex:/[KR]{2}.{10,12}[KR]{3,}/g },
+  { name:"NES (Leu-rich, heuristic)",    category:"Localization", color:"#ec4899",
+    note:"Φ-x(2,3)-Φ-x(2,3)-Φ-x-Φ; Φ=LIVFM.",                   regex:/[LIVFM][A-Z]{2,3}[LIVFM][A-Z]{2,3}[LIVFM][A-Z][LIVFM]/g },
+  { name:"PTS1 (peroxisome, C-term)",    category:"Localization", color:"#22d3ee",
+    note:"C-terminal [SAC][KRH][LM].",                          regex:/[SAC][RKH][LM]$/g },
+  { name:"PTS2 (peroxisome, N-term)",    category:"Localization", color:"#06b6d4",
+    note:"Within first ~40 aa: [RK][LVI].{5}[HQ][LA].",         regex:/(?=^.{0,40})[RK][LVI][A-Z]{5}[HQ][LA]/g },
+  { name:"ER retention (KDEL/HDEL)",     category:"Localization", color:"#10b981",
+    note:"Luminal ER retrieval signal (C-terminus).",            regex:/(KDEL|HDEL)$/g },
+  { name:"ER retrieval (KKXX, C-term)",  category:"Localization", color:"#059669",
+    note:"Cytosolic KKxx at extreme C-terminus.",                regex:/KK[A-Z]{2}$/g },
+
+  /* ===== Domains & Binding / Degrons ===== */
+  { name:"Walker A (P-loop)",            category:"Domain", color:"#a78bfa",
+    note:"ATP/GTP binding motif: GxxxxGKS/T.",                 regex:/G[A-Z]{4}GK[ST]/g },
+  { name:"Zn finger C2H2",               category:"Domain", color:"#7c3aed",
+    note:"Classical Cys2-His2 zinc finger.",                   regex:/C.{2,4}C.{12}H.{3,5}H/g },
+  { name:"Coiled-Coil Heptad Repeat",    category:"Domain", color:"#94a3b8",
+    note:"Heuristic for coiled-coil structure: [h]xxxxx[h]xxxxx[h]. h=hydrophobic.", regex:/[LIVMF][A-Z]{6}[LIVMF][A-Z]{6}[LIVMF]/g },
+  { name:"SH3-binding (Class I)",        category:"Domain", color:"#60a5fa",
+    note:"Proline-rich motif: RxxPxxP.",                       regex:/R..P..P/g },
+  { name:"WW-binding (PPxY)",            category:"Domain", color:"#38bdf8",
+    note:"PPxY motif.",                                         regex:/PP.Y/g },
+  { name:"PDZ-binding (Class I, C-term)",category:"Domain", color:"#14b8a6",
+    note:"(S/T)xV at C-terminus.",                              regex:/[ST][A-Z]V$/g },
+  { name:"KEN box (APC/C degron)",       category:"Degron", color:"#ef4444",
+    note:"Degradation signal for APC/C E3 ligase.",            regex:/KEN.{0,3}N/g },
+  { name:"D-box (RxxL)",                 category:"Degron", color:"#f87171",
+    note:"Destruction box for APC/C E3 ligase.",               regex:/R..L..[ILV]/g }
+];
 
   /* ===== DOM elements ===== */
   const els = {
@@ -282,19 +426,11 @@
     tmThr: document.getElementById('tm_thr'),
     loadExample: document.getElementById('load_example'),
     tooltip: document.getElementById('svg-tooltip'),
-
-    // Plots & Options
     optHydro: document.getElementById('opt_hydro'),
     optCharge: document.getElementById('opt_charge'),
-    optDisorder: document.getElementById('opt_disorder'),
-    optMoment: document.getElementById('opt_moment'),
-    optSecStruct: document.getElementById('opt_secstruct'),
     optCys: document.getElementById('opt_cys'),
-    halfLifeOrg: document.getElementById('half_life_org'),
-
     hydroWindow: document.getElementById('hydro_window'),
     chargeWindow: document.getElementById('charge_window'),
-
     exportAllCsv: document.getElementById('export_all_csv'),
     toggleAllPlots: document.getElementById('toggle_all_plots'),
     expandAll: document.getElementById('expand_all'),
@@ -394,41 +530,6 @@
     return { reduced, cystines, A1mgml_reduced, A1mgml_cystines };
   }
 
-  /* --- New Feature Calculations --- */
-  function aliphaticIndex(counts, len){
-    if(!len) return 0;
-    const XA = (counts.A||0)/len*100;
-    const XV = (counts.V||0)/len*100;
-    const XI = (counts.I||0)/len*100;
-    const XL = (counts.L||0)/len*100;
-    return XA + 2.9*XV + 3.9*(XI+XL);
-  }
-
-  function atomicFormula(counts){
-    const atoms = {C:0, H:0, N:0, O:0, S:0, Se:0};
-    // Add water for termini (H- ... -OH) => H2 O
-    atoms.H += 2; atoms.O += 1;
-    for(const aa in counts){
-      const n = counts[aa] || 0;
-      const def = AA.atoms[aa];
-      if(def && n > 0){
-        for(const el in def) atoms[el] = (atoms[el]||0) + def[el]*n;
-      }
-    }
-    // Standard Hill system order often C H N O S
-    const order = ['C', 'H', 'N', 'O', 'S', 'Se'];
-    return order.map(el => atoms[el] > 0 ? `${el}${atoms[el]}` : '').join('');
-  }
-
-  function estimatedHalfLife(seq, organism){
-    if(!seq.length) return "Unknown";
-    const n = seq[0];
-    const table = DEFS.HALF_LIFE[organism];
-    if(table && table[n]) return table[n];
-    return "Unknown";
-  }
-
-  /* --- Per Residue Arrays --- */
   function fractionalCharge(res, pH){
     const s = AA.pKa_side;
     switch(res){
@@ -554,10 +655,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   els.pHslider.addEventListener('input', ()=>syncPHInputs('slider'));
   els.pH.addEventListener('change', ()=>syncPHInputs('box'));
 
-  [
-    els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys,
-    els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg
-  ].forEach(c=>{
+  [els.optHydro, els.optCharge, els.optCys, els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr].forEach(c=>{
     c.addEventListener('change', ()=> { refreshAllCards(); });
   });
 
@@ -591,12 +689,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const spSegs = signalPeptideCandidates(s);
     const motifSegs = scanFeatures(s);
     const allFeats = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
-
-    // New metrics
-    const aliIdx = aliphaticIndex(c, L);
-    const atomForm = atomicFormula(c);
-    const hLife = estimatedHalfLife(s, els.halfLifeOrg.value);
-
     return {
       id: ++resultCounter,
       header: item.header,
@@ -606,9 +698,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       pI: isoelectricPoint(c),
       chargeAtPH: netCharge(c, Number(els.pH.value)),
       gravy: gravy(s),
-      aliphaticIndex: aliIdx,
-      atomicFormula: atomForm,
-      halfLife: hLife,
       extinction: extinctionCoefficients(c, mw),
       instability: instabilityIndex(s),
       features: allFeats,
@@ -616,7 +705,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     };
   }
 
-  /* ===== Cards & layout ===== */
+  /* ===== Cards & layout (map full width + modal) ===== */
   function showErrorCard(title, msg){
     els.results.insertAdjacentHTML('beforeend',
       `<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl"><h3 class="font-semibold">${title}</h3><div class="text-sm mt-1">${msg}</div></div>`);
@@ -675,22 +764,22 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
             </div>
           </div>
 
-          <!-- Quick facts + A280 -->
+          <!-- BELOW THE MAP: order required -->
+          <!-- 1) Quick facts + A280 helper -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
               <div class="grid grid-cols-2 gap-y-1 text-xs">
                 <div><strong>Theoretical pI:</strong> <span class="mono">${obj.pI.toFixed(2)}</span></div>
                 <div><strong>Net charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono">${obj.chargeAtPH.toFixed(2)}</span></div>
-                <div><strong>Aliphatic Index:</strong> <span class="mono">${obj.aliphaticIndex.toFixed(2)}</span></div>
-                <div><strong>GRAVY:</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></div>
-                <div class="col-span-2"><strong>Instability:</strong> <span class="mono">${obj.instability.toFixed(2)}</span> ${stabilityText}</div>
-                <div class="col-span-2"><strong>Formula:</strong> <span class="mono text-[10px] break-all">${obj.atomicFormula}</span></div>
-                <div class="col-span-2"><strong>Est. Half-life (${els.halfLifeOrg.value}):</strong> <span class="mono">${obj.halfLife}</span></div>
+                <div><strong>GRAVY (KD):</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></div>
+                <div><strong>Instability:</strong> <span class="mono">${obj.instability.toFixed(2)}</span> ${stabilityText}</div>
               </div>
               <div class="mt-2 pt-2 border-t text-xs">
                 <div class="grid grid-cols-[170px,1fr] gap-y-1 items-center">
                   <div class="text-gray-500">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono">${obj.extinction.reduced}</div>
                   <div class="text-gray-500">ε<sub>280</sub> (+cystines)</div><div class="mono">${obj.extinction.cystines}</div>
+                  <div class="text-gray-500">A<sub>280</sub> @ 1 mg/mL, 1 cm (reduced)</div><div class="mono">${obj.extinction.A1mgml_reduced.toFixed(3)}</div>
+                  <div class="text-gray-500">A<sub>280</sub> @ 1 mg/mL, 1 cm (+cystines)</div><div class="mono">${obj.extinction.A1mgml_cystines.toFixed(3)}</div>
                 </div>
               </div>
             </div>
@@ -725,51 +814,17 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                 </div>
               </div>
               <div class="flex items-center gap-2 mt-2">
-                <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute</button>
-                <div class="text-xs text-gray-700 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div>
+                <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute from A</button>
+                <span class="text-xs text-gray-700">MW = <span class="mono">${obj.molecularWeight.toFixed(2)}</span> Da</span>
               </div>
+              <div class="text-xs text-gray-700 flex items-end mt-1"><span data-a280-out="${obj.id}"></span></div>
             </div>
           </div>
 
-          <!-- Lab Helpers Section -->
-          <div class="mt-4">
-             <details class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm">
-                <summary class="cursor-pointer font-semibold text-indigo-900">Lab Tools: Digestion & Mass Spec</summary>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
-
-                   <!-- Digestion -->
-                   <div>
-                     <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">In Silico Digestion</h5>
-                     <div class="flex flex-wrap gap-2 mb-2" id="digest-checks-${obj.id}">
-                        <!-- Checkboxes injected by JS -->
-                     </div>
-                     <button class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700" data-action="digest" data-id="${obj.id}">Digest</button>
-                     <div class="mt-2 max-h-60 overflow-y-auto border rounded bg-white">
-                        <table class="lab-table" id="digest-table-${obj.id}">
-                           <thead><tr><th>Start</th><th>End</th><th>Seq</th><th>MW</th><th>pI</th></tr></thead>
-                           <tbody><tr><td colspan="5" class="text-gray-400 text-center py-2">Select protease and click Digest</td></tr></tbody>
-                        </table>
-                     </div>
-                   </div>
-
-                   <!-- Charge Ladder -->
-                   <div>
-                     <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">ESI Charge State Ladder</h5>
-                     <div class="max-h-60 overflow-y-auto border rounded bg-white">
-                        <table class="lab-table">
-                           <thead><tr><th>z</th><th>m/z (M+zH)<sup>z+</sup></th></tr></thead>
-                           <tbody id="charge-table-${obj.id}"></tbody>
-                        </table>
-                     </div>
-                   </div>
-                </div>
-             </details>
-          </div>
-
-          <!-- Graphs -->
+          <!-- 2) Graphs -->
           <div id="plots-${obj.id}" class="mt-4 ${plotsVisible ? '' : 'hidden'}"></div>
 
-          <!-- Stats & Features -->
+          <!-- 3) Residue stats + Domain/PTM list -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
               <details class="text-sm font-medium" open>
@@ -798,83 +853,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     wireA280Helper(obj);
     wirePerCardExports(obj);
     wireMapClickForModal(obj, byLane);
-    wireLabTools(obj);
-  }
-
-  /* ===== Lab Tools Wiring ===== */
-  function wireLabTools(obj){
-    // Digestion
-    const checksContainer = document.getElementById(`digest-checks-${obj.id}`);
-    DEFS.PROTEASES.forEach(p => {
-       const lbl = document.createElement('label');
-       lbl.className = "flex items-center gap-1 text-xs bg-white border rounded px-2 py-1 cursor-pointer hover:bg-gray-50";
-       lbl.innerHTML = `<input type="checkbox" value="${p.name}" class="rounded text-indigo-600 focus:ring-indigo-500"> ${p.name}`;
-       checksContainer.appendChild(lbl);
-    });
-
-    const digestBtn = document.querySelector(`button[data-action="digest"][data-id="${obj.id}"]`);
-    digestBtn.addEventListener('click', () => {
-        const selected = Array.from(checksContainer.querySelectorAll('input:checked')).map(cb=>cb.value);
-        if(!selected.length){ alert("Select at least one protease."); return; }
-
-        const tableBody = document.getElementById(`digest-table-${obj.id}`).querySelector('tbody');
-        tableBody.innerHTML = '';
-
-        let allPeptides = [];
-
-        // Simple logic: If multiple proteases selected, digest with first, then next?
-        // Or "Mixture" implies simultaneous action?
-        // Simultaneous action is approximated by combining cleavage sites.
-
-        // Find all cut sites
-        const cutSites = new Set([0, obj.length]);
-        selected.forEach(pName => {
-            const rule = DEFS.PROTEASES.find(x => x.name === pName);
-            if(rule){
-                const re = new RegExp(rule.regex);
-                let m;
-                while ((m = re.exec(obj.seq)) !== null) {
-                    // Check exclusion (noCut) - simplified regex handles lookahead for noCut usually
-                    // My definitions use lookahead for exclusion, so match index + length is the cut site
-                    cutSites.add(m.index + m[0].length);
-                }
-            }
-        });
-        const sortedSites = Array.from(cutSites).sort((a,b)=>a-b);
-
-        for(let i=0; i<sortedSites.length-1; i++){
-            const start = sortedSites[i];
-            const end = sortedSites[i+1];
-            const seq = obj.seq.slice(start, end);
-            const counts = countAA(seq);
-            const mw = molecularWeight(counts);
-            const pI = isoelectricPoint(counts);
-            allPeptides.push({ start: start+1, end: end, seq, mw, pI });
-        }
-
-        if(!allPeptides.length){ tableBody.innerHTML = '<tr><td colspan="5">No peptides generated.</td></tr>'; return; }
-
-        allPeptides.forEach(p => {
-            const row = `<tr>
-              <td class="mono text-xs">${p.start}</td>
-              <td class="mono text-xs">${p.end}</td>
-              <td class="mono text-xs max-w-[150px] truncate" title="${p.seq}">${p.seq}</td>
-              <td class="mono text-xs">${p.mw.toFixed(2)}</td>
-              <td class="mono text-xs">${p.pI.toFixed(2)}</td>
-            </tr>`;
-            tableBody.insertAdjacentHTML('beforeend', row);
-        });
-    });
-
-    // Charge Ladder
-    const chargeBody = document.getElementById(`charge-table-${obj.id}`);
-    let rows = '';
-    const mw = obj.molecularWeight;
-    for(let z=1; z<=30; z++){
-        const mz = (mw + z * 1.007276) / z;
-        rows += `<tr><td class="mono font-semibold">+${z}</td><td class="mono">${mz.toFixed(2)}</td></tr>`;
-    }
-    chargeBody.innerHTML = rows;
   }
 
   /* ===== Map rendering (inline) ===== */
@@ -1066,7 +1044,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     }
     return out;
   }
-
   function drawLinePlot(container, data, yMin, yMax, title, yLabel){
     const parent = document.getElementById(container);
     const wrap = document.createElement('div'); wrap.className = 'mini-chart-container';
@@ -1095,26 +1072,11 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
         text.setAttribute('x', 2); text.setAttribute('y', y+3); text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280'); text.textContent = yVal.toFixed(1); s.appendChild(text);
       }
-
-      if(Array.isArray(data[0])){
-          // Multi-line (e.g. Helix vs Sheet)
-          const colors = ['#2563eb', '#dc2626']; // Blue, Red
-          data.forEach((series, idx) => {
-             const pts = series.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
-             const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline');
-             pl.setAttribute('fill','none'); pl.setAttribute('stroke', colors[idx % colors.length]);
-             pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts);
-             s.appendChild(pl);
-          });
-      } else {
-          // Single line
-          const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
-          const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts);
-          s.appendChild(pl);
-      }
-
+      const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
+      const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts);
+      s.appendChild(pl);
       for(let i=0;i<=10;i++){
-        const idx = Math.round(i*(data.length || data[0].length-1)/10); const x = xScale(idx);
+        const idx = Math.round(i*(data.length-1)/10); const x = xScale(idx);
         const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1', x); l.setAttribute('x2', x); l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4); l.setAttribute('stroke','#9ca3af'); s.appendChild(l);
         if(i%2===0 && idx>0){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x', x); t.setAttribute('y', H-2); t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10'); t.setAttribute('fill','#6b7280'); t.textContent = idx+1; s.appendChild(t); }
       }
@@ -1123,17 +1085,9 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const rect = s.getBoundingClientRect(); const x = e.clientX - rect.left;
       if(x < 40 || x > rect.width - 10){ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; return; }
       hoverLine.setAttribute('x1', x); hoverLine.setAttribute('x2', x); hoverLine.setAttribute('y1', 10); hoverLine.setAttribute('y2', 150 - 20); hoverLine.style.visibility='visible';
-
-      const len = Array.isArray(data[0]) ? data[0].length : data.length;
-      const pos = Math.round((x - 40) / ((rect.width-40-10)/Math.max(1,len-1)));
-      if(pos>=0 && pos<len){
-        let valStr = '';
-        if(Array.isArray(data[0])){
-             valStr = data.map((d,i) => `<span style="color:${i===0?'blue':'red'}">${isFinite(d[pos]) ? d[pos].toFixed(2) : 'NaN'}</span>`).join(' vs ');
-        } else {
-             valStr = isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN';
-        }
-        els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${valStr}`;
+      const pos = Math.round((x - 40) / ((rect.width-40-10)/Math.max(1,data.length-1)));
+      if(pos>=0 && pos<data.length){
+        els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN'}`;
         els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - els.tooltip.offsetHeight - 5}px`;
       }
     });
@@ -1179,15 +1133,10 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   }
   function refreshAllCards(){
     currentResults = currentResults.map(o => {
-      // Re-calculate features sensitive to window size
       const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value));
       const spSegs = signalPeptideCandidates(o.seq);
       const motifSegs = scanFeatures(o.seq);
-      o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
-
-      // Re-calc half-life if organism changed
-      o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value);
-
+      o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);   /* FIXED: spread arrays correctly */
       return o;
     });
     currentResults.forEach(o => {
@@ -1206,8 +1155,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const contId = `plots-${obj.id}`;
     const cont = document.getElementById(contId); if(!cont) return;
     cont.innerHTML = "";
-
-    // 1. Hydrophobicity
     if(els.optHydro.checked){
       const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
       const w = parseInt(els.hydroWindow.value,10);
@@ -1215,8 +1162,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
       drawLinePlot(holder.id, smoothed, -4.5, 4.5, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
     }
-
-    // 2. Charge
     if(els.optCharge.checked){
       const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
       const w = parseInt(els.chargeWindow.value,10);
@@ -1224,85 +1169,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder);
       drawLinePlot(holder.id, smooth, -1.2, 1.2, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
     }
-
-    // 3. Disorder (FoldIndex-like)
-    // Score = 2.785 * H_norm - |Q_net| - 1.151.
-    // H_norm = (KD + 4.5)/9. Q_net is avg net charge per residue in window.
-    if(els.optDisorder.checked){
-      const win = 15; // standard FoldIndex window is often large, but 15-20 works for local
-      const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 ); // Normalized Hydro
-      // For Q, FoldIndex uses absolute net charge.
-      const qArr = perResidueChargeArray(obj.seq, 7.0); // FoldIndex usually pH 7
-      const score = [];
-      const half = Math.floor(win/2);
-      for(let i=0; i<obj.length; i++){
-          let sumH=0, sumQ=0, n=0;
-          for(let k=i-half; k<=i+half; k++){
-              if(k>=0 && k<obj.length){
-                  sumH += hRaw[k];
-                  sumQ += qArr[k];
-                  n++;
-              }
-          }
-          if(n>0){
-              const meanH = sumH/n;
-              const meanQ = Math.abs(sumQ/n); // Absolute Mean Net Charge
-              // Formula: 2.785 * <H> - |<R>| - 1.151. (Positive = Folded, Negative = Disordered)
-              // But standard plots often show "Disorder Propensity". Negative score = Disorder.
-              // Let's plot the Score directly. Negative values => Disorder.
-              score.push( 2.785*meanH - meanQ - 1.151 );
-          } else score.push(0);
-      }
-      const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder);
-      drawLinePlot(holder.id, score, -1.0, 1.0, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score');
-    }
-
-    // 4. Secondary Structure (Chou-Fasman)
-    if(els.optSecStruct.checked){
-      const def = DEFS.CHOU_FASMAN;
-      if(def){
-          const pH = [], pE = [];
-          for(const aa of obj.seq){
-              const val = def[aa] || {H:100, E:100};
-              pH.push(val.H);
-              pE.push(val.E);
-          }
-          const w = 5; // smooth slightly
-          const sH = movingAverage(pH, w);
-          const sE = movingAverage(pE, w);
-          const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder);
-          // Pass array of arrays to drawLinePlot for multi-line
-          drawLinePlot(holder.id, [sH, sE], 50, 150, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity');
-      }
-    }
-
-    // 5. Hydrophobic Moment
-    if(els.optMoment.checked){
-        const angle = 100 * (Math.PI/180); // Alpha helix
-        const win = 11; // Standard for alpha helix moment
-        const moments = [];
-        const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
-        for(let i=0; i<obj.length; i++){
-            if(i + win > obj.length){ moments.push(0); continue; }
-            let sumC=0, sumS=0;
-            for(let k=0; k<win; k++){
-                const h = hRaw[i+k];
-                sumC += h * Math.cos(k * angle);
-                sumS += h * Math.sin(k * angle);
-            }
-            moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win );
-        }
-        // Align to center? The above is left-aligned. Center alignment is better for visuals.
-        // Shift array by win/2
-        const shifted = new Array(obj.length).fill(0);
-        const offset = Math.floor(win/2);
-        for(let i=0; i<moments.length; i++){
-            if(i+offset < shifted.length) shifted[i+offset] = moments[i];
-        }
-        const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder);
-        drawLinePlot(holder.id, shifted, 0, 1.5, 'Hydrophobic Moment (α-helix, 100°)', 'µH');
-    }
-
     if(els.optCys.checked){
       const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder);
       drawCysTrack(holder.id, obj.seq);
@@ -1384,12 +1250,11 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         ['Theoretical_pI', obj.pI.toFixed(3)],
         ['Charge_at_pH_'+Number(els.pH.value).toFixed(1), obj.chargeAtPH.toFixed(3)],
         ['GRAVY_KD', obj.gravy.toFixed(4)],
-        ['Aliphatic_Index', obj.aliphaticIndex.toFixed(2)],
         ['Instability_Index', obj.instability.toFixed(2)],
-        ['Atomic_Formula', obj.atomicFormula],
-        ['Half_Life', obj.halfLife],
         ['E280_reduced', obj.extinction.reduced],
-        ['E280_plus_cystines', obj.extinction.cystines]
+        ['E280_plus_cystines', obj.extinction.cystines],
+        ['A1mgml_reduced', obj.extinction.A1mgml_reduced.toFixed(5)],
+        ['A1mgml_plus_cystines', obj.extinction.A1mgml_cystines.toFixed(5)]
       ];
       const csv = rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
       downloadText(`${sanitizeName(obj.header)}_props.csv`, csv);
@@ -1405,11 +1270,11 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   /* ===== Top-level exports & toggles ===== */
   els.exportAllCsv.addEventListener('click', ()=>{
     if(currentResults.length===0){ alert('No results to export.'); return; }
-    const header = ['Header','Length','MW_Da','pI','Charge_at_pH_'+Number(els.pH.value).toFixed(1),'GRAVY','Aliphatic','Instability','HalfLife','Formula','E280_red','E280_cys'];
+    const header = ['Header','Length','MW_Da','pI','Charge_at_pH_'+Number(els.pH.value).toFixed(1),'GRAVY','Instability','E280_red','E280_cys','A1mgml_red','A1mgml_cys'];
     const rows = currentResults.map(o=>[
       o.header,o.length,o.molecularWeight.toFixed(2),o.pI.toFixed(3),netCharge(o.counts, Number(els.pH.value)).toFixed(3),
-      o.gravy.toFixed(4),o.aliphaticIndex.toFixed(2),o.instability.toFixed(2),o.halfLife,o.atomicFormula,
-      o.extinction.reduced,o.extinction.cystines
+      o.gravy.toFixed(4),o.instability.toFixed(2),o.extinction.reduced,o.extinction.cystines,
+      o.extinction.A1mgml_reduced.toFixed(5),o.extinction.A1mgml_cystines.toFixed(5)
     ]);
     const csv = [header, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
     downloadText('protein_workbench_summary.csv', csv);
