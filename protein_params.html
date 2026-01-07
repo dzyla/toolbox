@@ -1046,16 +1046,35 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   }
 
   /* ===== Plots ===== */
-  function movingAverage(arr,w){
+  function slidingWindowAvg(arr,w){
     if(w<=1) return arr.slice();
-    const half = Math.floor(w/2);
     const out = new Array(arr.length).fill(0);
+    const halfBack = Math.floor((w - 1) / 2);
+    const halfFwd = Math.ceil((w - 1) / 2);
     for(let i=0;i<arr.length;i++){
       let s=0, n=0;
-      for(let k=i-half;k<=i+half;k++){ if(k>=0 && k<arr.length){ s+=arr[k]; n++; } }
+      for(let k=i-halfBack;k<=i+halfFwd;k++){ if(k>=0 && k<arr.length){ s+=arr[k]; n++; } }
       out[i] = n ? s/n : 0;
     }
     return out;
+  }
+
+  function getExtremes(arrays) {
+    let min = Infinity, max = -Infinity;
+    arrays.forEach(arr => {
+        for(const v of arr) {
+            if(isFinite(v)) {
+                if(v < min) min = v;
+                if(v > max) max = v;
+            }
+        }
+    });
+    if(!isFinite(min)) min = 0;
+    if(!isFinite(max)) max = 1;
+    const range = max - min;
+    // Add 5% padding
+    if(range === 0) return { min: min - 0.5, max: max + 0.5 };
+    return { min: min - range * 0.05, max: max + range * 0.05 };
   }
   
   function drawLinePlot(container, data, yMin, yMax, title, yLabel){
@@ -1071,7 +1090,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const hoverLine = document.createElementNS('http://www.w3.org/2000/svg','line');
     hoverLine.setAttribute('class','hover-line'); hoverLine.style.visibility='hidden'; s.appendChild(hoverLine);
 
-    function xScale(x){ return leftPad + (x * (W-leftPad-rightPad)) / Math.max(1, data.length-1); }
+    function xScale(x){ return leftPad + (x * (W-leftPad-rightPad)) / Math.max(1, (Array.isArray(data[0]) ? data[0].length : data.length)-1); }
     function yScale(y){ return topPad + (H-topPad-botPad) * (1 - (y - yMin) / (yMax - yMin)); }
 
     function render(){
@@ -1202,18 +1221,22 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     if(els.optHydro.checked){
       const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
       const w = parseInt(els.hydroWindow.value,10);
-      const smoothed = movingAverage(raw, w);
+      const smoothed = slidingWindowAvg(raw, w);
+      const range = getExtremes([smoothed]);
       const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
-      drawLinePlot(holder.id, smoothed, -4.5, 4.5, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
+      // Fallback to standard range (-4.5, 4.5) if data is within it, or expand if outside?
+      // User requested "scale properly". Dynamic is safest.
+      drawLinePlot(holder.id, smoothed, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
     }
     
     // 2. Charge
     if(els.optCharge.checked){
       const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
       const w = parseInt(els.chargeWindow.value,10);
-      const smooth = movingAverage(arr, w);
+      const smooth = slidingWindowAvg(arr, w);
+      const range = getExtremes([smooth]);
       const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder);
-      drawLinePlot(holder.id, smooth, -1.2, 1.2, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
+      drawLinePlot(holder.id, smooth, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
     }
 
     // 3. Disorder (FoldIndex-like)
@@ -1239,13 +1262,12 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
               const meanH = sumH/n;
               const meanQ = Math.abs(sumQ/n); // Absolute Mean Net Charge
               // Formula: 2.785 * <H> - |<R>| - 1.151. (Positive = Folded, Negative = Disordered)
-              // But standard plots often show "Disorder Propensity". Negative score = Disorder.
-              // Let's plot the Score directly. Negative values => Disorder.
               score.push( 2.785*meanH - meanQ - 1.151 );
           } else score.push(0);
       }
+      const range = getExtremes([score]);
       const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder);
-      drawLinePlot(holder.id, score, -1.0, 1.0, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score');
+      drawLinePlot(holder.id, score, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score');
     }
 
     // 4. Secondary Structure (Chou-Fasman)
@@ -1258,12 +1280,14 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
               pH.push(val.H);
               pE.push(val.E);
           }
-          const w = 5; // smooth slightly
-          const sH = movingAverage(pH, w);
-          const sE = movingAverage(pE, w);
+          // Strategy update: Use window sizes closer to nucleation (6 for Helix, 5 for Sheet)
+          const sH = slidingWindowAvg(pH, 6);
+          const sE = slidingWindowAvg(pE, 5);
+          const range = getExtremes([sH, sE]);
+
           const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder);
           // Pass array of arrays to drawLinePlot for multi-line
-          drawLinePlot(holder.id, [sH, sE], 50, 150, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity');
+          drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity');
       }
     }
 
@@ -1290,8 +1314,9 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         for(let i=0; i<moments.length; i++){
             if(i+offset < shifted.length) shifted[i+offset] = moments[i];
         }
+        const range = getExtremes([shifted]);
         const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder);
-        drawLinePlot(holder.id, shifted, 0, 1.5, 'Hydrophobic Moment (α-helix, 100°)', 'µH');
+        drawLinePlot(holder.id, shifted, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH');
     }
 
     if(els.optCys.checked){
