@@ -147,7 +147,16 @@
         <label class="block text-sm font-medium text-gray-700 mb-1">Or upload a FASTA file</label>
         <input type="file" id="file_input" accept=".fasta,.fa,.faa,.fna"
           class="w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
-        <p class="text-xs text-gray-500 mt-1">We ignore whitespace, numbers, hyphens, and common separators.</p>
+
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">User Defined Domains (CSV)</label>
+          <div class="flex items-center gap-2">
+             <input type="file" id="user_domains_csv" accept=".csv"
+              class="w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+             <button id="show_csv_example" class="text-xs text-indigo-600 hover:underline shrink-0">Show example</button>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Upload a CSV with <code>Name,Sequence</code> to mark custom regions.</p>
+        </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
@@ -270,6 +279,8 @@ window.initProteinWorkbench = function(){
   const els = {
     fasta: document.getElementById('fasta_input'),
     file: document.getElementById('file_input'),
+    userDomainsCsv: document.getElementById('user_domains_csv'),
+    showCsvExample: document.getElementById('show_csv_example'),
     analyze: document.getElementById('analyze_button'),
     clear: document.getElementById('clear_button'),
     results: document.getElementById('results_section'),
@@ -305,6 +316,7 @@ window.initProteinWorkbench = function(){
   let resultCounter=0, currentResults=[];
   let plotsVisible=true;
   let modalState = { svg: null, zoom: null };
+  let userDomains = []; // [{name, seq}]
 
   /* ===== FASTA parsing & sanitization ===== */
   function parseFastaFlexible(text){
@@ -507,6 +519,18 @@ window.initProteinWorkbench = function(){
         if (len === 0) re.lastIndex++;
       }
     }
+    // User Defined Domains
+    if(userDomains && userDomains.length > 0) {
+        userDomains.forEach(ud => {
+            if(!ud.seq) return;
+            let idx = seq.indexOf(ud.seq);
+            while(idx !== -1) {
+                feats.push({ start: idx, end: idx + ud.seq.length - 1, name: ud.name, category: "User Domains", color: "#6366f1", match: ud.seq, note: "User defined" });
+                idx = seq.indexOf(ud.seq, idx + 1);
+            }
+        });
+    }
+
     return feats;
   }
 
@@ -527,6 +551,36 @@ window.initProteinWorkbench = function(){
     const r=new FileReader();
     r.onload=ev=>{ els.fasta.value=ev.target.result; };
     r.readAsText(f);
+  });
+
+  // User Domains CSV
+  els.userDomainsCsv.addEventListener('change', e => {
+     const f = e.target.files[0];
+     if(!f) return;
+     const r = new FileReader();
+     r.onload = ev => {
+         const txt = ev.target.result;
+         const lines = txt.split(/\r?\n/);
+         userDomains = [];
+         let count = 0;
+         lines.forEach(line => {
+             const parts = line.split(',');
+             if(parts.length >= 2) {
+                 const name = parts[0].trim();
+                 const seq = parts[1].trim().toUpperCase().replace(/[^A-Z]/g, '');
+                 if(name && seq) {
+                     userDomains.push({name, seq});
+                     count++;
+                 }
+             }
+         });
+         if(count > 0) alert(`Loaded ${count} user domains.`);
+     };
+     r.readAsText(f);
+  });
+
+  els.showCsvExample.addEventListener('click', () => {
+      alert("CSV Format Example:\n\nMyDomain,ACDEFGH\nActiveSite,YGGFL\n\nNo header row required. First column is name, second is sequence.");
   });
 
   els.loadExample.addEventListener('click', ()=>{
@@ -672,6 +726,25 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
             </div>
           </div>
 
+          <!-- Stats & Features (Topology) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
+            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
+              <details class="text-sm font-medium" open>
+                <summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary>
+                <div class="h-28 overflow-y-auto mt-1 border-t pt-1">
+                  <table class="w-full text-xs">
+                    <thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead>
+                    <tbody>${statsRows}</tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+
+            <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">
+              ${buildFeatureListHTML(byLane)}
+            </div>
+          </div>
+
           <!-- Quick facts + A280 -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
@@ -740,7 +813,10 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                      <div class="flex flex-wrap gap-2 mb-2" id="digest-checks-${obj.id}">
                         <!-- Checkboxes injected by JS -->
                      </div>
-                     <button class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700" data-action="digest" data-id="${obj.id}">Digest</button>
+                     <div class="flex gap-2">
+                       <button class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700" data-action="digest" data-id="${obj.id}">Digest</button>
+                       <button class="text-xs bg-white border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded hover:bg-indigo-50" data-action="export-peptides" data-id="${obj.id}">Export CSV</button>
+                     </div>
                      <div class="mt-2 max-h-60 overflow-y-auto border rounded bg-white">
                         <table class="lab-table" id="digest-table-${obj.id}">
                            <thead><tr><th>Start</th><th>End</th><th>Seq</th><th>MW</th><th>pI</th></tr></thead>
@@ -768,26 +844,11 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
           </div>
 
           <!-- Graphs -->
-          <div id="plots-${obj.id}" class="mt-4 ${plotsVisible ? '' : 'hidden'}"></div>
+          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}>
+              <summary class="cursor-pointer font-semibold text-gray-800 mb-2">Plots & Analysis</summary>
+              <div id="plots-${obj.id}"></div>
+          </details>
 
-          <!-- Stats & Features -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
-            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
-              <details class="text-sm font-medium" open>
-                <summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary>
-                <div class="h-28 overflow-y-auto mt-1 border-t pt-1">
-                  <table class="w-full text-xs">
-                    <thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead>
-                    <tbody>${statsRows}</tbody>
-                  </table>
-                </div>
-              </details>
-            </div>
-
-            <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">
-              ${buildFeatureListHTML(byLane)}
-            </div>
-          </div>
         </div>
       </div>
     `;
@@ -813,15 +874,9 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
        checksContainer.appendChild(lbl);
     });
 
-    const digestBtn = document.querySelector(`button[data-action="digest"][data-id="${obj.id}"]`);
-    digestBtn.addEventListener('click', () => {
+    const getPeptides = () => {
         const selected = Array.from(checksContainer.querySelectorAll('input:checked')).map(cb=>cb.value);
-        if(!selected.length){ alert("Select at least one protease."); return; }
-        
-        const tableBody = document.getElementById(`digest-table-${obj.id}`).querySelector('tbody');
-        tableBody.innerHTML = '';
-
-        let allPeptides = [];
+        if(!selected.length){ return { error: "Select at least one protease." }; }
         
         // Find all cut sites
         const cutSites = new Set([0, obj.length]);
@@ -837,7 +892,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
             }
         });
         const sortedSites = Array.from(cutSites).sort((a,b)=>a-b);
-        
+        const peptides = [];
         for(let i=0; i<sortedSites.length-1; i++){
             const start = sortedSites[i];
             const end = sortedSites[i+1];
@@ -845,12 +900,21 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
             const counts = countAA(seq);
             const mw = molecularWeight(counts);
             const pI = isoelectricPoint(counts);
-            allPeptides.push({ start: start+1, end: end, seq, mw, pI });
+            peptides.push({ start: start+1, end: end, seq, mw, pI });
         }
+        return { peptides, selected };
+    };
 
-        if(!allPeptides.length){ tableBody.innerHTML = '<tr><td colspan="5">No peptides generated.</td></tr>'; return; }
+    const digestBtn = document.querySelector(`button[data-action="digest"][data-id="${obj.id}"]`);
+    digestBtn.addEventListener('click', () => {
+        const res = getPeptides();
+        if(res.error) { alert(res.error); return; }
 
-        allPeptides.forEach(p => {
+        const tableBody = document.getElementById(`digest-table-${obj.id}`).querySelector('tbody');
+        tableBody.innerHTML = '';
+        if(!res.peptides.length){ tableBody.innerHTML = '<tr><td colspan="5">No peptides generated.</td></tr>'; return; }
+
+        res.peptides.forEach(p => {
             const row = `<tr>
               <td class="mono text-xs">${p.start}</td>
               <td class="mono text-xs">${p.end}</td>
@@ -860,6 +924,26 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
             </tr>`;
             tableBody.insertAdjacentHTML('beforeend', row);
         });
+    });
+
+    const exportBtn = document.querySelector(`button[data-action="export-peptides"][data-id="${obj.id}"]`);
+    exportBtn.addEventListener('click', () => {
+        const res = getPeptides();
+        if(res.error) { alert(res.error); return; }
+
+        const headerLines = [
+            `Protein: ${obj.header}`,
+            `Proteases: ${res.selected.join(' + ')}`,
+            `Length: ${obj.length}`,
+            ``,
+            `Start,End,Sequence,MW,pI`
+        ].join('\n');
+
+        const rows = res.peptides.map(p =>
+            `${p.start},${p.end},"${p.seq}",${p.mw.toFixed(2)},${p.pI.toFixed(2)}`
+        ).join('\n');
+
+        downloadText(`${sanitizeName(obj.header)}_peptides.csv`, headerLines + '\n' + rows);
     });
 
     // Charge Ladder (initial)
@@ -875,14 +959,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     if(label) caption.textContent = `${label} (MW: ${mw.toFixed(2)})`;
     
     // Heuristic: Max charge roughly #Basic residues + N-term
-    // Limit to reasonable range (e.g. 50)
-    let basicCount = 1; // N-term
-    for(const c of seq){ if(c==='K'||c==='R'||c==='H') basicCount++; }
-    
-    // For small peptides, basicCount is accurate max. For large proteins, it can be higher due to unfolded state.
-    // Let's cap at basicCount for small, but allow more for large?
-    // Actually, basic sites are the main protonation sites in ESI.
-    // However, we want to be safe.
+    const basicCount = 1 + Array.from(seq).filter(c => 'KRH'.includes(c)).length;
     const maxZ = Math.min(60, Math.max(3, basicCount)); 
 
     let rows = '';
@@ -1204,6 +1281,88 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     render(); new ResizeObserver(()=>render()).observe(parent);
   }
 
+  /* --- 2D Scatter Plot --- */
+  function drawScatterPlot(container, dataX, dataY, nameX, nameY) {
+      const parent = document.getElementById(container);
+      parent.innerHTML = '';
+
+      const W = 500, H = 400;
+      const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.style.maxWidth = '100%';
+      svg.style.height = 'auto';
+      svg.style.border = '1px solid #e5e7eb';
+      svg.style.backgroundColor = '#fff';
+      parent.appendChild(svg);
+
+      const extX = getExtremes([dataX]);
+      const extY = getExtremes([dataY]);
+
+      const xScale = v => margin.left + (v - extX.min) / (extX.max - extX.min) * (W - margin.left - margin.right);
+      const yScale = v => H - margin.bottom - (v - extY.min) / (extY.max - extY.min) * (H - margin.top - margin.bottom);
+
+      // Axes
+      const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      xAxis.setAttribute('x1', margin.left); xAxis.setAttribute('x2', W - margin.right);
+      xAxis.setAttribute('y1', H - margin.bottom); xAxis.setAttribute('y2', H - margin.bottom);
+      xAxis.setAttribute('stroke', '#000');
+      svg.appendChild(xAxis);
+
+      const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      yAxis.setAttribute('x1', margin.left); xAxis.setAttribute('x2', margin.left);
+      yAxis.setAttribute('y1', margin.top); xAxis.setAttribute('y2', H - margin.bottom);
+      yAxis.setAttribute('stroke', '#000');
+      svg.appendChild(yAxis);
+
+      // Labels
+      const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      xLabel.setAttribute('x', W / 2); xLabel.setAttribute('y', H - 5);
+      xLabel.setAttribute('text-anchor', 'middle'); xLabel.setAttribute('font-size', '12');
+      xLabel.textContent = nameX;
+      svg.appendChild(xLabel);
+
+      const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      yLabel.setAttribute('transform', `translate(15, ${H/2}) rotate(-90)`);
+      yLabel.setAttribute('text-anchor', 'middle'); yLabel.setAttribute('font-size', '12');
+      yLabel.textContent = nameY;
+      svg.appendChild(yLabel);
+
+      // Points
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      svg.appendChild(g);
+
+      // Color scale based on position (rainbow)
+      const colorAt = i => `hsl(${Math.round(i / dataX.length * 360)}, 70%, 50%)`;
+
+      for(let i=0; i<dataX.length; i++){
+          const cx = xScale(dataX[i]);
+          const cy = yScale(dataY[i]);
+          const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+          c.setAttribute('r', 3);
+          c.setAttribute('fill', colorAt(i));
+          c.setAttribute('opacity', '0.6');
+
+          c.addEventListener('mouseenter', e => {
+             c.setAttribute('r', 6); c.setAttribute('opacity', '1');
+             els.tooltip.style.visibility='visible';
+             els.tooltip.innerHTML = `<strong>Pos ${i+1}</strong><br>${nameX}: ${dataX[i].toFixed(2)}<br>${nameY}: ${dataY[i].toFixed(2)}`;
+             els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`;
+          });
+          c.addEventListener('mousemove', e => {
+             els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`;
+          });
+          c.addEventListener('mouseleave', e => {
+             c.setAttribute('r', 3); c.setAttribute('opacity', '0.6');
+             els.tooltip.style.visibility='hidden';
+          });
+
+          g.appendChild(c);
+      }
+  }
+
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
   function refreshCharges(){
     currentResults.forEach(o=>{
@@ -1239,6 +1398,70 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     });
   }
 
+  // Data Getter for Plots
+  function getPlotArray(obj, type) {
+      if(type === 'hydro') {
+          const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
+          return slidingWindowAvg(raw, parseInt(els.hydroWindow.value, 10));
+      }
+      if(type === 'charge') {
+          const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
+          return slidingWindowAvg(arr, parseInt(els.chargeWindow.value, 10));
+      }
+      if(type === 'disorder') {
+          const win = 15;
+          const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 );
+          const qArr = perResidueChargeArray(obj.seq, 7.0);
+          const score = [];
+          const half = Math.floor(win/2);
+          for(let i=0; i<obj.length; i++){
+              let sumH=0, sumQ=0, n=0;
+              for(let k=i-half; k<=i+half; k++){
+                  if(k>=0 && k<obj.length){ sumH += hRaw[k]; sumQ += qArr[k]; n++; }
+              }
+              if(n>0) score.push( 2.785*(sumH/n) - Math.abs(sumQ/n) - 1.151 ); else score.push(0);
+          }
+          return score;
+      }
+      if(type === 'moment') {
+          const angle = 100 * (Math.PI/180);
+          const win = 11;
+          const moments = [];
+          const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
+          for(let i=0; i<obj.length; i++){
+              if(i + win > obj.length){ moments.push(0); continue; }
+              let sumC=0, sumS=0;
+              for(let k=0; k<win; k++){
+                  const h = hRaw[i+k];
+                  sumC += h * Math.cos(k * angle);
+                  sumS += h * Math.sin(k * angle);
+              }
+              moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win );
+          }
+          const shifted = new Array(obj.length).fill(0);
+          const offset = Math.floor(win/2);
+          for(let i=0; i<moments.length; i++){
+              if(i+offset < shifted.length) shifted[i+offset] = moments[i];
+          }
+          return shifted;
+      }
+      if(type === 'helix') {
+         const def = DEFS.CHOU_FASMAN;
+         if(!def) return new Array(obj.length).fill(0);
+         const pH = [];
+         for(const aa of obj.seq) pH.push(def[aa] ? def[aa].H : 100);
+         return slidingWindowAvg(pH, 6);
+      }
+      if(type === 'sheet') {
+         const def = DEFS.CHOU_FASMAN;
+         if(!def) return new Array(obj.length).fill(0);
+         const pE = [];
+         for(const aa of obj.seq) pE.push(def[aa] ? def[aa].E : 100);
+         return slidingWindowAvg(pE, 5);
+      }
+      return new Array(obj.length).fill(0);
+  }
+
   function updatePlotsForCard(obj){
     const contId = `plots-${obj.id}`;
     const cont = document.getElementById(contId); if(!cont) return;
@@ -1246,110 +1469,87 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     
     // 1. Hydrophobicity
     if(els.optHydro.checked){
-      const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
-      const w = parseInt(els.hydroWindow.value,10);
-      const smoothed = slidingWindowAvg(raw, w);
-      const range = getExtremes([smoothed]);
+      const data = getPlotArray(obj, 'hydro');
+      const range = getExtremes([data]);
       const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
-      // Fallback to standard range (-4.5, 4.5) if data is within it, or expand if outside? 
-      // User requested "scale properly". Dynamic is safest.
-      drawLinePlot(holder.id, smoothed, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
+      drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
     }
     
     // 2. Charge
     if(els.optCharge.checked){
-      const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
-      const w = parseInt(els.chargeWindow.value,10);
-      const smooth = slidingWindowAvg(arr, w);
-      const range = getExtremes([smooth]);
+      const data = getPlotArray(obj, 'charge');
+      const range = getExtremes([data]);
       const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder);
-      drawLinePlot(holder.id, smooth, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
+      drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
     }
 
     // 3. Disorder (FoldIndex-like)
-    // Score = 2.785 * H_norm - |Q_net| - 1.151.
-    // H_norm = (KD + 4.5)/9. Q_net is avg net charge per residue in window.
     if(els.optDisorder.checked){
-      const win = 15; // standard FoldIndex window is often large, but 15-20 works for local
-      const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 ); // Normalized Hydro
-      // For Q, FoldIndex uses absolute net charge.
-      const qArr = perResidueChargeArray(obj.seq, 7.0); // FoldIndex usually pH 7
-      const score = [];
-      const half = Math.floor(win/2);
-      for(let i=0; i<obj.length; i++){
-          let sumH=0, sumQ=0, n=0;
-          for(let k=i-half; k<=i+half; k++){
-              if(k>=0 && k<obj.length){
-                  sumH += hRaw[k];
-                  sumQ += qArr[k];
-                  n++;
-              }
-          }
-          if(n>0){
-              const meanH = sumH/n;
-              const meanQ = Math.abs(sumQ/n); // Absolute Mean Net Charge
-              // Formula: 2.785 * <H> - |<R>| - 1.151. (Positive = Folded, Negative = Disordered)
-              score.push( 2.785*meanH - meanQ - 1.151 );
-          } else score.push(0);
-      }
-      const range = getExtremes([score]);
+      const data = getPlotArray(obj, 'disorder');
+      const range = getExtremes([data]);
       const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder);
-      drawLinePlot(holder.id, score, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score');
+      drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score');
     }
 
     // 4. Secondary Structure (Chou-Fasman)
     if(els.optSecStruct.checked){
-      const def = DEFS.CHOU_FASMAN;
-      if(def){
-          const pH = [], pE = [];
-          for(const aa of obj.seq){
-              const val = def[aa] || {H:100, E:100};
-              pH.push(val.H);
-              pE.push(val.E);
-          }
-          // Strategy update: Use window sizes closer to nucleation (6 for Helix, 5 for Sheet)
-          const sH = slidingWindowAvg(pH, 6);
-          const sE = slidingWindowAvg(pE, 5);
-          const range = getExtremes([sH, sE]);
-          
-          const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder);
-          // Pass array of arrays to drawLinePlot for multi-line
-          drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity');
-      }
+      const sH = getPlotArray(obj, 'helix');
+      const sE = getPlotArray(obj, 'sheet');
+      const range = getExtremes([sH, sE]);
+      const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder);
+      drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity');
     }
 
     // 5. Hydrophobic Moment
     if(els.optMoment.checked){
-        const angle = 100 * (Math.PI/180); // Alpha helix
-        const win = 11; // Standard for alpha helix moment
-        const moments = [];
-        const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
-        for(let i=0; i<obj.length; i++){
-            if(i + win > obj.length){ moments.push(0); continue; }
-            let sumC=0, sumS=0;
-            for(let k=0; k<win; k++){
-                const h = hRaw[i+k];
-                sumC += h * Math.cos(k * angle);
-                sumS += h * Math.sin(k * angle);
-            }
-            moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win );
-        }
-        // Align to center? The above is left-aligned. Center alignment is better for visuals.
-        // Shift array by win/2
-        const shifted = new Array(obj.length).fill(0);
-        const offset = Math.floor(win/2);
-        for(let i=0; i<moments.length; i++){
-            if(i+offset < shifted.length) shifted[i+offset] = moments[i];
-        }
-        const range = getExtremes([shifted]);
+        const data = getPlotArray(obj, 'moment');
+        const range = getExtremes([data]);
         const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder);
-        drawLinePlot(holder.id, shifted, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH');
+        drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH');
     }
 
     if(els.optCys.checked){
       const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder);
       drawCysTrack(holder.id, obj.seq);
     }
+
+    // 6. 2D Plotting UI
+    const twoDContainer = document.createElement('div');
+    twoDContainer.className = "mt-6 border-t pt-4";
+    twoDContainer.innerHTML = `
+        <h4 class="font-semibold text-sm mb-2">2D Analysis</h4>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+            <select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white">
+                <option value="hydro" selected>Hydrophobicity</option>
+                <option value="charge">Charge</option>
+                <option value="disorder">Disorder</option>
+                <option value="moment">Hydrophobic Moment</option>
+                <option value="helix">Helix Propensity</option>
+                <option value="sheet">Sheet Propensity</option>
+            </select>
+            <span class="text-gray-500 font-bold">vs</span>
+            <select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white">
+                <option value="hydro">Hydrophobicity</option>
+                <option value="charge" selected>Charge</option>
+                <option value="disorder">Disorder</option>
+                <option value="moment">Hydrophobic Moment</option>
+                <option value="helix">Helix Propensity</option>
+                <option value="sheet">Sheet Propensity</option>
+            </select>
+            <button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button>
+        </div>
+        <div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>
+    `;
+    cont.appendChild(twoDContainer);
+
+    document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => {
+        const xType = document.getElementById(`x-axis-${obj.id}`).value;
+        const yType = document.getElementById(`y-axis-${obj.id}`).value;
+        const xData = getPlotArray(obj, xType);
+        const yData = getPlotArray(obj, yType);
+
+        drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType);
+    });
   }
 
   /* ===== A280 helper (robust) ===== */
@@ -1460,8 +1660,8 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
   els.toggleAllPlots.addEventListener('click', ()=>{
     plotsVisible = !plotsVisible;
     currentResults.forEach(o=>{
-      const cont = document.getElementById(`plots-${o.id}`); if(!cont) return;
-      cont.classList.toggle('hidden', !plotsVisible);
+      const details = document.getElementById(`plots-details-${o.id}`); if(!details) return;
+      details.open = plotsVisible;
     });
   });
   els.expandAll.addEventListener('click', ()=>{
