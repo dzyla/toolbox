@@ -1,9 +1,6 @@
 <!-- Protein Feature Workbench — fullscreen map + zoom, reordered cards, dark-mode aware -->
 <!-- This file works standalone (auto-loads Tailwind + d3 if missing) and inside index.html (uses html.dark). -->
 
-<!-- Load Definitions -->
-<script src="definitions.js"></script>
-
 <!-- Optional dependency loader for standalone use -->
 <script>
 (function ensureDeps(){
@@ -258,11 +255,11 @@
 </div>
 
 <script>
-(function initProteinWorkbench(){
+window.initProteinWorkbench = function(){
   // Load Definitions from global object (or fallback to empty if missing)
   const DEFS = window.PROTEIN_DEFS || {};
   if(!DEFS.AA){ alert("Error: definitions.js not loaded. Some features will be missing."); return; }
-
+  
   const AA = DEFS.AA;
   const DIWV = DEFS.DIWV;
   const TAGS = DEFS.TAGS;
@@ -282,7 +279,7 @@
     tmThr: document.getElementById('tm_thr'),
     loadExample: document.getElementById('load_example'),
     tooltip: document.getElementById('svg-tooltip'),
-
+    
     // Plots & Options
     optHydro: document.getElementById('opt_hydro'),
     optCharge: document.getElementById('opt_charge'),
@@ -291,10 +288,10 @@
     optSecStruct: document.getElementById('opt_secstruct'),
     optCys: document.getElementById('opt_cys'),
     halfLifeOrg: document.getElementById('half_life_org'),
-
+    
     hydroWindow: document.getElementById('hydro_window'),
     chargeWindow: document.getElementById('charge_window'),
-
+    
     exportAllCsv: document.getElementById('export_all_csv'),
     toggleAllPlots: document.getElementById('toggle_all_plots'),
     expandAll: document.getElementById('expand_all'),
@@ -591,7 +588,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const spSegs = signalPeptideCandidates(s);
     const motifSegs = scanFeatures(s);
     const allFeats = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
-
+    
     // New metrics
     const aliIdx = aliphaticIndex(c, L);
     const atomForm = atomicFormula(c);
@@ -736,7 +733,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
              <details class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm">
                 <summary class="cursor-pointer font-semibold text-indigo-900">Lab Tools: Digestion & Mass Spec</summary>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
-
+                   
                    <!-- Digestion -->
                    <div>
                      <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">In Silico Digestion</h5>
@@ -816,16 +813,12 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     digestBtn.addEventListener('click', () => {
         const selected = Array.from(checksContainer.querySelectorAll('input:checked')).map(cb=>cb.value);
         if(!selected.length){ alert("Select at least one protease."); return; }
-
+        
         const tableBody = document.getElementById(`digest-table-${obj.id}`).querySelector('tbody');
         tableBody.innerHTML = '';
 
         let allPeptides = [];
-
-        // Simple logic: If multiple proteases selected, digest with first, then next?
-        // Or "Mixture" implies simultaneous action?
-        // Simultaneous action is approximated by combining cleavage sites.
-
+        
         // Find all cut sites
         const cutSites = new Set([0, obj.length]);
         selected.forEach(pName => {
@@ -834,14 +827,12 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
                 const re = new RegExp(rule.regex);
                 let m;
                 while ((m = re.exec(obj.seq)) !== null) {
-                    // Check exclusion (noCut) - simplified regex handles lookahead for noCut usually
-                    // My definitions use lookahead for exclusion, so match index + length is the cut site
                     cutSites.add(m.index + m[0].length);
                 }
             }
         });
         const sortedSites = Array.from(cutSites).sort((a,b)=>a-b);
-
+        
         for(let i=0; i<sortedSites.length-1; i++){
             const start = sortedSites[i];
             const end = sortedSites[i+1];
@@ -1066,7 +1057,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     }
     return out;
   }
-
+  
   function drawLinePlot(container, data, yMin, yMax, title, yLabel){
     const parent = document.getElementById(container);
     const wrap = document.createElement('div'); wrap.className = 'mini-chart-container';
@@ -1095,7 +1086,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
         text.setAttribute('x', 2); text.setAttribute('y', y+3); text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280'); text.textContent = yVal.toFixed(1); s.appendChild(text);
       }
-
+      
       if(Array.isArray(data[0])){
           // Multi-line (e.g. Helix vs Sheet)
           const colors = ['#2563eb', '#dc2626']; // Blue, Red
@@ -1123,7 +1114,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const rect = s.getBoundingClientRect(); const x = e.clientX - rect.left;
       if(x < 40 || x > rect.width - 10){ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; return; }
       hoverLine.setAttribute('x1', x); hoverLine.setAttribute('x2', x); hoverLine.setAttribute('y1', 10); hoverLine.setAttribute('y2', 150 - 20); hoverLine.style.visibility='visible';
-
+      
       const len = Array.isArray(data[0]) ? data[0].length : data.length;
       const pos = Math.round((x - 40) / ((rect.width-40-10)/Math.max(1,len-1)));
       if(pos>=0 && pos<len){
@@ -1184,10 +1175,10 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const spSegs = signalPeptideCandidates(o.seq);
       const motifSegs = scanFeatures(o.seq);
       o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
-
+      
       // Re-calc half-life if organism changed
       o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value);
-
+      
       return o;
     });
     currentResults.forEach(o => {
@@ -1206,7 +1197,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const contId = `plots-${obj.id}`;
     const cont = document.getElementById(contId); if(!cont) return;
     cont.innerHTML = "";
-
+    
     // 1. Hydrophobicity
     if(els.optHydro.checked){
       const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
@@ -1215,7 +1206,7 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
       drawLinePlot(holder.id, smoothed, -4.5, 4.5, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
     }
-
+    
     // 2. Charge
     if(els.optCharge.checked){
       const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
@@ -1539,6 +1530,32 @@ els.modalReset.addEventListener('click', ()=>{
     d3.select(modalState.svg).transition().duration(200).call(modalState.zoom.transform, d3.zoomIdentity);
   }
 });
+};
+</script>
 
-})(); // end init
+<script>
+(function(){
+  function loadDefs() {
+    if (window.PROTEIN_DEFS && window.PROTEIN_DEFS.AA) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'definitions.js';
+      s.onload = () => {
+        if(window.PROTEIN_DEFS) resolve();
+        else reject(new Error("definitions.js loaded but PROTEIN_DEFS missing"));
+      };
+      s.onerror = () => reject(new Error("Failed to load definitions.js"));
+      document.head.appendChild(s);
+    });
+  }
+
+  loadDefs().then(() => {
+    if (typeof window.initProteinWorkbench === 'function') {
+      window.initProteinWorkbench();
+    }
+  }).catch(err => {
+    console.error(err);
+    alert("Error: " + err.message);
+  });
+})();
 </script>
