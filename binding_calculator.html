@@ -79,10 +79,15 @@
           <p id="kd_help" class="text-xs text-gray-500 mt-1"></p>
         </div>
 
-        <button id="calculateBtn"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-          Calculate & Update Plot
-        </button>
+        <div id="coop_block" class="hidden">
+            <label for="cooperativity" class="block text-sm font-medium text-gray-700 mb-1">
+                Cooperativity (α)
+            </label>
+            <input type="number" id="cooperativity" value="1.0" step="0.1"
+                 class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+            <p class="text-xs text-gray-500 mt-1">α=1: Independent. α&lt;1: Positive cooperativity. α&gt;1: Negative.</p>
+        </div>
+
         <div id="validationMsg" class="text-red-600 text-sm"></div>
       </div>
 
@@ -176,16 +181,6 @@
         <div id="mixOut" class="text-sm mono mt-2"></div>
       </div>
 
-      <!-- QOF additions: Self-tests -->
-      <div class="bg-white p-6 rounded-xl shadow-lg">
-        <h3 class="text-xl font-semibold mb-2">Self‑tests</h3>
-        <p class="text-sm text-gray-600">These tests check edge cases and the analytic 1:1 solution.</p>
-        <button id="selfTestBtn"
-                class="mt-2 bg-gray-800 hover:bg-black text-white font-semibold py-2 px-4 rounded">
-          Run self‑tests
-        </button>
-        <div id="selfTestOutput" class="mt-3 text-sm mono whitespace-pre-wrap"></div>
-      </div>
     </div>
 
     <div class="lg:col-span-3 space-y-8">
@@ -216,33 +211,33 @@
           </div>
         </div>
 
-        <div id="stepwisePlotToggles" class="mb-4 hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-1">What to plot (stepwise model)</label>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" id="plot_any_bound" checked>
-              <span class="text-sm">[P1 with ≥1 P2 bound]</span>
-            </label>
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" id="plot_fully_bound">
-              <span class="text-sm">[P1 with n P2 bound]</span>
-            </label>
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" id="plot_bound_sites">
-              <span class="text-sm">Average bound sites per P1</span>
-            </label>
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" id="plot_species">
-              <span class="text-sm">Overlay species P1·(P2)<sub>k</sub></span>
-            </label>
-          </div>
+        <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Signal Definition</label>
+                <select id="signal_mode" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <option value="linear" selected>Linear (sum of bound sites)</option>
+                    <option value="threshold">Threshold (fully bound only)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Y-Axis Display</label>
+                <select id="y_axis_mode" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <option value="concentration" selected>Molar Concentration</option>
+                    <option value="normalized">Normalized Signal (%)</option>
+                </select>
+            </div>
         </div>
 
         <div class="flex items-center gap-2 mb-3">
+          <button id="freezeRefBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg">Freeze Reference</button>
           <button id="exportPlotCsv" class="btn-secondary">Export curve data (CSV)</button>
           <button id="savePngBtn" class="btn-secondary">Save chart (PNG)</button>
         </div>
         <canvas id="complexFormationChart"></canvas>
+        <div class="mt-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Species Landscape</h3>
+            <canvas id="speciesChart"></canvas>
+        </div>
       </div>
 
       <div class="bg-white p-6 rounded-xl shadow-lg">
@@ -292,13 +287,6 @@
     p2End: document.getElementById('p2_end'),
     nPts: document.getElementById('plot_points'),
     log: document.getElementById('log_scale'),
-    stepwiseToggles: document.getElementById('stepwisePlotToggles'),
-    plotAny: document.getElementById('plot_any_bound'),
-    plotFull: document.getElementById('plot_fully_bound'),
-    plotSites: document.getElementById('plot_bound_sites'),
-    plotSpecies: document.getElementById('plot_species'),
-    selfTestBtn: document.getElementById('selfTestBtn'),
-    selfTestOut: document.getElementById('selfTestOutput'),
     // QOF elements
     mwP1: document.getElementById('mw_p1'),
     mwP2: document.getElementById('mw_p2'),
@@ -320,6 +308,12 @@
     exportSpeciesCsv: document.getElementById('exportSpeciesCsv'),
     exportPlotCsv: document.getElementById('exportPlotCsv'),
     savePngBtn: document.getElementById('savePngBtn'),
+    coop: document.getElementById('cooperativity'),
+    coopBlock: document.getElementById('coop_block'),
+    signalMode: document.getElementById('signal_mode'),
+    yAxisMode: document.getElementById('y_axis_mode'),
+    freezeRefBtn: document.getElementById('freezeRefBtn'),
+    speciesChartCanvas: document.getElementById('speciesChart'),
   };
 
   const FACTORS = { nM: 1, uM: 1000, mM: 1000000 };
@@ -336,12 +330,13 @@
       els.kdLabelSpan.innerHTML = `K<sub>d</sub>`;
       const unit = els.kdu.value;
       els.kdHelp.textContent = `For the single‑step n‑mer model, the units are ${unit}^${n}. The code converts to nM^${n} internally.`;
+      els.coopBlock.classList.add('hidden');
     } else {
-      els.kdLabelSpan.innerHTML = `Per‑site K<sub>d</sub>`;
+      els.kdLabelSpan.innerHTML = `Intrinsic K<sub>d</sub> (per‑site)`;
       const unit = els.kdu.value;
-      els.kdHelp.textContent = `For the stepwise model, the per‑site Kd has units of ${unit}. The code converts to nM internally.`;
+      els.kdHelp.textContent = `Intrinsic Kd for the first binding event. Adjusted by cooperativity α for subsequent steps.`;
+      els.coopBlock.classList.remove('hidden');
     }
-    els.stepwiseToggles.classList.toggle('hidden', model !== 'stepwise_identical');
   }
 
   function kd_to_internal_single_step(kd_val, kd_unit, n) {
@@ -376,35 +371,80 @@
     return (S - Math.sqrt(Math.max(disc, 0))) / 2;
   }
 
-  function solve_stepwise_identical(P_tot, L_tot, Kd_site, n) {
-    if (P_tot <= 0) return { L: Math.max(L_tot, 0), theta: 0 };
-    if (L_tot <= 0) return { L: 0, theta: 0 };
-    const g = (L) => L + n * P_tot * (L / (Kd_site + L)) - L_tot;
-    let low = 0;
-    let high = Math.max(L_tot, Kd_site * 1e3);
-    // Ensure sign change
-    while (g(high) < 0) { high *= 2; if (high > 1e18) break; }
-    for (let i = 0; i < 200; i++) {
-      const mid = 0.5 * (low + high);
-      const val = g(mid);
-      if (Math.abs(val) < 1e-12) { low = high = mid; break; }
-      if (val > 0) high = mid; else low = mid;
-    }
-    const L = 0.5 * (low + high);
-    const theta = (Kd_site + L) > 0 ? (L / (Kd_site + L)) : 0;
-    return { L, theta };
+  // Generalized stepwise solver with cooperativity (alpha)
+  function solve_stepwise_general(P_tot, L_tot, Kd_intrinsic, n, alpha) {
+      if (P_tot <= 0) return { L: Math.max(L_tot, 0), theta: 0, probs: Array(n+1).fill(0), concs: Array(n+1).fill(0) };
+
+      // Beta factors: beta_k = binom(n, k) * (1/Kd_intrinsic)^k * (1/alpha)^(k*(k-1)/2)
+      // Note: This assumes Kd_intrinsic is the microscopic Kd for the FIRST binding event.
+      // And Kd for k-th event (microscopic) is Kd_intrinsic * alpha^(k-1).
+      // So K_assoc_micro_k = 1 / (Kd_intrinsic * alpha^(k-1))
+      // beta_k = product of macro K_assoc from 1 to k.
+      // Macro K_assoc_k = K_assoc_micro_k * (n - k + 1) / k
+
+      const betas = [1];
+      for (let k = 1; k <= n; k++) {
+          const micro_Kd_k = Kd_intrinsic * Math.pow(alpha, k - 1);
+          if (micro_Kd_k <= 0) { // Infinite affinity?
+               betas.push(Number.POSITIVE_INFINITY);
+          } else {
+               const macro_Ka_k = (1 / micro_Kd_k) * (n - k + 1) / k;
+               betas.push(betas[k - 1] * macro_Ka_k);
+          }
+      }
+
+      // Binding polynomial Z(L) = sum(beta_k * L^k)
+      // Conservation: L_total = L + P_total * ( sum(k * beta_k * L^k) / Z(L) )
+
+      const f = (L) => {
+          let Z = 0;
+          let sum_k_beta_Lk = 0;
+          for (let k = 0; k <= n; k++) {
+              const term = betas[k] * Math.pow(L, k);
+              Z += term;
+              sum_k_beta_Lk += k * term;
+          }
+          const v_bar = Z > 0 ? (sum_k_beta_Lk / Z) : 0;
+          return L + P_tot * v_bar - L_tot;
+      };
+
+      // Bisection
+      let low = 0;
+      let high = Math.max(L_tot, Kd_intrinsic * 1e3); // Heuristic max
+      if (f(high) < 0) {
+           // Exponential search for upper bound
+           while(f(high) < 0) { high *= 2; if (high > 1e18) break; }
+      }
+
+      for (let i = 0; i < 100; i++) {
+          const mid = 0.5 * (low + high);
+          const val = f(mid);
+          if (Math.abs(val) < 1e-12 * (L_tot + 1e-9)) { low = high = mid; break; }
+          if (val > 0) high = mid; else low = mid;
+      }
+      const L = 0.5 * (low + high);
+
+      // Compute species
+      const species_rel = [];
+      let Z = 0;
+      for(let k=0; k<=n; k++){
+          const term = betas[k] * Math.pow(L, k);
+          species_rel.push(term);
+          Z += term;
+      }
+      const probs = species_rel.map(v => v/Z);
+      const concs = probs.map(p => p * P_tot);
+      let avg_bound = 0;
+      for(let k=0; k<=n; k++) avg_bound += k * probs[k];
+      const theta = avg_bound / n;
+
+      return { L, theta, probs, concs };
   }
 
-  // Species probabilities and concentrations for stepwise identical sites
   function species_stepwise(P_tot, L_tot, Kd_site, n) {
-    const { L, theta } = solve_stepwise_identical(P_tot, L_tot, Kd_site, n);
-    const probs = [];
-    for (let k = 0; k <= n; k++) {
-      const comb = binom(n, k);
-      probs.push(comb * Math.pow(theta, k) * Math.pow(1 - theta, n - k));
-    }
-    const concs = probs.map(p => p * P_tot);
-    return { L, theta, probs, concs };
+      // Wrapper for existing calls, assuming alpha=1
+      const alpha = parseFloat(els.coop.value) || 1.0;
+      return solve_stepwise_general(P_tot, L_tot, Kd_site, n, alpha);
   }
 
   function binom(n, k) {
@@ -417,7 +457,9 @@
   }
 
   let chartInstance = null;
+  let speciesChartInstance = null;
   let lastCurveData = null; // for CSV export
+  let referenceCurve = null;
 
   function updatePlot() {
     const model = els.model.value;
@@ -434,103 +476,124 @@
     const p2_units = els.p2u.value;
     const p1_units = els.p1u.value;
 
+    // Viz options
+    const sigMode = els.signalMode.value; // linear vs threshold
+    const yMode = els.yAxisMode.value; // concentration vs normalized
+
     if (!(num_points > 1) || !(end_val > 0) || !(start_val >= 0) || (use_log && start_val <= 0)) return;
 
     const labels = [];
-    const datasets = [];
+    const complexData = []; // Main curve
+    const speciesDatas = []; // for k=0..n, used in Species Landscape
+    for (let k = 0; k <= n; k++) speciesDatas.push([]);
+
     lastCurveData = { x: [], columns: [] };
 
-    if (model === 'single_step') {
-      const Kd_int = kd_to_internal_single_step(kd_val, kd_unit, n);
-      const complexData = [];
-      for (let i = 0; i < num_points; i++) {
+    // Solvers loop
+    for (let i = 0; i < num_points; i++) {
         const p2_val = use_log
           ? start_val * Math.pow(end_val / start_val, i / (num_points - 1))
           : start_val + (end_val - start_val) * (i / (num_points - 1));
-        const P2_tot = to_nM(p2_val, p2_units);
-        const x = solve_single_step(P1_tot, P2_tot, Kd_int, n);
+        const total_L = to_nM(p2_val, p2_units);
         labels.push(p2_val);
-        complexData.push(from_nM(x, p1_units));
-      }
-      datasets.push({
-        label: `P1·(P2)\u2099 (single‑step) [${p1_units}]`,
+
+        let signal_val = 0;
+        let species_concs = []; // array of [P1_k] in nM
+
+        if (model === 'single_step') {
+            const Kd_int = kd_to_internal_single_step(kd_val, kd_unit, n);
+            const x = solve_single_step(P1_tot, total_L, Kd_int, n); // [P1(P2)n]
+            // Species for single step: k=0 is P1_free, k=n is x. Others 0.
+            const p1_free = P1_tot - x;
+            for(let k=0; k<=n; k++) {
+                if (k===0) species_concs[k] = p1_free;
+                else if (k===n) species_concs[k] = x;
+                else species_concs[k] = 0;
+            }
+
+            // Signal logic
+            if (sigMode === 'threshold') {
+                signal_val = x; // Only full complex
+            } else {
+                // Linear (sum of bound sites): n * [Complex]
+                signal_val = n * x;
+            }
+        } else {
+            // Stepwise
+            const Kd_site = to_nM(kd_val, kd_unit);
+            const res = species_stepwise(P1_tot, total_L, Kd_site, n);
+            species_concs = res.concs; // [P1_0, P1_1, ... P1_n]
+
+            if (sigMode === 'threshold') {
+                // Only fully bound state P1_n
+                signal_val = species_concs[n];
+            } else {
+                // Linear: sum of k * [P1_k]. (Total bound P2)
+                // "Molar Concentration" of what? If linear signal, usually total bound ligand?
+                // Or maybe "Average sites" scaled?
+                // The user prompt: "Complex generates signal linearly (1:1)"
+                // Let's assume it means Total Bound P2 = sum(k * [P1_k]).
+                let bound_p2 = 0;
+                for(let k=0; k<=n; k++) bound_p2 += k * species_concs[k];
+                signal_val = bound_p2;
+
+                // Wait, if Y-Axis is "Molar Concentration", showing "Total Bound P2" is valid (nM).
+                // If Y-Axis is "Normalized", we normalize by max possible signal.
+            }
+        }
+
+        // Apply Y-Axis Mode
+        let plotted_y = 0;
+        if (yMode === 'normalized') {
+             // Normalize. Max possible signal?
+             // For Threshold: Max is P1_total (if all P1 -> P1_n)
+             // For Linear (Total bound P2): Max is n * P1_total.
+             let max_sig = (sigMode === 'threshold') ? P1_tot : (n * P1_tot);
+             // Avoid div/0
+             plotted_y = max_sig > 0 ? (100 * signal_val / max_sig) : 0;
+        } else {
+             // Concentration
+             plotted_y = from_nM(signal_val, p1_units);
+        }
+
+        complexData.push(plotted_y);
+
+        // Store species data (always concentration)
+        for(let k=0; k<=n; k++) {
+             speciesDatas[k].push(from_nM(species_concs[k], p1_units));
+        }
+    } // end loop
+
+    // Build Main Datasets
+    const datasets = [];
+
+    // Reference Trace
+    if (referenceCurve) {
+        datasets.push({
+            label: 'Reference (Frozen)',
+            data: referenceCurve,
+            borderWidth: 2,
+            borderDash: [5, 5],
+            borderColor: 'rgb(156, 163, 175)', // gray-400
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            tension: 0.1
+        });
+    }
+
+    // Active Trace
+    let yLabel = (yMode === 'normalized') ? 'Signal (%)' : `Concentration [${p1_units}]`;
+    let mainLabel = (sigMode === 'threshold') ? 'Fully Bound Complex' : 'Total Binding Signal';
+
+    datasets.push({
+        label: mainLabel,
         data: complexData,
-        borderWidth: 2.5,
+        borderWidth: 3,
         borderColor: 'rgb(79, 70, 229)',
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
         pointRadius: 0,
         tension: 0.1
-      });
-      lastCurveData.x = labels;
-      lastCurveData.columns = [{ name: `P1·(P2)_n [${p1_units}]`, data: complexData }];
-    } else {
-      const Kd_site = to_nM(kd_val, kd_unit);
-      const anyData = [], fullData = [], sitesData = [];
-      const speciesDatas = []; // array of arrays for k=0..n
-      for (let k = 0; k <= n; k++) speciesDatas.push([]);
-
-      for (let i = 0; i < num_points; i++) {
-        const p2_val = use_log
-          ? start_val * Math.pow(end_val / start_val, i / (num_points - 1))
-          : start_val + (end_val - start_val) * (i / (num_points - 1));
-        const L_tot = to_nM(p2_val, p2_units);
-        const { L, theta, probs, concs } = species_stepwise(P1_tot, L_tot, Kd_site, n);
-        const prob0 = Math.pow(1 - theta, n);
-        const probN = Math.pow(theta, n);
-        const anyBoundP1 = P1_tot * (1 - prob0);
-        const fullyBoundP1 = P1_tot * probN;
-        const avgSites = n * theta;
-
-        labels.push(p2_val);
-        anyData.push(from_nM(anyBoundP1, p1_units));
-        fullData.push(from_nM(fullyBoundP1, p1_units));
-        sitesData.push(avgSites);
-        for (let k = 0; k <= n; k++) {
-          speciesDatas[k].push(from_nM(concs[k], p1_units));
-        }
-      }
-      if (els.plotAny.checked) {
-        datasets.push({
-          label: `P1 with ≥1 P2 bound [${p1_units}]`, data: anyData, borderWidth: 2.5,
-          borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          pointRadius: 0, tension: 0.1
-        });
-      }
-      if (els.plotFull.checked) {
-        datasets.push({
-          label: `P1 with n P2 bound [${p1_units}]`, data: fullData, borderWidth: 2.5,
-          borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          pointRadius: 0, tension: 0.1
-        });
-      }
-      if (els.plotSites.checked) {
-        datasets.push({
-          label: `Average bound sites per P1 (0..${n})`, data: sitesData, yAxisID: 'y2',
-          borderWidth: 2.5, borderColor: 'rgb(234, 179, 8)', backgroundColor: 'rgba(234, 179, 8, 0.1)',
-          pointRadius: 0, tension: 0.1
-        });
-      }
-      if (els.plotSpecies.checked) {
-        for (let k = 0; k <= n; k++) {
-          datasets.push({
-            label: `P1·(P2)${k} [${p1_units}]`,
-            data: speciesDatas[k],
-            borderWidth: (k === 0 || k === n) ? 2 : 1.5,
-            borderDash: (k === 0 || k === n) ? [] : [4, 3],
-            pointRadius: 0, tension: 0.1
-          });
-        }
-      }
-      lastCurveData.x = labels;
-      const cols = [];
-      if (els.plotAny.checked) cols.push({ name: `Any-bound [${p1_units}]`, data: anyData });
-      if (els.plotFull.checked) cols.push({ name: `Fully-bound [${p1_units}]`, data: fullData });
-      if (els.plotSites.checked) cols.push({ name: `Avg sites (0..${n})`, data: sitesData });
-      if (els.plotSpecies.checked) {
-        for (let k = 0; k <= n; k++) cols.push({ name: `P1·(P2)${k} [${p1_units}]`, data: speciesDatas[k] });
-      }
-      lastCurveData.columns = cols;
-    }
+    });
 
     if (chartInstance) chartInstance.destroy();
     chartInstance = new Chart(els.chartCanvas.getContext('2d'), {
@@ -539,12 +602,72 @@
         responsive: true, maintainAspectRatio: true,
         scales: {
           x: { type: els.log.checked ? 'logarithmic' : 'linear', title: { display: true, text: `[P2] (${p2_units})`, font: { size: 14 } } },
-          y: { beginAtZero: true, title: { display: true, text: `Concentration [${els.p1u.value}]`, font: { size: 14 } } },
-          y2: { display: datasets.some(d => d.yAxisID === 'y2'), position: 'right', beginAtZero: true, title: { display: true, text: 'Bound sites per P1', font: { size: 14 } }, grid: { drawOnChartArea: false } }
+          y: { beginAtZero: true, title: { display: true, text: yLabel, font: { size: 14 } } },
         },
         plugins: { tooltip: { mode: 'index', intersect: false } }
       }
     });
+
+    // Update Species Landscape (Stacked Area)
+    const speciesDatasets = [];
+    const colors = ['#9ca3af', '#f87171', '#fbbf24', '#34d399', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6']; // arbitrary palette
+    for (let k = 0; k <= n; k++) {
+        const color = colors[k % colors.length];
+        speciesDatasets.push({
+            label: `P1·(P2)${k}`,
+            data: speciesDatas[k],
+            fill: true,
+            backgroundColor: color + '80', // 50% opacity
+            borderColor: color,
+            borderWidth: 1,
+            pointRadius: 0
+        });
+    }
+
+    if (speciesChartInstance) speciesChartInstance.destroy();
+    speciesChartInstance = new Chart(els.speciesChartCanvas.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: speciesDatasets },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            scales: {
+                x: { type: els.log.checked ? 'logarithmic' : 'linear', title: { display: true, text: `[P2] (${p2_units})` } },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: `Species Conc. [${p1_units}]` } }
+            },
+            plugins: {
+                tooltip: { mode: 'index', intersect: false },
+                legend: { position: 'right' }
+            },
+            elements: { point: { radius: 0 } }
+        }
+    });
+
+    // Save for export
+    lastCurveData = { x: labels, columns: [{ name: mainLabel, data: complexData }] };
+  }
+
+  function freezeReference() {
+      if (referenceCurve) {
+          // Unfreeze / Clear
+          referenceCurve = null;
+          els.freezeRefBtn.textContent = "Freeze Reference";
+          els.freezeRefBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+          els.freezeRefBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+          // Re-enable inputs
+          [els.p2Start, els.p2End, els.nPts, els.log].forEach(el => el.disabled = false);
+      } else {
+          // Freeze
+          if (chartInstance && chartInstance.data.datasets.length > 0) {
+              const activeDs = chartInstance.data.datasets[chartInstance.data.datasets.length - 1];
+              referenceCurve = [...activeDs.data];
+              els.freezeRefBtn.textContent = "Clear Reference";
+              els.freezeRefBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+              els.freezeRefBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+              // Disable inputs to maintain X-axis consistency
+              [els.p2Start, els.p2End, els.nPts, els.log].forEach(el => el.disabled = true);
+          }
+      }
+      updatePlot();
   }
 
   function validateInputs() {
@@ -795,11 +918,28 @@
     link.click();
   }
 
+  // Debounce utility
+  function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+  }
+
+  const debouncedRun = debounce(runAll, 300);
+
+  // Attach listeners
   [els.model, els.n, els.kdu].forEach(el => el.addEventListener('change', () => { updateKdLabel(); runAll(); }));
-  [els.p1, els.p1u, els.p2, els.p2u, els.kd].forEach(el => el.addEventListener('change', runAll));
-  [els.p2Start, els.p2End, els.nPts, els.log, els.plotAny, els.plotFull, els.plotSites, els.plotSpecies].forEach(el => el.addEventListener('change', updatePlot));
-  els.calc.addEventListener('click', runAll);
-  els.selfTestBtn.addEventListener('click', selfTests);
+  // Text/Number inputs trigger debounced run
+  [els.p1, els.p2, els.kd, els.n, els.coop, els.p2Start, els.p2End, els.nPts].forEach(el => el.addEventListener('input', debouncedRun));
+  // Selects trigger immediate run
+  [els.p1u, els.p2u, els.signalMode, els.yAxisMode].forEach(el => el.addEventListener('change', runAll));
+
+  [els.log].forEach(el => el.addEventListener('change', updatePlot));
+
+  //els.calc.addEventListener('click', runAll); // Removed button
+  els.freezeRefBtn.addEventListener('click', freezeReference);
   els.deltaGBtn.addEventListener('click', computeDeltaG);
   els.solveTargetBtn.addEventListener('click', solveTarget);
   els.mixBtn.addEventListener('click', computeMix);
@@ -808,6 +948,8 @@
   els.savePngBtn.addEventListener('click', saveChartPNG);
 
   updateKdLabel();
+  // Run background checks
+  setTimeout(selfTests, 100);
   runAll();
 })();
 </script>
