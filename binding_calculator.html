@@ -6,6 +6,16 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .btn { @apply bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500; }
     .btn-secondary { @apply bg-gray-800 hover:bg-black text-white font-semibold py-2 px-4 rounded-lg; }
+
+    /* Tab Styling */
+    .tab-btn {
+        @apply px-4 py-2 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 focus:outline-none transition-colors duration-200;
+    }
+    .tab-btn.active {
+        @apply text-indigo-600 border-indigo-600;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
 </style>
 
 <div class="container mx-auto p-4 md:p-8 max-w-7xl">
@@ -15,7 +25,40 @@
   </header>
 
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+    <!-- Left Column: Settings & Inputs -->
     <div class="lg:col-span-2 space-y-8">
+
+      <!-- Collapsible Settings: MW, Temp, Mass Mode -->
+      <details id="settings_panel" class="bg-white rounded-xl shadow-lg group" open>
+        <summary class="p-6 cursor-pointer list-none flex justify-between items-center font-semibold text-gray-800 text-lg border-b border-transparent group-open:border-gray-200 transition-colors">
+            <span>Experimental Settings (MW, Temp)</span>
+            <span class="transform group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div class="p-6 space-y-4 bg-gray-50 rounded-b-xl">
+            <div class="flex items-center space-x-2 mb-4">
+                <input type="checkbox" id="mass_mode_toggle" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                <label for="mass_mode_toggle" class="text-sm font-medium text-gray-700">Mass Concentration Mode (Input as mg/mL)</label>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">P1 MW (kDa)</label>
+                  <input type="number" id="mw_p1" value="150" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">P2 MW (kDa)</label>
+                  <input type="number" id="mw_p2" value="25" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Temp (°C)</label>
+                  <input type="number" id="temp_c" value="25" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <button id="deltaGBtn" class="btn-secondary w-full text-xs mt-2">Compute ΔG from Kd</button>
+            <div id="deltaGOut" class="text-xs mono mt-1 text-gray-600"></div>
+        </div>
+      </details>
+
       <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
         <h2 class="text-2xl font-semibold text-gray-800 border-b pb-3">Inputs</h2>
 
@@ -46,6 +89,7 @@
               <option value="nM" selected>nM</option>
               <option value="uM">µM</option>
               <option value="mM">mM</option>
+              <option value="mg/mL">mg/mL</option>
             </select>
           </div>
         </div>
@@ -59,6 +103,7 @@
               <option value="nM" selected>nM</option>
               <option value="uM">µM</option>
               <option value="mM">mM</option>
+              <option value="mg/mL">mg/mL</option>
             </select>
           </div>
         </div>
@@ -91,103 +136,116 @@
         <div id="validationMsg" class="text-red-600 text-sm"></div>
       </div>
 
-      <div class="bg-white p-6 rounded-xl shadow-lg">
-        <h2 class="text-2xl font-semibold text-gray-800 border-b pb-3">Equilibrium (single point)</h2>
-        <div id="results" class="space-y-4 mt-4">
-          <p class="text-gray-500">Results will appear here.</p>
-        </div>
-      </div>
+      <!-- Analysis Dashboard (Tabs) -->
+      <div class="bg-white p-6 rounded-xl shadow-lg min-h-[400px]">
+          <div class="flex border-b border-gray-200 mb-4 overflow-x-auto">
+             <button class="tab-btn active" data-target="tab-status">Status & Species</button>
+             <button class="tab-btn" data-target="tab-mix">Recipe & Mix</button>
+             <button class="tab-btn" data-target="tab-target">Target Solver</button>
+          </div>
 
-      <!-- QOF additions: MW + Temperature + ΔG -->
-      <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
-        <h3 class="text-xl font-semibold">Physical Properties & ΔG</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">P1 Molecular Weight (kDa)</label>
-            <input type="number" id="mw_p1" value="150" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">P2 Molecular Weight (kDa)</label>
-            <input type="number" id="mw_p2" value="25" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Temperature (°C)</label>
-            <input type="number" id="temp_c" value="25" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-          </div>
-        </div>
-        <button id="deltaGBtn" class="btn-secondary">Compute ΔG from Kd</button>
-        <div id="deltaGOut" class="text-sm mono mt-2"></div>
-      </div>
+          <!-- Tab 1: Status & Species -->
+          <div id="tab-status" class="tab-content active space-y-4">
+              <h3 class="text-xl font-semibold text-gray-800">Equilibrium Results</h3>
+              <div id="results" class="space-y-4">
+                  <p class="text-gray-500">Results will appear here.</p>
+              </div>
 
-      <!-- QOF additions: Target occupancy solver -->
-      <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
-        <h3 class="text-xl font-semibold">Target Occupancy Solver</h3>
-        <p class="text-sm text-gray-600">Solve for the required total [P2] to reach a desired occupancy at the current [P1] and Kd.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Target %</label>
-            <input type="number" id="target_pct" value="90" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+              <div class="mt-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Species Breakdown (Stepwise)</h3>
+                <div class="flex items-center gap-2 mb-2">
+                  <button id="exportSpeciesCsv" class="btn-secondary text-xs">Export CSV</button>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full text-sm">
+                    <thead>
+                      <tr class="text-left border-b">
+                        <th class="py-2 pr-4">k</th>
+                        <th class="py-2 pr-4">Fraction</th>
+                        <th class="py-2 pr-4">[P1·(P2)<sub>k</sub>]</th>
+                        <th class="py-2 pr-4">Mass (mg/mL)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="speciesBody">
+                      <tr><td class="py-1" colspan="4" class="text-gray-500">Run Calculate to populate.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Definition</label>
-            <select id="target_mode" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-              <option value="single_complex">Single-step: % of P1 in P1·(P2)<sub>n</sub></option>
-              <option value="any_bound">Stepwise: % P1 with ≥1 P2</option>
-              <option value="fully_bound">Stepwise: % P1 with n P2</option>
-            </select>
-          </div>
-          <div class="flex items-end">
-            <button id="solveTargetBtn" class="btn w-full">Solve required [P2]<sub>total</sub></button>
-          </div>
-        </div>
-        <div id="targetOut" class="text-sm mono mt-2"></div>
-      </div>
 
-      <!-- QOF additions: Mixing helper -->
-      <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
-        <h3 class="text-xl font-semibold">Mixing Helper</h3>
-        <p class="text-sm text-gray-600">Compute volumes to mix from stock solutions to hit the totals above at a chosen final volume.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">P1 Stock</label>
-            <div class="input-group">
-              <input type="number" id="p1_stock" value="100" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-              <select id="p1_stock_u" class="px-3 py-2 border-gray-300 rounded-md bg-white">
-                <option value="uM">µM</option>
-                <option value="nM">nM</option>
-                <option value="mM">mM</option>
-              </select>
-            </div>
+          <!-- Tab 2: Mixing Helper -->
+          <div id="tab-mix" class="tab-content space-y-4">
+              <h3 class="text-xl font-semibold">Mixing Helper</h3>
+              <p class="text-sm text-gray-600">Prepare the single point defined above.</p>
+              <div class="grid grid-cols-1 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">P1 Stock</label>
+                    <div class="input-group">
+                      <input type="number" id="p1_stock" value="100" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                      <select id="p1_stock_u" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                        <option value="uM">µM</option>
+                        <option value="nM">nM</option>
+                        <option value="mM">mM</option>
+                        <option value="mg/mL">mg/mL</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">P2 Stock</label>
+                    <div class="input-group">
+                      <input type="number" id="p2_stock" value="100" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                      <select id="p2_stock_u" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                        <option value="uM">µM</option>
+                        <option value="nM">nM</option>
+                        <option value="mM">mM</option>
+                        <option value="mg/mL">mg/mL</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Final Volume (µL)</label>
+                    <input type="number" id="final_vol" value="50" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  </div>
+                  <div class="pt-2">
+                    <button id="mixBtn" class="btn-secondary w-full">Compute Recipe</button>
+                  </div>
+              </div>
+              <div id="mixOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">P2 Stock</label>
-            <div class="input-group">
-              <input type="number" id="p2_stock" value="100" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-              <select id="p2_stock_u" class="px-3 py-2 border-gray-300 rounded-md bg-white">
-                <option value="uM">µM</option>
-                <option value="nM">nM</option>
-                <option value="mM">mM</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Final Volume (µL)</label>
-            <input type="number" id="final_vol" value="50" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-          </div>
-          <div class="flex items-end">
-            <button id="mixBtn" class="btn-secondary w-full">Compute mix volumes</button>
-          </div>
-        </div>
-        <div id="mixOut" class="text-sm mono mt-2"></div>
-      </div>
 
+          <!-- Tab 3: Target Solver -->
+          <div id="tab-target" class="tab-content space-y-4">
+              <h3 class="text-xl font-semibold">Target Occupancy Solver</h3>
+              <p class="text-sm text-gray-600">Solve for required [P2]<sub>total</sub> to reach X%.</p>
+              <div class="grid grid-cols-1 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Target %</label>
+                    <input type="number" id="target_pct" value="90" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Definition</label>
+                    <select id="target_mode" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                      <option value="single_complex">Single-step: % of P1 in P1·(P2)<sub>n</sub></option>
+                      <option value="any_bound">Stepwise: % P1 with ≥1 P2</option>
+                      <option value="fully_bound">Stepwise: % P1 with n P2</option>
+                    </select>
+                  </div>
+                  <div class="pt-2">
+                    <button id="solveTargetBtn" class="btn w-full">Solve</button>
+                  </div>
+              </div>
+              <div id="targetOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
+          </div>
+      </div>
     </div>
 
+    <!-- Right Column: Visualization -->
     <div class="lg:col-span-3 space-y-8">
       <div class="bg-white p-6 rounded-xl shadow-lg">
         <h2 class="text-2xl font-semibold text-gray-800">Saturation Binding Curve</h2>
         <p class="text-sm text-gray-500 mb-4">
-          Titrate P2 against fixed P1. Choose what to plot for the stepwise model.
+          Titrate P2 against fixed P1. Click on the curve to update "Protein 2 Total" inputs.
         </p>
 
         <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,38 +286,32 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-2 mb-3">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
           <button id="freezeRefBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg">Freeze Reference</button>
-          <button id="exportPlotCsv" class="btn-secondary">Export curve data (CSV)</button>
+          <button id="exportPlotCsv" class="btn-secondary">Export curve (CSV)</button>
           <button id="savePngBtn" class="btn-secondary">Save chart (PNG)</button>
         </div>
-        <canvas id="complexFormationChart"></canvas>
-        <div class="mt-8">
+
+        <div class="relative">
+            <canvas id="complexFormationChart"></canvas>
+            <div class="absolute top-2 right-2 bg-white/80 p-2 rounded text-xs text-gray-500 pointer-events-none border">
+                Tip: Click curve to set [P2]
+            </div>
+        </div>
+
+        <!-- Serial Dilution Generator -->
+        <div class="mt-6 border-t pt-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Serial Dilution Planner</h3>
+            <p class="text-sm text-gray-600 mb-2">Generate a pipetting plan covering the chart range.</p>
+            <button id="genDilutionBtn" class="btn w-full sm:w-auto">Generate Pipetting Plan</button>
+            <div id="dilutionOutput" class="mt-4 hidden overflow-x-auto bg-gray-50 rounded-lg p-4">
+                <!-- Table injected here -->
+            </div>
+        </div>
+
+        <div class="mt-8 border-t pt-4">
             <h3 class="text-lg font-semibold text-gray-800 mb-2">Species Landscape</h3>
             <canvas id="speciesChart"></canvas>
-        </div>
-      </div>
-
-      <div class="bg-white p-6 rounded-xl shadow-lg">
-        <h3 class="text-xl font-semibold">Species Breakdown (stepwise model)</h3>
-        <p class="text-sm text-gray-500">Populations at the single‑point conditions above. Useful for SEC or cryo‑EM occupancy planning.</p>
-        <div class="flex items-center gap-2 mb-2">
-          <button id="exportSpeciesCsv" class="btn-secondary">Export species (CSV)</button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead>
-              <tr class="text-left border-b">
-                <th class="py-2 pr-4">k</th>
-                <th class="py-2 pr-4">Fraction of P1</th>
-                <th class="py-2 pr-4">[P1·(P2)<sub>k</sub>] (P1 units)</th>
-                <th class="py-2 pr-4">Mass conc. (mg/mL)</th>
-              </tr>
-            </thead>
-            <tbody id="speciesBody">
-              <tr><td class="py-1" colspan="4" class="text-gray-500">Run Calculate to populate.</td></tr>
-            </tbody>
-          </table>
         </div>
       </div>
     </div>
@@ -281,22 +333,24 @@
     kdHelp: document.getElementById('kd_help'),
     validate: document.getElementById('validationMsg'),
     results: document.getElementById('results'),
-    calc: document.getElementById('calculateBtn'),
     chartCanvas: document.getElementById('complexFormationChart'),
     p2Start: document.getElementById('p2_start'),
     p2End: document.getElementById('p2_end'),
     nPts: document.getElementById('plot_points'),
     log: document.getElementById('log_scale'),
-    // QOF elements
+    // Settings
     mwP1: document.getElementById('mw_p1'),
     mwP2: document.getElementById('mw_p2'),
     tempC: document.getElementById('temp_c'),
+    massMode: document.getElementById('mass_mode_toggle'),
     deltaGBtn: document.getElementById('deltaGBtn'),
     deltaGOut: document.getElementById('deltaGOut'),
+    // Target
     targetPct: document.getElementById('target_pct'),
     targetMode: document.getElementById('target_mode'),
     solveTargetBtn: document.getElementById('solveTargetBtn'),
     targetOut: document.getElementById('targetOut'),
+    // Mix
     p1Stock: document.getElementById('p1_stock'),
     p1StockU: document.getElementById('p1_stock_u'),
     p2Stock: document.getElementById('p2_stock'),
@@ -304,8 +358,10 @@
     finalVol: document.getElementById('final_vol'),
     mixBtn: document.getElementById('mixBtn'),
     mixOut: document.getElementById('mixOut'),
+    // Species
     speciesBody: document.getElementById('speciesBody'),
     exportSpeciesCsv: document.getElementById('exportSpeciesCsv'),
+    // Chart actions
     exportPlotCsv: document.getElementById('exportPlotCsv'),
     savePngBtn: document.getElementById('savePngBtn'),
     coop: document.getElementById('cooperativity'),
@@ -314,15 +370,91 @@
     yAxisMode: document.getElementById('y_axis_mode'),
     freezeRefBtn: document.getElementById('freezeRefBtn'),
     speciesChartCanvas: document.getElementById('speciesChart'),
+    // Dilution
+    genDilutionBtn: document.getElementById('genDilutionBtn'),
+    dilutionOutput: document.getElementById('dilutionOutput'),
+    // Tabs
+    tabBtns: document.querySelectorAll('.tab-btn'),
+    tabContents: document.querySelectorAll('.tab-content')
   };
 
   const FACTORS = { nM: 1, uM: 1000, mM: 1000000 };
 
-  function to_nM(v, unit) { return v * (FACTORS[unit] || 1); }
-  function from_nM(v_nM, unit) { return v_nM / (FACTORS[unit] || 1); }
+  // Helper: Get MW for P1 or P2
+  function getMW(type) {
+      return (type === 'p1' ? parseFloat(els.mwP1.value) : parseFloat(els.mwP2.value)) || 0;
+  }
+
+  // Unit conversion with Mass support
+  // unit: nM, uM, mM, mg/mL
+  // mw: kDa (g/mol / 1000 -> actually kDa = kg/mol? No. kDa = 1000 Da. 1 Da = 1 g/mol)
+  // 1 M = 1 mol/L = MW g/L = MW mg/mL.
+  // Wait. 1 M of 1000 Da protein. 1 mol = 1000 g. 1000 g/L = 1000 mg/mL.
+  // Correct: Molar (M) = (MassConc (g/L)) / (MW (g/mol)).
+  // mg/mL = g/L.
+  // So Conc (M) = (Conc (mg/mL)) / MW (Da).
+  // Conc (nM) = Conc (M) * 1e9 = (mg/mL / MW) * 1e9.
+  function to_nM(v, unit, mw) {
+      if (unit === 'mg/mL') {
+          if (!mw || mw <= 0) return 0; // Prevent div/0
+          // nM = (mg/mL / MW_Da) * 1e9
+          // MW input is in kDa. MW_Da = MW_kDa * 1000.
+          // nM = (mg/mL / (MW_kDa * 1000)) * 1e9 = (mg/mL / MW_kDa) * 1e6.
+          return (v / mw) * 1e6;
+      }
+      return v * (FACTORS[unit] || 1);
+  }
+
+  function from_nM(v_nM, unit, mw) {
+      if (unit === 'mg/mL') {
+          // mg/mL = (nM * 1e-9) * MW_Da * 1000 (g->mg is not needed if MW is Da? wait)
+          // mg/mL = g/L.
+          // g/L = mol/L * MW_Da.
+          // mol/L = nM * 1e-9.
+          // g/L = nM * 1e-9 * (mw * 1000).
+          // = nM * mw * 1e-6.
+          return v_nM * mw * 1e-6;
+      }
+      return v_nM / (FACTORS[unit] || 1);
+  }
 
   function clamp0(x) { return (x < 0 && Math.abs(x) < 1e-12) ? 0 : x; }
 
+  // --------------------------------------------------------------------------
+  // Tab Logic
+  // --------------------------------------------------------------------------
+  els.tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+          // Deactivate all
+          els.tabBtns.forEach(b => b.classList.remove('active'));
+          els.tabContents.forEach(c => c.classList.remove('active'));
+          // Activate clicked
+          btn.classList.add('active');
+          const target = document.getElementById(btn.dataset.target);
+          if(target) target.classList.add('active');
+      });
+  });
+
+  // --------------------------------------------------------------------------
+  // Mass Mode Logic
+  // --------------------------------------------------------------------------
+  els.massMode.addEventListener('change', () => {
+      const isMass = els.massMode.checked;
+      const targetUnit = isMass ? 'mg/mL' : 'nM';
+
+      // Update P1/P2/Stock units if they were compatible
+      // We force them to the target unit for convenience
+      const selects = [els.p1u, els.p2u, els.p1StockU, els.p2StockU];
+      selects.forEach(sel => {
+          sel.value = targetUnit;
+          // Trigger change event to update plots/calcs
+          sel.dispatchEvent(new Event('change'));
+      });
+  });
+
+  // --------------------------------------------------------------------------
+  // Solvers
+  // --------------------------------------------------------------------------
   function updateKdLabel() {
     const model = els.model.value;
     const n = parseInt(els.n.value);
@@ -354,7 +486,6 @@
     let low = 0;
     let high = Math.min(P1_tot, P2_tot / n);
     if (P1_tot <= 0 || P2_tot <= 0) return 0;
-    // Bisection bracket
     for (let i = 0; i < 200; i++) {
       const mid = 0.5 * (low + high);
       const fmid = f_single_step(mid, P1_tot, P2_tot, Kd_int, n);
@@ -365,40 +496,16 @@
     return 0.5 * (low + high);
   }
 
-  function solve_11_analytic(P1_tot, P2_tot, Kd) {
-    const S = P1_tot + P2_tot + Kd;
-    const disc = S*S - 4*P1_tot*P2_tot;
-    return (S - Math.sqrt(Math.max(disc, 0))) / 2;
-  }
-
-  // Generalized stepwise solver with cooperativity (alpha)
   function solve_stepwise_general(P_tot, L_tot, Kd_intrinsic, n, alpha) {
       if (P_tot <= 0) return { L: Math.max(L_tot, 0), theta: 0, probs: Array(n+1).fill(0), concs: Array(n+1).fill(0) };
-
-      // Beta factors: beta_k = binom(n, k) * (1/Kd_intrinsic)^k * (1/alpha)^(k*(k-1)/2)
-      // Note: This assumes Kd_intrinsic is the microscopic Kd for the FIRST binding event.
-      // And Kd for k-th event (microscopic) is Kd_intrinsic * alpha^(k-1).
-      // So K_assoc_micro_k = 1 / (Kd_intrinsic * alpha^(k-1))
-      // beta_k = product of macro K_assoc from 1 to k.
-      // Macro K_assoc_k = K_assoc_micro_k * (n - k + 1) / k
-
       const betas = [1];
       for (let k = 1; k <= n; k++) {
           const micro_Kd_k = Kd_intrinsic * Math.pow(alpha, k - 1);
-          if (micro_Kd_k <= 0) { // Infinite affinity?
-               betas.push(Number.POSITIVE_INFINITY);
-          } else {
-               const macro_Ka_k = (1 / micro_Kd_k) * (n - k + 1) / k;
-               betas.push(betas[k - 1] * macro_Ka_k);
-          }
+          if (micro_Kd_k <= 0) betas.push(Number.POSITIVE_INFINITY);
+          else betas.push(betas[k - 1] * (1 / micro_Kd_k) * (n - k + 1) / k);
       }
-
-      // Binding polynomial Z(L) = sum(beta_k * L^k)
-      // Conservation: L_total = L + P_total * ( sum(k * beta_k * L^k) / Z(L) )
-
       const f = (L) => {
-          let Z = 0;
-          let sum_k_beta_Lk = 0;
+          let Z = 0, sum_k_beta_Lk = 0;
           for (let k = 0; k <= n; k++) {
               const term = betas[k] * Math.pow(L, k);
               Z += term;
@@ -407,15 +514,8 @@
           const v_bar = Z > 0 ? (sum_k_beta_Lk / Z) : 0;
           return L + P_tot * v_bar - L_tot;
       };
-
-      // Bisection
-      let low = 0;
-      let high = Math.max(L_tot, Kd_intrinsic * 1e3); // Heuristic max
-      if (f(high) < 0) {
-           // Exponential search for upper bound
-           while(f(high) < 0) { high *= 2; if (high > 1e18) break; }
-      }
-
+      let low = 0, high = Math.max(L_tot, Kd_intrinsic * 1e3);
+      if (f(high) < 0) { while(f(high) < 0) { high *= 2; if (high > 1e18) break; } }
       for (let i = 0; i < 100; i++) {
           const mid = 0.5 * (low + high);
           const val = f(mid);
@@ -423,8 +523,6 @@
           if (val > 0) high = mid; else low = mid;
       }
       const L = 0.5 * (low + high);
-
-      // Compute species
       const species_rel = [];
       let Z = 0;
       for(let k=0; k<=n; k++){
@@ -437,34 +535,26 @@
       let avg_bound = 0;
       for(let k=0; k<=n; k++) avg_bound += k * probs[k];
       const theta = avg_bound / n;
-
       return { L, theta, probs, concs };
   }
 
   function species_stepwise(P_tot, L_tot, Kd_site, n) {
-      // Wrapper for existing calls, assuming alpha=1
       const alpha = parseFloat(els.coop.value) || 1.0;
       return solve_stepwise_general(P_tot, L_tot, Kd_site, n, alpha);
   }
 
-  function binom(n, k) {
-    if (k < 0 || k > n) return 0;
-    if (k === 0 || k === n) return 1;
-    k = Math.min(k, n - k);
-    let res = 1;
-    for (let i = 1; i <= k; i++) res = (res * (n - k + i)) / i;
-    return res;
-  }
-
+  // --------------------------------------------------------------------------
+  // Main Logic
+  // --------------------------------------------------------------------------
   let chartInstance = null;
   let speciesChartInstance = null;
-  let lastCurveData = null; // for CSV export
+  let lastCurveData = null;
   let referenceCurve = null;
 
   function updatePlot() {
     const model = els.model.value;
     const n = parseInt(els.n.value);
-    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value);
+    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value, getMW('p1'));
     const kd_val = parseFloat(els.kd.value);
     const kd_unit = els.kdu.value;
 
@@ -475,113 +565,92 @@
 
     const p2_units = els.p2u.value;
     const p1_units = els.p1u.value;
-
-    // Viz options
-    const sigMode = els.signalMode.value; // linear vs threshold
-    const yMode = els.yAxisMode.value; // concentration vs normalized
+    const sigMode = els.signalMode.value;
+    const yMode = els.yAxisMode.value;
 
     if (!(num_points > 1) || !(end_val > 0) || !(start_val >= 0) || (use_log && start_val <= 0)) return;
 
     const labels = [];
-    const complexData = []; // Main curve
-    const speciesDatas = []; // for k=0..n, used in Species Landscape
+    const complexData = [];
+    const speciesDatas = [];
     for (let k = 0; k <= n; k++) speciesDatas.push([]);
 
     lastCurveData = { x: [], columns: [] };
 
-    // Solvers loop
     for (let i = 0; i < num_points; i++) {
         const p2_val = use_log
           ? start_val * Math.pow(end_val / start_val, i / (num_points - 1))
           : start_val + (end_val - start_val) * (i / (num_points - 1));
-        const total_L = to_nM(p2_val, p2_units);
+
+        // P2 value on axis -> nM concentration for solver
+        const total_L = to_nM(p2_val, p2_units, getMW('p2'));
         labels.push(p2_val);
 
         let signal_val = 0;
-        let species_concs = []; // array of [P1_k] in nM
+        let species_concs = [];
 
         if (model === 'single_step') {
             const Kd_int = kd_to_internal_single_step(kd_val, kd_unit, n);
-            const x = solve_single_step(P1_tot, total_L, Kd_int, n); // [P1(P2)n]
-            // Species for single step: k=0 is P1_free, k=n is x. Others 0.
+            const x = solve_single_step(P1_tot, total_L, Kd_int, n);
             const p1_free = P1_tot - x;
             for(let k=0; k<=n; k++) {
                 if (k===0) species_concs[k] = p1_free;
                 else if (k===n) species_concs[k] = x;
                 else species_concs[k] = 0;
             }
-
-            // Signal logic
             if (sigMode === 'threshold') {
-                signal_val = x; // Only full complex
+                signal_val = x;
             } else {
-                // Linear (sum of bound sites): n * [Complex]
                 signal_val = n * x;
             }
         } else {
-            // Stepwise
-            const Kd_site = to_nM(kd_val, kd_unit);
+            const Kd_site = to_nM(kd_val, kd_unit); // Kd unit usually molar
             const res = species_stepwise(P1_tot, total_L, Kd_site, n);
-            species_concs = res.concs; // [P1_0, P1_1, ... P1_n]
-
+            species_concs = res.concs;
             if (sigMode === 'threshold') {
-                // Only fully bound state P1_n
                 signal_val = species_concs[n];
             } else {
-                // Linear: sum of k * [P1_k]. (Total bound P2)
-                // "Molar Concentration" of what? If linear signal, usually total bound ligand?
-                // Or maybe "Average sites" scaled?
-                // The user prompt: "Complex generates signal linearly (1:1)"
-                // Let's assume it means Total Bound P2 = sum(k * [P1_k]).
                 let bound_p2 = 0;
                 for(let k=0; k<=n; k++) bound_p2 += k * species_concs[k];
                 signal_val = bound_p2;
-
-                // Wait, if Y-Axis is "Molar Concentration", showing "Total Bound P2" is valid (nM).
-                // If Y-Axis is "Normalized", we normalize by max possible signal.
             }
         }
 
-        // Apply Y-Axis Mode
         let plotted_y = 0;
         if (yMode === 'normalized') {
-             // Normalize. Max possible signal?
-             // For Threshold: Max is P1_total (if all P1 -> P1_n)
-             // For Linear (Total bound P2): Max is n * P1_total.
              let max_sig = (sigMode === 'threshold') ? P1_tot : (n * P1_tot);
-             // Avoid div/0
              plotted_y = max_sig > 0 ? (100 * signal_val / max_sig) : 0;
         } else {
-             // Concentration
-             plotted_y = from_nM(signal_val, p1_units);
+             // Convert nM signal back to display units
+             // If signal is bound P2 (linear), it might be better to use P2 units?
+             // But existing code used P1 units (displaying complex conc).
+             // If linear (sum bound P2), it's effectively P2 concentration.
+             // If threshold (P1_n), it's P1 concentration.
+             // Let's stick to P1 units for 'Complex' and P2 units for 'Bound Ligand'?
+             // Current logic uses p1_units.
+             plotted_y = from_nM(signal_val, p1_units, getMW('p1'));
         }
 
         complexData.push(plotted_y);
-
-        // Store species data (always concentration)
         for(let k=0; k<=n; k++) {
-             speciesDatas[k].push(from_nM(species_concs[k], p1_units));
+             speciesDatas[k].push(from_nM(species_concs[k], p1_units, getMW('p1')));
         }
-    } // end loop
+    }
 
-    // Build Main Datasets
     const datasets = [];
-
-    // Reference Trace
     if (referenceCurve) {
         datasets.push({
             label: 'Reference (Frozen)',
             data: referenceCurve,
             borderWidth: 2,
             borderDash: [5, 5],
-            borderColor: 'rgb(156, 163, 175)', // gray-400
+            borderColor: 'rgb(156, 163, 175)',
             backgroundColor: 'transparent',
             pointRadius: 0,
             tension: 0.1
         });
     }
 
-    // Active Trace
     let yLabel = (yMode === 'normalized') ? 'Signal (%)' : `Concentration [${p1_units}]`;
     let mainLabel = (sigMode === 'threshold') ? 'Fully Bound Complex' : 'Total Binding Signal';
 
@@ -596,10 +665,25 @@
     });
 
     if (chartInstance) chartInstance.destroy();
+
+    // Interactive Graph Config
     chartInstance = new Chart(els.chartCanvas.getContext('2d'), {
       type: 'line', data: { labels, datasets },
       options: {
         responsive: true, maintainAspectRatio: true,
+        onClick: (e, activeEls, chart) => {
+            // Get X value from click
+            const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
+            const xVal = chart.scales.x.getValueForPixel(canvasPosition.x);
+            if (xVal !== null && xVal >= 0) {
+                // Update P2 Input
+                // xVal is in p2_units
+                els.p2.value = xVal.toPrecision(4);
+                // Trigger recalculation (but avoid infinite loop or jitter)
+                debouncedRun();
+                // Optionally visually indicate selection?
+            }
+        },
         scales: {
           x: { type: els.log.checked ? 'logarithmic' : 'linear', title: { display: true, text: `[P2] (${p2_units})`, font: { size: 14 } } },
           y: { beginAtZero: true, title: { display: true, text: yLabel, font: { size: 14 } } },
@@ -608,16 +692,16 @@
       }
     });
 
-    // Update Species Landscape (Stacked Area)
+    // Species Chart
     const speciesDatasets = [];
-    const colors = ['#9ca3af', '#f87171', '#fbbf24', '#34d399', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6']; // arbitrary palette
+    const colors = ['#9ca3af', '#f87171', '#fbbf24', '#34d399', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6'];
     for (let k = 0; k <= n; k++) {
         const color = colors[k % colors.length];
         speciesDatasets.push({
             label: `P1·(P2)${k}`,
             data: speciesDatas[k],
             fill: true,
-            backgroundColor: color + '80', // 50% opacity
+            backgroundColor: color + '80',
             borderColor: color,
             borderWidth: 1,
             pointRadius: 0
@@ -642,28 +726,23 @@
         }
     });
 
-    // Save for export
     lastCurveData = { x: labels, columns: [{ name: mainLabel, data: complexData }] };
   }
 
   function freezeReference() {
       if (referenceCurve) {
-          // Unfreeze / Clear
           referenceCurve = null;
           els.freezeRefBtn.textContent = "Freeze Reference";
           els.freezeRefBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
           els.freezeRefBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
-          // Re-enable inputs
           [els.p2Start, els.p2End, els.nPts, els.log].forEach(el => el.disabled = false);
       } else {
-          // Freeze
           if (chartInstance && chartInstance.data.datasets.length > 0) {
               const activeDs = chartInstance.data.datasets[chartInstance.data.datasets.length - 1];
               referenceCurve = [...activeDs.data];
               els.freezeRefBtn.textContent = "Clear Reference";
               els.freezeRefBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
               els.freezeRefBtn.classList.add('bg-red-600', 'hover:bg-red-700');
-              // Disable inputs to maintain X-axis consistency
               [els.p2Start, els.p2End, els.nPts, els.log].forEach(el => el.disabled = true);
           }
       }
@@ -685,8 +764,8 @@
     if (!validateInputs()) { els.results.innerHTML = `<div class="text-red-600 bg-red-100 p-3 rounded-lg">Please correct the inputs.</div>`; return; }
     const model = els.model.value;
     const n = parseInt(els.n.value);
-    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value);
-    const P2_tot = to_nM(parseFloat(els.p2.value), els.p2u.value);
+    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value, getMW('p1'));
+    const P2_tot = to_nM(parseFloat(els.p2.value), els.p2u.value, getMW('p2'));
     const kd_val = parseFloat(els.kd.value);
     const kd_unit = els.kdu.value;
     let html = '';
@@ -698,13 +777,12 @@
       const P2_free = clamp0(P2_tot - n * x);
       const pctP1 = (P1_tot > 0) ? (100 * x / P1_tot) : 0;
       html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1·(P2)<sub>${n}</sub>]</h4><p class="text-xl text-indigo-900">${from_nM(x, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub></h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(P2_free, els.p2u.value).toPrecision(6)} ${els.p2u.value}</p></div>
+          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1·(P2)<sub>${n}</sub>]</h4><p class="text-xl text-indigo-900">${from_nM(x, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub></h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(P2_free, els.p2u.value, getMW('p2')).toPrecision(6)} ${els.p2u.value}</p></div>
           <div class="p-3 bg-gray-100 rounded-lg"><h4 class="font-semibold text-gray-800">% of P1 in complex</h4><p class="text-xl text-gray-900">${pctP1.toFixed(2)}%</p></div>
         </div>`;
       els.results.innerHTML = html;
-      // Clear species table for single-step (not defined per k)
       renderSpeciesTable(null);
     } else {
       const Kd_site = to_nM(kd_val, kd_unit);
@@ -716,10 +794,10 @@
       const bound_sites = n * theta;
       const P1_free = P1_tot - P1_any;
       html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub> (0 bound)</h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(L, els.p2u.value).toPrecision(6)} ${els.p2u.value}</p></div>
-          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1 with ≥1 P2]</h4><p class="text-xl text-indigo-900">${from_nM(P1_any, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-purple-50 rounded-lg"><h4 class="font-semibold text-purple-800">[P1 with n P2]</h4><p class="text-xl text-purple-900">${from_nM(P1_full, els.p1u.value).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub> (0 bound)</h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(L, els.p2u.value, getMW('p2')).toPrecision(6)} ${els.p2u.value}</p></div>
+          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1 with ≥1 P2]</h4><p class="text-xl text-indigo-900">${from_nM(P1_any, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-purple-50 rounded-lg"><h4 class="font-semibold text-purple-800">[P1 with n P2]</h4><p class="text-xl text-purple-900">${from_nM(P1_full, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
           <div class="p-3 bg-amber-50 rounded-lg"><h4 class="font-semibold text-amber-800">Average bound sites per P1</h4><p class="text-xl text-amber-900">${bound_sites.toPrecision(6)} of ${n}</p></div>
         </div>`;
       els.results.innerHTML = html;
@@ -739,12 +817,11 @@
     let rows = '';
     for (let k = 0; k < probs.length; k++) {
       const frac = probs[k];
-      const conc_unit = from_nM(concs[k], p1_units);
-      // mg/mL = (Molar conc in mol/L) * (MW in g/mol) -> g/L -> mg/mL
-      // We only have [P1·(P2)_k] in P1 units. Convert that to mol/L:
-      // Convert concs[k] nM to mol/L: concs[k] * 1e-9
+      const conc_unit = from_nM(concs[k], p1_units, mwP1); // Approx P1 MW for complex P1 units
+      // Calculate Mass Conc (mg/mL) specifically for this complex
+      // Molar conc = concs[k] * 1e-9
       const mw_complex_kDa = mwP1 + k * mwP2;
-      const mg_per_ml = (concs[k] * 1e-9) * (mw_complex_kDa * 1000) / 1e3; // g/L to mg/mL
+      const mg_per_ml = (concs[k] * 1e-9) * (mw_complex_kDa * 1000);
       rows += `<tr class="border-b">
         <td class="py-1 pr-4"> ${k} </td>
         <td class="py-1 pr-4"> ${(frac*100).toFixed(2)}% </td>
@@ -761,63 +838,37 @@
     updatePlot();
   }
 
-  function selfTests() {
-    const lines = [];
-    {
-      const P1 = 10, P2 = 50, Kd = 100;
-      const xA = solve_11_analytic(P1, P2, Kd);
-      const xN = solve_single_step(P1, P2, Kd, 1);
-      lines.push(`Test 1 (1:1) analytic=${xA.toFixed(8)} nM, numeric=${xN.toFixed(8)} nM, diff=${Math.abs(xA-xN).toExponential(2)} nM`);
-    }
-    {
-      const n = 2, P1 = 20, P2 = 10, Kd = 1;
-      const x = solve_single_step(P1, P2, Kd, n);
-      lines.push(`Test 2 (1:2 single-step, tight & P2-limited): x=${x.toFixed(8)} nM, expected≈P2/n=${(P2/n).toFixed(8)} nM`);
-    }
-    {
-      const n = 4, P_tot = 10, L_tot = 1e6, Kd_site = 100;
-      const { L, theta } = solve_stepwise_identical(P_tot, L_tot, Kd_site, n);
-      lines.push(`Test 3 (stepwise, ligand excess): theta≈1 ⇒ ${theta.toFixed(6)}`);
-    }
-    {
-      const n = 3, P_tot = 10, L_tot = 0, Kd_site = 100;
-      const { L, theta } = solve_stepwise_identical(P_tot, L_tot, Kd_site, n);
-      lines.push(`Test 4 (stepwise, no ligand): L=${L.toFixed(6)} nM, theta=${theta.toFixed(6)} (expect 0)`);
-    }
-    els.selfTestOut.textContent = lines.join('\\n');
-  }
-
-  // ΔG = RT ln(Kd)
+  // --------------------------------------------------------------------------
+  // Tools: ΔG, Target, Mix, Dilution
+  // --------------------------------------------------------------------------
   function computeDeltaG() {
     const model = els.model.value;
     const kd_val = parseFloat(els.kd.value);
     const kd_unit = els.kdu.value;
     if (!(kd_val > 0)) { els.deltaGOut.textContent = 'Set Kd > 0'; return; }
     const T = (parseFloat(els.tempC.value) || 25) + 273.15;
-    const R = 8.314462618; // J/mol/K
+    const R = 8.314462618;
     if (model === 'single_step') {
       const n = parseInt(els.n.value);
       const Kd_int_nMpow = kd_to_internal_single_step(kd_val, kd_unit, n);
-      const Kd_int_Mpow = Kd_int_nMpow * Math.pow(1e-9, n); // convert to (M)^n
-      // Report ΔG/n per site equivalent for comparison
+      const Kd_int_Mpow = Kd_int_nMpow * Math.pow(1e-9, n);
       const dG_total = R * T * Math.log(Kd_int_Mpow);
       const dG_per = dG_total / n;
       els.deltaGOut.textContent = `Single‑step overall ΔG = ${(dG_total/1000).toFixed(2)} kJ/mol; per‑equivalent site ≈ ${(dG_per/1000).toFixed(2)} kJ/mol`;
     } else {
-      const Kd_site_nM = to_nM(kd_val, kd_unit); // internal nM
+      const Kd_site_nM = to_nM(kd_val, kd_unit);
       const Kd_site_M = Kd_site_nM * 1e-9;
       const dG_site = R * T * Math.log(Kd_site_M);
       els.deltaGOut.textContent = `Per‑site ΔG = ${(dG_site/1000).toFixed(2)} kJ/mol`;
     }
   }
 
-  // Target occupancy solver
   function solveTarget() {
     const target_pct = parseFloat(els.targetPct.value) / 100;
     if (!(target_pct > 0 && target_pct < 1)) { els.targetOut.textContent = 'Target % must be between 0 and 100.'; return; }
     const model = els.model.value;
     const n = parseInt(els.n.value);
-    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value);
+    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value, getMW('p1'));
     const kd_val = parseFloat(els.kd.value);
     const kd_unit = els.kdu.value;
     const p2_units = els.p2u.value;
@@ -829,46 +880,114 @@
       if (x >= P1_tot) { els.targetOut.textContent = 'Target too high.'; return; }
       const P2_free = Math.pow(Kd_int * x / (P1_tot - x), 1 / n);
       required_P2_tot_nM = n * x + P2_free;
-      els.targetOut.textContent = `Required [P2]_total ≈ ${from_nM(required_P2_tot_nM, p2_units).toPrecision(6)} ${p2_units}`;
-      return;
-    }
-
-    if (model === 'stepwise_identical') {
+    } else if (model === 'stepwise_identical') {
       const Kd_site = to_nM(kd_val, kd_unit);
       let theta = NaN;
       if (els.targetMode.value === 'any_bound') {
-        // 1 - (1 - θ)^n = f  =>  θ = 1 - (1 - f)^(1/n)
         theta = 1 - Math.pow(1 - target_pct, 1 / n);
       } else if (els.targetMode.value === 'fully_bound') {
-        // θ^n = f  =>  θ = f^(1/n)
         theta = Math.pow(target_pct, 1 / n);
       } else {
         els.targetOut.textContent = 'Switch to single-step target for that mode.';
         return;
       }
-      const L = (theta / (1 - theta)) * Kd_site;  // free ligand
-      const required = L + n * P1_tot * theta;    // total ligand
-      required_P2_tot_nM = required;
-      els.targetOut.textContent = `Required [P2]_total ≈ ${from_nM(required_P2_tot_nM, p2_units).toPrecision(6)} ${p2_units} (θ=${theta.toFixed(4)}, L_free=${from_nM(L, p2_units).toPrecision(4)} ${p2_units})`;
-      return;
+      const L = (theta / (1 - theta)) * Kd_site;
+      required_P2_tot_nM = L + n * P1_tot * theta;
     }
 
-    els.targetOut.textContent = 'This target mode is not compatible with the selected model.';
+    if (!isNaN(required_P2_tot_nM)) {
+        els.targetOut.textContent = `Required [P2]_total ≈ ${from_nM(required_P2_tot_nM, p2_units, getMW('p2')).toPrecision(6)} ${p2_units}`;
+    } else {
+        els.targetOut.textContent = 'Not compatible with model.';
+    }
   }
 
-  // Mixing helper
   function computeMix() {
-    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value);
-    const P2_tot = to_nM(parseFloat(els.p2.value), els.p2u.value);
+    const P1_tot = to_nM(parseFloat(els.p1.value), els.p1u.value, getMW('p1'));
+    const P2_tot = to_nM(parseFloat(els.p2.value), els.p2u.value, getMW('p2'));
     const V_final_uL = parseFloat(els.finalVol.value);
-    const P1_stock = to_nM(parseFloat(els.p1Stock.value), els.p1StockU.value);
-    const P2_stock = to_nM(parseFloat(els.p2Stock.value), els.p2StockU.value);
+    const P1_stock = to_nM(parseFloat(els.p1Stock.value), els.p1StockU.value, getMW('p1'));
+    const P2_stock = to_nM(parseFloat(els.p2Stock.value), els.p2StockU.value, getMW('p2'));
     if (!(V_final_uL > 0 && P1_stock > 0 && P2_stock > 0)) { els.mixOut.textContent = 'Set positive final volume and stock concentrations.'; return; }
-    // Simple C1V1 = C2V2
+
     const V1_uL = (P1_tot / P1_stock) * V_final_uL;
     const V2_uL = (P2_tot / P2_stock) * V_final_uL;
-    const V_buffer_uL = Math.max(V_final_uL - V1_uL - V2_uL, 0);
-    els.mixOut.textContent = `Mix: V1=${V1_uL.toFixed(2)} µL of P1 stock, V2=${V2_uL.toFixed(2)} µL of P2 stock, buffer=${V_buffer_uL.toFixed(2)} µL.`;
+    const V_buffer_uL = V_final_uL - V1_uL - V2_uL;
+
+    if (V_buffer_uL < 0) {
+        els.mixOut.textContent = `Impossible! Required volumes (P1:${V1_uL.toFixed(1)}, P2:${V2_uL.toFixed(1)}) exceed final volume.`;
+    } else {
+        els.mixOut.textContent = `Mix: ${V1_uL.toFixed(2)} µL P1 stock + ${V2_uL.toFixed(2)} µL P2 stock + ${V_buffer_uL.toFixed(2)} µL Buffer.`;
+    }
+  }
+
+  function generateSerialDilution() {
+      // Inputs
+      const start = parseFloat(els.p2Start.value); // Min
+      const end = parseFloat(els.p2End.value); // Max
+      const unit = els.p2u.value;
+      const isLog = els.log.checked;
+
+      // We assume we want to go from End (High) down to Start (Low)
+      const high = Math.max(start, end);
+      const low = Math.min(start, end);
+
+      if (low <= 0) { alert("Serial dilution requires positive concentrations."); return; }
+
+      // Determine dilution factor
+      // Try 2-fold (div by 2), 3-fold, 10-fold?
+      // Heuristic: If range is huge (log scale), use 3-fold or 10-fold.
+      // If range is small (< 10x), maybe 2-fold.
+      const ratio = high / low;
+      let factor = 2;
+      if (ratio > 1000) factor = 10;
+      else if (ratio > 50) factor = 3;
+
+      // Or just standard 2-fold
+      // User requested: "e.g., 2-fold or 3-fold".
+      // Let's hardcode 2-fold as it's most common, or provide choices?
+      // I'll stick to a calculated factor to fit ~8-12 points, or default to 2-fold.
+      // Let's just do 2-fold steps until we pass 'low'.
+
+      let rows = [];
+      let current = high;
+      let i = 1;
+
+      // Table Header
+      let html = `<table class="min-w-full text-sm text-left">
+        <thead><tr class="border-b font-semibold">
+            <th class="p-2">Tube</th>
+            <th class="p-2">Conc (${unit})</th>
+            <th class="p-2">Recipe</th>
+        </tr></thead><tbody>`;
+
+      // Tube 1: High
+      const P2_stock_nM = to_nM(parseFloat(els.p2Stock.value), els.p2StockU.value, getMW('p2'));
+      const P2_high_nM = to_nM(high, unit, getMW('p2'));
+
+      let recipe1 = "Prepare from Stock";
+      if (P2_stock_nM > 0) {
+          const dil = P2_stock_nM / P2_high_nM;
+          if (dil < 1) recipe1 = "Stock is too dilute!";
+          else if (Math.abs(dil - 1) < 0.01) recipe1 = "Use Stock directly";
+          else recipe1 = `1 part Stock + ${(dil-1).toFixed(2)} parts Buffer`;
+      }
+
+      html += `<tr class="border-b"><td class="p-2">1</td><td class="p-2">${high.toPrecision(4)}</td><td class="p-2">${recipe1}</td></tr>`;
+
+      // Serial steps (2-fold)
+      // Standard volume: 100 uL transfer? Let's just say "1 vol + 1 vol buffer" for 2-fold.
+
+      while (current / 2 >= low * 0.9) { // Go slightly below low
+          i++;
+          current /= 2;
+          html += `<tr class="border-b"><td class="p-2">${i}</td><td class="p-2">${current.toPrecision(4)}</td><td class="p-2">1 vol Tube ${i-1} + 1 vol Buffer (2-fold)</td></tr>`;
+          if (i > 20) break; // Safety
+      }
+
+      html += `</tbody></table>`;
+      els.dilutionOutput.innerHTML = html;
+      els.dilutionOutput.classList.remove('hidden');
   }
 
   function exportSpeciesCSV() {
@@ -877,11 +996,7 @@
     bodyRows.forEach(tr => {
       const tds = tr.querySelectorAll('td');
       if (tds.length === 4) {
-        const k = tds[0].innerText.trim();
-        const frac = tds[1].innerText.trim().replace('%','');
-        const conc = tds[2].innerText.trim();
-        const mass = tds[3].innerText.trim();
-        rows.push([k, frac, conc, mass]);
+        rows.push([tds[0].innerText, tds[1].innerText.replace('%',''), tds[2].innerText, tds[3].innerText]);
       }
     });
     downloadCSV(rows, 'species_table.csv');
@@ -918,7 +1033,6 @@
     link.click();
   }
 
-  // Debounce utility
   function debounce(func, wait) {
       let timeout;
       return function(...args) {
@@ -929,16 +1043,12 @@
 
   const debouncedRun = debounce(runAll, 300);
 
-  // Attach listeners
+  // Listeners
   [els.model, els.n, els.kdu].forEach(el => el.addEventListener('change', () => { updateKdLabel(); runAll(); }));
-  // Text/Number inputs trigger debounced run
-  [els.p1, els.p2, els.kd, els.n, els.coop, els.p2Start, els.p2End, els.nPts].forEach(el => el.addEventListener('input', debouncedRun));
-  // Selects trigger immediate run
+  [els.p1, els.p2, els.kd, els.n, els.coop, els.p2Start, els.p2End, els.nPts, els.mwP1, els.mwP2].forEach(el => el.addEventListener('input', debouncedRun));
   [els.p1u, els.p2u, els.signalMode, els.yAxisMode].forEach(el => el.addEventListener('change', runAll));
-
   [els.log].forEach(el => el.addEventListener('change', updatePlot));
 
-  //els.calc.addEventListener('click', runAll); // Removed button
   els.freezeRefBtn.addEventListener('click', freezeReference);
   els.deltaGBtn.addEventListener('click', computeDeltaG);
   els.solveTargetBtn.addEventListener('click', solveTarget);
@@ -946,10 +1056,9 @@
   els.exportSpeciesCsv.addEventListener('click', exportSpeciesCSV);
   els.exportPlotCsv.addEventListener('click', exportPlotCSV);
   els.savePngBtn.addEventListener('click', saveChartPNG);
+  els.genDilutionBtn.addEventListener('click', generateSerialDilution);
 
   updateKdLabel();
-  // Run background checks
-  setTimeout(selfTests, 100);
   runAll();
 })();
 </script>
