@@ -23,6 +23,12 @@
       <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-utils">
         📐 Lab Utilities
       </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-reactions">
+        🧪 Master Mix
+      </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-purify">
+        🧼 Purification
+      </button>
     </nav>
   </div>
 
@@ -316,6 +322,115 @@
            </div>
 
        </div>
+    </div>
+
+    <!-- Master Mix Calculator -->
+    <div id="tab-reactions" class="bb-pane hidden space-y-6">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Reaction Master Mix</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Reaction Vol (μL)</label>
+                    <input type="number" id="mm-vol" value="20" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sample Count (N)</label>
+                    <input type="number" id="mm-n" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Excess (%)</label>
+                    <input type="number" id="mm-excess" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" title="Buffer for pipetting error">
+                </div>
+            </div>
+
+            <div class="space-y-2 mb-4" id="mm-rows">
+                <!-- Dynamic Rows -->
+            </div>
+
+            <button id="mm-add-btn" class="text-sm border border-dashed border-gray-400 text-gray-500 px-3 py-1 rounded hover:bg-gray-50 dark:hover:bg-slate-700 w-full">+ Add Reagent</button>
+
+            <div class="mt-6 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-bold text-indigo-700 dark:text-indigo-300">Total Master Mix</span>
+                    <span class="text-xs text-indigo-600 dark:text-indigo-400">Make for <span id="mm-total-n">--</span> rxns</span>
+                </div>
+                <ul id="mm-result" class="text-sm space-y-1 font-mono text-slate-700 dark:text-slate-300"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purification & Serial Dilution -->
+    <div id="tab-purify" class="bb-pane hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <h3 class="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Ammonium Sulfate Cut</h3>
+                <p class="text-xs text-gray-500 mb-4">Calculate solid (NH₄)₂SO₄ needed to reach target saturation.</p>
+
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Start Vol (mL)</label>
+                            <input type="number" id="as-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Temp</label>
+                            <select id="as-temp" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                                <option value="20">20°C (Standard)</option>
+                                <option value="4">4°C (Cold Room)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Current %</label>
+                            <input type="number" id="as-s1" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Target %</label>
+                            <input type="number" id="as-s2" value="30" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg mt-4 border border-amber-100 dark:border-amber-800 text-center">
+                        <div class="text-xs text-amber-800 dark:text-amber-400 uppercase tracking-wide font-semibold">Add Solid Salt</div>
+                        <div class="text-2xl font-bold text-amber-600 dark:text-amber-500 my-1"><span id="as-result">0.0</span> g</div>
+                        <div class="text-xs text-amber-700 dark:text-amber-400">Slowly, while stirring.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <h3 class="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Serial Dilution</h3>
+                <div class="space-y-3">
+                     <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400">Desired Dilution Factor (e.g., 2 for 1:2)</label>
+                        <input type="number" id="sd-factor" value="2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                     </div>
+                     <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400">Final Volume per Well (μL)</label>
+                        <input type="number" id="sd-vol" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                     </div>
+
+                     <div class="mt-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded border border-gray-200 dark:border-gray-700">
+                         <div class="text-sm font-medium text-center mb-2">Pipetting Scheme</div>
+                         <div class="flex justify-between text-xs mb-1">
+                             <span>Diluent per well:</span>
+                             <span class="font-mono font-bold" id="sd-diluent">-- μL</span>
+                         </div>
+                         <div class="flex justify-between text-xs">
+                             <span>Transfer volume:</span>
+                             <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400" id="sd-transfer">-- μL</span>
+                         </div>
+                     </div>
+
+                     <div class="text-xs text-gray-400 mt-2">
+                         * Start with (Final Vol + Transfer Vol) in first tube.
+                     </div>
+                </div>
+            </div>
+        </div>
     </div>
 
   </div>
@@ -758,6 +873,126 @@
                  cRpm.value = Math.round(rpm);
             }
         });
+
+        // --- MASTER MIX LOGIC ---
+        const mmRows = document.getElementById('mm-rows');
+        const mmAdd = document.getElementById('mm-add-btn');
+        const mmResult = document.getElementById('mm-result');
+        const inputsMM = ['mm-vol', 'mm-n', 'mm-excess'];
+
+        function createMMRow(name='Reagent', vol=1){
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center";
+            div.innerHTML = `
+                <input type="text" value="${name}" class="mm-name flex-1 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs" placeholder="Name">
+                <input type="number" value="${vol}" step="any" class="mm-one-vol w-20 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs text-right" placeholder="1x">
+                <span class="text-xs text-gray-400">μL</span>
+                <button class="text-red-400 hover:text-red-600 px-2">×</button>
+            `;
+            div.querySelector('button').onclick = () => { div.remove(); calcMM(); };
+            div.querySelectorAll('input').forEach(i => i.addEventListener('input', calcMM));
+            return div;
+        }
+
+        function calcMM(){
+            const N = parseFloat(document.getElementById('mm-n').value) || 1;
+            const exc = parseFloat(document.getElementById('mm-excess').value) || 0;
+            const targetVol = parseFloat(document.getElementById('mm-vol').value) || 0;
+
+            // Calculate Multiplier (N + excess)
+            const totalRxns = N * (1 + exc/100);
+            document.getElementById('mm-total-n').textContent = totalRxns.toFixed(1);
+
+            let currentVol = 0;
+            let html = '';
+
+            // Calculate reagents
+            mmRows.querySelectorAll('div.flex').forEach(row => {
+                const name = row.querySelector('.mm-name').value;
+                const oneVol = parseFloat(row.querySelector('.mm-one-vol').value) || 0;
+                const totVol = oneVol * totalRxns;
+                currentVol += oneVol;
+
+                html += `<li class="flex justify-between border-b border-dotted border-gray-200 dark:border-gray-700">
+                            <span>${name}</span>
+                            <span>${totVol.toFixed(1)} μL</span>
+                         </li>`;
+            });
+
+            // Water calculation
+            const water = targetVol - currentVol;
+            if(water >= 0){
+                html += `<li class="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
+                            <span>Water</span>
+                            <span>${(water * totalRxns).toFixed(1)} μL</span>
+                         </li>`;
+            } else {
+                html += `<li class="text-red-500 text-xs">Error: Volumes exceed ${targetVol}μL</li>`;
+            }
+
+            mmResult.innerHTML = html;
+        }
+
+        inputsMM.forEach(id => document.getElementById(id).addEventListener('input', calcMM));
+        mmAdd.addEventListener('click', () => { mmRows.appendChild(createMMRow()); calcMM(); });
+
+        // Init standard MM rows
+        mmRows.appendChild(createMMRow("Buffer (10x)", 2));
+        mmRows.appendChild(createMMRow("Enzyme", 0.5));
+        mmRows.appendChild(createMMRow("Template", 1));
+        calcMM();
+
+        // --- AMMONIUM SULFATE LOGIC ---
+        const asIds = ['as-vol', 'as-s1', 'as-s2', 'as-temp'];
+        asIds.forEach(id => document.getElementById(id).addEventListener('input', calcAS));
+
+        function calcAS(){
+            const v = parseFloat(document.getElementById('as-vol').value);
+            const s1 = parseFloat(document.getElementById('as-s1').value);
+            const s2 = parseFloat(document.getElementById('as-s2').value);
+            const temp = document.getElementById('as-temp').value; // 20 or 4
+
+            if(v && !isNaN(s1) && s2){
+                // Constants for AmmSulf (Gomori)
+                // At 0C: 516g added to 1L water = 100%. Formula factor approx 516.
+                // At 25C: 533g...
+                // Standard formula: g = (533 * (S2 - S1)) / (100 - 0.3 * S2)
+                // Note: The denominator 0.3 accounts for volume expansion.
+
+                const factor = temp === "20" ? 533 : 516;
+                const expansion = temp === "20" ? 0.3 : 0.27; // approx volume correction
+
+                // Target must be < 100
+                if(s2 >= 100) { document.getElementById('as-result').textContent = "ERR"; return; }
+
+                const numerator = factor * (s2 - s1);
+                const denominator = 100 - (expansion * s2);
+
+                // Result is g/L. Scale to Volume (mL -> L)
+                const gPerL = numerator / denominator;
+                const gFinal = gPerL * (v / 1000);
+
+                document.getElementById('as-result').textContent = gFinal.toFixed(2);
+            }
+        }
+
+        // --- SERIAL DILUTION LOGIC ---
+        const sdIds = ['sd-factor', 'sd-vol'];
+        sdIds.forEach(id => document.getElementById(id).addEventListener('input', calcSD));
+
+        function calcSD(){
+            const factor = parseFloat(document.getElementById('sd-factor').value);
+            const vFinal = parseFloat(document.getElementById('sd-vol').value);
+
+            if(factor > 1 && vFinal > 0){
+                // V_transfer = V_final / (Factor - 1)
+
+                const vTrans = vFinal / (factor - 1);
+
+                document.getElementById('sd-diluent').textContent = vFinal + " μL";
+                document.getElementById('sd-transfer').textContent = vTrans.toFixed(1) + " μL";
+            }
+        }
     }
 
 })();
