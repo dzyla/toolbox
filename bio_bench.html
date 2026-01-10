@@ -1,0 +1,999 @@
+<div class="mx-auto max-w-6xl p-4 md:p-8">
+  <header class="mb-6">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Bio-Bench</h1>
+        <p class="mt-1 text-slate-600 dark:text-slate-400 text-sm md:text-base">Laboratory Utilities & Reference Tools</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+    <nav class="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs" id="bb-tabs">
+      <button class="bb-tab active border-indigo-500 text-indigo-600 dark:text-indigo-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-buffer">
+        🧪 Buffer Mixer
+      </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-macro">
+        🧬 Macromolecules
+      </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-cryo">
+        ❄️ Cryo-EM Suite
+      </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-utils">
+        📐 Lab Utilities
+      </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-reactions">
+        🧪 Master Mix
+      </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-purify">
+        🧼 Purification
+      </button>
+    </nav>
+  </div>
+
+  <!-- Tab Contents -->
+  <div id="bb-content">
+
+    <!-- Buffer Mixer -->
+    <div id="tab-buffer" class="bb-pane block space-y-6">
+      <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Buffer Recipe Calculator</h3>
+
+        <div class="space-y-4" id="buffer-rows">
+           <!-- Dynamic Rows -->
+        </div>
+
+        <div class="flex gap-3 mt-4">
+           <button id="add-component-btn" class="text-sm bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">
+             + Add Component
+           </button>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Volume</label>
+                 <div class="flex gap-2">
+                    <input type="number" id="buffer-total-vol" value="1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                    <select id="buffer-total-unit" class="p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                       <option value="L">L</option>
+                       <option value="mL">mL</option>
+                    </select>
+                 </div>
+              </div>
+              <div class="flex items-end">
+                 <div class="text-sm text-gray-500 dark:text-gray-400">
+                    Calculations update automatically.
+                 </div>
+              </div>
+           </div>
+        </div>
+
+        <div class="mt-6 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-100 dark:border-slate-800">
+            <h4 class="font-medium text-slate-900 dark:text-slate-100 mb-2">Recipe Checklist</h4>
+            <ul id="buffer-recipe-list" class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+               <li class="italic text-gray-400">Add components to generate recipe.</li>
+            </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Macromolecule Converter -->
+    <div id="tab-macro" class="bb-pane hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <!-- Protein Tool -->
+         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Protein Concentration</h3>
+            <div class="space-y-3">
+               <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protein Sequence (for MW & ε)</label>
+                  <textarea id="macro-prot-seq" rows="3" class="w-full p-2 border rounded-lg font-mono text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="MSTRSV..."></textarea>
+               </div>
+               <div class="grid grid-cols-2 gap-3">
+                  <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400">MW (kDa)</label>
+                      <input type="number" id="macro-prot-mw" step="0.1" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-gray-600 text-slate-900 dark:text-slate-100" readonly>
+                  </div>
+                  <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400">ε<sub>280</sub> (M⁻¹cm⁻¹)</label>
+                      <input type="number" id="macro-prot-eps" step="10" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-gray-600 text-slate-900 dark:text-slate-100" readonly>
+                  </div>
+               </div>
+               <hr class="border-gray-100 dark:border-gray-700 my-2">
+               <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Absorbance (A<sub>280</sub>)</label>
+                  <input type="number" id="macro-prot-a280" step="0.01" placeholder="e.g. 0.5" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+               </div>
+               <div class="grid grid-cols-2 gap-3 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg">
+                   <div>
+                       <div class="text-xs text-indigo-600 dark:text-indigo-300 font-semibold">Conc (mg/mL)</div>
+                       <div id="macro-prot-res-mgml" class="text-lg font-mono text-slate-900 dark:text-slate-100">0.00</div>
+                   </div>
+                   <div>
+                       <div class="text-xs text-indigo-600 dark:text-indigo-300 font-semibold">Conc (μM)</div>
+                       <div id="macro-prot-res-um" class="text-lg font-mono text-slate-900 dark:text-slate-100">0.00</div>
+                   </div>
+               </div>
+               <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                   Tip: Use <a href="#" class="text-indigo-500 hover:underline" onclick="document.getElementById('macro-prot-seq').value = 'MW'; document.getElementById('macro-prot-seq').dispatchEvent(new Event('input')); return false;">MW</a> as sequence to just set weight manually (not supported yet, edit inputs directly below). <br>
+                   *Manual override of MW and ε allowed if sequence is empty.*
+               </div>
+            </div>
+         </div>
+
+         <!-- Nucleic Acid Tool -->
+         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Nucleic Acids</h3>
+            <div class="space-y-3">
+               <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                   <select id="macro-na-type" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                       <option value="dsDNA">dsDNA (double-stranded)</option>
+                       <option value="ssDNA">ssDNA (single-stranded/primer)</option>
+                       <option value="ssRNA">ssRNA</option>
+                   </select>
+               </div>
+               <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sequence (Optional for simple conc)</label>
+                  <textarea id="macro-na-seq" rows="2" class="w-full p-2 border rounded-lg font-mono text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="ATGC..."></textarea>
+               </div>
+
+               <div class="grid grid-cols-2 gap-3">
+                   <div>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400">Length (bp or nt)</label>
+                       <input type="number" id="macro-na-len" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                   </div>
+                   <div>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400">Approx MW (Da)</label>
+                       <input type="number" id="macro-na-mw" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-gray-600 text-slate-900 dark:text-slate-100" readonly>
+                   </div>
+               </div>
+
+               <div class="grid grid-cols-2 gap-3">
+                   <div>
+                       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conc (ng/μL)</label>
+                       <input type="number" id="macro-na-ngul" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                   </div>
+                   <div>
+                       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Result (nM)</label>
+                       <input type="number" id="macro-na-nm" class="w-full p-2 border rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-slate-900 dark:text-slate-100" readonly>
+                   </div>
+               </div>
+
+               <div id="macro-na-tm-box" class="hidden mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                   <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Melting Temp (T<sub>m</sub>)</div>
+                   <div class="text-xs text-gray-500 dark:text-gray-400">Based on 2°(A-T) + 4°(G-C) rule (< 14bp) or Wallace rule.</div>
+                   <div class="mt-1 text-lg font-mono text-slate-900 dark:text-slate-100"><span id="macro-na-tm">--</span> °C</div>
+               </div>
+            </div>
+         </div>
+      </div>
+    </div>
+
+    <!-- Cryo-EM Suite -->
+    <div id="tab-cryo" class="bb-pane hidden space-y-6">
+       <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Cryo-EM Parameters</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div class="space-y-4">
+                 <div>
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Raw Pixel Size (Å/px)</label>
+                     <input type="number" id="cryo-pix" step="0.001" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="e.g. 0.83">
+                 </div>
+                 <div>
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Box Size (px)</label>
+                     <input type="number" id="cryo-box" step="2" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="e.g. 256">
+                 </div>
+                 <div>
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Binning Factor</label>
+                     <input type="number" id="cryo-bin" step="0.1" value="1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Supports floats (e.g. 1.5, Fourier cropping)</p>
+                 </div>
+             </div>
+
+             <div class="col-span-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
+                 <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Comparison</h4>
+                 <div class="overflow-x-auto">
+                     <table class="w-full text-sm text-left">
+                         <thead class="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-slate-800">
+                             <tr>
+                                 <th class="px-4 py-2 rounded-l-lg">Parameter</th>
+                                 <th class="px-4 py-2">Raw (Unbinned)</th>
+                                 <th class="px-4 py-2 rounded-r-lg">Binned</th>
+                             </tr>
+                         </thead>
+                         <tbody class="text-slate-700 dark:text-slate-300">
+                             <tr class="border-b border-gray-200 dark:border-gray-700">
+                                 <td class="px-4 py-3 font-medium">Pixel Size</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-pix-raw">--</td>
+                                 <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" id="cryo-res-pix-bin">--</td>
+                             </tr>
+                             <tr class="border-b border-gray-200 dark:border-gray-700">
+                                 <td class="px-4 py-3 font-medium">Nyquist (Res Limit)</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-nyq-raw">--</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-nyq-bin">--</td>
+                             </tr>
+                             <tr class="border-b border-gray-200 dark:border-gray-700">
+                                 <td class="px-4 py-3 font-medium">Box Size (px)</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-box-raw">--</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-box-bin">--</td>
+                             </tr>
+                             <tr>
+                                 <td class="px-4 py-3 font-medium">Physical Box Width</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-phys-raw">--</td>
+                                 <td class="px-4 py-3 font-mono" id="cryo-res-phys-bin">--</td>
+                             </tr>
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
+          </div>
+       </div>
+    </div>
+
+    <!-- Lab Utilities -->
+    <div id="tab-utils" class="bb-pane hidden space-y-6">
+       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+           <!-- Dilution Calc -->
+           <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+               <h3 class="text-base font-semibold mb-3 text-slate-900 dark:text-slate-100">Dilution (M1V1 = M2V2)</h3>
+               <div class="space-y-3 text-sm">
+                   <div class="grid grid-cols-2 gap-2">
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Stock Conc (M1)</label>
+                           <input type="number" id="util-dil-m1" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       </div>
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Stock Vol (V1)</label>
+                           <input type="number" id="util-dil-v1" class="w-full p-2 border rounded bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 font-semibold" placeholder="?" readonly>
+                       </div>
+                   </div>
+                   <div class="flex justify-center text-gray-400">↓</div>
+                   <div class="grid grid-cols-2 gap-2">
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Target Conc (M2)</label>
+                           <input type="number" id="util-dil-m2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       </div>
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Target Vol (V2)</label>
+                           <input type="number" id="util-dil-v2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       </div>
+                   </div>
+                   <div id="util-dil-res" class="p-2 bg-slate-50 dark:bg-slate-700 rounded text-xs text-center text-slate-700 dark:text-slate-300">
+                       Enter M1, M2, V2 to calculate V1.
+                   </div>
+               </div>
+           </div>
+
+           <!-- Molarity Calc -->
+           <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+               <h3 class="text-base font-semibold mb-3 text-slate-900 dark:text-slate-100">Molarity (Mass/Vol/MW)</h3>
+               <div class="space-y-3 text-sm">
+                   <div>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400">MW (g/mol)</label>
+                       <input type="number" id="util-mol-mw" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                   </div>
+                   <div class="grid grid-cols-2 gap-2">
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Volume (L)</label>
+                           <input type="number" id="util-mol-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       </div>
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Conc (M)</label>
+                           <input type="number" id="util-mol-conc" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       </div>
+                   </div>
+                   <div>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400">Mass (g)</label>
+                       <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 font-semibold" placeholder="?">
+                   </div>
+                   <div class="flex gap-2 justify-center mt-2">
+                       <button id="util-mol-calc-mass" class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded hover:bg-slate-300">Calc Mass</button>
+                       <button id="util-mol-calc-conc" class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded hover:bg-slate-300">Calc Conc</button>
+                   </div>
+               </div>
+           </div>
+
+           <!-- Centrifugation -->
+           <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+               <h3 class="text-base font-semibold mb-3 text-slate-900 dark:text-slate-100">RPM ↔ RCF (g)</h3>
+               <div class="space-y-3 text-sm">
+                   <div>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400">Rotor Radius (mm)</label>
+                       <input type="number" id="util-cen-r" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                   </div>
+                   <div class="grid grid-cols-2 gap-2 items-center">
+                       <div>
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Speed (RPM)</label>
+                           <input type="number" id="util-cen-rpm" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       </div>
+                       <div class="text-center text-gray-400">↔</div>
+                   </div>
+                   <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400">Force (RCF / g)</label>
+                        <input type="number" id="util-cen-rcf" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                   </div>
+                   <div class="text-xs text-gray-400 italic text-center mt-2">
+                       g = (1.118 × 10⁻⁵) × r × RPM²
+                   </div>
+               </div>
+           </div>
+
+       </div>
+    </div>
+
+    <!-- Master Mix Calculator -->
+    <div id="tab-reactions" class="bb-pane hidden space-y-6">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Reaction Master Mix</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Reaction Vol (μL)</label>
+                    <input type="number" id="mm-vol" value="20" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sample Count (N)</label>
+                    <input type="number" id="mm-n" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Excess (%)</label>
+                    <input type="number" id="mm-excess" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" title="Buffer for pipetting error">
+                </div>
+            </div>
+
+            <div class="space-y-2 mb-4" id="mm-rows">
+                <!-- Dynamic Rows -->
+            </div>
+
+            <button id="mm-add-btn" class="text-sm border border-dashed border-gray-400 text-gray-500 px-3 py-1 rounded hover:bg-gray-50 dark:hover:bg-slate-700 w-full">+ Add Reagent</button>
+
+            <div class="mt-6 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-bold text-indigo-700 dark:text-indigo-300">Total Master Mix</span>
+                    <span class="text-xs text-indigo-600 dark:text-indigo-400">Make for <span id="mm-total-n">--</span> rxns</span>
+                </div>
+                <ul id="mm-result" class="text-sm space-y-1 font-mono text-slate-700 dark:text-slate-300"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purification & Serial Dilution -->
+    <div id="tab-purify" class="bb-pane hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <h3 class="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Ammonium Sulfate Cut</h3>
+                <p class="text-xs text-gray-500 mb-4">Calculate solid (NH₄)₂SO₄ needed to reach target saturation.</p>
+
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Start Vol (mL)</label>
+                            <input type="number" id="as-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Temp</label>
+                            <select id="as-temp" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                                <option value="20">20°C (Standard)</option>
+                                <option value="4">4°C (Cold Room)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Current %</label>
+                            <input type="number" id="as-s1" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400">Target %</label>
+                            <input type="number" id="as-s2" value="30" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg mt-4 border border-amber-100 dark:border-amber-800 text-center">
+                        <div class="text-xs text-amber-800 dark:text-amber-400 uppercase tracking-wide font-semibold">Add Solid Salt</div>
+                        <div class="text-2xl font-bold text-amber-600 dark:text-amber-500 my-1"><span id="as-result">0.0</span> g</div>
+                        <div class="text-xs text-amber-700 dark:text-amber-400">Slowly, while stirring.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <h3 class="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Serial Dilution</h3>
+                <div class="space-y-3">
+                     <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400">Desired Dilution Factor (e.g., 2 for 1:2)</label>
+                        <input type="number" id="sd-factor" value="2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                     </div>
+                     <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400">Final Volume per Well (μL)</label>
+                        <input type="number" id="sd-vol" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                     </div>
+
+                     <div class="mt-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded border border-gray-200 dark:border-gray-700">
+                         <div class="text-sm font-medium text-center mb-2">Pipetting Scheme</div>
+                         <div class="flex justify-between text-xs mb-1">
+                             <span>Diluent per well:</span>
+                             <span class="font-mono font-bold" id="sd-diluent">-- μL</span>
+                         </div>
+                         <div class="flex justify-between text-xs">
+                             <span>Transfer volume:</span>
+                             <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400" id="sd-transfer">-- μL</span>
+                         </div>
+                     </div>
+
+                     <div class="text-xs text-gray-400 mt-2">
+                         * Start with (Final Vol + Transfer Vol) in first tube.
+                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+    // --- Dependency Loading ---
+    function loadScripts(srcs) {
+        return Promise.all(srcs.map(src => {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = () => { console.warn("Failed to load "+src); resolve(); }; // Soft fail
+                document.head.appendChild(s);
+            });
+        }));
+    }
+
+    // Ensure dependencies
+    loadScripts(['labConstants.js', 'definitions.js']).then(() => {
+        initBioBench();
+    });
+
+    function initBioBench(){
+        const CONSTANTS = window.LAB_CONSTANTS || { chemicals: [] };
+
+        // --- Tab Logic ---
+        const tabs = document.querySelectorAll('.bb-tab');
+        const panes = document.querySelectorAll('.bb-pane');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => {
+                    t.classList.remove('active', 'border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
+                    t.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400');
+                });
+                tab.classList.add('active', 'border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
+                tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400');
+
+                const target = tab.dataset.target;
+                panes.forEach(p => {
+                    if(p.id === target) p.classList.remove('hidden');
+                    else p.classList.add('hidden');
+                });
+            });
+        });
+
+        // --- Buffer Mixer Logic ---
+        const bufferRows = document.getElementById('buffer-rows');
+        const addCompBtn = document.getElementById('add-component-btn');
+        const totalVolIn = document.getElementById('buffer-total-vol');
+        const totalVolUnit = document.getElementById('buffer-total-unit');
+        const recipeList = document.getElementById('buffer-recipe-list');
+
+        // Prepare Datalist once
+        const chemDatalist = document.createElement('datalist');
+        chemDatalist.id = 'chem-datalist';
+        CONSTANTS.chemicals.sort((a,b)=>a.name.localeCompare(b.name)).forEach(c => {
+             const opt = document.createElement('option');
+             opt.value = c.name;
+             opt.dataset.mw = c.mw;
+             chemDatalist.appendChild(opt);
+        });
+        document.body.appendChild(chemDatalist);
+
+        function createBufferRow(){
+            const div = document.createElement('div');
+            div.className = "grid grid-cols-1 md:grid-cols-[2fr,auto,1fr,1fr,auto,auto] gap-3 items-end p-3 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-slate-700/50";
+
+            // Unique ID for MW field to link update logic if needed
+            const rowId = Math.random().toString(36).substr(2,9);
+
+            div.innerHTML = `
+                <div>
+                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Component</label>
+                   <div class="flex gap-1">
+                       <input type="text" list="chem-datalist" class="comp-name w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="Search or type...">
+                       <button class="comp-search text-xs bg-indigo-50 dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded px-2 hover:bg-indigo-100" title="Fetch MW from PubChem">🔍</button>
+                   </div>
+                </div>
+                <div class="w-24">
+                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">MW (g/mol)</label>
+                   <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="0.00">
+                </div>
+                <div class="w-20">
+                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">+H₂O (n)</label>
+                   <input type="number" step="0.5" min="0" value="0" class="comp-hydro w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm">
+                </div>
+                <div>
+                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Conc</label>
+                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="10">
+                </div>
+                <div class="w-24">
+                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit</label>
+                   <select class="comp-unit w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm">
+                      <option value="mM" selected>mM</option>
+                      <option value="M">M</option>
+                      <option value="%">% (w/v)</option>
+                   </select>
+                </div>
+                <button class="remove-row text-red-500 hover:text-red-700 p-2 mb-1" title="Remove">✕</button>
+            `;
+
+            // Events
+            const nameInput = div.querySelector('.comp-name');
+            const mwInput = div.querySelector('.comp-mw');
+            const searchBtn = div.querySelector('.comp-search');
+
+            // 1. Datalist selection updates MW
+            nameInput.addEventListener('input', (e) => {
+                const val = e.target.value;
+                const match = CONSTANTS.chemicals.find(c => c.name === val);
+                if(match) {
+                    mwInput.value = match.mw;
+                    updateRecipe();
+                }
+            });
+
+            // 2. PubChem Fetch
+            searchBtn.addEventListener('click', async () => {
+                 const name = nameInput.value.trim();
+                 if(!name) return;
+                 searchBtn.textContent = '⏳';
+                 try {
+                     const resp = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/MolecularWeight/JSON`);
+                     if(!resp.ok) throw new Error('Not found');
+                     const data = await resp.json();
+                     if(data.PropertyTable && data.PropertyTable.Properties.length > 0){
+                         const mw = data.PropertyTable.Properties[0].MolecularWeight;
+                         mwInput.value = mw;
+                         updateRecipe();
+                     } else {
+                         alert('Molecule not found in PubChem.');
+                     }
+                 } catch(err) {
+                     console.error(err);
+                     alert('Error fetching from PubChem: ' + err.message);
+                 } finally {
+                     searchBtn.textContent = '🔍';
+                 }
+            });
+
+            div.querySelector('.remove-row').addEventListener('click', () => { div.remove(); updateRecipe(); });
+            div.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateRecipe));
+
+            return div;
+        }
+
+        function updateRecipe(){
+            const volVal = parseFloat(totalVolIn.value) || 0;
+            const volUnit = totalVolUnit.value;
+            const volL = volUnit === 'mL' ? volVal / 1000 : volVal;
+
+            if(volL <= 0) { recipeList.innerHTML = '<li class="text-red-500">Invalid volume.</li>'; return; }
+
+            let html = `<li><strong>Total Volume:</strong> ${volVal} ${volUnit}</li>`;
+            let hasComp = false;
+
+            bufferRows.querySelectorAll('div.grid').forEach(row => {
+                const name = row.querySelector('.comp-name').value || "Unknown";
+                const baseMw = parseFloat(row.querySelector('.comp-mw').value) || 0;
+                const hydroN = parseFloat(row.querySelector('.comp-hydro').value) || 0;
+                const conc = parseFloat(row.querySelector('.comp-conc').value);
+                const unit = row.querySelector('.comp-unit').value;
+
+                // Effective MW
+                const effMw = baseMw + (hydroN * 18.015);
+
+                if(effMw > 0 && conc > 0){
+                    hasComp = true;
+                    let massG = 0;
+                    // Logic: Mass = C * V * MW
+                    if(unit === 'M') {
+                        massG = conc * volL * effMw;
+                    } else if (unit === 'mM') {
+                        massG = (conc / 1000) * volL * effMw;
+                    } else if (unit === '%') {
+                        // % w/v = g / 100mL => g = % * (volmL / 100)
+                        const volmL = volL * 1000;
+                        massG = (conc / 100) * volmL;
+                    }
+
+                    const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O, MW ${effMw.toFixed(2)})` : '';
+
+                    html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
+                        <span>${name} (${conc} ${unit})${hydroNote}</span>
+                        <span class="font-mono font-bold">${massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g'}</span>
+                    </li>`;
+                }
+            });
+
+            if(!hasComp) html += '<li class="italic text-gray-400">Add components above.</li>';
+            else html += `<li class="mt-2 text-xs text-gray-500">Fill to ${volVal} ${volUnit} with water.</li>`;
+
+            recipeList.innerHTML = html;
+        }
+
+        addCompBtn.addEventListener('click', () => { bufferRows.appendChild(createBufferRow()); });
+        totalVolIn.addEventListener('input', updateRecipe);
+        totalVolUnit.addEventListener('change', updateRecipe);
+
+        // Add one empty row initially
+        bufferRows.appendChild(createBufferRow());
+
+        // --- Macromolecule Logic ---
+        const pSeq = document.getElementById('macro-prot-seq');
+        const pMW = document.getElementById('macro-prot-mw');
+        const pEps = document.getElementById('macro-prot-eps');
+        const pA280 = document.getElementById('macro-prot-a280');
+        const pMg = document.getElementById('macro-prot-res-mgml');
+        const pUm = document.getElementById('macro-prot-res-um');
+
+        // Helper to count Y/W/C
+        function getProteinParams(seq){
+             // Simple clean
+             const s = seq.toUpperCase().replace(/[^A-Z]/g,'');
+             if(!s) return { mw: 0, eps: 0 };
+
+             // Use Definitions if available, else Fallback map or Constants
+             // Fallback simplified weights
+             const AA_MW = (CONSTANTS.aminoAcids) || {};
+             let mw = 18.02; // water
+             let Y=0, W=0, C=0;
+             for(let c of s){
+                 mw += (AA_MW[c] || 110.0);
+                 if(c==='Y') Y++;
+                 if(c==='W') W++;
+                 if(c==='C') C++;
+             }
+             // Edelhoch method: e280 = 5500*W + 1490*Y + 125*C(cystine)
+             // We'll assume reduced for basic, or let user pick?
+             // Typically "Extinction Coefficient" tools show both. We'll implement reduced (no cystines) as default or simple.
+             // Let's do (W*5500 + Y*1490).
+             const eps = (W * 5500) + (Y * 1490);
+             return { mw: mw / 1000, eps }; // MW in kDa
+        }
+
+        function calcProtConc(){
+            const A = parseFloat(pA280.value) || 0;
+            const mwKDa = parseFloat(pMW.value) || 0;
+            const eps = parseFloat(pEps.value) || 0;
+
+            if(eps > 0 && mwKDa > 0){
+                // A = e * c(M) * l(1)
+                const concM = A / eps;
+                const concUM = concM * 1e6;
+                // mg/mL = g/L = M * MW_Da = concM * (mwKDa * 1000)
+                const mgml = concM * (mwKDa * 1000);
+
+                pMg.textContent = mgml.toFixed(3);
+                pUm.textContent = concUM.toFixed(2);
+            } else {
+                pMg.textContent = "0.00";
+                pUm.textContent = "0.00";
+            }
+        }
+
+        pSeq.addEventListener('input', () => {
+            const vals = getProteinParams(pSeq.value);
+            if(vals.mw > 0.02) { // not just water
+                pMW.value = vals.mw.toFixed(2);
+                pEps.value = vals.eps;
+            }
+            calcProtConc();
+        });
+
+        [pMW, pEps, pA280].forEach(el => el.addEventListener('input', calcProtConc));
+
+        // NA Logic
+        const nType = document.getElementById('macro-na-type');
+        const nSeq = document.getElementById('macro-na-seq');
+        const nLen = document.getElementById('macro-na-len');
+        const nMww = document.getElementById('macro-na-mw');
+        const nConc = document.getElementById('macro-na-ngul');
+        const nRes = document.getElementById('macro-na-nm');
+        const nTm = document.getElementById('macro-na-tm');
+        const nTmBox = document.getElementById('macro-na-tm-box');
+
+        function calcNaParams(){
+            const type = nType.value;
+            const seq = nSeq.value.toUpperCase().replace(/[^A-Z]/g,'');
+
+            let len = parseInt(nLen.value) || 0;
+            if(seq.length > 0) {
+                len = seq.length;
+                nLen.value = len; // Auto-update length if seq present
+            }
+
+            // MW Calculation
+            let mw = 0;
+            if(len > 0){
+                if(type === 'dsDNA') mw = len * 650; // approx 650 Da/bp (Na salt)
+                else if (type === 'ssDNA') mw = len * 330;
+                else if (type === 'ssRNA') mw = len * 340;
+            }
+            nMww.value = mw > 0 ? mw.toFixed(0) : '';
+
+            // Conc: ng/uL -> nM
+            // ng/uL = ug/mL = mg/L
+            // nM = (ng/uL * 1e-6 g/ng * 1e3 uL/mL * 1e3 mL/L) / MW ? No.
+            // Conc (M) = (g/L) / MW
+            // Conc (M) = (ng/uL * 1) / MW  (Since 1 ng/uL = 1 g/L ? No. 1 ng/uL = 1 ug/mL = 1 mg/L = 1e-3 g/L)
+            // Wait: 1 ng/uL = 1000 ng/mL = 1 ug/mL = 1 mg/L = 10^-3 g/L.
+            // So M = (10^-3 * C_ngul) / MW
+            // nM = M * 1e9 = (10^-3 * C_ngul / MW) * 1e9 = (10^6 * C_ngul) / MW.
+
+            const concNg = parseFloat(nConc.value) || 0;
+            if(mw > 0 && concNg > 0){
+                const nm = (concNg * 1e6) / mw;
+                nRes.value = nm.toFixed(1);
+            } else {
+                nRes.value = '';
+            }
+
+            // Tm Calc (Only if sequence)
+            if(seq.length > 0 && (type === 'dsDNA' || type === 'ssDNA')){
+                nTmBox.classList.remove('hidden');
+                // Basic rules
+                let tm = 0;
+                const A = (seq.match(/A/g)||[]).length;
+                const T = (seq.match(/T/g)||[]).length;
+                const G = (seq.match(/G/g)||[]).length;
+                const C = (seq.match(/C/g)||[]).length;
+
+                if(len < 14){
+                    // Wallace rule: 2(A+T) + 4(G+C)
+                    tm = 2*(A+T) + 4*(G+C);
+                } else {
+                    // Approximate: 64.9 + 41*(G+C - 16.4)/(A+T+G+C)
+                    tm = 64.9 + 41 * (G+C - 16.4)/len;
+                }
+                nTm.textContent = tm.toFixed(1);
+            } else {
+                nTmBox.classList.add('hidden');
+            }
+        }
+
+        [nType, nSeq, nLen, nConc].forEach(el => el.addEventListener('input', calcNaParams));
+
+        // --- Cryo EM Logic ---
+        const cPix = document.getElementById('cryo-pix');
+        const cBox = document.getElementById('cryo-box');
+        const cBin = document.getElementById('cryo-bin');
+
+        function updateCryo(){
+            const pix = parseFloat(cPix.value) || 0;
+            const box = parseFloat(cBox.value) || 0;
+            const bin = parseFloat(cBin.value) || 1;
+
+            document.getElementById('cryo-res-pix-raw').textContent = pix ? pix.toFixed(3) : '--';
+            document.getElementById('cryo-res-nyq-raw').textContent = pix ? (2*pix).toFixed(2) + ' Å' : '--';
+            document.getElementById('cryo-res-box-raw').textContent = box ? box : '--';
+            document.getElementById('cryo-res-phys-raw').textContent = (pix && box) ? (pix*box).toFixed(1) + ' Å' : '--';
+
+            if(bin > 0 && pix > 0){
+                const bPix = pix * bin;
+                document.getElementById('cryo-res-pix-bin').textContent = bPix.toFixed(3);
+                document.getElementById('cryo-res-nyq-bin').textContent = (2*bPix).toFixed(2) + ' Å';
+
+                if(box > 0){
+                   // Binned box size (pixels) = Raw Box / Bin
+                   const bBox = box / bin;
+                   document.getElementById('cryo-res-box-bin').textContent = bBox.toFixed(1);
+                   // Physical size shouldn't change ideally if it's the same view, but usually we crop or maintain FOV.
+                   // Physical Size = BinnedPix * BinnedBox = (Pix*Bin) * (Box/Bin) = Pix*Box. Correct.
+                   document.getElementById('cryo-res-phys-bin').textContent = (bPix*bBox).toFixed(1) + ' Å';
+                }
+            }
+        }
+
+        [cPix, cBox, cBin].forEach(el => el.addEventListener('input', updateCryo));
+
+        // --- Utilities ---
+        // Dilution
+        const dM1 = document.getElementById('util-dil-m1');
+        const dV1 = document.getElementById('util-dil-v1');
+        const dM2 = document.getElementById('util-dil-m2');
+        const dV2 = document.getElementById('util-dil-v2');
+        const dRes = document.getElementById('util-dil-res');
+
+        function calcDilution(){
+             const m1 = parseFloat(dM1.value);
+             const m2 = parseFloat(dM2.value);
+             const v2 = parseFloat(dV2.value);
+
+             if(m1 > 0 && m2 > 0 && v2 > 0){
+                 // M1V1 = M2V2 => V1 = (M2*V2)/M1
+                 const v1 = (m2 * v2) / m1;
+                 dV1.value = v1.toFixed(3);
+                 dRes.textContent = `Take ${v1.toFixed(3)} of Stock, add ${(v2-v1).toFixed(3)} diluent.`;
+             } else {
+                 dV1.value = '';
+             }
+        }
+        [dM1, dM2, dV2].forEach(el => el.addEventListener('input', calcDilution));
+
+        // Molarity
+        const mMw = document.getElementById('util-mol-mw');
+        const mVol = document.getElementById('util-mol-vol');
+        const mConc = document.getElementById('util-mol-conc');
+        const mMass = document.getElementById('util-mol-mass');
+
+        document.getElementById('util-mol-calc-mass').addEventListener('click', () => {
+             const mw = parseFloat(mMw.value);
+             const vol = parseFloat(mVol.value);
+             const conc = parseFloat(mConc.value);
+             if(mw && vol && conc) mMass.value = (conc * vol * mw).toFixed(4);
+        });
+
+        document.getElementById('util-mol-calc-conc').addEventListener('click', () => {
+             const mw = parseFloat(mMw.value);
+             const vol = parseFloat(mVol.value);
+             const mass = parseFloat(mMass.value);
+             if(mw && vol && mass) mConc.value = (mass / (vol * mw)).toFixed(6);
+        });
+
+        // Centrifugation
+        const cR = document.getElementById('util-cen-r');
+        const cRpm = document.getElementById('util-cen-rpm');
+        const cRcf = document.getElementById('util-cen-rcf');
+
+        cRpm.addEventListener('input', () => {
+            const r = parseFloat(cR.value);
+            const rpm = parseFloat(cRpm.value);
+            if(r && rpm){
+                // g = 1.118e-5 * r * rpm^2
+                const g = 1.118e-5 * r * rpm * rpm;
+                cRcf.value = Math.round(g);
+            }
+        });
+
+        cRcf.addEventListener('input', () => {
+            const r = parseFloat(cR.value);
+            const g = parseFloat(cRcf.value);
+            if(r && g){
+                 // rpm = sqrt( g / (1.118e-5 * r) )
+                 const rpm = Math.sqrt( g / (1.118e-5 * r) );
+                 cRpm.value = Math.round(rpm);
+            }
+        });
+
+        // --- MASTER MIX LOGIC ---
+        const mmRows = document.getElementById('mm-rows');
+        const mmAdd = document.getElementById('mm-add-btn');
+        const mmResult = document.getElementById('mm-result');
+        const inputsMM = ['mm-vol', 'mm-n', 'mm-excess'];
+
+        function createMMRow(name='Reagent', vol=1){
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center";
+            div.innerHTML = `
+                <input type="text" value="${name}" class="mm-name flex-1 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs" placeholder="Name">
+                <input type="number" value="${vol}" step="any" class="mm-one-vol w-20 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs text-right" placeholder="1x">
+                <span class="text-xs text-gray-400">μL</span>
+                <button class="text-red-400 hover:text-red-600 px-2">×</button>
+            `;
+            div.querySelector('button').onclick = () => { div.remove(); calcMM(); };
+            div.querySelectorAll('input').forEach(i => i.addEventListener('input', calcMM));
+            return div;
+        }
+
+        function calcMM(){
+            const N = parseFloat(document.getElementById('mm-n').value) || 1;
+            const exc = parseFloat(document.getElementById('mm-excess').value) || 0;
+            const targetVol = parseFloat(document.getElementById('mm-vol').value) || 0;
+
+            // Calculate Multiplier (N + excess)
+            const totalRxns = N * (1 + exc/100);
+            document.getElementById('mm-total-n').textContent = totalRxns.toFixed(1);
+
+            let currentVol = 0;
+            let html = '';
+
+            // Calculate reagents
+            mmRows.querySelectorAll('div.flex').forEach(row => {
+                const name = row.querySelector('.mm-name').value;
+                const oneVol = parseFloat(row.querySelector('.mm-one-vol').value) || 0;
+                const totVol = oneVol * totalRxns;
+                currentVol += oneVol;
+
+                html += `<li class="flex justify-between border-b border-dotted border-gray-200 dark:border-gray-700">
+                            <span>${name}</span>
+                            <span>${totVol.toFixed(1)} μL</span>
+                         </li>`;
+            });
+
+            // Water calculation
+            const water = targetVol - currentVol;
+            if(water >= 0){
+                html += `<li class="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
+                            <span>Water</span>
+                            <span>${(water * totalRxns).toFixed(1)} μL</span>
+                         </li>`;
+            } else {
+                html += `<li class="text-red-500 text-xs">Error: Volumes exceed ${targetVol}μL</li>`;
+            }
+
+            mmResult.innerHTML = html;
+        }
+
+        inputsMM.forEach(id => document.getElementById(id).addEventListener('input', calcMM));
+        mmAdd.addEventListener('click', () => { mmRows.appendChild(createMMRow()); calcMM(); });
+
+        // Init standard MM rows
+        mmRows.appendChild(createMMRow("Buffer (10x)", 2));
+        mmRows.appendChild(createMMRow("Enzyme", 0.5));
+        mmRows.appendChild(createMMRow("Template", 1));
+        calcMM();
+
+        // --- AMMONIUM SULFATE LOGIC ---
+        const asIds = ['as-vol', 'as-s1', 'as-s2', 'as-temp'];
+        asIds.forEach(id => document.getElementById(id).addEventListener('input', calcAS));
+
+        function calcAS(){
+            const v = parseFloat(document.getElementById('as-vol').value);
+            const s1 = parseFloat(document.getElementById('as-s1').value);
+            const s2 = parseFloat(document.getElementById('as-s2').value);
+            const temp = document.getElementById('as-temp').value; // 20 or 4
+
+            if(v && !isNaN(s1) && s2){
+                // Constants for AmmSulf (Gomori)
+                // At 0C: 516g added to 1L water = 100%. Formula factor approx 516.
+                // At 25C: 533g...
+                // Standard formula: g = (533 * (S2 - S1)) / (100 - 0.3 * S2)
+                // Note: The denominator 0.3 accounts for volume expansion.
+
+                const factor = temp === "20" ? 533 : 516;
+                const expansion = temp === "20" ? 0.3 : 0.27; // approx volume correction
+
+                // Target must be < 100
+                if(s2 >= 100) { document.getElementById('as-result').textContent = "ERR"; return; }
+
+                const numerator = factor * (s2 - s1);
+                const denominator = 100 - (expansion * s2);
+
+                // Result is g/L. Scale to Volume (mL -> L)
+                const gPerL = numerator / denominator;
+                const gFinal = gPerL * (v / 1000);
+
+                document.getElementById('as-result').textContent = gFinal.toFixed(2);
+            }
+        }
+
+        // --- SERIAL DILUTION LOGIC ---
+        const sdIds = ['sd-factor', 'sd-vol'];
+        sdIds.forEach(id => document.getElementById(id).addEventListener('input', calcSD));
+
+        function calcSD(){
+            const factor = parseFloat(document.getElementById('sd-factor').value);
+            const vFinal = parseFloat(document.getElementById('sd-vol').value);
+
+            if(factor > 1 && vFinal > 0){
+                // V_transfer = V_final / (Factor - 1)
+
+                const vTrans = vFinal / (factor - 1);
+
+                document.getElementById('sd-diluent').textContent = vFinal + " μL";
+                document.getElementById('sd-transfer').textContent = vTrans.toFixed(1) + " μL";
+            }
+        }
+    }
+
+})();
+</script>
