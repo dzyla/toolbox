@@ -93,13 +93,24 @@
                <div class="grid grid-cols-2 gap-3">
                   <div>
                       <label class="block text-xs text-gray-500 dark:text-gray-400">MW (kDa)</label>
-                      <input type="number" id="macro-prot-mw" step="0.1" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-gray-600 text-slate-900 dark:text-slate-100" readonly>
+                      <input type="number" id="macro-prot-mw" step="0.1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                   </div>
                   <div>
                       <label class="block text-xs text-gray-500 dark:text-gray-400">ε<sub>280</sub> (M⁻¹cm⁻¹)</label>
-                      <input type="number" id="macro-prot-eps" step="10" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-gray-600 text-slate-900 dark:text-slate-100" readonly>
+                      <input type="number" id="macro-prot-eps" step="10" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                   </div>
                </div>
+               <!-- ADDED Abs 0.1% Field -->
+               <div class="grid grid-cols-2 gap-3">
+                  <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400">Abs 0.1% (=1 g/L)</label>
+                      <input type="number" id="macro-prot-abs-percent" step="0.01" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="e.g. 1.0">
+                  </div>
+                  <div class="flex items-end text-xs text-gray-400 pb-2">
+                      (Approx based on ε & MW)
+                  </div>
+               </div>
+
                <hr class="border-gray-100 dark:border-gray-700 my-2">
                <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Absorbance (A<sub>280</sub>)</label>
@@ -108,11 +119,11 @@
                <div class="grid grid-cols-2 gap-3 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg">
                    <div>
                        <div class="text-xs text-indigo-600 dark:text-indigo-300 font-semibold">Conc (mg/mL)</div>
-                       <div id="macro-prot-res-mgml" class="text-lg font-mono text-slate-900 dark:text-slate-100">0.00</div>
+                       <input type="number" id="macro-prot-res-mgml-in" class="w-full bg-transparent border-0 border-b border-indigo-200 dark:border-indigo-700 text-lg font-mono text-slate-900 dark:text-slate-100 focus:ring-0 p-0" value="0.00">
                    </div>
                    <div>
                        <div class="text-xs text-indigo-600 dark:text-indigo-300 font-semibold">Conc (μM)</div>
-                       <div id="macro-prot-res-um" class="text-lg font-mono text-slate-900 dark:text-slate-100">0.00</div>
+                       <div id="macro-prot-res-um" class="text-lg font-mono text-slate-900 dark:text-slate-100 pt-1">0.00</div>
                    </div>
                </div>
                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -185,10 +196,24 @@
                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Box Size (px)</label>
                      <input type="number" id="cryo-box" step="2" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="e.g. 256">
                  </div>
+
+                 <!-- Fourier Crop Inputs -->
+                 <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target / Fourier Crop Box</label>
+                     <input type="number" id="cryo-fc-box" step="2" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="e.g. 128">
+                     <div id="cryo-box-suggestion" class="text-xs text-indigo-500 mt-1 cursor-pointer hover:underline"></div>
+                 </div>
+
                  <div>
                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Binning Factor</label>
-                     <input type="number" id="cryo-bin" step="0.1" value="1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
-                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Supports floats (e.g. 1.5, Fourier cropping)</p>
+                     <input type="number" id="cryo-bin" step="0.01" value="1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                 </div>
+
+                 <!-- Max Res Helper -->
+                 <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Nyquist (Å)</label>
+                     <input type="number" id="cryo-target-res" step="0.1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="e.g. 3.5">
+                     <p class="text-xs text-gray-400 mt-1">Updates crop box.</p>
                  </div>
              </div>
 
@@ -200,7 +225,7 @@
                              <tr>
                                  <th class="px-4 py-2 rounded-l-lg">Parameter</th>
                                  <th class="px-4 py-2">Raw (Unbinned)</th>
-                                 <th class="px-4 py-2 rounded-r-lg">Binned</th>
+                                 <th class="px-4 py-2 rounded-r-lg">Binned / Cropped</th>
                              </tr>
                          </thead>
                          <tbody class="text-slate-700 dark:text-slate-300">
@@ -271,6 +296,17 @@
            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
                <h3 class="text-base font-semibold mb-3 text-slate-900 dark:text-slate-100">Molarity (Mass/Vol/MW)</h3>
                <div class="space-y-3 text-sm">
+                   <!-- Updated to Reactive Solve-For Model -->
+                   <div>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Solve For</label>
+                       <select id="util-mol-solve" class="w-full p-2 border rounded bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                           <option value="mass">Mass (g)</option>
+                           <option value="conc">Concentration (M)</option>
+                           <option value="vol">Volume (L)</option>
+                           <option value="mw">MW (g/mol)</option>
+                       </select>
+                   </div>
+                   <hr class="border-gray-100 dark:border-gray-700">
                    <div>
                        <label class="block text-xs text-gray-500 dark:text-gray-400">MW (g/mol)</label>
                        <input type="number" id="util-mol-mw" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
@@ -287,11 +323,7 @@
                    </div>
                    <div>
                        <label class="block text-xs text-gray-500 dark:text-gray-400">Mass (g)</label>
-                       <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 font-semibold" placeholder="?">
-                   </div>
-                   <div class="flex gap-2 justify-center mt-2">
-                       <button id="util-mol-calc-mass" class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded hover:bg-slate-300">Calc Mass</button>
-                       <button id="util-mol-calc-conc" class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded hover:bg-slate-300">Calc Conc</button>
+                       <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" readonly>
                    </div>
                </div>
            </div>
@@ -425,6 +457,11 @@
                          </div>
                      </div>
 
+                     <!-- Schematic Container -->
+                     <div id="sd-schematic" class="flex gap-2 overflow-x-auto p-2 mt-4 items-end">
+                         <!-- Visuals go here -->
+                     </div>
+
                      <div class="text-xs text-gray-400 mt-2">
                          * Start with (Final Vol + Transfer Vol) in first tube.
                      </div>
@@ -523,7 +560,7 @@
                 </div>
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Conc</label>
-                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="10">
+                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm">
                 </div>
                 <div class="w-24">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit</label>
@@ -641,8 +678,9 @@
         const pSeq = document.getElementById('macro-prot-seq');
         const pMW = document.getElementById('macro-prot-mw');
         const pEps = document.getElementById('macro-prot-eps');
+        const pAbsPerc = document.getElementById('macro-prot-abs-percent'); // New field
         const pA280 = document.getElementById('macro-prot-a280');
-        const pMg = document.getElementById('macro-prot-res-mgml');
+        const pMg = document.getElementById('macro-prot-res-mgml-in'); // Now input
         const pUm = document.getElementById('macro-prot-res-um');
 
         // Helper to count Y/W/C
@@ -663,43 +701,93 @@
                  if(c==='C') C++;
              }
              // Edelhoch method: e280 = 5500*W + 1490*Y + 125*C(cystine)
-             // We'll assume reduced for basic, or let user pick?
-             // Typically "Extinction Coefficient" tools show both. We'll implement reduced (no cystines) as default or simple.
-             // Let's do (W*5500 + Y*1490).
              const eps = (W * 5500) + (Y * 1490);
              return { mw: mw / 1000, eps }; // MW in kDa
         }
 
-        function calcProtConc(){
+        // Logic: All inputs can drive changes.
+        // We have: MW, Eps, Abs1%, A280 -> Conc(mg/ml), Conc(uM)
+        // Relations:
+        // 1. Abs1% (g/100ml) = Eps(M-1) / MW(Da) * 10  (Approx: A(1g/L) = A(1mg/mL). A = e*c*l. 1mg/ml = 1g/L = 1/MW M. A = e * (1/MW). )
+        //    Wait. A = e * c. If c = 1 M, A = e.
+        //    If c = 1 g/L = 1/MW_Da M.
+        //    So A(0.1%) = e * (1 / MW_Da).
+        //    Wait, MW is usually kDa in input.
+        //    Let's check units: e is M-1 cm-1. MW is Da (g/mol).
+        //    Concentration 1 g/L = 1 g / MW g/mol = (1/MW) mol/L = (1/MW) M.
+        //    So Abs(0.1%) = e * (1/MW).
+        //    Example: BSA. MW=66.5kDa=66500. e=43824.
+        //    Abs(0.1%) = 43824 / 66500 = 0.66. (Correct, BSA is ~0.6-0.7).
+
+        function updateProtParams(){
+            // If seq changes, update MW and Eps, then Abs1%
+            const vals = getProteinParams(pSeq.value);
+            if(vals.mw > 0.02) {
+                pMW.value = vals.mw.toFixed(2);
+                pEps.value = vals.eps;
+                // Update Abs 0.1%
+                const mwDa = vals.mw * 1000;
+                if(mwDa > 0) pAbsPerc.value = (vals.eps / mwDa).toFixed(3);
+            }
+            calcProtConcFromA280(); // Default flow
+        }
+
+        function calcProtConcFromA280(){
+            // Driven by A280 input
             const A = parseFloat(pA280.value) || 0;
-            const mwKDa = parseFloat(pMW.value) || 0;
-            const eps = parseFloat(pEps.value) || 0;
+            const abs1 = parseFloat(pAbsPerc.value);
 
-            if(eps > 0 && mwKDa > 0){
-                // A = e * c(M) * l(1)
-                const concM = A / eps;
-                const concUM = concM * 1e6;
-                // mg/mL = g/L = M * MW_Da = concM * (mwKDa * 1000)
-                const mgml = concM * (mwKDa * 1000);
+            // If we have Abs 0.1% (E1%), use it: Conc(mg/ml) = A280 / E1%
+            if(abs1 > 0){
+                const mgml = A / abs1;
+                pMg.value = mgml.toFixed(3);
 
-                pMg.textContent = mgml.toFixed(3);
-                pUm.textContent = concUM.toFixed(2);
-            } else {
-                pMg.textContent = "0.00";
-                pUm.textContent = "0.00";
+                // Calc uM from mg/ml and MW
+                const mwKDa = parseFloat(pMW.value);
+                if(mwKDa > 0){
+                    // uM = (mg/ml / MW_kDa) * 1000 ? No.
+                    // mg/mL = g/L. M = (g/L) / MW_Da. uM = M * 1e6 = (g/L / MW_Da) * 1e6.
+                    // uM = (mgml / (mwKDa*1000)) * 1e6 = mgml / mwKDa * 1000.
+                    const um = (mgml / mwKDa) * 1000;
+                    pUm.textContent = um.toFixed(2);
+                }
             }
         }
 
-        pSeq.addEventListener('input', () => {
-            const vals = getProteinParams(pSeq.value);
-            if(vals.mw > 0.02) { // not just water
-                pMW.value = vals.mw.toFixed(2);
-                pEps.value = vals.eps;
-            }
-            calcProtConc();
-        });
+        function calcProtConcFromMg(){
+             // Driven by Conc(mg/ml) input
+             const mgml = parseFloat(pMg.value) || 0;
+             const abs1 = parseFloat(pAbsPerc.value);
+             const mwKDa = parseFloat(pMW.value);
 
-        [pMW, pEps, pA280].forEach(el => el.addEventListener('input', calcProtConc));
+             // Update A280
+             if(abs1 > 0){
+                 pA280.value = (mgml * abs1).toFixed(3);
+             }
+
+             // Update uM
+             if(mwKDa > 0){
+                 const um = (mgml / mwKDa) * 1000;
+                 pUm.textContent = um.toFixed(2);
+             }
+        }
+
+        pSeq.addEventListener('input', updateProtParams);
+        pA280.addEventListener('input', calcProtConcFromA280);
+        pMg.addEventListener('input', calcProtConcFromMg);
+
+        // Recalculate Abs1% if Eps or MW is edited manually
+        function recalE1(){
+             const e = parseFloat(pEps.value);
+             const mw = parseFloat(pMW.value);
+             if(e && mw) pAbsPerc.value = (e / (mw*1000)).toFixed(3);
+             calcProtConcFromA280();
+        }
+        pEps.addEventListener('input', recalE1);
+        pMW.addEventListener('input', recalE1);
+        // If E1% changed manually, just recalc conc
+        pAbsPerc.addEventListener('input', calcProtConcFromA280);
+
 
         // NA Logic
         const nType = document.getElementById('macro-na-type');
@@ -731,14 +819,6 @@
             nMww.value = mw > 0 ? mw.toFixed(0) : '';
 
             // Conc: ng/uL -> nM
-            // ng/uL = ug/mL = mg/L
-            // nM = (ng/uL * 1e-6 g/ng * 1e3 uL/mL * 1e3 mL/L) / MW ? No.
-            // Conc (M) = (g/L) / MW
-            // Conc (M) = (ng/uL * 1) / MW  (Since 1 ng/uL = 1 g/L ? No. 1 ng/uL = 1 ug/mL = 1 mg/L = 1e-3 g/L)
-            // Wait: 1 ng/uL = 1000 ng/mL = 1 ug/mL = 1 mg/L = 10^-3 g/L.
-            // So M = (10^-3 * C_ngul) / MW
-            // nM = M * 1e9 = (10^-3 * C_ngul / MW) * 1e9 = (10^6 * C_ngul) / MW.
-
             const concNg = parseFloat(nConc.value) || 0;
             if(mw > 0 && concNg > 0){
                 const nm = (concNg * 1e6) / mw;
@@ -776,34 +856,117 @@
         const cPix = document.getElementById('cryo-pix');
         const cBox = document.getElementById('cryo-box');
         const cBin = document.getElementById('cryo-bin');
+        const cFcBox = document.getElementById('cryo-fc-box'); // Fourier Crop Box
+        const cTargetRes = document.getElementById('cryo-target-res');
+        const cSuggestion = document.getElementById('cryo-box-suggestion');
+
+        function isGoodBox(n) {
+             // Must be even. Prefer factors 2, 3, 5, 7.
+             if(n % 2 !== 0) return false;
+             let x = n;
+             [2,3,5,7].forEach(f => { while(x % f === 0) x /= f; });
+             return x === 1;
+        }
+
+        function findNextGoodBox(start) {
+            let n = Math.ceil(start);
+            if(n%2 !== 0) n++;
+            while(!isGoodBox(n)) n+=2;
+            return n;
+        }
 
         function updateCryo(){
             const pix = parseFloat(cPix.value) || 0;
             const box = parseFloat(cBox.value) || 0;
-            const bin = parseFloat(cBin.value) || 1;
+            let bin = parseFloat(cBin.value) || 1;
 
+            // Fourier Crop Logic
+            // If FC Box is set, it overrides Binning displayed (effective binning)
+            // Bin = Box / FC_Box
+            // But user might set Bin explicitly.
+            // Let's assume FC Box drives binning if FC Box was the last edited?
+            // Or simpler: Calculate Binned values based on inputs.
+
+            const fcBox = parseFloat(cFcBox.value);
+
+            // Raw Stats
             document.getElementById('cryo-res-pix-raw').textContent = pix ? pix.toFixed(3) : '--';
             document.getElementById('cryo-res-nyq-raw').textContent = pix ? (2*pix).toFixed(2) + ' Å' : '--';
             document.getElementById('cryo-res-box-raw').textContent = box ? box : '--';
             document.getElementById('cryo-res-phys-raw').textContent = (pix && box) ? (pix*box).toFixed(1) + ' Å' : '--';
 
-            if(bin > 0 && pix > 0){
-                const bPix = pix * bin;
+            // Effective Binning
+            let effBin = bin;
+            let effBox = box / bin;
+
+            if(fcBox && box){
+                // If user entered FC Box, effective binning changes
+                effBox = fcBox;
+                effBin = box / fcBox;
+                // Update Bin input to reflect this relationship?
+                // cBin.value = effBin.toFixed(4); // Maybe annoying if typing
+            }
+
+            if(pix > 0 && effBox > 0){
+                const bPix = pix * effBin;
                 document.getElementById('cryo-res-pix-bin').textContent = bPix.toFixed(3);
                 document.getElementById('cryo-res-nyq-bin').textContent = (2*bPix).toFixed(2) + ' Å';
+                document.getElementById('cryo-res-box-bin').textContent = effBox.toFixed(1);
+                document.getElementById('cryo-res-phys-bin').textContent = (bPix*effBox).toFixed(1) + ' Å';
+            }
 
-                if(box > 0){
-                   // Binned box size (pixels) = Raw Box / Bin
-                   const bBox = box / bin;
-                   document.getElementById('cryo-res-box-bin').textContent = bBox.toFixed(1);
-                   // Physical size shouldn't change ideally if it's the same view, but usually we crop or maintain FOV.
-                   // Physical Size = BinnedPix * BinnedBox = (Pix*Bin) * (Box/Bin) = Pix*Box. Correct.
-                   document.getElementById('cryo-res-phys-bin').textContent = (bPix*bBox).toFixed(1) + ' Å';
-                }
+            // Suggestion
+            if(fcBox && !isGoodBox(fcBox)){
+                const better = findNextGoodBox(fcBox);
+                cSuggestion.textContent = `Tip: ${better} is a better box size (FFT friendly). Click to set.`;
+                cSuggestion.onclick = () => { cFcBox.value = better; updateCryo(); };
+            } else {
+                cSuggestion.textContent = '';
             }
         }
 
-        [cPix, cBox, cBin].forEach(el => el.addEventListener('input', updateCryo));
+        // Handle Target Res Input -> Calculate needed box
+        cTargetRes.addEventListener('input', () => {
+             const targetNyq = parseFloat(cTargetRes.value);
+             const rawPix = parseFloat(cPix.value);
+             const rawBox = parseFloat(cBox.value);
+
+             if(targetNyq && rawPix && rawBox){
+                 // Target Nyquist = 2 * NewPixelSize
+                 // NewPixelSize = TargetNyq / 2
+                 // NewPixelSize = RawPix * (RawBox / NewBox)
+                 // TargetNyq/2 = RawPix * RawBox / NewBox
+                 // NewBox = (RawPix * RawBox * 2) / TargetNyq
+
+                 let reqBox = (rawPix * rawBox * 2) / targetNyq;
+                 // Find nearest good box
+                 reqBox = findNextGoodBox(reqBox);
+
+                 // Don't exceed raw box
+                 if(reqBox > rawBox) reqBox = rawBox;
+
+                 cFcBox.value = reqBox;
+                 updateCryo();
+             }
+        });
+
+        cFcBox.addEventListener('input', () => {
+             // Update Bin to match
+             const rawBox = parseFloat(cBox.value);
+             const fc = parseFloat(cFcBox.value);
+             if(rawBox && fc) cBin.value = (rawBox/fc).toFixed(3);
+             updateCryo();
+        });
+
+        cBin.addEventListener('input', () => {
+             // Update FC Box to match
+             const rawBox = parseFloat(cBox.value);
+             const b = parseFloat(cBin.value);
+             if(rawBox && b) cFcBox.value = Math.round(rawBox/b);
+             updateCryo();
+        });
+
+        [cPix, cBox].forEach(el => el.addEventListener('input', updateCryo));
 
         // --- Utilities ---
         // Dilution
@@ -812,6 +975,7 @@
         const dM2 = document.getElementById('util-dil-m2');
         const dV2 = document.getElementById('util-dil-v2');
         const dRes = document.getElementById('util-dil-res');
+        const dSchematic = document.getElementById('sd-schematic');
 
         function calcDilution(){
              const m1 = parseFloat(dM1.value);
@@ -829,25 +993,61 @@
         }
         [dM1, dM2, dV2].forEach(el => el.addEventListener('input', calcDilution));
 
-        // Molarity
+        // Molarity - SOLVER
         const mMw = document.getElementById('util-mol-mw');
         const mVol = document.getElementById('util-mol-vol');
         const mConc = document.getElementById('util-mol-conc');
         const mMass = document.getElementById('util-mol-mass');
+        const mSolve = document.getElementById('util-mol-solve');
 
-        document.getElementById('util-mol-calc-mass').addEventListener('click', () => {
-             const mw = parseFloat(mMw.value);
-             const vol = parseFloat(mVol.value);
-             const conc = parseFloat(mConc.value);
-             if(mw && vol && conc) mMass.value = (conc * vol * mw).toFixed(4);
-        });
+        function updateSolverUI(){
+            const target = mSolve.value; // mass, conc, vol, mw
+            [mMw, mVol, mConc, mMass].forEach(el => {
+                el.readOnly = false;
+                el.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-semibold');
+                el.classList.add('bg-white', 'dark:bg-slate-900');
+            });
 
-        document.getElementById('util-mol-calc-conc').addEventListener('click', () => {
-             const mw = parseFloat(mMw.value);
-             const vol = parseFloat(mVol.value);
-             const mass = parseFloat(mMass.value);
-             if(mw && vol && mass) mConc.value = (mass / (vol * mw)).toFixed(6);
-        });
+            let elTarget;
+            if(target === 'mass') elTarget = mMass;
+            else if(target === 'conc') elTarget = mConc;
+            else if(target === 'vol') elTarget = mVol;
+            else if(target === 'mw') elTarget = mMw;
+
+            if(elTarget){
+                elTarget.readOnly = true;
+                elTarget.classList.remove('bg-white', 'dark:bg-slate-900');
+                elTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-semibold');
+            }
+            solveMolarity();
+        }
+
+        function solveMolarity(){
+            const target = mSolve.value;
+            const mw = parseFloat(mMw.value);
+            const vol = parseFloat(mVol.value);
+            const conc = parseFloat(mConc.value);
+            const mass = parseFloat(mMass.value);
+
+            // M = mol/L = (g/MW) / L = g / (MW*L)
+            // g = M * MW * L
+
+            if(target === 'mass' && mw && vol && conc){
+                mMass.value = (conc * vol * mw).toFixed(4);
+            } else if (target === 'conc' && mass && vol && mw){
+                mConc.value = (mass / (mw*vol)).toFixed(6);
+            } else if (target === 'vol' && mass && conc && mw){
+                // L = g / (M*MW)
+                mVol.value = (mass / (conc*mw)).toFixed(6);
+            } else if (target === 'mw' && mass && conc && vol){
+                // MW = g / (M*L)
+                mMw.value = (mass / (conc*vol)).toFixed(2);
+            }
+        }
+
+        mSolve.addEventListener('change', updateSolverUI);
+        [mMw, mVol, mConc, mMass].forEach(el => el.addEventListener('input', solveMolarity));
+        updateSolverUI(); // Init
 
         // Centrifugation
         const cR = document.getElementById('util-cen-r');
@@ -954,11 +1154,6 @@
 
             if(v && !isNaN(s1) && s2){
                 // Constants for AmmSulf (Gomori)
-                // At 0C: 516g added to 1L water = 100%. Formula factor approx 516.
-                // At 25C: 533g...
-                // Standard formula: g = (533 * (S2 - S1)) / (100 - 0.3 * S2)
-                // Note: The denominator 0.3 accounts for volume expansion.
-
                 const factor = temp === "20" ? 533 : 516;
                 const expansion = temp === "20" ? 0.3 : 0.27; // approx volume correction
 
@@ -986,12 +1181,60 @@
 
             if(factor > 1 && vFinal > 0){
                 // V_transfer = V_final / (Factor - 1)
-
                 const vTrans = vFinal / (factor - 1);
+                const vDil = vFinal; // Technically we fill V_final (or V_final - vTrans??)
+                // Usually: "Final volume per well" = volume after removing transfer?
+                // Or "Working Volume".
+                // If I want 100uL final.
+                // 1:2 dilution.
+                // Tube 1: 200uL total. Take 100uL -> Tube 2 (contains 100uL diluent). Total 200. Mix. Take 100 -> ...
+                // So "Diluent per well" = 100uL.
+                // Transfer = 100uL.
+                // If factor 10. V_final = 90uL. Transfer 10uL. Total 100uL.
+                // Wait. V_final is usually the volume STAYING in the well?
+                // Let's assume V_final is the Desired Volume per Well (Diluent Amount usually matched to this).
+
+                // User input: Final Volume per Well (e.g. 100uL)
+                // User input: Dilution Factor (e.g. 2)
+                // V_trans = V_final / (F - 1).
 
                 document.getElementById('sd-diluent').textContent = vFinal + " μL";
                 document.getElementById('sd-transfer').textContent = vTrans.toFixed(1) + " μL";
+
+                // Update Schematic
+                drawSDSchematic(vFinal, vTrans, factor);
             }
+        }
+
+        function drawSDSchematic(vWell, vTrans, factor){
+             const container = document.getElementById('sd-schematic');
+             container.innerHTML = '';
+
+             // Draw 4 steps
+             for(let i=1; i<=4; i++){
+                 const tube = document.createElement('div');
+                 tube.className = "flex flex-col items-center min-w-[60px]";
+                 const isFirst = i===1;
+
+                 tube.innerHTML = `
+                    <div class="mb-1 text-[10px] text-gray-500 font-mono">1:${Math.pow(factor, i-1)}</div>
+                    <div class="relative w-10 h-16 border-2 border-gray-300 dark:border-gray-600 rounded-b-lg bg-white dark:bg-slate-800 overflow-hidden">
+                        <div class="absolute bottom-0 w-full bg-indigo-200 dark:bg-indigo-900/50 transition-all" style="height: 60%"></div>
+                    </div>
+                    <div class="mt-1 text-[10px] text-center text-gray-400">
+                        ${isFirst ? 'Stock' : '+'+vTrans.toFixed(0)+'μL'}
+                    </div>
+                 `;
+
+                 if(!isFirst){
+                     const arrow = document.createElement('div');
+                     arrow.className = "mb-8 mx-1 text-gray-300";
+                     arrow.innerHTML = "→";
+                     container.appendChild(arrow);
+                 }
+
+                 container.appendChild(tube);
+             }
         }
     }
 
