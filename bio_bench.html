@@ -646,23 +646,44 @@
             searchBtn.addEventListener('click', async () => {
                  const name = nameInput.value.trim();
                  if(!name) return;
+                 const originalText = searchBtn.textContent;
                  searchBtn.textContent = '⏳';
+                 searchBtn.disabled = true;
                  try {
                      const resp = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/MolecularWeight/JSON`);
-                     if(!resp.ok) throw new Error('Not found');
+                     if(!resp.ok) {
+                         if(resp.status === 404) throw new Error('Molecule not found');
+                         throw new Error(`API Error (${resp.status})`);
+                     }
                      const data = await resp.json();
                      if(data.PropertyTable && data.PropertyTable.Properties.length > 0){
                          const mw = data.PropertyTable.Properties[0].MolecularWeight;
                          mwInput.value = mw;
+                         // If we found a MW, ensure we are in Solid mode (or just update the field, user can switch)
+                         // But if user was in Liq mode, this MW is "Stock Conc" which is wrong.
+                         // So force Solid mode?
+                         if(isLiquidChk.checked) {
+                             isLiquidChk.checked = false;
+                             isLiquidChk.dispatchEvent(new Event('change'));
+                         }
                          updateRecipe();
+                         searchBtn.textContent = '✅';
+                         setTimeout(() => searchBtn.textContent = originalText, 1500);
                      } else {
-                         alert('Molecule not found in PubChem.');
+                         throw new Error('No properties found');
                      }
                  } catch(err) {
                      console.error(err);
-                     alert('Error fetching from PubChem: ' + err.message);
+                     searchBtn.textContent = '❌';
+                     searchBtn.title = err.message;
+                     setTimeout(() => {
+                         searchBtn.textContent = originalText;
+                         searchBtn.title = "Fetch MW from PubChem";
+                     }, 1500);
+                     // Optional: Alert user only if explicit click?
+                     // alert('PubChem Error: ' + err.message);
                  } finally {
-                     searchBtn.textContent = '🔍';
+                     searchBtn.disabled = false;
                  }
             });
 
