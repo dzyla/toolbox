@@ -30,12 +30,12 @@ window.LAB_CONSTANTS = {
     { name: "Glycine", mw: 75.07, type: "buffer component" },
 
     // --- PHOSPHATES (Na/K systems) ---
-    { name: "NaH2PO4 (Monobasic, monohydrate)", mw: 137.99, type: "buffer" },
-    { name: "NaH2PO4 (Monobasic, anhydrous)", mw: 119.98, type: "buffer" },
-    { name: "Na2HPO4 (Dibasic, anhydrous)", mw: 141.96, type: "buffer" },
-    { name: "Na2HPO4 (Dibasic, heptahydrate)", mw: 268.07, type: "buffer" },
-    { name: "KH2PO4 (Monobasic, anhydrous)", mw: 136.09, type: "buffer" },
-    { name: "K2HPO4 (Dibasic, anhydrous)", mw: 174.18, type: "buffer" },
+    { name: "Sodium Phosphate Monobasic (NaH2PO4) monohydrate", mw: 137.99, type: "buffer" },
+    { name: "Sodium Phosphate Monobasic (NaH2PO4) anhydrous", mw: 119.98, type: "buffer" },
+    { name: "Sodium Phosphate Dibasic (Na2HPO4) anhydrous", mw: 141.96, type: "buffer" },
+    { name: "Sodium Phosphate Dibasic (Na2HPO4) heptahydrate", mw: 268.07, type: "buffer" },
+    { name: "Potassium Phosphate Monobasic (KH2PO4) anhydrous", mw: 136.09, type: "buffer" },
+    { name: "Potassium Phosphate Dibasic (K2HPO4) anhydrous", mw: 174.18, type: "buffer" },
 
     // --- SALTS (Common Lab Salts) ---
     { name: "NaCl", mw: 58.44, type: "salt" },
