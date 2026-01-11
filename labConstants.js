@@ -293,6 +293,17 @@ window.LAB_CONSTANTS = {
       'avg_dNMP': 325  // g/mol average deoxyribonucleotide monophosphate
   },
 
+  // Protein Modifications (Masses in Da)
+  modifications: {
+      'phosphorylation': 79.98, // +PO3
+      'acetylation': 42.01,
+      'methylation': 14.03,
+      'hydroxylation': 16.00,
+      'glycosylation_n_high_mannose': 1500, // Approx avg
+      'glycosylation_n_complex': 2500,      // Approx avg
+      'glycosylation_o_core1': 365          // Gal-GalNAc
+  },
+
   // Common physical constants for lab calc
   constants: {
       'Avogadro': 6.022e23,
