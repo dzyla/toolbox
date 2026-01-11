@@ -551,7 +551,13 @@
                    </div>
                 </div>
                 <div class="w-24">
-                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">MW (g/mol)</label>
+                   <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 label-mw">MW (g/mol)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="checkbox" class="comp-is-liquid" title="Use liquid stock solution?" id="chk-${rowId}">
+                            <label for="chk-${rowId}" class="text-[10px] text-indigo-500 cursor-pointer" title="Liquid Stock Solution">Liq</label>
+                        </div>
+                   </div>
                    <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="0.00">
                 </div>
                 <div class="w-20">
@@ -577,14 +583,62 @@
             const nameInput = div.querySelector('.comp-name');
             const mwInput = div.querySelector('.comp-mw');
             const searchBtn = div.querySelector('.comp-search');
+            const isLiquidChk = div.querySelector('.comp-is-liquid');
+            const mwLabel = div.querySelector('.label-mw');
+            const hydroInput = div.querySelector('.comp-hydro');
 
-            // 1. Datalist selection updates MW
+            // Toggle Liquid Mode
+            isLiquidChk.addEventListener('change', () => {
+                if(isLiquidChk.checked){
+                    mwLabel.textContent = "Stock Conc (M)";
+                    mwInput.placeholder = "e.g. 5";
+                    hydroInput.disabled = true;
+                    hydroInput.parentElement.classList.add('opacity-50');
+                } else {
+                    mwLabel.textContent = "MW (g/mol)";
+                    mwInput.placeholder = "0.00";
+                    hydroInput.disabled = false;
+                    hydroInput.parentElement.classList.remove('opacity-50');
+                }
+                updateRecipe();
+            });
+
+            // 1. Datalist selection & Fuzzy Search updates MW
             nameInput.addEventListener('input', (e) => {
                 const val = e.target.value;
-                const match = CONSTANTS.chemicals.find(c => c.name === val);
+                const valLower = val.toLowerCase();
+
+                // 1. Try exact match first
+                let match = CONSTANTS.chemicals.find(c => c.name === val);
+
+                // 2. Try fuzzy / synonym match if no exact match
+                if (!match && val.length > 1) {
+                     match = CONSTANTS.chemicals.find(c => {
+                         if (c.name.toLowerCase() === valLower) return true;
+                         if (c.synonyms && c.synonyms.some(s => s.toLowerCase() === valLower)) return true;
+                         return false;
+                     });
+                }
+
                 if(match) {
                     mwInput.value = match.mw;
                     updateRecipe();
+                }
+            });
+
+            // Handle "Enter" on name input to trigger fetch if no match
+            nameInput.addEventListener('keydown', (e) => {
+                if(e.key === 'Enter'){
+                    const val = nameInput.value;
+                    const match = CONSTANTS.chemicals.find(c => c.name.toLowerCase() === val.toLowerCase() || (c.synonyms && c.synonyms.some(s => s.toLowerCase() === val.toLowerCase())));
+                    if(!match) {
+                        searchBtn.click(); // Trigger fetch
+                    } else {
+                        // Found locally, maybe update name to canonical if needed
+                        nameInput.value = match.name;
+                        mwInput.value = match.mw;
+                        updateRecipe();
+                    }
                 }
             });
 
@@ -630,34 +684,77 @@
 
             bufferRows.querySelectorAll('div.grid').forEach(row => {
                 const name = row.querySelector('.comp-name').value || "Unknown";
-                const baseMw = parseFloat(row.querySelector('.comp-mw').value) || 0;
+                const valInput = parseFloat(row.querySelector('.comp-mw').value) || 0; // MW or Stock Conc
                 const hydroN = parseFloat(row.querySelector('.comp-hydro').value) || 0;
                 const conc = parseFloat(row.querySelector('.comp-conc').value);
                 const unit = row.querySelector('.comp-unit').value;
+                const isLiquid = row.querySelector('.comp-is-liquid').checked;
 
-                // Effective MW
-                const effMw = baseMw + (hydroN * 18.015);
-
-                if(effMw > 0 && conc > 0){
+                if(valInput > 0 && conc > 0){
                     hasComp = true;
-                    let massG = 0;
-                    // Logic: Mass = C * V * MW
-                    if(unit === 'M') {
-                        massG = conc * volL * effMw;
-                    } else if (unit === 'mM') {
-                        massG = (conc / 1000) * volL * effMw;
-                    } else if (unit === '%') {
-                        // % w/v = g / 100mL => g = % * (volmL / 100)
-                        const volmL = volL * 1000;
-                        massG = (conc / 100) * volmL;
+
+                    if(isLiquid){
+                        // Liquid Stock Logic
+                        // valInput is Stock Concentration (Assume Molar for now, or match unit?)
+                        // Usually stock is in M. Let's assume input is Molar.
+                        const stockM = valInput;
+                        let targetM = 0;
+
+                        if(unit === 'M') targetM = conc;
+                        else if (unit === 'mM') targetM = conc / 1000;
+                        else if (unit === '%') {
+                            // Hard to convert % to M without MW.
+                            // If user selects liquid, maybe we should force M/mM?
+                            // Or assume they know what they are doing?
+                            // Let's assume stock is same unit? No, standard is Stock in M.
+                            // If target is %, we can't easily calc volume without MW.
+                            // Let's assume stock input is in same unit as target if %?
+                            // No, label says "Stock Conc (M)".
+                            // So if target is %, we display error or approximate?
+                            // Let's assume target is M/mM.
+                            targetM = 0; // Fail for %
+                        }
+
+                        if(targetM > 0){
+                            // V_stock = (C_final * V_total) / C_stock
+                            const volNeededL = (targetM * volL) / stockM;
+                            // Convert to appropriate unit
+                            let volDisplay = '';
+                            if(volNeededL < 0.001) volDisplay = (volNeededL * 1e6).toFixed(1) + ' μL';
+                            else if(volNeededL < 1) volDisplay = (volNeededL * 1000).toFixed(1) + ' mL';
+                            else volDisplay = volNeededL.toFixed(3) + ' L';
+
+                            html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
+                                <span>${name} (Target: ${conc} ${unit})</span>
+                                <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">Add ${volDisplay}</span>
+                            </li>`;
+                        } else {
+                            html += `<li class="text-red-400 text-xs">Cannot calc volume for ${name} (Use M/mM)</li>`;
+                        }
+
+                    } else {
+                        // Solid Logic
+                        const baseMw = valInput;
+                        const effMw = baseMw + (hydroN * 18.015);
+                        let massG = 0;
+
+                        if(unit === 'M') {
+                            massG = conc * volL * effMw;
+                        } else if (unit === 'mM') {
+                            massG = (conc / 1000) * volL * effMw;
+                        } else if (unit === '%') {
+                            const volmL = volL * 1000;
+                            massG = (conc / 100) * volmL;
+                        }
+
+                        const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O, MW ${effMw.toFixed(2)})` : '';
+                        const massDisp = massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g';
+
+                        html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
+                            <span>${name} (${conc} ${unit})${hydroNote}</span>
+                            <span class="font-mono font-bold">${massDisp}</span>
+                        </li>`;
                     }
-
-                    const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O, MW ${effMw.toFixed(2)})` : '';
-
-                    html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
-                        <span>${name} (${conc} ${unit})${hydroNote}</span>
-                        <span class="font-mono font-bold">${massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g'}</span>
-                    </li>`;
                 }
             });
 
