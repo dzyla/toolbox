@@ -71,7 +71,12 @@
         </div>
 
         <div class="mt-6 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-100 dark:border-slate-800">
-            <h4 class="font-medium text-slate-900 dark:text-slate-100 mb-2">Recipe Checklist</h4>
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-medium text-slate-900 dark:text-slate-100">Recipe Checklist</h4>
+                <button id="btn-export-recipe" class="text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400 border border-indigo-200 dark:border-slate-700 px-2 py-1 rounded">
+                    📋 Export Markdown
+                </button>
+            </div>
             <ul id="buffer-recipe-list" class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                <li class="italic text-gray-400">Add components to generate recipe.</li>
             </ul>
@@ -94,12 +99,21 @@
                   <div>
                       <label class="block text-xs text-gray-500 dark:text-gray-400">MW (kDa)</label>
                       <input type="number" id="macro-prot-mw" step="0.1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                       <input type="hidden" id="macro-prot-base-mw"> <!-- Hidden store for sequence-only MW -->
                   </div>
                   <div>
                       <label class="block text-xs text-gray-500 dark:text-gray-400">ε<sub>280</sub> (M⁻¹cm⁻¹)</label>
                       <input type="number" id="macro-prot-eps" step="10" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                   </div>
                </div>
+               <!-- Extinction Variants -->
+               <div class="flex gap-2 text-[10px] justify-end -mt-2 mb-2">
+                   <span class="text-gray-400">Set ε:</span>
+                   <button id="btn-eps-red" class="text-indigo-500 hover:underline" title="Reduced (No S-S)">Red: <span id="val-eps-red">--</span></button>
+                   <span class="text-gray-300">|</span>
+                   <button id="btn-eps-ox" class="text-indigo-500 hover:underline" title="Oxidized (All Cys as S-S)">Ox: <span id="val-eps-ox">--</span></button>
+               </div>
+
                <!-- ADDED Abs 0.1% Field -->
                <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -110,6 +124,55 @@
                       (Approx based on ε & MW)
                   </div>
                </div>
+
+               <!-- Modifications Section -->
+               <details class="group bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                   <summary class="text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer list-none flex items-center gap-2">
+                       <span class="group-open:rotate-90 transition-transform">▶</span>
+                       Modifications & Glycosylation
+                   </summary>
+                   <div class="mt-3 space-y-3">
+                       <!-- Glycosylation -->
+                       <div>
+                           <label class="block text-[10px] uppercase text-gray-400 tracking-wide mb-1">Glycosylation</label>
+                           <div class="grid grid-cols-[1fr,1.5fr,1fr] gap-2 items-center">
+                               <input type="number" id="mod-glyco-n" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Count (n)">
+                               <select id="mod-glyco-type" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                                   <option value="1.5">N-Link (High Man) ~1.5k</option>
+                                   <option value="2.5">N-Link (Complex) ~2.5k</option>
+                                   <option value="0.365">O-Link (Core 1) ~0.37k</option>
+                                   <option value="custom">Custom</option>
+                               </select>
+                               <div class="relative">
+                                   <input type="number" id="mod-glyco-mass" step="0.1" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" value="1.5">
+                                   <span class="absolute right-1 top-1 text-[10px] text-gray-400">kDa</span>
+                               </div>
+                           </div>
+                       </div>
+                       <!-- Phosphorylation -->
+                       <div>
+                            <label class="block text-[10px] uppercase text-gray-400 tracking-wide mb-1">Phosphorylation (+80 Da)</label>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="mod-phos-n" class="w-20 p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Count">
+                                <span class="text-xs text-gray-500">sites</span>
+                            </div>
+                       </div>
+                       <!-- Other Custom -->
+                       <div>
+                            <label class="block text-[10px] uppercase text-gray-400 tracking-wide mb-1">Other (Custom)</label>
+                            <div class="grid grid-cols-[1fr,2fr] gap-2 items-center">
+                                <input type="number" id="mod-other-n" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Count">
+                                <div class="relative">
+                                    <input type="number" id="mod-other-mass" step="0.1" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Mass">
+                                    <span class="absolute right-1 top-1 text-[10px] text-gray-400">kDa</span>
+                                </div>
+                            </div>
+                       </div>
+                       <div class="text-[10px] text-right text-indigo-500" id="mod-total-display">
+                           Mods: +0.00 kDa
+                       </div>
+                   </div>
+               </details>
 
                <hr class="border-gray-100 dark:border-gray-700 my-2">
                <div>
@@ -435,6 +498,31 @@
 
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
                 <h3 class="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Serial Dilution</h3>
+
+                <!-- Stock Prep Section -->
+                <details class="mb-4 bg-indigo-50 dark:bg-indigo-900/20 rounded p-3 text-sm border border-indigo-100 dark:border-indigo-800" open>
+                    <summary class="font-semibold text-indigo-700 dark:text-indigo-300 cursor-pointer text-xs uppercase tracking-wide">Preparation: First Well</summary>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 dark:text-gray-400">Master Stock Conc</label>
+                            <input type="number" id="sd-prep-stock-c" class="w-full p-1 border rounded bg-white dark:bg-slate-900 text-xs" placeholder="e.g. 100">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 dark:text-gray-400">Target Start Conc</label>
+                            <input type="number" id="sd-prep-target-c" class="w-full p-1 border rounded bg-white dark:bg-slate-900 text-xs" placeholder="e.g. 10">
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                         <label class="block text-[10px] text-gray-500 dark:text-gray-400">Required Start Volume (Well 1)</label>
+                         <input type="number" id="sd-prep-vol" class="w-full p-1 border rounded bg-white dark:bg-slate-900 text-xs" value="200" placeholder="e.g. 200">
+                    </div>
+                    <div class="mt-2 text-xs font-mono text-center bg-white dark:bg-slate-900 p-2 rounded border border-gray-200 dark:border-gray-700">
+                        Mix <span id="sd-prep-res-stock" class="font-bold text-indigo-600">--</span> Stock + <span id="sd-prep-res-buf" class="font-bold">--</span> Buffer
+                    </div>
+                </details>
+
+                <hr class="border-gray-100 dark:border-gray-700 mb-4">
+
                 <div class="space-y-3">
                      <div>
                         <label class="block text-xs text-gray-500 dark:text-gray-400">Desired Dilution Factor (e.g., 2 for 1:2)</label>
@@ -551,8 +639,22 @@
                    </div>
                 </div>
                 <div class="w-24">
-                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">MW (g/mol)</label>
-                   <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="0.00">
+                   <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 label-mw">MW (g/mol)</label>
+                        <div class="flex items-center gap-1">
+                            <input type="checkbox" class="comp-is-liquid" title="Use liquid stock solution?" id="chk-${rowId}">
+                            <label for="chk-${rowId}" class="text-[10px] text-indigo-500 cursor-pointer" title="Liquid Stock Solution">Liq</label>
+                        </div>
+                   </div>
+                   <div class="flex gap-1">
+                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="0.00">
+                       <select class="comp-stock-unit hidden w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                           <option value="M">M</option>
+                           <option value="mM">mM</option>
+                           <option value="%">%</option>
+                           <option value="x">x</option>
+                       </select>
+                   </div>
                 </div>
                 <div class="w-20">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">+H₂O (n)</label>
@@ -577,14 +679,65 @@
             const nameInput = div.querySelector('.comp-name');
             const mwInput = div.querySelector('.comp-mw');
             const searchBtn = div.querySelector('.comp-search');
+            const isLiquidChk = div.querySelector('.comp-is-liquid');
+            const mwLabel = div.querySelector('.label-mw');
+            const hydroInput = div.querySelector('.comp-hydro');
+            const stockUnitSel = div.querySelector('.comp-stock-unit');
 
-            // 1. Datalist selection updates MW
+            // Toggle Liquid Mode
+            isLiquidChk.addEventListener('change', () => {
+                if(isLiquidChk.checked){
+                    mwLabel.textContent = "Stock Conc";
+                    mwInput.placeholder = "e.g. 5";
+                    stockUnitSel.classList.remove('hidden');
+                    hydroInput.disabled = true;
+                    hydroInput.parentElement.classList.add('opacity-50');
+                } else {
+                    mwLabel.textContent = "MW (g/mol)";
+                    mwInput.placeholder = "0.00";
+                    stockUnitSel.classList.add('hidden');
+                    hydroInput.disabled = false;
+                    hydroInput.parentElement.classList.remove('opacity-50');
+                }
+                updateRecipe();
+            });
+
+            // 1. Datalist selection & Fuzzy Search updates MW
             nameInput.addEventListener('input', (e) => {
                 const val = e.target.value;
-                const match = CONSTANTS.chemicals.find(c => c.name === val);
+                const valLower = val.toLowerCase();
+
+                // 1. Try exact match first
+                let match = CONSTANTS.chemicals.find(c => c.name === val);
+
+                // 2. Try fuzzy / synonym match if no exact match
+                if (!match && val.length > 1) {
+                     match = CONSTANTS.chemicals.find(c => {
+                         if (c.name.toLowerCase() === valLower) return true;
+                         if (c.synonyms && c.synonyms.some(s => s.toLowerCase() === valLower)) return true;
+                         return false;
+                     });
+                }
+
                 if(match) {
                     mwInput.value = match.mw;
                     updateRecipe();
+                }
+            });
+
+            // Handle "Enter" on name input to trigger fetch if no match
+            nameInput.addEventListener('keydown', (e) => {
+                if(e.key === 'Enter'){
+                    const val = nameInput.value;
+                    const match = CONSTANTS.chemicals.find(c => c.name.toLowerCase() === val.toLowerCase() || (c.synonyms && c.synonyms.some(s => s.toLowerCase() === val.toLowerCase())));
+                    if(!match) {
+                        searchBtn.click(); // Trigger fetch
+                    } else {
+                        // Found locally, maybe update name to canonical if needed
+                        nameInput.value = match.name;
+                        mwInput.value = match.mw;
+                        updateRecipe();
+                    }
                 }
             });
 
@@ -592,23 +745,44 @@
             searchBtn.addEventListener('click', async () => {
                  const name = nameInput.value.trim();
                  if(!name) return;
+                 const originalText = searchBtn.textContent;
                  searchBtn.textContent = '⏳';
+                 searchBtn.disabled = true;
                  try {
                      const resp = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/MolecularWeight/JSON`);
-                     if(!resp.ok) throw new Error('Not found');
+                     if(!resp.ok) {
+                         if(resp.status === 404) throw new Error('Molecule not found');
+                         throw new Error(`API Error (${resp.status})`);
+                     }
                      const data = await resp.json();
                      if(data.PropertyTable && data.PropertyTable.Properties.length > 0){
                          const mw = data.PropertyTable.Properties[0].MolecularWeight;
                          mwInput.value = mw;
+                         // If we found a MW, ensure we are in Solid mode (or just update the field, user can switch)
+                         // But if user was in Liq mode, this MW is "Stock Conc" which is wrong.
+                         // So force Solid mode?
+                         if(isLiquidChk.checked) {
+                             isLiquidChk.checked = false;
+                             isLiquidChk.dispatchEvent(new Event('change'));
+                         }
                          updateRecipe();
+                         searchBtn.textContent = '✅';
+                         setTimeout(() => searchBtn.textContent = originalText, 1500);
                      } else {
-                         alert('Molecule not found in PubChem.');
+                         throw new Error('No properties found');
                      }
                  } catch(err) {
                      console.error(err);
-                     alert('Error fetching from PubChem: ' + err.message);
+                     searchBtn.textContent = '❌';
+                     searchBtn.title = err.message;
+                     setTimeout(() => {
+                         searchBtn.textContent = originalText;
+                         searchBtn.title = "Fetch MW from PubChem";
+                     }, 1500);
+                     // Optional: Alert user only if explicit click?
+                     // alert('PubChem Error: ' + err.message);
                  } finally {
-                     searchBtn.textContent = '🔍';
+                     searchBtn.disabled = false;
                  }
             });
 
@@ -630,34 +804,98 @@
 
             bufferRows.querySelectorAll('div.grid').forEach(row => {
                 const name = row.querySelector('.comp-name').value || "Unknown";
-                const baseMw = parseFloat(row.querySelector('.comp-mw').value) || 0;
+                const valInput = parseFloat(row.querySelector('.comp-mw').value) || 0; // MW or Stock Conc
                 const hydroN = parseFloat(row.querySelector('.comp-hydro').value) || 0;
                 const conc = parseFloat(row.querySelector('.comp-conc').value);
                 const unit = row.querySelector('.comp-unit').value;
+                const isLiquid = row.querySelector('.comp-is-liquid').checked;
 
-                // Effective MW
-                const effMw = baseMw + (hydroN * 18.015);
-
-                if(effMw > 0 && conc > 0){
+                if(valInput > 0 && conc > 0){
                     hasComp = true;
-                    let massG = 0;
-                    // Logic: Mass = C * V * MW
-                    if(unit === 'M') {
-                        massG = conc * volL * effMw;
-                    } else if (unit === 'mM') {
-                        massG = (conc / 1000) * volL * effMw;
-                    } else if (unit === '%') {
-                        // % w/v = g / 100mL => g = % * (volmL / 100)
-                        const volmL = volL * 1000;
-                        massG = (conc / 100) * volmL;
+
+                    if(isLiquid){
+                        // Liquid Stock Logic
+                        const stockVal = valInput;
+                        const stockUnit = row.querySelector('.comp-stock-unit').value;
+
+                        let volNeededL = 0;
+                        let valid = false;
+
+                        // Normalize to base unit (M or %) or simple ratio
+                        if (stockUnit === 'M' || stockUnit === 'mM') {
+                            const sM = stockUnit === 'M' ? stockVal : stockVal/1000;
+                            let tM = 0;
+                            if(unit === 'M') tM = conc;
+                            else if(unit === 'mM') tM = conc/1000;
+
+                            if(tM > 0) {
+                                volNeededL = (tM * volL) / sM;
+                                valid = true;
+                            }
+                        } else if (stockUnit === '%') {
+                            // If Stock is %, target must be % ideally.
+                            // Or if target is M, we fail?
+                            if (unit === '%') {
+                                // C1V1 = C2V2 => V1 = C2V2/C1
+                                // 50% * V1 = 5% * 1L => V1 = 0.05 * 1 / 0.5 = 0.1
+                                // C is dimensionless ratio here, so just match
+                                volNeededL = (conc * volL) / stockVal;
+                                valid = true;
+                            }
+                            // If user puts 100% Acetic Acid and asks for 50 mM.
+                            // We can't do it without density/MW.
+                        } else if (stockUnit === 'x') {
+                            // e.g. 10x stock. Target is usually 1x?
+                            // If unit is 'x', we assume target is 1x (implied) OR
+                            // the user enters '1' in conc and selects 'x' unit?
+                            // Actually, let's assume if Stock is 'x', the Conc Input is the target 'x'.
+                            // e.g. Stock 10x. Target 1x.
+                            // If user selected 'M' or 'mM' for target, we can't convert.
+                            // But usually 'x' implies "Concentration Factor".
+                            // Let's support: If stock is '10' (unit x), and user wants '1' (unit M? No).
+                            // User should probably select 'x' as target unit too? My target units are M, mM, %.
+                            // Maybe user puts '1' (unit M) but means 1x?
+                            // Let's strictly handle M/mM and % pairs.
+                        }
+
+                        if(valid){
+                            let volDisplay = '';
+                            if(volNeededL < 0.000001) volDisplay = (volNeededL * 1e9).toFixed(1) + ' nL';
+                            else if(volNeededL < 0.001) volDisplay = (volNeededL * 1e6).toFixed(1) + ' μL';
+                            else if(volNeededL < 1) volDisplay = (volNeededL * 1000).toFixed(1) + ' mL';
+                            else volDisplay = volNeededL.toFixed(3) + ' L';
+
+                            html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
+                                <span>${name} (Target: ${conc} ${unit})</span>
+                                <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">Add ${volDisplay} <span class="text-[10px] text-gray-400 font-normal">of ${stockVal}${stockUnit}</span></span>
+                            </li>`;
+                        } else {
+                            html += `<li class="text-red-400 text-xs">Cannot calc volume for ${name}. Ensure Stock/Target units match type (M/mM or %).</li>`;
+                        }
+
+                    } else {
+                        // Solid Logic
+                        const baseMw = valInput;
+                        const effMw = baseMw + (hydroN * 18.015);
+                        let massG = 0;
+
+                        if(unit === 'M') {
+                            massG = conc * volL * effMw;
+                        } else if (unit === 'mM') {
+                            massG = (conc / 1000) * volL * effMw;
+                        } else if (unit === '%') {
+                            const volmL = volL * 1000;
+                            massG = (conc / 100) * volmL;
+                        }
+
+                        const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O, MW ${effMw.toFixed(2)})` : '';
+                        const massDisp = massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g';
+
+                        html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
+                            <span>${name} (${conc} ${unit})${hydroNote}</span>
+                            <span class="font-mono font-bold">${massDisp}</span>
+                        </li>`;
                     }
-
-                    const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O, MW ${effMw.toFixed(2)})` : '';
-
-                    html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
-                        <span>${name} (${conc} ${unit})${hydroNote}</span>
-                        <span class="font-mono font-bold">${massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g'}</span>
-                    </li>`;
                 }
             });
 
@@ -671,26 +909,64 @@
         totalVolIn.addEventListener('input', updateRecipe);
         totalVolUnit.addEventListener('change', updateRecipe);
 
+        // Export Markdown Logic
+        document.getElementById('btn-export-recipe').addEventListener('click', () => {
+             const items = recipeList.querySelectorAll('li');
+             if(items.length === 0 || (items.length===1 && items[0].classList.contains('italic'))) {
+                 alert("Nothing to export.");
+                 return;
+             }
+
+             let md = `## Buffer Recipe\n\n`;
+             items.forEach(li => {
+                 const t = li.innerText.replace(/\n/g, ' ').trim();
+                 // Naive parsing: just list
+                 md += `- ${t}\n`;
+             });
+
+             // Copy to clipboard
+             navigator.clipboard.writeText(md).then(() => {
+                 const btn = document.getElementById('btn-export-recipe');
+                 const old = btn.textContent;
+                 btn.textContent = "✅ Copied!";
+                 setTimeout(() => btn.textContent = old, 2000);
+             }).catch(err => {
+                 console.error(err);
+                 prompt("Copy markdown below:", md);
+             });
+        });
+
         // Add one empty row initially
         bufferRows.appendChild(createBufferRow());
 
         // --- Macromolecule Logic ---
         const pSeq = document.getElementById('macro-prot-seq');
         const pMW = document.getElementById('macro-prot-mw');
+        const pBaseMW = document.getElementById('macro-prot-base-mw'); // Hidden base
         const pEps = document.getElementById('macro-prot-eps');
-        const pAbsPerc = document.getElementById('macro-prot-abs-percent'); // New field
+        const pAbsPerc = document.getElementById('macro-prot-abs-percent');
         const pA280 = document.getElementById('macro-prot-a280');
-        const pMg = document.getElementById('macro-prot-res-mgml-in'); // Now input
+        const pMg = document.getElementById('macro-prot-res-mgml-in');
         const pUm = document.getElementById('macro-prot-res-um');
+        // Extinction Buttons
+        const btnEpsRed = document.getElementById('btn-eps-red');
+        const btnEpsOx = document.getElementById('btn-eps-ox');
+        const valEpsRed = document.getElementById('val-eps-red');
+        const valEpsOx = document.getElementById('val-eps-ox');
+        // Mods Inputs
+        const modGlycoN = document.getElementById('mod-glyco-n');
+        const modGlycoType = document.getElementById('mod-glyco-type');
+        const modGlycoMass = document.getElementById('mod-glyco-mass');
+        const modPhosN = document.getElementById('mod-phos-n');
+        const modOtherN = document.getElementById('mod-other-n');
+        const modOtherMass = document.getElementById('mod-other-mass');
+        const modTotalDisplay = document.getElementById('mod-total-display');
 
         // Helper to count Y/W/C
         function getProteinParams(seq){
-             // Simple clean
              const s = seq.toUpperCase().replace(/[^A-Z]/g,'');
-             if(!s) return { mw: 0, eps: 0 };
+             if(!s) return { mw: 0, epsRed: 0, epsOx: 0, cystines: 0 };
 
-             // Use Definitions if available, else Fallback map or Constants
-             // Fallback simplified weights
              const AA_MW = (CONSTANTS.aminoAcids) || {};
              let mw = 18.02; // water
              let Y=0, W=0, C=0;
@@ -700,37 +976,82 @@
                  if(c==='W') W++;
                  if(c==='C') C++;
              }
-             // Edelhoch method: e280 = 5500*W + 1490*Y + 125*C(cystine)
-             const eps = (W * 5500) + (Y * 1490);
-             return { mw: mw / 1000, eps }; // MW in kDa
+             // Reduced: No Disulfides (C remains C-H)
+             const epsRed = (W * 5500) + (Y * 1490);
+             // Oxidized: Assume all C pairs form S-S. Floor(C/2) * 125 ? Or is the 125 per bond? Yes, 125 M-1 cm-1 per S-S bond.
+             // Actually, usually stated as: e(S-S) approx 125, but some sources say 60 per C?
+             // Standard: "E(Prot) = N(Tyr)*1490 + N(Trp)*5500 + N(Cystine)*125"
+             // Cystine is a pair.
+             const nCystine = Math.floor(C / 2);
+             const epsOx = epsRed + (nCystine * 125);
+
+             return { mw: mw / 1000, epsRed, epsOx }; // MW in kDa
         }
 
-        // Logic: All inputs can drive changes.
-        // We have: MW, Eps, Abs1%, A280 -> Conc(mg/ml), Conc(uM)
-        // Relations:
-        // 1. Abs1% (g/100ml) = Eps(M-1) / MW(Da) * 10  (Approx: A(1g/L) = A(1mg/mL). A = e*c*l. 1mg/ml = 1g/L = 1/MW M. A = e * (1/MW). )
-        //    Wait. A = e * c. If c = 1 M, A = e.
-        //    If c = 1 g/L = 1/MW_Da M.
-        //    So A(0.1%) = e * (1 / MW_Da).
-        //    Wait, MW is usually kDa in input.
-        //    Let's check units: e is M-1 cm-1. MW is Da (g/mol).
-        //    Concentration 1 g/L = 1 g / MW g/mol = (1/MW) mol/L = (1/MW) M.
-        //    So Abs(0.1%) = e * (1/MW).
-        //    Example: BSA. MW=66.5kDa=66500. e=43824.
-        //    Abs(0.1%) = 43824 / 66500 = 0.66. (Correct, BSA is ~0.6-0.7).
+        // Logic for Mod Mass
+        function updateMods(){
+             // Base MW should be available
+             const base = parseFloat(pBaseMW.value) || 0;
+             if(base <= 0) return; // Wait for base
+
+             // Glyco
+             const nG = parseFloat(modGlycoN.value) || 0;
+             const mG = parseFloat(modGlycoMass.value) || 0;
+
+             // Phos
+             const nP = parseFloat(modPhosN.value) || 0;
+             const mP = (CONSTANTS.modifications && CONSTANTS.modifications.phosphorylation) ? (CONSTANTS.modifications.phosphorylation/1000) : 0.08;
+
+             // Other
+             const nO = parseFloat(modOtherN.value) || 0;
+             const mO = parseFloat(modOtherMass.value) || 0;
+
+             const addedMass = (nG * mG) + (nP * mP) + (nO * mO);
+             const totalMW = base + addedMass;
+
+             pMW.value = totalMW.toFixed(2);
+             modTotalDisplay.textContent = `Mods: +${addedMass.toFixed(2)} kDa`;
+
+             // Trigger updates dependent on MW (Abs 0.1%, uM)
+             recalE1();
+        }
+
+        // Glyco Type change
+        modGlycoType.addEventListener('change', () => {
+             const val = modGlycoType.value;
+             if(val !== 'custom') {
+                 modGlycoMass.value = val;
+                 updateMods();
+             }
+        });
+
+        [modGlycoN, modGlycoMass, modPhosN, modOtherN, modOtherMass].forEach(el => el.addEventListener('input', updateMods));
 
         function updateProtParams(){
-            // If seq changes, update MW and Eps, then Abs1%
             const vals = getProteinParams(pSeq.value);
             if(vals.mw > 0.02) {
-                pMW.value = vals.mw.toFixed(2);
-                pEps.value = vals.eps;
-                // Update Abs 0.1%
-                const mwDa = vals.mw * 1000;
-                if(mwDa > 0) pAbsPerc.value = (vals.eps / mwDa).toFixed(3);
+                // Set Base MW
+                pBaseMW.value = vals.mw.toFixed(2);
+
+                // Update Extinction Options
+                valEpsRed.textContent = vals.epsRed;
+                valEpsOx.textContent = vals.epsOx;
+
+                // Store in buttons
+                btnEpsRed.dataset.val = vals.epsRed;
+                btnEpsOx.dataset.val = vals.epsOx;
+
+                // Default to Reduced if not set? Or use previous logic?
+                // Let's set Reduced by default if empty
+                if(!pEps.value) pEps.value = vals.epsRed;
+
+                // Update Mods (Calculate total MW)
+                updateMods();
             }
-            calcProtConcFromA280(); // Default flow
         }
+
+        btnEpsRed.onclick = () => { if(btnEpsRed.dataset.val) { pEps.value = btnEpsRed.dataset.val; recalE1(); } };
+        btnEpsOx.onclick = () => { if(btnEpsOx.dataset.val) { pEps.value = btnEpsOx.dataset.val; recalE1(); } };
 
         function calcProtConcFromA280(){
             // Driven by A280 input
@@ -1175,6 +1496,27 @@
         const sdIds = ['sd-factor', 'sd-vol'];
         sdIds.forEach(id => document.getElementById(id).addEventListener('input', calcSD));
 
+        const sdPrepIds = ['sd-prep-stock-c', 'sd-prep-target-c', 'sd-prep-vol'];
+        sdPrepIds.forEach(id => document.getElementById(id).addEventListener('input', calcSDPrep));
+
+        function calcSDPrep(){
+            const stockC = parseFloat(document.getElementById('sd-prep-stock-c').value);
+            const targetC = parseFloat(document.getElementById('sd-prep-target-c').value);
+            const targetV = parseFloat(document.getElementById('sd-prep-vol').value);
+
+            if(stockC && targetC && targetV && stockC >= targetC){
+                // V_stock = C2 * V2 / C1
+                const vStock = (targetC * targetV) / stockC;
+                const vBuf = targetV - vStock;
+
+                document.getElementById('sd-prep-res-stock').textContent = vStock.toFixed(1) + ' μL';
+                document.getElementById('sd-prep-res-buf').textContent = vBuf.toFixed(1) + ' μL';
+            } else {
+                document.getElementById('sd-prep-res-stock').textContent = '--';
+                document.getElementById('sd-prep-res-buf').textContent = '--';
+            }
+        }
+
         function calcSD(){
             const factor = parseFloat(document.getElementById('sd-factor').value);
             const vFinal = parseFloat(document.getElementById('sd-vol').value);
@@ -1182,21 +1524,7 @@
             if(factor > 1 && vFinal > 0){
                 // V_transfer = V_final / (Factor - 1)
                 const vTrans = vFinal / (factor - 1);
-                const vDil = vFinal; // Technically we fill V_final (or V_final - vTrans??)
-                // Usually: "Final volume per well" = volume after removing transfer?
-                // Or "Working Volume".
-                // If I want 100uL final.
-                // 1:2 dilution.
-                // Tube 1: 200uL total. Take 100uL -> Tube 2 (contains 100uL diluent). Total 200. Mix. Take 100 -> ...
-                // So "Diluent per well" = 100uL.
-                // Transfer = 100uL.
-                // If factor 10. V_final = 90uL. Transfer 10uL. Total 100uL.
-                // Wait. V_final is usually the volume STAYING in the well?
-                // Let's assume V_final is the Desired Volume per Well (Diluent Amount usually matched to this).
-
-                // User input: Final Volume per Well (e.g. 100uL)
-                // User input: Dilution Factor (e.g. 2)
-                // V_trans = V_final / (F - 1).
+                const vDil = vFinal;
 
                 document.getElementById('sd-diluent').textContent = vFinal + " μL";
                 document.getElementById('sd-transfer').textContent = vTrans.toFixed(1) + " μL";
@@ -1216,20 +1544,23 @@
                  tube.className = "flex flex-col items-center min-w-[60px]";
                  const isFirst = i===1;
 
+                 // For first tube, show "Start" or calc from prep?
+                 // Usually user prepares Well 1, then transfers.
+
                  tube.innerHTML = `
                     <div class="mb-1 text-[10px] text-gray-500 font-mono">1:${Math.pow(factor, i-1)}</div>
                     <div class="relative w-10 h-16 border-2 border-gray-300 dark:border-gray-600 rounded-b-lg bg-white dark:bg-slate-800 overflow-hidden">
                         <div class="absolute bottom-0 w-full bg-indigo-200 dark:bg-indigo-900/50 transition-all" style="height: 60%"></div>
                     </div>
                     <div class="mt-1 text-[10px] text-center text-gray-400">
-                        ${isFirst ? 'Stock' : '+'+vTrans.toFixed(0)+'μL'}
+                        ${isFirst ? 'Start Mix' : '+'+vTrans.toFixed(1)+'μL'}
                     </div>
                  `;
 
                  if(!isFirst){
                      const arrow = document.createElement('div');
-                     arrow.className = "mb-8 mx-1 text-gray-300";
-                     arrow.innerHTML = "→";
+                     arrow.className = "mb-8 mx-1 text-gray-400 text-xs font-mono relative";
+                     arrow.innerHTML = `<span class="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">${vTrans.toFixed(0)}μL</span>→`;
                      container.appendChild(arrow);
                  }
 
