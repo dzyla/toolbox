@@ -3,12 +3,16 @@ window.LAB_CONSTANTS = {
     // --- BUFFERS (Good's Buffers & Standards) ---
     { name: "Tris-base", mw: 121.14, type: "buffer" },
     { name: "Tris-HCl", mw: 157.60, type: "buffer" },
-    { name: "HEPES", mw: 238.30, type: "buffer" },
+    { name: "HEPES (Free Acid)", mw: 238.30, type: "buffer" },
     { name: "HEPES Sodium Salt", mw: 260.29, type: "buffer" },
-    { name: "MOPS", mw: 209.26, type: "buffer" },
-    { name: "MES (monohydrate)", mw: 213.25, type: "buffer" }, // Common hydration
+    { name: "HEPES Hemisodium Salt", mw: 249.30, type: "buffer" },
+    { name: "MOPS (Free Acid)", mw: 209.26, type: "buffer" },
+    { name: "MOPS Sodium Salt", mw: 231.25, type: "buffer" },
+    { name: "MES (monohydrate)", mw: 213.25, type: "buffer" },
     { name: "MES (anhydrous)", mw: 195.24, type: "buffer" },
-    { name: "PIPES", mw: 302.37, type: "buffer" },
+    { name: "MES Sodium Salt", mw: 217.22, type: "buffer" },
+    { name: "PIPES (Free Acid)", mw: 302.37, type: "buffer" },
+    { name: "PIPES Disodium Salt", mw: 346.33, type: "buffer" },
     { name: "TES", mw: 229.25, type: "buffer" },
     { name: "Tricine", mw: 179.17, type: "buffer" },
     { name: "Bicine", mw: 163.17, type: "buffer" },
@@ -20,43 +24,83 @@ window.LAB_CONSTANTS = {
     { name: "ADA", mw: 190.22, type: "buffer" },
     { name: "ACES", mw: 182.20, type: "buffer" },
     { name: "Cholamine chloride", mw: 139.63, type: "buffer" },
-    { name: "Acetate (Sodium salt, trihydrate)", mw: 136.08, type: "buffer" },
-    { name: "Acetate (Ammonium salt)", mw: 77.08, type: "buffer" },
-    { name: "Citrate (Sodium salt, dihydrate)", mw: 294.10, type: "buffer" },
-    { name: "Borate (Boric Acid)", mw: 61.83, type: "buffer" },
-    { name: "Sodium Bicarbonate", mw: 84.01, type: "buffer" },
-    { name: "Sodium Carbonate", mw: 105.99, type: "buffer" },
+    { name: "Sodium Acetate (trihydrate)", mw: 136.08, type: "buffer" },
+    { name: "Sodium Acetate (anhydrous)", mw: 82.03, type: "buffer" },
+    { name: "Ammonium Acetate", mw: 77.08, type: "buffer" },
+    { name: "Sodium Citrate (dihydrate)", mw: 294.10, type: "buffer" },
+    { name: "Citric Acid (anhydrous)", mw: 192.12, type: "buffer" },
+    { name: "Citric Acid (monohydrate)", mw: 210.14, type: "buffer" },
+    { name: "Boric Acid", mw: 61.83, type: "buffer" },
+    { name: "Sodium Bicarbonate (NaHCO3)", mw: 84.01, type: "buffer" },
+    { name: "Sodium Carbonate (Na2CO3) anhydrous", mw: 105.99, type: "buffer" },
+    { name: "Sodium Carbonate (Na2CO3) monohydrate", mw: 124.00, type: "buffer" },
     { name: "Imidazole", mw: 68.08, type: "buffer component" },
     { name: "Glycine", mw: 75.07, type: "buffer component" },
+    { name: "Sodium Cacodylate (trihydrate)", mw: 214.03, type: "buffer" },
 
-    // --- PHOSPHATES (Na/K systems) ---
+    // --- ACIDS & BASES (For Molarity Calc) ---
+    { name: "Hydrochloric Acid (HCl)", mw: 36.46, type: "acid" },
+    { name: "Sodium Hydroxide (NaOH)", mw: 40.00, type: "base" },
+    { name: "Potassium Hydroxide (KOH)", mw: 56.11, type: "base" },
+    { name: "Sulfuric Acid (H2SO4)", mw: 98.08, type: "acid" },
+    { name: "Acetic Acid (Glacial)", mw: 60.05, type: "acid" },
+    { name: "Formic Acid", mw: 46.03, type: "acid" },
+    { name: "Phosphoric Acid (H3PO4)", mw: 98.00, type: "acid" },
+    { name: "Trifluoroacetic Acid (TFA)", mw: 114.02, type: "acid" },
+
+    // --- PHOSPHATES (Na/K/Ammonium systems) ---
     { name: "Sodium Phosphate Monobasic (NaH2PO4) monohydrate", mw: 137.99, type: "buffer" },
+    { name: "Sodium Phosphate Monobasic (NaH2PO4) dihydrate", mw: 156.01, type: "buffer" },
     { name: "Sodium Phosphate Monobasic (NaH2PO4) anhydrous", mw: 119.98, type: "buffer" },
     { name: "Sodium Phosphate Dibasic (Na2HPO4) anhydrous", mw: 141.96, type: "buffer" },
+    { name: "Sodium Phosphate Dibasic (Na2HPO4) dihydrate", mw: 177.99, type: "buffer" },
     { name: "Sodium Phosphate Dibasic (Na2HPO4) heptahydrate", mw: 268.07, type: "buffer" },
+    { name: "Sodium Phosphate Dibasic (Na2HPO4) dodecahydrate", mw: 358.14, type: "buffer" },
     { name: "Potassium Phosphate Monobasic (KH2PO4) anhydrous", mw: 136.09, type: "buffer" },
     { name: "Potassium Phosphate Dibasic (K2HPO4) anhydrous", mw: 174.18, type: "buffer" },
+    { name: "Potassium Phosphate Dibasic (K2HPO4) trihydrate", mw: 228.22, type: "buffer" },
+    { name: "Ammonium Phosphate Monobasic", mw: 115.03, type: "buffer" },
+    { name: "Ammonium Phosphate Dibasic", mw: 132.06, type: "buffer" },
 
-    // --- SALTS (Common Lab Salts) ---
-    { name: "NaCl", mw: 58.44, type: "salt" },
-    { name: "KCl", mw: 74.55, type: "salt" },
-    { name: "LiCl", mw: 42.39, type: "salt" },
-    { name: "MgCl2 (hexahydrate)", mw: 203.30, type: "salt" },
-    { name: "MgCl2 (anhydrous)", mw: 95.21, type: "salt" },
-    { name: "MgSO4 (heptahydrate)", mw: 246.47, type: "salt" },
-    { name: "MgSO4 (anhydrous)", mw: 120.37, type: "salt" },
-    { name: "CaCl2 (dihydrate)", mw: 147.02, type: "salt" },
-    { name: "CaCl2 (anhydrous)", mw: 110.98, type: "salt" },
-    { name: "MnCl2 (tetrahydrate)", mw: 197.91, type: "salt" },
-    { name: "ZnCl2", mw: 136.29, type: "salt" },
+    // --- SALTS (Common & Transition Metals) ---
+    { name: "Sodium Chloride (NaCl)", mw: 58.44, type: "salt" },
+    { name: "Potassium Chloride (KCl)", mw: 74.55, type: "salt" },
+    { name: "Lithium Chloride (LiCl)", mw: 42.39, type: "salt" },
+    { name: "Magnesium Chloride (MgCl2) hexahydrate", mw: 203.30, type: "salt" },
+    { name: "Magnesium Chloride (MgCl2) anhydrous", mw: 95.21, type: "salt" },
+    { name: "Magnesium Sulfate (MgSO4) heptahydrate", mw: 246.47, type: "salt" },
+    { name: "Magnesium Sulfate (MgSO4) anhydrous", mw: 120.37, type: "salt" },
+    { name: "Calcium Chloride (CaCl2) dihydrate", mw: 147.02, type: "salt" },
+    { name: "Calcium Chloride (CaCl2) anhydrous", mw: 110.98, type: "salt" },
+    { name: "Manganese(II) Chloride (MnCl2) tetrahydrate", mw: 197.91, type: "salt" },
+    { name: "Zinc Chloride (ZnCl2)", mw: 136.29, type: "salt" },
     { name: "Zinc Acetate (dihydrate)", mw: 219.50, type: "salt" },
-    { name: "Ammonium Sulfate", mw: 132.14, type: "salt" },
-    { name: "Sodium Sulfate", mw: 142.04, type: "salt" },
-    { name: "Potassium Sulfate", mw: 174.26, type: "salt" },
-    { name: "Sodium Nitrate", mw: 84.99, type: "salt" },
-    { name: "Potassium Nitrate", mw: 101.10, type: "salt" },
+    { name: "Zinc Sulfate (heptahydrate)", mw: 287.56, type: "salt" },
+    { name: "Copper(II) Sulfate (CuSO4) pentahydrate", mw: 249.68, type: "salt" },
+    { name: "Cobalt(II) Chloride (CoCl2) hexahydrate", mw: 237.93, type: "salt" },
+    { name: "Iron(III) Chloride (FeCl3) hexahydrate", mw: 270.30, type: "salt" },
+    { name: "Iron(II) Sulfate (FeSO4) heptahydrate", mw: 278.01, type: "salt" },
+    { name: "Nickel(II) Sulfate (NiSO4) hexahydrate", mw: 262.85, type: "salt" },
+    { name: "Nickel(II) Chloride (NiCl2) hexahydrate", mw: 237.69, type: "salt" },
+    { name: "Ammonium Sulfate ((NH4)2SO4)", mw: 132.14, type: "salt" },
+    { name: "Ammonium Chloride (NH4Cl)", mw: 53.49, type: "salt" },
+    { name: "Sodium Sulfate (Na2SO4)", mw: 142.04, type: "salt" },
+    { name: "Potassium Sulfate (K2SO4)", mw: 174.26, type: "salt" },
+    { name: "Sodium Nitrate (NaNO3)", mw: 84.99, type: "salt" },
+    { name: "Potassium Nitrate (KNO3)", mw: 101.10, type: "salt" },
     { name: "Sodium Tartrate (dihydrate)", mw: 230.08, type: "salt" },
-    { name: "Potassium Sodium Tartrate", mw: 282.22, type: "salt" },
+    { name: "Potassium Sodium Tartrate (Rochelle Salt)", mw: 282.22, type: "salt" },
+    { name: "Sodium Iodide (NaI)", mw: 149.89, type: "salt" },
+    { name: "Potassium Iodide (KI)", mw: 166.00, type: "salt" },
+
+    // --- SOLVENTS (For stock calc) ---
+    { name: "Ethanol", mw: 46.07, type: "solvent" },
+    { name: "Methanol", mw: 32.04, type: "solvent" },
+    { name: "DMSO (Dimethyl Sulfoxide)", mw: 78.13, type: "solvent" },
+    { name: "Acetone", mw: 58.08, type: "solvent" },
+    { name: "Isopropanol", mw: 60.10, type: "solvent" },
+    { name: "Chloroform", mw: 119.38, type: "solvent" },
+    { name: "Phenol", mw: 94.11, type: "solvent" },
 
     // --- DETERGENTS (Structural Bio / Membrane Proteins) ---
     { name: "SDS (Sodium Dodecyl Sulfate)", mw: 288.38, type: "detergent" },
@@ -77,6 +121,8 @@ window.LAB_CONSTANTS = {
     { name: "Sodium Deoxycholate", mw: 414.55, type: "detergent" },
     { name: "Fos-Choline 12", mw: 351.50, type: "detergent" },
     { name: "Brij-35", mw: 1198.00, type: "detergent" },
+    { name: "CTAB (Cetyltrimethylammonium bromide)", mw: 364.45, type: "detergent" },
+    { name: "Sarkosyl (Sodium Lauroyl Sarcosinate)", mw: 293.38, type: "detergent" },
 
     // --- REDUCING & OXIDIZING AGENTS ---
     { name: "DTT (Dithiothreitol)", mw: 154.25, type: "reducing agent" },
@@ -88,15 +134,19 @@ window.LAB_CONSTANTS = {
     { name: "GSSG (Glutathione, Oxidized)", mw: 612.63, type: "oxidizing agent" },
     { name: "Ascorbic Acid", mw: 176.12, type: "reducing agent" },
     { name: "Sodium Ascorbate", mw: 198.11, type: "reducing agent" },
+    { name: "Sodium Borohydride", mw: 37.83, type: "reducing agent" },
+    { name: "Sodium Metabisulfite", mw: 190.11, type: "reducing agent" },
 
     // --- CHELATORS ---
     { name: "EDTA (disodium, dihydrate)", mw: 372.24, type: "chelator" },
     { name: "EDTA (tetrasodium, dihydrate)", mw: 416.20, type: "chelator" },
     { name: "EDTA (anhydrous)", mw: 292.24, type: "chelator" },
+    { name: "EDTA (0.5M soln, pH 8.0 approx)", mw: 372.24, type: "chelator" },
     { name: "EGTA", mw: 380.35, type: "chelator" },
     { name: "DTPA", mw: 393.35, type: "chelator" },
+    { name: "NTA (Nitrilotriacetic acid)", mw: 191.14, type: "chelator" },
 
-    // --- ANTIBIOTICS ---
+    // --- ANTIBIOTICS (Bacterial & Mammalian Selection) ---
     { name: "Ampicillin (Sodium salt)", mw: 371.39, type: "antibiotic" },
     { name: "Carbenicillin (Disodium)", mw: 422.36, type: "antibiotic" },
     { name: "Kanamycin Sulfate", mw: 582.58, type: "antibiotic" },
@@ -108,8 +158,14 @@ window.LAB_CONSTANTS = {
     { name: "Rifampicin", mw: 822.94, type: "antibiotic" },
     { name: "Hygromycin B", mw: 527.50, type: "antibiotic" },
     { name: "G418 (Geneticin)", mw: 692.70, type: "antibiotic" },
+    { name: "Puromycin Dihydrochloride", mw: 544.43, type: "antibiotic" },
+    { name: "Blasticidin S HCl", mw: 458.90, type: "antibiotic" },
+    { name: "Zeocin", mw: 1137.00, type: "antibiotic" },
+    { name: "Cycloheximide", mw: 281.35, type: "antibiotic" },
+    { name: "Doxycycline Hyclate", mw: 512.94, type: "antibiotic" },
+    { name: "Amphotericin B", mw: 924.08, type: "antifungal" },
 
-    // --- NUCLEOTIDES & COFACTORS ---
+    // --- NUCLEOTIDES, dNTPs & COFACTORS ---
     { name: "ATP (Disodium)", mw: 551.14, type: "nucleotide" },
     { name: "ADP (Disodium)", mw: 471.16, type: "nucleotide" },
     { name: "AMP (Disodium)", mw: 391.19, type: "nucleotide" },
@@ -117,18 +173,26 @@ window.LAB_CONSTANTS = {
     { name: "GDP (Disodium)", mw: 487.16, type: "nucleotide" },
     { name: "CTP (Disodium)", mw: 527.12, type: "nucleotide" },
     { name: "UTP (Trisodium)", mw: 550.09, type: "nucleotide" },
+    // dNTPs (PCR)
+    { name: "dATP (Disodium)", mw: 535.10, type: "nucleotide" },
+    { name: "dTTP (Disodium)", mw: 524.10, type: "nucleotide" },
+    { name: "dCTP (Disodium)", mw: 511.10, type: "nucleotide" },
+    { name: "dGTP (Disodium)", mw: 551.10, type: "nucleotide" },
+    // Cofactors
     { name: "NAD+", mw: 663.43, type: "cofactor" },
     { name: "NADH (Disodium)", mw: 709.40, type: "cofactor" },
     { name: "NADP+ (Disodium)", mw: 787.37, type: "cofactor" },
     { name: "NADPH (Tetrasodium)", mw: 833.35, type: "cofactor" },
     { name: "Coenzyme A (Lithium)", mw: 785.33, type: "cofactor" },
+    { name: "Coenzyme A (Free acid)", mw: 767.53, type: "cofactor" },
     { name: "Acetyl-CoA", mw: 809.57, type: "cofactor" },
     { name: "FAD (Disodium)", mw: 829.51, type: "cofactor" },
     { name: "FMN (Sodium)", mw: 478.33, type: "cofactor" },
     { name: "SAM (S-Adenosylmethionine)", mw: 398.44, type: "cofactor" },
     { name: "PLP (Pyridoxal 5'-phosphate)", mw: 247.14, type: "cofactor" },
+    { name: "Thiamine Pyrophosphate (TPP)", mw: 460.77, type: "cofactor" },
 
-    // --- ADDITIVES / CRYO-PROTECTANTS / STABILIZERS ---
+    // --- ADDITIVES / CRYO / STABILIZERS ---
     { name: "Glycerol", mw: 92.09, type: "additive" },
     { name: "Sucrose", mw: 342.30, type: "additive" },
     { name: "Glucose", mw: 180.16, type: "additive" },
@@ -138,12 +202,42 @@ window.LAB_CONSTANTS = {
     { name: "Urea", mw: 60.06, type: "denaturant" },
     { name: "Guanidine HCl", mw: 95.53, type: "denaturant" },
     { name: "Guanidine Thiocyanate", mw: 118.16, type: "denaturant" },
-    { name: "L-Arginine", mw: 174.20, type: "additive" },
+    { name: "L-Arginine (Free base)", mw: 174.20, type: "additive" },
+    { name: "L-Arginine HCl", mw: 210.66, type: "additive" },
     { name: "L-Glutamate", mw: 147.13, type: "additive" },
-    { name: "Spermine", mw: 202.34, type: "additive" },
-    { name: "Spermidine", mw: 145.25, type: "additive" },
+    { name: "Spermine (Free base)", mw: 202.34, type: "additive" },
+    { name: "Spermidine (Free base)", mw: 145.25, type: "additive" },
     { name: "MPD (2-Methyl-2,4-pentanediol)", mw: 118.17, type: "precipitant" },
     { name: "Sodium Azide", mw: 65.01, type: "preservative" },
+    { name: "Thimerosal", mw: 404.81, type: "preservative" },
+    { name: "PEG 3350", mw: 3350.00, type: "precipitant" },
+    { name: "PEG 4000", mw: 4000.00, type: "precipitant" },
+    { name: "PEG 6000", mw: 6000.00, type: "precipitant" },
+    { name: "PEG 8000", mw: 8000.00, type: "precipitant" },
+
+    // --- FREE AMINO ACIDS (For Media Prep) ---
+    { name: "L-Alanine", mw: 89.09, type: "amino acid" },
+    { name: "L-Cysteine HCl (monohydrate)", mw: 175.64, type: "amino acid" },
+    { name: "L-Glutamine", mw: 146.14, type: "amino acid" },
+    { name: "L-Histidine HCl (monohydrate)", mw: 209.63, type: "amino acid" },
+    { name: "L-Lysine HCl", mw: 182.65, type: "amino acid" },
+    { name: "L-Methionine", mw: 149.21, type: "amino acid" },
+    { name: "L-Phenylalanine", mw: 165.19, type: "amino acid" },
+    { name: "L-Proline", mw: 115.13, type: "amino acid" },
+    { name: "L-Serine", mw: 105.09, type: "amino acid" },
+    { name: "L-Threonine", mw: 119.12, type: "amino acid" },
+    { name: "L-Tryptophan", mw: 204.23, type: "amino acid" },
+    { name: "L-Tyrosine", mw: 181.19, type: "amino acid" },
+    { name: "L-Valine", mw: 117.15, type: "amino acid" },
+
+    // --- CELL CULTURE & METABOLITES ---
+    { name: "Sodium Pyruvate", mw: 110.04, type: "metabolite" },
+    { name: "Cholesterol", mw: 386.65, type: "lipid" },
+    { name: "Hydrocortisone", mw: 362.46, type: "steroid" },
+    { name: "Dexamethasone", mw: 392.46, type: "steroid" },
+    { name: "Biotin", mw: 244.31, type: "vitamin" },
+    { name: "Folic Acid", mw: 441.40, type: "vitamin" },
+    { name: "Riboflavin", mw: 376.36, type: "vitamin" },
 
     // --- MOLECULAR BIOLOGY REAGENTS ---
     { name: "IPTG", mw: 238.31, type: "inducer" },
@@ -157,11 +251,12 @@ window.LAB_CONSTANTS = {
     { name: "Pepstatin A", mw: 685.89, type: "inhibitor" },
     { name: "Bestatin", mw: 308.38, type: "inhibitor" },
     { name: "E-64", mw: 342.41, type: "inhibitor" },
-    { name: "Agarose", mw: 306.12, type: "matrix" }, // Approx unit
+    { name: "Agarose", mw: 306.12, type: "matrix" },
     { name: "Acrylamide", mw: 71.08, type: "monomer" },
     { name: "Bis-acrylamide", mw: 154.17, type: "crosslinker" },
     { name: "Ammonium Persulfate (APS)", mw: 228.20, type: "catalyst" },
     { name: "TEMED", mw: 116.21, type: "catalyst" },
+    { name: "Glycogen", mw: 176.13, type: "carrier" },
 
     // --- DYES & STAINS ---
     { name: "Bromophenol Blue", mw: 669.96, type: "dye" },
@@ -169,9 +264,17 @@ window.LAB_CONSTANTS = {
     { name: "Coomassie G-250", mw: 854.02, type: "dye" },
     { name: "Coomassie R-250", mw: 825.97, type: "dye" },
     { name: "Ethidium Bromide", mw: 394.31, type: "dye" },
+    { name: "SYBR Green I", mw: 509.73, type: "dye" },
     { name: "Ponceau S", mw: 760.57, type: "dye" },
     { name: "Crystal Violet", mw: 407.98, type: "dye" },
-    { name: "Methylene Blue", mw: 319.85, type: "dye" }
+    { name: "Methylene Blue", mw: 319.85, type: "dye" },
+    { name: "Trypan Blue", mw: 960.81, type: "dye" },
+    { name: "DAPI (Dihydrochloride)", mw: 350.25, type: "dye" },
+    { name: "Hoechst 33342", mw: 561.93, type: "dye" },
+    { name: "Propidium Iodide", mw: 668.40, type: "dye" },
+    { name: "Acridine Orange", mw: 301.82, type: "dye" },
+    { name: "Rhodamine B", mw: 479.02, type: "dye" },
+    { name: "Fluorescein Sodium", mw: 376.27, type: "dye" }
   ],
 
   // Monoisotopic masses (approximate) used for protein Calc
@@ -186,7 +289,8 @@ window.LAB_CONSTANTS = {
   nucleic: {
       'dsDNA_bp': 650, // g/mol per base pair (Sodium salt)
       'ssDNA_nt': 330, // g/mol per nucleotide
-      'ssRNA_nt': 340  // g/mol per nucleotide
+      'ssRNA_nt': 340, // g/mol per nucleotide
+      'avg_dNMP': 325  // g/mol average deoxyribonucleotide monophosphate
   },
 
   // Common physical constants for lab calc
