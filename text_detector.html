@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -12,16 +12,14 @@
   <style>
     :root { --highlight-bg:#fef08a; --highlight-color:#1f2937; --progress-bar-bg:#e5e7eb; }
     html.dark { --highlight-bg:#facc15; --highlight-color:#1f2937; --progress-bar-bg:#374151; }
-    body { font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#111827; color:#d1d5db; }
+
     .highlight { background:var(--highlight-bg); color:var(--highlight-color); border-radius:3px; padding:1px 2px; box-shadow:0 0 5px rgba(254,240,138,.8); }
     .detected-character-card { transition: all .2s ease-in-out; }
     .progress-bar { background:var(--progress-bar-bg); border-radius:9999px; overflow:hidden; height:1rem; }
     .progress-bar-inner { height:100%; transition:width .5s ease-in-out; border-radius:9999px; }
-    .card { background:#1f2937; border:1px solid #374151; border-radius:.75rem; box-shadow:0 10px 15px -3px rgba(0,0,0,.3), 0 4px 6px -2px rgba(0,0,0,.2); }
-    .card-header { color:#f9fafb; }
+
+    /* Removed hardcoded body and card styles to rely on Tailwind and global theme */
     .stat-value { transition: color .3s; }
-    .info-text { color:#9ca3af; }
-    textarea { background:#374151; border:1px solid #4b5563; color:#d1d5db; }
   </style>
 
   <!-- Compromise UMD (correct path) -->
@@ -30,61 +28,61 @@
 <body>
   <div class="container mx-auto p-4 md:p-8 max-w-7xl">
     <header class="text-center mb-8">
-      <h1 class="text-4xl font-bold text-white">Text Quality & Forensics</h1>
-      <p class="mt-2 text-lg text-gray-400">Find hidden characters and analyze text statistics and complexity.</p>
+      <h1 class="text-4xl font-bold text-slate-900 dark:text-slate-100">Text Quality & Forensics</h1>
+      <p class="mt-2 text-lg text-slate-600 dark:text-slate-400">Find hidden characters and analyze text statistics and complexity.</p>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div class="lg:col-span-2 space-y-8">
-        <div class="card p-6">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold card-header">Input Text</h2>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Input Text</h2>
             <div class="flex flex-wrap gap-2">
-              <button id="example-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2 px-4 rounded-lg">Example</button>
-              <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg">Copy</button>
-              <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg">Clear</button>
+              <button id="example-btn" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-medium py-2 px-4 rounded-lg transition-colors">Example</button>
+              <button id="copy-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Copy</button>
+              <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Clear</button>
             </div>
           </div>
-          <textarea id="inputText" class="w-full h-64 rounded-lg p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Paste your text here... Use at least 50 words for stronger AI analysis."></textarea>
-          <p id="char-count" class="text-right text-sm info-text mt-2">0/15000 characters</p>
+          <textarea id="inputText" class="w-full h-64 rounded-lg p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 dark:bg-slate-900 border border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="Paste your text here... Use at least 50 words for stronger AI analysis."></textarea>
+          <p id="char-count" class="text-right text-sm text-slate-500 dark:text-slate-400 mt-2">0/15000 characters</p>
         </div>
 
-        <div class="card p-6">
-          <h2 class="text-xl font-semibold card-header mb-4">Highlighted Text</h2>
-          <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-800 border border-slate-600 rounded-lg p-4 text-slate-200 whitespace-pre-wrap break-words">
-            <span class="info-text">Your text with highlighted characters will appear here...</span>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Highlighted Text</h2>
+          <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 dark:bg-slate-900 border border-gray-300 dark:border-gray-600 rounded-lg p-4 text-slate-900 dark:text-slate-100 whitespace-pre-wrap break-words">
+            <span class="text-slate-400 dark:text-slate-500">Your text with highlighted characters will appear here...</span>
           </div>
         </div>
       </div>
 
       <div class="lg:col-span-1">
         <div class="sticky top-8 space-y-6">
-          <div class="card p-6">
-            <h2 class="text-xl font-semibold card-header mb-4 border-b border-slate-700 pb-3">Analysis Overview</h2>
+          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">Analysis Overview</h2>
 
             <div class="grid grid-cols-3 gap-4 text-center mb-6">
-              <div><p class="text-3xl font-bold text-green-500 stat-value" id="visible-count">0</p><p class="text-xs info-text">Visible</p></div>
-              <div><p class="text-3xl font-bold text-red-500 stat-value" id="invisible-count">0</p><p class="text-xs info-text">Invisible</p></div>
-              <div><p class="text-3xl font-bold text-blue-400 stat-value" id="word-count">0</p><p class="text-xs info-text">Words</p></div>
+              <div><p class="text-3xl font-bold text-green-500 stat-value" id="visible-count">0</p><p class="text-xs text-slate-500 dark:text-slate-400">Visible</p></div>
+              <div><p class="text-3xl font-bold text-red-500 stat-value" id="invisible-count">0</p><p class="text-xs text-slate-500 dark:text-slate-400">Invisible</p></div>
+              <div><p class="text-3xl font-bold text-blue-400 stat-value" id="word-count">0</p><p class="text-xs text-slate-500 dark:text-slate-400">Words</p></div>
             </div>
 
-            <h3 class="text-lg font-semibold card-header mb-3">Detected Characters</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Detected Characters</h3>
             <div id="detected-list" class="space-y-3 max-h-60 overflow-y-auto pr-2">
-              <p class="info-text italic">No special characters detected yet.</p>
+              <p class="text-slate-400 dark:text-slate-500 italic">No special characters detected yet.</p>
             </div>
 
-            <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
+            <button id="remove-all-btn" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors" disabled>
               Remove All & Copy
             </button>
           </div>
 
-          <div class="card p-6">
-            <h2 class="text-xl font-semibold card-header mb-4 border-b border-slate-700 pb-3">Text Quality Metrics</h2>
+          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">Text Quality Metrics</h2>
             <div class="space-y-4">
               <div class="text-center">
-                <p class="text-lg font-medium info-text" id="ai-verdict">Enter at least 50 words</p>
+                <p class="text-lg font-medium text-slate-500 dark:text-slate-400" id="ai-verdict">Enter at least 50 words</p>
                 <div class="w-full progress-bar mt-2"><div id="ai-score-bar" class="progress-bar-inner bg-gray-400" style="width:0%"></div></div>
-                <p class="text-xs info-text mt-1">Statistical Anomaly Score</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Statistical Anomaly Score</p>
               </div>
 
               <div class="space-y-3 pt-2">
@@ -99,8 +97,8 @@
                 <metric-row label="Punctuation rhythm (std/100w)" valueid="ai-punct-score" help="Very steady punctuation rates can be AI-like."></metric-row>
               </div>
 
-              <div class="space-y-3 pt-2 border-t border-slate-700 mt-4">
-                <h3 class="text-sm font-semibold card-header">Linguistic/Structural Signals</h3>
+              <div class="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700 mt-4">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Linguistic/Structural Signals</h3>
                 <metric-row label="Entities per 100 words" valueid="entity-score" help="Very high or low entity density can be suspicious."></metric-row>
                 <metric-row label="Token entropy (norm)" valueid="entropy-score" help="Low entropy suggests repetitive, templated text."></metric-row>
                 <metric-row label="POS trigram repeats (%)" valueid="postrigram-score" help="Many repeated POS trigrams can signal templates."></metric-row>
@@ -110,7 +108,7 @@
                 <metric-row label="Paragraph uniformity (CV)" valueid="parauniform-score" help="Uniform paragraph structure can be AI-like."></metric-row>
               </div>
 
-              <p class="text-xs text-gray-400 italic text-center pt-2">
+              <p class="text-xs text-slate-400 dark:text-slate-500 italic text-center pt-2">
                 Disclaimer: This uses statistical signals and cannot be 100% certain. Treat results as guidance.
               </p>
             </div>
@@ -130,10 +128,10 @@
         this.innerHTML =
           '<div>' +
             '<div class="flex justify-between text-sm">' +
-              '<span class="font-medium text-gray-300">' + label + '</span>' +
-              '<span class="font-bold text-gray-100" id="' + valueId + '">-</span>' +
+              '<span class="font-medium text-slate-700 dark:text-slate-300">' + label + '</span>' +
+              '<span class="font-bold text-slate-900 dark:text-slate-100" id="' + valueId + '">-</span>' +
             '</div>' +
-            '<p class="text-xs info-text mt-1">' + help + '</p>' +
+            '<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">' + help + '</p>' +
           '</div>';
       }
     }
@@ -153,7 +151,7 @@
     var WORD_RE = /[a-z\u00C0-\u024F\u1E00-\u1EFF]+(?:'[a-z\u00C0-\u024F\u1E00-\u1EFF]+)?/gi;
     function tokenizeWords(text){ var m=text.match(WORD_RE)||[]; return m.map(function(w){ return w.toLowerCase(); }); }
     function splitSentences(text){ return text.replace(/([.!?])+/g,"$1|").split("|").map(function(s){return s.trim();}).filter(Boolean); }
-    function splitParagraphs(text){ return text.split(/\n{2,}/).map(function(p){return p.trim();}).filter(Boolean); }
+    function splitParagraphs(text){ return text.split(/\\n{2,}/).map(function(p){return p.trim();}).filter(Boolean); }
 
     // ===== DOM =====
     function $(id){ return document.getElementById(id); }
@@ -207,8 +205,8 @@
       "U+2019":{name:"Right Single Quote",char:"\u2019",fix:"'"},
       "U+201C":{name:"Left Double Quote",char:"\u201C",fix:"\""},
       "U+201D":{name:"Right Double Quote",char:"\u201D",fix:"\""},
-      "U+2028":{name:"Line Separator",char:"\u2028",fix:"\n"},
-      "U+2029":{name:"Paragraph Separator",char:"\u2029",fix:"\n\n"},
+      "U+2028":{name:"Line Separator",char:"\u2028",fix:"\\n"},
+      "U+2029":{name:"Paragraph Separator",char:"\u2029",fix:"\\n\\n"},
       "U+FEFF":{name:"Byte Order Mark (BOM)",char:"\uFEFF",fix:""}
     };
 
@@ -216,22 +214,22 @@
     function escapeHTML(s){ return s.replace(/[&<>\"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];}); }
     function updateDetectedList(detected){
       var keys=Object.keys(detected);
-      if(!keys.length){ detectedList.innerHTML='<p class="info-text italic">No special characters detected yet.</p>'; return; }
+      if(!keys.length){ detectedList.innerHTML='<p class="text-slate-400 dark:text-slate-500 italic">No special characters detected yet.</p>'; return; }
       detectedList.innerHTML='';
       keys.forEach(function(code){
         var info=detected[code];
         var card=document.createElement('div');
-        card.className='detected-character-card bg-slate-800 p-3 rounded-lg border border-slate-700';
+        card.className='detected-character-card bg-slate-100 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-200 dark:border-slate-600';
         card.innerHTML =
           '<div class="flex justify-between items-center">' +
             '<div>' +
               '<div class="flex items-center">' +
-                '<span class="font-bold text-slate-200 mr-2">' + escapeHTML(info.name) + '</span>' +
+                '<span class="font-bold text-slate-900 dark:text-slate-200 mr-2">' + escapeHTML(info.name) + '</span>' +
                 '<span class="text-xs bg-blue-500 text-white font-semibold rounded-full px-2 py-0.5">' + info.count + '</span>' +
               '</div>' +
-              '<p class="text-xs text-gray-400 mt-1">Unicode: ' + escapeHTML(code) + '</p>' +
+              '<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Unicode: ' + escapeHTML(code) + '</p>' +
             '</div>' +
-            '<button class="remove-char-btn text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md" data-code="' + escapeHTML(code) + '">Remove</button>' +
+            '<button class="remove-char-btn text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md transition-colors" data-code="' + escapeHTML(code) + '">Remove</button>' +
           '</div>';
         detectedList.appendChild(card);
       });
@@ -263,7 +261,7 @@
           chunks.push(escapeHTML(ch));
         }
       });
-      highlightedOutput.innerHTML = chunks.length ? chunks.join('') : '<span class="info-text">Your text with highlighted characters will appear here...</span>';
+      highlightedOutput.innerHTML = chunks.length ? chunks.join('') : '<span class="text-slate-400 dark:text-slate-500">Your text with highlighted characters will appear here...</span>';
       charCount.textContent = (text.length)+'/'+MAX_CHARS+' characters';
       invisibleCount.textContent = invCount;
       visibleCount.textContent = Math.max(0, text.length - invCount);
@@ -448,22 +446,22 @@
       else { aiVerdictEl.textContent='❌ High Statistical Anomalies'; aiScoreBarEl.className='progress-bar-inner bg-red-500'; }
 
       aiVerdictEl.title =
-        'Anomaly score: ' + pct + '/100\n' +
-        '• Burstiness CV: ' + cvLen.toFixed(2) + ' → ' + Math.round(burstinessAI) + '\n' +
-        '• CTTR: ' + cttr.toFixed(3) + ' → ' + Math.round(vocabAI) + '\n' +
-        '• Hedges/100w: ' + hedgesPer100.toFixed(2) + ' → ' + Math.round(hedgingAI) + '\n' +
-        '• Connectives/100w: ' + connPer100.toFixed(2) + ' → ' + Math.round(connectivesAI) + '\n' +
-        '• Modals/100w: ' + modalsPer100.toFixed(2) + ' → ' + Math.round(modalAI) + '\n' +
-        '• -ly adverbs/100w: ' + lyPer100.toFixed(2) + ' → ' + Math.round(lyAI) + '\n' +
-        '• Top-token dominance: ' + topDomPct.toFixed(2) + '% → ' + Math.round(topDomAI) + '\n' +
-        '• Function-word chi^2: ' + chi2.toFixed(1) + ' → ' + Math.round(funcDriftAI) + '\n' +
-        '• Punct rhythm std/100w: ' + pStd.toFixed(3) + ' → ' + Math.round(punctAI) + '\n' +
-        '• Entities/100w: ' + entPer100.toFixed(2) + ' → ' + Math.round(entityAI) + '\n' +
-        '• Token entropy (norm): ' + Hnorm.toFixed(3) + ' → ' + Math.round(entropyAI) + '\n' +
-        '• POS trigram repeats: ' + (triRepeatRatio*100).toFixed(1) + '% → ' + Math.round(posPatternAI) + '\n' +
-        '• POS diversity CV: ' + posDivCV.toFixed(2) + ' → ' + Math.round(posDivAI) + '\n' +
-        '• POS transition entropy: ' + posTransNorm.toFixed(2) + ' → ' + Math.round(posTransAI) + '\n' +
-        '• Top-quartile sentence cosine: ' + topQuartSim.toFixed(2) + ' → ' + Math.round(sentSimAI) + '\n' +
+        'Anomaly score: ' + pct + '/100\\n' +
+        '• Burstiness CV: ' + cvLen.toFixed(2) + ' → ' + Math.round(burstinessAI) + '\\n' +
+        '• CTTR: ' + cttr.toFixed(3) + ' → ' + Math.round(vocabAI) + '\\n' +
+        '• Hedges/100w: ' + hedgesPer100.toFixed(2) + ' → ' + Math.round(hedgingAI) + '\\n' +
+        '• Connectives/100w: ' + connPer100.toFixed(2) + ' → ' + Math.round(connectivesAI) + '\\n' +
+        '• Modals/100w: ' + modalsPer100.toFixed(2) + ' → ' + Math.round(modalAI) + '\\n' +
+        '• -ly adverbs/100w: ' + lyPer100.toFixed(2) + ' → ' + Math.round(lyAI) + '\\n' +
+        '• Top-token dominance: ' + topDomPct.toFixed(2) + '% → ' + Math.round(topDomAI) + '\\n' +
+        '• Function-word chi^2: ' + chi2.toFixed(1) + ' → ' + Math.round(funcDriftAI) + '\\n' +
+        '• Punct rhythm std/100w: ' + pStd.toFixed(3) + ' → ' + Math.round(punctAI) + '\\n' +
+        '• Entities/100w: ' + entPer100.toFixed(2) + ' → ' + Math.round(entityAI) + '\\n' +
+        '• Token entropy (norm): ' + Hnorm.toFixed(3) + ' → ' + Math.round(entropyAI) + '\\n' +
+        '• POS trigram repeats: ' + (triRepeatRatio*100).toFixed(1) + '% → ' + Math.round(posPatternAI) + '\\n' +
+        '• POS diversity CV: ' + posDivCV.toFixed(2) + ' → ' + Math.round(posDivAI) + '\\n' +
+        '• POS transition entropy: ' + posTransNorm.toFixed(2) + ' → ' + Math.round(posTransAI) + '\\n' +
+        '• Top-quartile sentence cosine: ' + topQuartSim.toFixed(2) + ' → ' + Math.round(sentSimAI) + '\\n' +
         '• Paragraph sentence CV: ' + spCV.toFixed(2) + ' → ' + Math.round(paraAI);
     }
 
@@ -489,8 +487,8 @@
     }
     function setExampleText(){
       inputText.value =
-'This is a classic human sentence—it’s quirky, right? I wonder what will happen... This one uses “curly quotes.” and a zero\u200Bwidth space.\n\n' +
-'On the other hand, it is important to note that the holistic integration of synergistic frameworks may potentially play a pivotal role in the ongoing development of scalable, data-driven solutions. This methodology suggests that robust analysis typically improves outcomes, which appears to be a valid consideration. However, this may vary in some cases, and it tends to depend on context.\n\n' +
+'This is a classic human sentence—it’s quirky, right? I wonder what will happen... This one uses “curly quotes.” and a zero\u200Bwidth space.\\n\\n' +
+'On the other hand, it is important to note that the holistic integration of synergistic frameworks may potentially play a pivotal role in the ongoing development of scalable, data-driven solutions. This methodology suggests that robust analysis typically improves outcomes, which appears to be a valid consideration. However, this may vary in some cases, and it tends to depend on context.\\n\\n' +
 'Overall, this approach seems promising for future applications. Therefore, it is worth noting that, in general, results will likely improve over time.';
       analyzeAll();
     }

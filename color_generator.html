@@ -6,75 +6,14 @@
 <title>Advanced Color Palette Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  /* REMOVED the global 'body' style that was causing the layout issue. */
-
   /* ===== Tight, masonry-free grid with no vertical stretching ===== */
-  .color-card-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 0.75rem 1rem;            /* row gap | column gap */
-    align-content: start;         /* prevent rows from spreading vertically */
-    justify-content: start;       /* keep tracks packed to the left */
-    grid-auto-flow: row dense;    /* fill holes neatly */
-  }
-
-  .color-card {
-    display: flex;
-    flex-direction: column;
-    height: auto;                 /* natural height; do NOT stretch to grid area */
-    border-radius: 0.75rem;
-    overflow: hidden;
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
-    transition: transform 300ms ease;
-    cursor: pointer;
-    background: transparent;
-  }
-  .color-card:hover { transform: translateY(-4px); }
-
-  .color-swatch {
-    height: 6rem;                 /* fixed swatch height keeps all cards uniform */
-    width: 100%;
-    position: relative;
-  }
-
-  .color-meta {
-    background: #fff;
-    padding: 0.75rem;
-  }
-  /* Dark mode support for color-meta */
-  html.dark .color-meta { background: #1e293b; }
-
-  .color-meta p {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 0.875rem;
-    color: #334155;
-    font-weight: 600;
-    margin: 0;                    /* remove extra vertical space */
-  }
-  html.dark .color-meta p { color: #cbd5e1; }
-
-  input:disabled { background-color: #e2e8f0; cursor: not-allowed; }
-
-  .feedback-anim { animation: fadeAndScale 1s ease-out forwards; }
-  @keyframes fadeAndScale {
-    0% { opacity: 1; transform: translate(-50%, -50%) scale(.8); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
-  }
-
-  .panel-fade-in { animation: fadeIn .5s ease-in-out; }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Smooth scroll targeting panels below sticky controls */
-  #shade-panel { scroll-margin-top: 5rem; }
+  /* Replaced by Tailwind utility classes in HTML where possible, but grid layout is cleaner here for now */
+  /* Actually, user asked for full bright or dark theme consistency.
+     Using Tailwind classes for colors is safer. */
 </style>
 </head>
 <body>
   <div class="container mx-auto p-4 md:p-8">
-
 
     <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8 sticky top-4 z-10 border border-gray-100 dark:border-gray-700">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -92,7 +31,7 @@
     <!-- Moved Shade Panel Container Here -->
     <div id="shade-panel-container" class="mb-8"></div>
 
-    <main id="palette-display" class="color-card-container"></main>
+    <main id="palette-display" class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-x-4 gap-y-3 content-start justify-start auto-rows-[min-content]"></main>
   </div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -148,14 +87,17 @@
 
         for (const hex of palette) {
           const card = document.createElement('div');
-          card.className = 'color-card';
+          // Tailwind classes for card
+          card.className = 'flex flex-col h-auto rounded-xl overflow-hidden shadow-md transition-transform hover:-translate-y-1 cursor-pointer bg-transparent';
           card.dataset.color = hex;
           card.innerHTML = `
-            <div class="color-swatch" style="background-color:${hex};"></div>
-            <div class="color-meta"><p>${hex}</p></div>
+            <div class="h-24 w-full relative" style="background-color:${hex};"></div>
+            <div class="bg-white dark:bg-slate-800 p-3">
+              <p class="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300 m-0">${hex}</p>
+            </div>
           `;
           card.addEventListener('click', () => {
-            copy(hex, card.querySelector('.color-swatch'));
+            copy(hex, card.querySelector('div')); // copy logic targets the swatch div
             showShades(hex, card);
           });
           $grid.appendChild(card);
@@ -192,7 +134,7 @@
           </div>`;
 
         $panel.innerHTML = `
-          <div id="shade-panel" class="panel-fade-in bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div id="shade-panel" class="panel-fade-in bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transition-all duration-300">
             <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
               <div>
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Color Variations</h3>
@@ -227,10 +169,24 @@
           try { document.execCommand('copy'); } catch {}
           ta.remove();
         }
+
+        // Remove existing feedback
+        const existing = el.querySelector('.feedback-anim');
+        if(existing) existing.remove();
+
         const fb = document.createElement('div');
         fb.textContent = 'Copied!';
-        fb.className = 'feedback-anim';
-        fb.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(15,23,42,0.8);color:white;font-size:11px;font-weight:700;padding:4px 8px;border-radius:9999px;pointer-events:none;';
+        fb.className = 'feedback-anim absolute inset-0 flex items-center justify-center bg-slate-900/80 text-white font-bold text-xs rounded-md pointer-events-none transition-opacity duration-300';
+        // Simple manual animation logic if css animation is annoying to inline
+        fb.animate([
+            { opacity: 1, transform: 'scale(0.8)' },
+            { opacity: 0, transform: 'scale(1.2)' }
+        ], {
+            duration: 1000,
+            easing: 'ease-out',
+            fill: 'forwards'
+        });
+
         el.appendChild(fb);
         setTimeout(()=>fb.remove(), 1000);
       }
