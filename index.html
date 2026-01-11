@@ -19,9 +19,9 @@
 
   <style>
     body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans"; scroll-behavior: smooth; }
-    .nav-button { padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; border-radius: 9999px; border: 2px solid transparent; transition: all .25s ease; color: #475569; cursor: pointer; background: transparent; }
-    .nav-button:hover { background-color: #f1f5f9; }
-    .active-nav-button { color: #4f46e5; border-color: #a5b4fc; background-color: #eef2ff; }
+    .nav-button { padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; border-radius: 9999px; border: 2px solid #e2e8f0; transition: all .25s ease; color: #475569; cursor: pointer; background: transparent; }
+    .nav-button:hover { background-color: #f1f5f9; border-color: #cbd5e1; }
+    .active-nav-button { color: #4f46e5; border-color: #6366f1; background-color: #eef2ff; }
     main { min-height: calc(100vh - 80px); }
 
     :root { --bg-0:#f1f5f9; --text-1:#0f172a; --text-2:#334155; }
@@ -37,9 +37,9 @@
     html.dark #topnav { background-color: rgba(2, 6, 23, 0.8) !important; }
     html.dark footer { background-color: var(--surface-1) !important; color: var(--text-2) !important; }
 
-    html.dark .nav-button { color: var(--text-2); border-color: transparent; }
-    html.dark .nav-button:hover { background-color: var(--muted-1); }
-    html.dark .active-nav-button { color: var(--accent-2); border-color: var(--accent-1); background-color: rgba(99,102,241,0.12); }
+    html.dark .nav-button { color: var(--text-2); border-color: var(--border-1); }
+    html.dark .nav-button:hover { background-color: var(--muted-1); border-color: var(--text-2); }
+    html.dark .active-nav-button { color: var(--accent-2); border-color: var(--accent-2); background-color: rgba(99,102,241,0.12); }
 
     html.dark .bg-white        { background-color: var(--surface-1) !important; }
     html.dark .bg-gray-50      { background-color: var(--surface-2) !important; }
@@ -91,12 +91,11 @@
     <div class="container mx-auto px-4 py-2 flex items-center justify-between gap-2 md:gap-4 overflow-hidden">
       <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pb-0 scrollbar-hide mask-fade">
         <button class="nav-button text-sm px-3 py-1" data-src="protein_params.html">🧬 Protein Workbench</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="color_generator.html">🎨 Color Generator</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="bio_bench.html">🧪 Bio-Bench</button>
         <button class="nav-button text-sm px-3 py-1" data-src="binding_calculator.html">📈 Binding Calculator</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="color_generator.html">🎨 Color Generator</button>
         <button class="nav-button text-sm px-3 py-1" data-src="text_counter.html">📝 Text Counter</button>
         <button class="nav-button text-sm px-3 py-1" data-src="text_detector.html">🔎 Text Detector</button>
-		<button class="nav-button text-sm px-3 py-1" data-src="gel_annotator.html">🎨 Gel Annotator</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="bio_bench.html">🧪 Bio-Bench</button>
       </div>
 
       <button id="theme-toggle"

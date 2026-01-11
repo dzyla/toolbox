@@ -73,9 +73,14 @@
         <div class="mt-6 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-100 dark:border-slate-800">
             <div class="flex justify-between items-center mb-2">
                 <h4 class="font-medium text-slate-900 dark:text-slate-100">Recipe Checklist</h4>
-                <button id="btn-export-recipe" class="text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400 border border-indigo-200 dark:border-slate-700 px-2 py-1 rounded">
-                    📋 Export Markdown
-                </button>
+                <div class="flex gap-2">
+                    <button id="btn-print-table" class="text-xs text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 border border-gray-300 dark:border-slate-600 px-2 py-1 rounded bg-white dark:bg-slate-800">
+                        🖨️ Print Table
+                    </button>
+                    <button id="btn-export-recipe" class="text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400 border border-indigo-200 dark:border-slate-700 px-2 py-1 rounded">
+                        📋 Export Markdown
+                    </button>
+                </div>
             </div>
             <ul id="buffer-recipe-list" class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                <li class="italic text-gray-400">Add components to generate recipe.</li>
@@ -936,6 +941,129 @@
         addCompBtn.addEventListener('click', () => { bufferRows.appendChild(createBufferRow()); });
         totalVolIn.addEventListener('input', updateRecipe);
         totalVolUnit.addEventListener('change', updateRecipe);
+
+        // Print Table Logic
+        document.getElementById('btn-print-table').addEventListener('click', () => {
+             // Gather data
+             const volVal = parseFloat(totalVolIn.value) || 0;
+             const volUnit = totalVolUnit.value;
+
+             let rows = [];
+             bufferRows.querySelectorAll('div.grid').forEach(row => {
+                const name = row.querySelector('.comp-name').value || "Unknown";
+                const valInput = parseFloat(row.querySelector('.comp-mw').value) || 0;
+                const hydroN = parseFloat(row.querySelector('.comp-hydro').value) || 0;
+                const conc = parseFloat(row.querySelector('.comp-conc').value);
+                const unit = row.querySelector('.comp-unit').value;
+                const isLiquid = row.querySelector('.comp-is-liquid').checked;
+
+                if(valInput > 0 && conc > 0){
+                    let amountStr = '';
+                    let stockStr = '';
+                    let notes = '';
+
+                    // Re-calculate simply for display (logic duplicated from updateRecipe slightly)
+                    // We can scrape the recipe list, but cleaner to recalculate or parse.
+                    // Let's use the inputs to be precise.
+
+                    const volL = volUnit === 'mL' ? volVal / 1000 : volVal;
+
+                    if(isLiquid){
+                         stockStr = valInput + row.querySelector('.comp-stock-unit').value + " (Liq)";
+                         // Calculate volume needed
+                         const stockVal = valInput;
+                         const stockUnit = row.querySelector('.comp-stock-unit').value;
+                         let volNeededL = 0;
+
+                         if (stockUnit === 'M' || stockUnit === 'mM') {
+                            const sM = stockUnit === 'M' ? stockVal : stockVal/1000;
+                            let tM = 0;
+                            if(unit === 'M') tM = conc; else if(unit === 'mM') tM = conc/1000;
+                            if(tM > 0) volNeededL = (tM * volL) / sM;
+                         } else if (stockUnit === '%') {
+                             if(unit === '%') volNeededL = (conc * volL) / stockVal;
+                         }
+
+                         if(volNeededL < 0.000001) amountStr = (volNeededL * 1e9).toFixed(1) + ' nL';
+                         else if(volNeededL < 0.001) amountStr = (volNeededL * 1e6).toFixed(1) + ' μL';
+                         else if(volNeededL < 1) amountStr = (volNeededL * 1000).toFixed(1) + ' mL';
+                         else amountStr = volNeededL.toFixed(3) + ' L';
+
+                    } else {
+                        const baseMw = valInput;
+                        const effMw = baseMw + (hydroN * 18.015);
+                        stockStr = effMw.toFixed(2) + " g/mol";
+                        if(hydroN > 0) notes = `+${hydroN} H₂O`;
+
+                        let massG = 0;
+                        if(unit === 'M') massG = conc * volL * effMw;
+                        else if (unit === 'mM') massG = (conc / 1000) * volL * effMw;
+                        else if (unit === '%') massG = (conc / 100) * (volL*1000);
+
+                        amountStr = massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g';
+                    }
+
+                    rows.push({ name, stockStr, target: `${conc} ${unit}`, amountStr, notes });
+                }
+             });
+
+             if(rows.length === 0) { alert("Add components first."); return; }
+
+             const win = window.open('', '_blank');
+             const d = new Date().toLocaleDateString();
+
+             win.document.write(`
+                <html>
+                <head>
+                    <title>Buffer Recipe - ${d}</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 2rem; }
+                        h1 { margin-bottom: 0.5rem; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f3f4f6; }
+                        .footer { margin-top: 2rem; font-style: italic; color: #555; }
+                        @media print {
+                            .no-print { display: none; }
+                            body { padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>Buffer Recipe</h1>
+                    <p><strong>Date:</strong> ${d}</p>
+                    <p><strong>Final Volume:</strong> ${volVal} ${volUnit}</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>MW / Stock</th>
+                                <th>Target Conc</th>
+                                <th>Amount to Add</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(r => `
+                                <tr>
+                                    <td>${r.name}</td>
+                                    <td>${r.stockStr}</td>
+                                    <td>${r.target}</td>
+                                    <td><strong>${r.amountStr}</strong></td>
+                                    <td>${r.notes}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div class="footer">
+                        <p>Instructions: Add components to approx 80% volume, adjust pH if necessary, then fill to ${volVal} ${volUnit}.</p>
+                    </div>
+                    <script>window.print();<\/script>
+                </body>
+                </html>
+             `);
+             win.document.close();
+        });
 
         // Export Markdown Logic
         document.getElementById('btn-export-recipe').addEventListener('click', () => {
