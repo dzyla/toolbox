@@ -88,19 +88,19 @@
 
 <body class="bg-slate-100 text-slate-800 antialiased transition-colors">
   <nav id="topnav" class="bg-white/80 shadow-sm sticky top-0 z-20">
-    <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
-      <div class="flex justify-center flex-wrap gap-2 md:gap-4">
-        <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
-        <button class="nav-button" data-src="color_generator.html">🎨 Color Generator</button>
-        <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calculator</button>
-        <button class="nav-button" data-src="text_counter.html">📝 Text Counter</button>
-        <button class="nav-button" data-src="text_detector.html">🔎 Text Detector</button>
- 		<button class="nav-button" data-src="gel_annotator.html">🎨 Gel Annotator</button>
-        <button class="nav-button" data-src="bio_bench.html">🧪 Bio-Bench</button>
+    <div class="container mx-auto px-4 py-2 flex items-center justify-between gap-2 md:gap-4 overflow-hidden">
+      <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pb-0 scrollbar-hide mask-fade">
+        <button class="nav-button text-sm px-3 py-1" data-src="protein_params.html">🧬 Protein Workbench</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="color_generator.html">🎨 Color Generator</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="binding_calculator.html">📈 Binding Calculator</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="text_counter.html">📝 Text Counter</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="text_detector.html">🔎 Text Detector</button>
+		<button class="nav-button text-sm px-3 py-1" data-src="gel_annotator.html">🎨 Gel Annotator</button>
+        <button class="nav-button text-sm px-3 py-1" data-src="bio_bench.html">🧪 Bio-Bench</button>
       </div>
 
       <button id="theme-toggle"
-              class="nav-button"
+              class="nav-button text-sm px-3 py-1 shrink-0"
               type="button"
               aria-pressed="false"
               aria-label="Toggle dark mode"

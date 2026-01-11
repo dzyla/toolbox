@@ -376,17 +376,45 @@
                    </div>
                    <div class="grid grid-cols-2 gap-2">
                        <div>
-                           <label class="block text-xs text-gray-500 dark:text-gray-400">Volume (L)</label>
-                           <input type="number" id="util-mol-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Volume</label>
+                           <div class="flex gap-1">
+                               <input type="number" id="util-mol-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                               <select id="util-mol-vol-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                                   <option value="L">L</option>
+                                   <option value="mL">mL</option>
+                                   <option value="uL">µL</option>
+                                   <option value="nL">nL</option>
+                                   <option value="pL">pL</option>
+                               </select>
+                           </div>
                        </div>
                        <div>
-                           <label class="block text-xs text-gray-500 dark:text-gray-400">Conc (M)</label>
-                           <input type="number" id="util-mol-conc" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                           <label class="block text-xs text-gray-500 dark:text-gray-400">Conc</label>
+                           <div class="flex gap-1">
+                               <input type="number" id="util-mol-conc" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                               <select id="util-mol-conc-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                                   <option value="M">M</option>
+                                   <option value="mM">mM</option>
+                                   <option value="uM">µM</option>
+                                   <option value="nM">nM</option>
+                                   <option value="pM">pM</option>
+                               </select>
+                           </div>
                        </div>
                    </div>
                    <div>
-                       <label class="block text-xs text-gray-500 dark:text-gray-400">Mass (g)</label>
-                       <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" readonly>
+                       <label class="block text-xs text-gray-500 dark:text-gray-400">Mass</label>
+                       <div class="flex gap-1">
+                           <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" readonly>
+                           <select id="util-mol-mass-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                               <option value="kg">kg</option>
+                               <option value="g" selected>g</option>
+                               <option value="mg">mg</option>
+                               <option value="ug">µg</option>
+                               <option value="ng">ng</option>
+                               <option value="pg">pg</option>
+                           </select>
+                       </div>
                    </div>
                </div>
            </div>
@@ -625,7 +653,7 @@
 
         function createBufferRow(){
             const div = document.createElement('div');
-            div.className = "grid grid-cols-1 md:grid-cols-[2fr,auto,1fr,1fr,auto,auto] gap-3 items-end p-3 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-slate-700/50";
+            div.className = "grid grid-cols-1 md:grid-cols-[2fr,minmax(7rem,auto),1fr,1fr,auto,auto] gap-3 items-end p-3 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-slate-700/50";
 
             // Unique ID for MW field to link update logic if needed
             const rowId = Math.random().toString(36).substr(2,9);
@@ -638,7 +666,7 @@
                        <button class="comp-search text-xs bg-indigo-50 dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded px-2 hover:bg-indigo-100" title="Fetch MW from PubChem">🔍</button>
                    </div>
                 </div>
-                <div class="w-24">
+                <div class="min-w-[6rem]">
                    <div class="flex justify-between items-center mb-1">
                         <label class="block text-xs text-gray-500 dark:text-gray-400 label-mw">MW (g/mol)</label>
                         <div class="flex items-center gap-1">
@@ -1321,6 +1349,10 @@
         const mMass = document.getElementById('util-mol-mass');
         const mSolve = document.getElementById('util-mol-solve');
 
+        const mVolUnit = document.getElementById('util-mol-vol-unit');
+        const mConcUnit = document.getElementById('util-mol-conc-unit');
+        const mMassUnit = document.getElementById('util-mol-mass-unit');
+
         function updateSolverUI(){
             const target = mSolve.value; // mass, conc, vol, mw
             [mMw, mVol, mConc, mMass].forEach(el => {
@@ -1346,28 +1378,50 @@
         function solveMolarity(){
             const target = mSolve.value;
             const mw = parseFloat(mMw.value);
-            const vol = parseFloat(mVol.value);
-            const conc = parseFloat(mConc.value);
-            const mass = parseFloat(mMass.value);
+
+            // Unit Multipliers to Base (g, L, M)
+            const units = {
+                'kg': 1000, 'g': 1, 'mg': 1e-3, 'ug': 1e-6, 'ng': 1e-9, 'pg': 1e-12,
+                'L': 1, 'mL': 1e-3, 'uL': 1e-6, 'nL': 1e-9, 'pL': 1e-12,
+                'M': 1, 'mM': 1e-3, 'uM': 1e-6, 'nM': 1e-9, 'pM': 1e-12
+            };
+
+            const uVol = units[mVolUnit.value];
+            const uConc = units[mConcUnit.value];
+            const uMass = units[mMassUnit.value];
+
+            // Get base values (or 0)
+            const valVol = parseFloat(mVol.value);
+            const valConc = parseFloat(mConc.value);
+            const valMass = parseFloat(mMass.value);
 
             // M = mol/L = (g/MW) / L = g / (MW*L)
             // g = M * MW * L
 
-            if(target === 'mass' && mw && vol && conc){
-                mMass.value = (conc * vol * mw).toFixed(4);
-            } else if (target === 'conc' && mass && vol && mw){
-                mConc.value = (mass / (mw*vol)).toFixed(6);
-            } else if (target === 'vol' && mass && conc && mw){
-                // L = g / (M*MW)
-                mVol.value = (mass / (conc*mw)).toFixed(6);
-            } else if (target === 'mw' && mass && conc && vol){
-                // MW = g / (M*L)
-                mMw.value = (mass / (conc*vol)).toFixed(2);
+            if(target === 'mass' && mw && valVol && valConc){
+                const baseMass = (valConc * uConc) * (valVol * uVol) * mw; // g
+                mMass.value = (baseMass / uMass).toPrecision(4);
+            } else if (target === 'conc' && valMass && valVol && mw){
+                const baseMass = valMass * uMass; // g
+                const baseVol = valVol * uVol; // L
+                const baseConc = baseMass / (mw * baseVol); // M
+                mConc.value = (baseConc / uConc).toPrecision(4);
+            } else if (target === 'vol' && valMass && valConc && mw){
+                const baseMass = valMass * uMass; // g
+                const baseConc = valConc * uConc; // M
+                const baseVol = baseMass / (baseConc * mw); // L
+                mVol.value = (baseVol / uVol).toPrecision(4);
+            } else if (target === 'mw' && valMass && valConc && valVol){
+                const baseMass = valMass * uMass;
+                const baseConc = valConc * uConc;
+                const baseVol = valVol * uVol;
+                mMw.value = (baseMass / (baseConc * baseVol)).toFixed(2);
             }
         }
 
         mSolve.addEventListener('change', updateSolverUI);
         [mMw, mVol, mConc, mMass].forEach(el => el.addEventListener('input', solveMolarity));
+        [mVolUnit, mConcUnit, mMassUnit].forEach(el => el.addEventListener('change', solveMolarity));
         updateSolverUI(); // Init
 
         // Centrifugation
