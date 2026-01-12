@@ -7,7 +7,7 @@
   // Tailwind (for standalone)
   if (!window.tailwind || !window.tailwind.configLoadedOnce) {
     window.tailwind = window.tailwind || {};
-    window.tailwind.config = { darkMode: 'class' };
+    window.tailwind.config = { darkMode: 'class' }; // Ensure this matches index.html
     window.tailwind.configLoadedOnce = true;
     var s = document.createElement('script'); s.src = "https://cdn.tailwindcss.com"; document.head.appendChild(s);
   }
@@ -122,8 +122,8 @@
   <header class="mb-4 md:mb-6">
     <div class="flex items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Protein Feature Workbench</h1>
-        <p class="mt-1 text-gray-600 text-sm md:text-base">ProtParam-like core with graphical maps, per-residue plots, and lab helpers.</p>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Protein Feature Workbench</h1>
+        <p class="mt-1 text-gray-600 dark:text-gray-400 text-sm md:text-base">ProtParam-like core with graphical maps, per-residue plots, and lab helpers.</p>
       </div>
       <div class="hidden md:flex items-center gap-2">
         <button id="export_all_csv" class="text-sm bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-black">Export summary CSV</button>
@@ -133,12 +133,12 @@
   </header>
 
   <!-- Input card -->
-  <section class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 card-pad rounded-2xl shadow-sm transition-colors">
+  <section class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 card-pad rounded-2xl shadow-sm transition-colors">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
       <div>
         <label for="fasta_input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paste FASTA sequences</label>
         <textarea id="fasta_input" rows="8"
-          class="w-full p-3 border bg-white dark:bg-slate-900 border-gray-200 dark:border-gray-600 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition mono"
+          class="w-full p-3 border bg-white text-slate-900 border-gray-300 focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:border-gray-600 rounded-xl focus:ring-2 focus:border-indigo-500 transition mono"
           placeholder="Paste FASTA or a raw sequence. Comments starting with ';' are ignored."></textarea>
         <div class="flex items-center flex-wrap gap-3 mt-2">
           <button id="load_example" class="text-sm text-indigo-700 dark:text-indigo-400 hover:underline">Load example</button>
@@ -165,16 +165,16 @@
             <h3 class="text-sm font-semibold dark:text-slate-200">Analysis Settings</h3>
             <div class="space-y-2 mt-1">
               <div>
-                <label class="block text-xs mb-1 dark:text-slate-300">Reference pH (Charge)</label>
+                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">Reference pH (Charge)</label>
                 <div class="flex items-center gap-2">
                   <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
-                    class="w-16 p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                    class="w-16 p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
                   <input id="ref_pH_slider" type="range" min="0" max="14" step="0.1" value="7.4" class="w-full">
                 </div>
               </div>
               <div>
-                <label class="block text-xs mb-1 dark:text-slate-300">N-end rule Organism</label>
-                <select id="half_life_org" class="w-full p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm">
+                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">N-end rule Organism</label>
+                <select id="half_life_org" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm">
                   <option value="mammal" selected>Mammalian</option>
                   <option value="yeast">Yeast</option>
                   <option value="ecoli">E. coli</option>
@@ -185,10 +185,10 @@
           <div>
             <h3 class="text-sm font-semibold dark:text-slate-200">Domain Detection</h3>
             <div class="mt-1">
-              <label class="block text-xs mb-1 dark:text-slate-300">Min. Identity %</label>
+              <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">Min. Identity %</label>
               <div class="flex items-center gap-2">
                  <input id="domain_thr" type="number" min="50" max="100" step="1" value="95"
-                    class="w-16 p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                    class="w-16 p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
                  <input id="domain_thr_slider" type="range" min="50" max="100" step="1" value="95" class="w-full">
               </div>
               <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">For Large Domains (e.g. GFP, GST).</p>
@@ -198,45 +198,45 @@
             <h3 class="text-sm font-semibold dark:text-slate-200">Transmembrane</h3>
             <div class="grid grid-cols-2 gap-2 mt-1">
               <div>
-                <label class="block text-xs mb-1 dark:text-slate-300">Window (11–35)</label>
+                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">Window (11–35)</label>
                 <input id="tm_window" type="number" min="11" max="35" step="1" value="19"
-                  class="w-full p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                  class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
               </div>
               <div>
-                <label class="block text-xs mb-1 dark:text-slate-300">KD threshold</label>
+                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">KD threshold</label>
                 <input id="tm_thr" type="number" step="0.1" value="1.6"
-                  class="w-full p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                  class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
               </div>
             </div>
           </div>
         </div>
 
         <details class="mt-4" open>
-          <summary class="cursor-pointer text-sm font-semibold dark:text-slate-200">Plots & advanced</summary>
+          <summary class="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">Plots & advanced</summary>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
             <div>
               <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Plots Enabled</h4>
               <div class="grid grid-cols-2 gap-2 mt-1">
-                <label class="flex items-center gap-2 text-sm dark:text-slate-300"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Hydrophobicity</label>
-                <label class="flex items-center gap-2 text-sm dark:text-slate-300"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Charge</label>
-                <label class="flex items-center gap-2 text-sm dark:text-slate-300"><input type="checkbox" id="opt_disorder" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Disorder (FoldIndex)</label>
-                <label class="flex items-center gap-2 text-sm dark:text-slate-300"><input type="checkbox" id="opt_moment" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Hydrophobic Moment</label>
-                <label class="flex items-center gap-2 text-sm dark:text-slate-300"><input type="checkbox" id="opt_secstruct" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Sec. Struct (Chou-Fasman)</label>
-                <label class="flex items-center gap-2 text-sm dark:text-slate-300"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Cysteine positions</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Hydrophobicity</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Charge</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_disorder" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Disorder (FoldIndex)</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_moment" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Hydrophobic Moment</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_secstruct" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Sec. Struct (Chou-Fasman)</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Cysteine positions</label>
               </div>
             </div>
             <div>
               <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Smoothing Windows</h4>
               <div class="grid grid-cols-2 gap-3 mt-1">
                 <div>
-                  <label class="block text-xs mb-1 dark:text-slate-300" for="hydro_window">Hydro</label>
-                  <select id="hydro_window" class="w-full p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
+                  <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300" for="hydro_window">Hydro</label>
+                  <select id="hydro_window" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
                     <option value="1">1</option><option value="3">3</option><option value="5" selected>5</option><option value="9">9</option><option value="13">13</option>
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs mb-1 dark:text-slate-300" for="charge_window">Charge</label>
-                  <select id="charge_window" class="w-full p-1.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
+                  <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300" for="charge_window">Charge</label>
+                  <select id="charge_window" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
                     <option value="1">1</option><option value="5">5</option><option value="9" selected>9</option><option value="15">15</option>
                   </select>
                 </div>
@@ -249,7 +249,7 @@
 
     <div class="mt-5 flex items-center justify-center gap-3 flex-wrap">
       <button id="analyze_button" class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-full hover:bg-indigo-700 transition-colors shadow-sm">Analyze</button>
-      <button id="clear_button" class="bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-semibold py-2 px-6 rounded-full hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors shadow-sm">Clear</button>
+      <button id="clear_button" class="bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white font-semibold py-2 px-6 rounded-full hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors shadow-sm">Clear</button>
       <button id="expand_all" class="text-sm text-indigo-700 dark:text-indigo-400 hover:underline">Expand all cards</button>
       <button id="collapse_all" class="text-sm text-indigo-700 dark:text-indigo-400 hover:underline">Collapse all cards</button>
     </div>
