@@ -8,50 +8,69 @@
 
 <!-- Main container for the tool -->
 <div class="flex items-center justify-center py-8 md:py-12 px-4">
-    <div class="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8">
+    <div class="w-full max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 border border-gray-100 dark:border-slate-700">
         <header class="text-center mb-6">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Text Counter</h1>
-            <p class="text-slate-600 mt-2">Instantly analyze your text's word, letter, and space count.</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Text Counter</h1>
+            <p class="text-slate-600 dark:text-slate-400 mt-2">Instantly analyze your text's word, letter, and space count.</p>
         </header>
 
         <!-- Text Area -->
         <div class="mb-6">
-            <textarea id="text-input-counter" class="w-full h-48 p-4 border border-slate-300 rounded-lg bg-slate-50 focus:ring-2 focus:ring-indigo-500" placeholder="Start typing or paste your text here..."></textarea>
+            <textarea id="text-input-counter" class="w-full h-48 p-4 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" placeholder="Start typing or paste your text here..."></textarea>
         </div>
 
         <!-- Statistics Display -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
-            <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                <p class="text-sm font-medium text-slate-600">Words</p>
-                <p id="word-count" class="text-3xl font-bold text-indigo-700">0</p>
+            <div class="stat-card bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Words</p>
+                <p id="word-count" class="text-3xl font-bold text-indigo-700 dark:text-indigo-400">0</p>
             </div>
-            <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                <p class="text-sm font-medium text-slate-600">Letters</p>
-                <p id="letter-count" class="text-3xl font-bold text-indigo-700">0</p>
+            <div class="stat-card bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Letters</p>
+                <p id="letter-count" class="text-3xl font-bold text-indigo-700 dark:text-indigo-400">0</p>
             </div>
-            <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                <p class="text-sm font-medium text-slate-600">Spaces</p>
-                <p id="space-count" class="text-3xl font-bold text-indigo-700">0</p>
+            <div class="stat-card bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Spaces</p>
+                <p id="space-count" class="text-3xl font-bold text-indigo-700 dark:text-indigo-400">0</p>
             </div>
-            <div class="stat-card bg-slate-50 p-4 rounded-lg">
-                <p class="text-sm font-medium text-slate-600">Articles</p>
-                <p id="article-count" class="text-3xl font-bold text-indigo-700">0</p>
+            <div class="stat-card bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Articles</p>
+                <p id="article-count" class="text-3xl font-bold text-indigo-700 dark:text-indigo-400">0</p>
             </div>
         </div>
 
         <!-- Controls -->
-        <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
             <div class="flex flex-col sm:flex-row gap-4">
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" id="count-spaces-toggle" class="form-checkbox h-5 w-5 text-indigo-600 rounded">
-                    <span class="text-slate-700">Include spaces in letter count</span>
+                    <span class="text-slate-700 dark:text-slate-300">Include spaces in letter count</span>
                 </label>
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" id="count-articles-toggle" checked class="form-checkbox h-5 w-5 text-indigo-600 rounded">
-                    <span class="text-slate-700">Count articles ('a', 'an', 'the')</span>
+                    <span class="text-slate-700 dark:text-slate-300">Count articles ('a', 'an', 'the')</span>
                 </label>
             </div>
             <button id="clear-btn-counter" class="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg">Clear</button>
+        </div>
+
+        <!-- Sequence Tools -->
+        <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <button id="btn-cleanup" class="bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-2 px-4 border border-gray-300 dark:border-slate-600 rounded shadow-sm text-sm">Cleanup Seq</button>
+            <button id="btn-fasta" class="bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-2 px-4 border border-gray-300 dark:border-slate-600 rounded shadow-sm text-sm">Format FASTA</button>
+        </div>
+
+        <!-- DNA Analysis Panel -->
+        <div id="dna-panel" class="hidden mt-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-700 transition-all">
+           <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">DNA Analysis</h3>
+           <div class="mt-2">
+              <p class="text-xs text-slate-500 dark:text-slate-400">Reverse Complement (5' -> 3')</p>
+              <p id="rev-comp-out" class="font-mono text-sm break-all text-slate-800 dark:text-slate-200 mt-1 selection:bg-indigo-200 p-2 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-600"></p>
+           </div>
+           <div class="mt-2 flex gap-4 text-xs text-slate-600 dark:text-slate-400">
+              <span>GC Content: <strong id="gc-content" class="text-slate-800 dark:text-slate-200">0%</strong></span>
+              <span>Tm (approx): <strong id="tm-approx" class="text-slate-800 dark:text-slate-200">0°C</strong></span>
+           </div>
         </div>
     </div>
 </div>
@@ -68,16 +87,24 @@
         const countArticlesToggle = document.getElementById('count-articles-toggle');
         const clearBtn = document.getElementById('clear-btn-counter');
 
+        // Seq tools
+        const btnCleanup = document.getElementById('btn-cleanup');
+        const btnFasta = document.getElementById('btn-fasta');
+        const dnaPanel = document.getElementById('dna-panel');
+        const revCompOut = document.getElementById('rev-comp-out');
+        const gcContent = document.getElementById('gc-content');
+        const tmApprox = document.getElementById('tm-approx');
+
         function updateCounts() {
             const text = textInput.value;
             const words = text.trim() ? text.trim().split(/\s+/) : [];
             const totalWordCount = words.length;
             const articleMatches = text.match(/\b(a|an|the)\b/gi) || [];
             const articleCount = articleMatches.length;
-            
+
             letterCountEl.textContent = countSpacesToggle.checked ? text.length : text.replace(/\s/g, '').length;
             spaceCountEl.textContent = (text.match(/ /g) || []).length;
-            
+
             if (countArticlesToggle.checked) {
                 wordCountEl.textContent = totalWordCount;
                 articleCountEl.textContent = articleCount;
@@ -85,7 +112,59 @@
                 wordCountEl.textContent = totalWordCount - articleCount;
                 articleCountEl.textContent = 0;
             }
+
+            checkDNA(text);
         }
+
+        function checkDNA(text) {
+            // Remove whitespace
+            const clean = text.replace(/[\s\d]/g, '').toUpperCase();
+            if(clean.length < 3) {
+                dnaPanel.classList.add('hidden');
+                return;
+            }
+            // Strict DNA check (allow U for RNA)
+            if(/^[ACGTU]+$/.test(clean)) {
+                dnaPanel.classList.remove('hidden');
+
+                // Reverse Complement
+                const map = { 'A':'T', 'T':'A', 'U':'A', 'C':'G', 'G':'C' };
+                let rc = '';
+                for(let i=clean.length-1; i>=0; i--) {
+                    rc += map[clean[i]] || '?';
+                }
+                revCompOut.textContent = rc;
+
+                // GC
+                const gc = (clean.match(/[GC]/g)||[]).length;
+                const gcPct = ((gc / clean.length) * 100).toFixed(1);
+                gcContent.textContent = gcPct + '%';
+
+                // Tm (Wallace rule < 14bp, otherwise 64.9 + 41*(G+C-16.4)/(N))
+                let tm = 0;
+                if (clean.length < 14) {
+                    tm = (clean.match(/[ATU]/g)||[]).length * 2 + gc * 4;
+                } else {
+                    tm = 64.9 + 41 * (gc - 16.4)/clean.length;
+                }
+                tmApprox.textContent = tm.toFixed(1) + '°C';
+            } else {
+                dnaPanel.classList.add('hidden');
+            }
+        }
+
+        btnCleanup.addEventListener('click', () => {
+           textInput.value = textInput.value.replace(/[\d\s\r\n]/g, '');
+           updateCounts();
+        });
+
+        btnFasta.addEventListener('click', () => {
+            const clean = textInput.value.replace(/[\s\r\n]/g, '');
+            if(!clean) return;
+            const chunks = clean.match(/.{1,60}/g) || [];
+            textInput.value = `>Sequence_${clean.length}bp\n` + chunks.join('\n');
+            updateCounts();
+        });
 
         textInput.addEventListener('input', updateCounts);
         countSpacesToggle.addEventListener('change', updateCounts);

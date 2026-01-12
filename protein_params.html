@@ -81,6 +81,7 @@
   .lab-table th, .lab-table td { padding: 4px 8px; border-bottom: 1px solid #e5e7eb; }
   .lab-table th { background: #f9fafb; font-weight: 600; color: #374151; }
   .lab-table tr:hover { background: #f9fafb; }
+  .lab-table tr.highlight-match { background: #dcfce7; }
 
   /* Dark mode fallbacks if Tailwind dark utilities are not present */
   html.dark .feature-track-svg .seq-bar-bg { fill: #1f2937; }
@@ -96,6 +97,7 @@
   html.dark .lab-table th { background: #1e293b; border-color: #334155; }
   html.dark .lab-table td { border-color: #334155; }
   html.dark .lab-table tr:hover { background: #1e293b; }
+  html.dark .lab-table tr.highlight-match { background: #064e3b; }
 </style>
 <style id="map-modal-size-override">
   /* Make the zoom modal almost fullscreen for more vertical space */
@@ -277,7 +279,7 @@
 
 <script>
 window.initProteinWorkbench = function(){
-  // Load Definitions from global object (or fallback to empty if missing)
+  // Load Definitions from global object
   const DEFS = window.PROTEIN_DEFS || {};
   if(!DEFS.AA){ alert("Error: definitions.js not loaded. Some features will be missing."); return; }
   
@@ -286,6 +288,17 @@ window.initProteinWorkbench = function(){
   const TAGS = DEFS.TAGS;
   const MOTIFS = DEFS.MOTIFS;
   const LARGE_TAGS = DEFS.LARGE_TAGS;
+
+  const pKaSets = {
+      bjell: {
+          term: { N: AA.pKa_term.N, C: AA.pKa_term.C },
+          side: { ...AA.pKa_side }
+      },
+      emboss: {
+          term: { N: 8.6, C: 3.6 },
+          side: { K: 10.8, R: 12.5, H: 6.5, D: 3.9, E: 4.1, C: 8.5, Y: 10.1 }
+      }
+  };
 
   /* ===== DOM elements ===== */
   const els = {
@@ -330,76 +343,29 @@ window.initProteinWorkbench = function(){
   let resultCounter=0, currentResults=[];
   let plotsVisible=true;
   let modalState = { svg: null, zoom: null };
-  let userDomains = []; // [{name, seq}]
-
-  /* ===== FASTA parsing & sanitization ===== */
-  function parseFastaFlexible(text){
-    const lines = text.replace(/\r/g,'').split('\n'); const out = [];
-    let header = null, seq = []; let sawHeader = false;
-    for (const raw of lines) {
-      const l = raw.trim(); if (!l) continue; if (l.startsWith(';')) continue;
-      if (l.startsWith('>')) {
-        if (header !== null) out.push({ header, seq: seq.join('') });
-        const after = l.slice(1).trim();
-        const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/);
-        if (tailAA && tailAA[1].length >= 5) {
-          header = after.slice(0, after.length - tailAA[1].length).trim() || `Sequence ${out.length+1}`;
-          seq = [tailAA[1]];
-        } else { header = after || `Sequence ${out.length+1}`; seq = []; }
-        sawHeader = true;
-      } else { seq.push(l); }
-    }
-    if (header !== null) out.push({ header, seq: seq.join('') });
-    if (!sawHeader) { const joined = lines.join('\n'); if (/[A-Za-z]/.test(joined)) out.push({ header: 'Sequence 1', seq: joined }); }
-    return out;
-  }
-
-  function sanitizeSequenceWithLog(raw){
-    const upper = raw.toUpperCase();
-    const removed = { whitespace:0, digits:0, dashes:0, stars:0, punctuation:0, other:0 };
-    const keepRe = /[ACDEFGHIKLMNPQRSTVWYUBZOJX]/;
-    let cleanedArr = [];
-    for (let i=0;i<upper.length;i++){
-      const ch = upper[i];
-      if (keepRe.test(ch)) { cleanedArr.push(ch); continue; }
-      if (/\s/.test(ch)) { removed.whitespace++; continue; }
-      if (/[0-9]/.test(ch)) { removed.digits++; continue; }
-      if (/[-–—_]/.test(ch)) { removed.dashes++; continue; }
-      if (ch === '*') { removed.stars++; continue; }
-      if (/[.,:;\/|()\[\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
-      removed.other++;
-    }
-    const seq = cleanedArr.join('');
-    if (!seq.length) throw new Error('Sequence contains no valid residues after cleaning.');
-    const notes = [];
-    if (removed.whitespace) notes.push(`spaces ${removed.whitespace}`);
-    if (removed.digits) notes.push(`digits ${removed.digits}`);
-    if (removed.dashes) notes.push(`dashes ${removed.dashes}`);
-    if (removed.stars) notes.push(`stars ${removed.stars}`);
-    if (removed.punctuation) notes.push(`punct ${removed.punctuation}`);
-    return { seq, issues: removed.other ? `Invalid letters removed: ${removed.other}` : '', notes: notes.join(', ') };
-  }
+  let userDomains = [];
 
   /* ===== Core calculations ===== */
   function countAA(seq){ const c = Object.create(null); for(const ch of seq) c[ch] = (c[ch]||0)+1; return c; }
   function molecularWeight(counts){ let m = 18.01528; for(const a in counts) m += (counts[a]||0) * (AA.mw[a]||0); return m; }
   function gravy(seq){ if(!seq.length) return 0; let s=0; for(const a of seq) s += (AA.kd[a] ?? 0); return s/seq.length; }
 
-  function netCharge(counts, pH){
-    let p = 1/(1+10**(pH - AA.pKa_term.N));
-    p += (counts.K||0)/(1+10**(pH - AA.pKa_side.K));
-    p += (counts.R||0)/(1+10**(pH - AA.pKa_side.R));
-    p += (counts.H||0)/(1+10**(pH - AA.pKa_side.H));
-    let n = 1/(1+10**(AA.pKa_term.C - pH));
-    n += (counts.D||0)/(1+10**(AA.pKa_side.D - pH));
-    n += (counts.E||0)/(1+10**(AA.pKa_side.E - pH));
-    n += (counts.C||0)/(1+10**(AA.pKa_side.C - pH));
-    n += (counts.Y||0)/(1+10**(AA.pKa_side.Y - pH));
+  function netCharge(counts, pH, scheme='bjell'){
+    const pK = pKaSets[scheme] || pKaSets.bjell;
+    let p = 1/(1+10**(pH - pK.term.N));
+    p += (counts.K||0)/(1+10**(pH - pK.side.K));
+    p += (counts.R||0)/(1+10**(pH - pK.side.R));
+    p += (counts.H||0)/(1+10**(pH - pK.side.H));
+    let n = 1/(1+10**(pK.term.C - pH));
+    n += (counts.D||0)/(1+10**(pK.side.D - pH));
+    n += (counts.E||0)/(1+10**(pK.side.E - pH));
+    n += (counts.C||0)/(1+10**(pK.side.C - pH));
+    n += (counts.Y||0)/(1+10**(pK.side.Y - pH));
     return p - n;
   }
-  function isoelectricPoint(counts){
+  function isoelectricPoint(counts, scheme='bjell'){
     let lo=0.0, hi=14.0;
-    for(let i=0;i<60;i++){ const mid=(lo+hi)/2; if(netCharge(counts, mid)>0) lo=mid; else hi=mid; }
+    for(let i=0;i<60;i++){ const mid=(lo+hi)/2; if(netCharge(counts, mid, scheme)>0) lo=mid; else hi=mid; }
     return (lo+hi)/2;
   }
   function instabilityIndex(seq){
@@ -412,9 +378,7 @@ window.initProteinWorkbench = function(){
     const nY = counts.Y||0, nW = counts.W||0, nC = counts.C||0;
     const reduced = nY*AA.ext.Y + nW*AA.ext.W;
     const cystines = reduced + Math.floor(nC/2)*AA.ext.CYS_DISULFIDE_PAIR;
-    const A1mgml_reduced  = mw > 0 ? (reduced  / mw) : 0;
-    const A1mgml_cystines = mw > 0 ? (cystines / mw) : 0;
-    return { reduced, cystines, A1mgml_reduced, A1mgml_cystines };
+    return { reduced, cystines };
   }
 
   /* --- New Feature Calculations --- */
@@ -429,7 +393,6 @@ window.initProteinWorkbench = function(){
 
   function atomicFormula(counts){
     const atoms = {C:0, H:0, N:0, O:0, S:0, Se:0};
-    // Add water for termini (H- ... -OH) => H2 O
     atoms.H += 2; atoms.O += 1;
     for(const aa in counts){
       const n = counts[aa] || 0;
@@ -438,7 +401,6 @@ window.initProteinWorkbench = function(){
         for(const el in def) atoms[el] = (atoms[el]||0) + def[el]*n;
       }
     }
-    // Standard Hill system order often C H N O S
     const order = ['C', 'H', 'N', 'O', 'S', 'Se'];
     return order.map(el => atoms[el] > 0 ? `${el}${atoms[el]}` : '').join('');
   }
@@ -519,9 +481,6 @@ window.initProteinWorkbench = function(){
         const query = def.seq;
         const L = query.length;
         if(seq.length < L) continue;
-
-        // Sliding window identity check
-        // Optimization: For long domains, we can step by 1.
         for(let i=0; i <= seq.length - L; i++){
             let matches = 0;
             for(let j=0; j<L; j++){
@@ -529,7 +488,6 @@ window.initProteinWorkbench = function(){
             }
             const identity = (matches / L) * 100;
             if(identity >= threshold){
-                // Found a match. Greedy approach: save and skip ahead to avoid overlapping matches of the same domain
                 const matchedSeq = seq.slice(i, i+L);
                 feats.push({
                     start: i,
@@ -540,7 +498,7 @@ window.initProteinWorkbench = function(){
                     note: `${def.note || ""} (Identity: ${identity.toFixed(1)}%)`,
                     match: matchedSeq
                 });
-                i += L - 1; // Skip the rest of this domain instance
+                i += L - 1;
             }
         }
     }
@@ -568,11 +526,8 @@ window.initProteinWorkbench = function(){
         if (len === 0) re.lastIndex++;
       }
     }
-    // Large Domains (fuzzy)
     const largeFeats = scanLargeDomains(seq, threshold);
     feats.push(...largeFeats);
-
-    // User Defined Domains
     if(userDomains && userDomains.length > 0) {
         userDomains.forEach(ud => {
             if(!ud.seq) return;
@@ -583,7 +538,6 @@ window.initProteinWorkbench = function(){
             }
         });
     }
-
     return feats;
   }
 
@@ -596,6 +550,53 @@ window.initProteinWorkbench = function(){
     return { counts, pct, total, order: std };
   }
 
+  // Fasta parsing flexible, sanitize... (reused)
+  function parseFastaFlexible(text){
+    const lines = text.replace(/\r/g,'').split('\n'); const out = [];
+    let header = null, seq = []; let sawHeader = false;
+    for (const raw of lines) {
+      const l = raw.trim(); if (!l) continue; if (l.startsWith(';')) continue;
+      if (l.startsWith('>')) {
+        if (header !== null) out.push({ header, seq: seq.join('') });
+        const after = l.slice(1).trim();
+        const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/);
+        if (tailAA && tailAA[1].length >= 5) {
+          header = after.slice(0, after.length - tailAA[1].length).trim() || `Sequence ${out.length+1}`;
+          seq = [tailAA[1]];
+        } else { header = after || `Sequence ${out.length+1}`; seq = []; }
+        sawHeader = true;
+      } else { seq.push(l); }
+    }
+    if (header !== null) out.push({ header, seq: seq.join('') });
+    if (!sawHeader) { const joined = lines.join('\n'); if (/[A-Za-z]/.test(joined)) out.push({ header: 'Sequence 1', seq: joined }); }
+    return out;
+  }
+  function sanitizeSequenceWithLog(raw){
+    const upper = raw.toUpperCase();
+    const removed = { whitespace:0, digits:0, dashes:0, stars:0, punctuation:0, other:0 };
+    const keepRe = /[ACDEFGHIKLMNPQRSTVWYUBZOJX]/;
+    let cleanedArr = [];
+    for (let i=0;i<upper.length;i++){
+      const ch = upper[i];
+      if (keepRe.test(ch)) { cleanedArr.push(ch); continue; }
+      if (/\s/.test(ch)) { removed.whitespace++; continue; }
+      if (/[0-9]/.test(ch)) { removed.digits++; continue; }
+      if (/[-–—_]/.test(ch)) { removed.dashes++; continue; }
+      if (ch === '*') { removed.stars++; continue; }
+      if (/[.,:;\/|()\[\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
+      removed.other++;
+    }
+    const seq = cleanedArr.join('');
+    if (!seq.length) throw new Error('Sequence contains no valid residues after cleaning.');
+    const notes = [];
+    if (removed.whitespace) notes.push(`spaces ${removed.whitespace}`);
+    if (removed.digits) notes.push(`digits ${removed.digits}`);
+    if (removed.dashes) notes.push(`dashes ${removed.dashes}`);
+    if (removed.stars) notes.push(`stars ${removed.stars}`);
+    if (removed.punctuation) notes.push(`punct ${removed.punctuation}`);
+    return { seq, issues: removed.other ? `Invalid letters removed: ${removed.other}` : '', notes: notes.join(', ') };
+  }
+
   /* ===== UI: inputs ===== */
   els.file.addEventListener('change', e=>{
     const f=e.target.files[0];
@@ -605,77 +606,34 @@ window.initProteinWorkbench = function(){
     r.onload=ev=>{ els.fasta.value=ev.target.result; };
     r.readAsText(f);
   });
-
-  // User Domains CSV
   els.userDomainsCsv.addEventListener('change', e => {
-     const f = e.target.files[0];
-     if(!f) return;
-     const r = new FileReader();
+     const f = e.target.files[0]; if(!f) return; const r = new FileReader();
      r.onload = ev => {
-         const txt = ev.target.result;
-         const lines = txt.split(/\r?\n/);
-         userDomains = [];
-         let count = 0;
+         const txt = ev.target.result; const lines = txt.split(/\r?\n/);
+         userDomains = []; let count = 0;
          lines.forEach(line => {
              const parts = line.split(',');
              if(parts.length >= 2) {
                  const name = parts[0].trim();
                  const seq = parts[1].trim().toUpperCase().replace(/[^A-Z]/g, '');
-                 if(name && seq) {
-                     userDomains.push({name, seq});
-                     count++;
-                 }
+                 if(name && seq) { userDomains.push({name, seq}); count++; }
              }
          });
          if(count > 0) alert(`Loaded ${count} user domains.`);
      };
      r.readAsText(f);
   });
-
-  els.showCsvExample.addEventListener('click', () => {
-      alert("CSV Format Example:\n\nMyDomain,ACDEFGH\nActiveSite,YGGFL\n\nNo header row required. First column is name, second is sequence.");
-  });
-
-  els.loadExample.addEventListener('click', ()=>{
-    els.fasta.value = `>sp|P0DP23|VIME_HUMAN Vimentin
-MSTRSVSSSSYRRMFGGPGTASRPSSSRSYVTTSTRTYSLGSALRPSTSRSLYASSPGGVYATRSSAVRLR
-SSVPGVRLLQDSVDFSLADAINTEFKNTRTNEKVELQELNDRFANYIDKVRFLEQQNKILLAELEQLKGQ
-GKSRLGDLYEEEMRELRRQVDQLTNDKARVEVERDNLAEDIMRLREKLQEEMLQRQEEAENNLAAFRADV
-DAATLARIDLERRIENLSIEELLCKSDASGYARVFGADLERAKEKLNVEAMHEFVQQLARAEEDNYRGVL
-SLTPIEFRAGEPYSDRHGYFAVYEELARTKKLDSVGSEALSVRQGHDVFLARKLLEIPALEFSSVQNQSL
-QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
-  });
-
-  els.clear.addEventListener('click', ()=>{
-    els.fasta.value=""; els.results.innerHTML=""; resultCounter=0; currentResults=[];
-  });
-
-  function syncPHInputs(from){
-    if(from==='slider'){ els.pH.value = Number(els.pHslider.value).toFixed(1); }
-    if(from==='box'){ els.pHslider.value = els.pH.value; }
-    refreshAllPlots(); refreshCharges();
-  }
-  els.pHslider.addEventListener('input', ()=>syncPHInputs('slider'));
-  els.pH.addEventListener('change', ()=>syncPHInputs('box'));
-
-  function syncDomainThr(from){
-    if(from==='slider'){ els.domainThr.value = els.domainThrSlider.value; }
-    if(from==='box'){ els.domainThrSlider.value = els.domainThr.value; }
-    refreshAllCards();
-  }
-  els.domainThrSlider.addEventListener('input', ()=>syncDomainThr('slider'));
-  els.domainThr.addEventListener('change', ()=>syncDomainThr('box'));
-
-  [
-    els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys,
-    els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg
-  ].forEach(c=>{
-    c.addEventListener('change', ()=> { refreshAllCards(); });
-  });
+  els.showCsvExample.addEventListener('click', () => { alert("CSV Format Example:\n\nMyDomain,ACDEFGH\nActiveSite,YGGFL\n\nNo header row required."); });
+  els.loadExample.addEventListener('click', ()=>{ els.fasta.value = `>sp|P0DP23|VIME_HUMAN Vimentin\nMSTRSVSSSSYRRMFGGPGTASRPSSSRSYVTTSTRTYSLGSALRPSTSRSLYASSPGGVYATRSSAVRLR\nSSVPGVRLLQDSVDFSLADAINTEFKNTRTNEKVELQELNDRFANYIDKVRFLEQQNKILLAELEQLKGQ\nGKSRLGDLYEEEMRELRRQVDQLTNDKARVEVERDNLAEDIMRLREKLQEEMLQRQEEAENNLAAFRADV\nDAATLARIDLERRIENLSIEELLCKSDASGYARVFGADLERAKEKLNVEAMHEFVQQLARAEEDNYRGVL\nSLTPIEFRAGEPYSDRHGYFAVYEELARTKKLDSVGSEALSVRQGHDVFLARKLLEIPALEFSSVQNQSL\nQTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`; });
+  els.clear.addEventListener('click', ()=>{ els.fasta.value=""; els.results.innerHTML=""; resultCounter=0; currentResults=[]; });
+  function syncPHInputs(from){ if(from==='slider'){ els.pH.value = Number(els.pHslider.value).toFixed(1); } if(from==='box'){ els.pHslider.value = els.pH.value; } refreshAllPlots(); refreshCharges(); }
+  els.pHslider.addEventListener('input', ()=>syncPHInputs('slider')); els.pH.addEventListener('change', ()=>syncPHInputs('box'));
+  function syncDomainThr(from){ if(from==='slider'){ els.domainThr.value = els.domainThrSlider.value; } if(from==='box'){ els.domainThrSlider.value = els.domainThr.value; } refreshAllCards(); }
+  els.domainThrSlider.addEventListener('input', ()=>syncDomainThr('slider')); els.domainThr.addEventListener('change', ()=>syncDomainThr('box'));
+  [els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys, els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg].forEach(c=>{ c.addEventListener('change', ()=> { refreshAllCards(); }); });
 
   els.analyze.addEventListener('click', ()=>{
-    const t=els.fasta.value.trim();
-    if(!t){ alert("Please paste or upload sequences."); return; }
+    const t=els.fasta.value.trim(); if(!t){ alert("Please paste or upload sequences."); return; }
     els.results.innerHTML=""; currentResults=[];
     try{
       const records = parseFastaFlexible(t);
@@ -686,15 +644,13 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
           if(seq.length === 0) throw new Error("Sequence contains no valid residues after cleaning.");
           const obj=analyzeSingle({ header: item.header, seq });
           obj.parseNotes = notes; obj.parseIssues = issues;
-          currentResults.push(obj);
-          buildResultCard(obj);
+          currentResults.push(obj); buildResultCard(obj);
         }catch(e){ showErrorCard(`Error analyzing: ${item.header}`, e.message); }
       }
       refreshAllCards();
     }catch(e){ showErrorCard("Parse error", e.message); }
   });
 
-  /* ===== Compute single sequence ===== */
   function analyzeSingle(item){
     const s = item.seq; const L = s.length; const c = countAA(s);
     const tmW = parseInt(els.tmWindow.value,10); const tmT = Number(els.tmThr.value);
@@ -704,40 +660,26 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const spSegs = signalPeptideCandidates(s);
     const motifSegs = scanFeatures(s, domThr);
     const allFeats = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
-    
-    // New metrics
     const aliIdx = aliphaticIndex(c, L);
     const atomForm = atomicFormula(c);
     const hLife = estimatedHalfLife(s, els.halfLifeOrg.value);
 
     return {
-      id: ++resultCounter,
-      header: item.header,
-      seq: s,
-      length: L,
+      id: ++resultCounter, header: item.header, seq: s, length: L,
       molecularWeight: mw,
-      pI: isoelectricPoint(c),
+      pI: isoelectricPoint(c), // Default scheme
       chargeAtPH: netCharge(c, Number(els.pH.value)),
-      gravy: gravy(s),
-      aliphaticIndex: aliIdx,
-      atomicFormula: atomForm,
-      halfLife: hLife,
+      gravy: gravy(s), aliphaticIndex: aliIdx, atomicFormula: atomForm, halfLife: hLife,
       extinction: extinctionCoefficients(c, mw),
-      instability: instabilityIndex(s),
-      features: allFeats,
-      counts: c
+      instability: instabilityIndex(s), features: allFeats, counts: c
     };
   }
 
-  /* ===== Cards & layout ===== */
-  function showErrorCard(title, msg){
-    els.results.insertAdjacentHTML('beforeend',
-      `<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl"><h3 class="font-semibold">${title}</h3><div class="text-sm mt-1">${msg}</div></div>`);
-  }
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function showErrorCard(title, msg){ els.results.insertAdjacentHTML('beforeend', `<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl"><h3 class="font-semibold">${escapeHTML(title)}</h3><div class="text-sm mt-1">${escapeHTML(msg)}</div></div>`); }
 
   function buildFeatureListHTML(byLane){
-    const keys = Object.keys(byLane);
-    if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
+    const keys = Object.keys(byLane); if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
     return keys.sort().map(category => {
       const items = byLane[category].map(f => {
         const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 px-1 rounded">${f.match}</span>` : '';
@@ -755,63 +697,35 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const stabilityText = obj.instability < 40 ? `<span class="text-green-700 font-semibold">Stable</span>` : `<span class="text-red-700 font-semibold">Unstable</span>`;
     const byLane = obj.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
     const stats = getResidueStats(obj.seq);
-    const statsRows = stats.order.map(aa => {
-      const n = stats.counts[aa] || 0; const p = stats.pct[aa];
-      return `<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${n}</td><td class="px-1 text-right">${p}%</td></tr>`;
-    }).join('');
-
-    const parsingNote = (obj.parseNotes || obj.parseIssues)
-      ? `<div class="note mt-1">Parsing notes: ${[obj.parseNotes, obj.parseIssues].filter(Boolean).join('; ')}</div>` : '';
+    const statsRows = stats.order.map(aa => { const n = stats.counts[aa] || 0; const p = stats.pct[aa]; return `<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${n}</td><td class="px-1 text-right">${p}%</td></tr>`; }).join('');
+    const parsingNote = (obj.parseNotes || obj.parseIssues) ? `<div class="note mt-1">Parsing notes: ${[obj.parseNotes, obj.parseIssues].filter(Boolean).join('; ')}</div>` : '';
 
     const card = `
       <div id="result-card-${obj.id}" class="bg-white border border-gray-100 rounded-2xl shadow-sm">
         <div class="p-4 md:p-5">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div>
-              <h3 class="text-lg font-semibold">${obj.header}</h3>
-              <div class="text-xs text-gray-500 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>
-              ${parsingNote}
-            </div>
+            <div><h3 class="text-lg font-semibold">${escapeHTML(obj.header)}</h3><div class="text-xs text-gray-500 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>${parsingNote}</div>
             <div class="flex items-center gap-2 flex-wrap">
               <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-copy-fasta="${obj.id}">Copy FASTA</button>
               <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-download-svg="${obj.id}">Save map (SVG)</button>
               <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-export-props="${obj.id}">Export props (CSV)</button>
             </div>
           </div>
-
-          <!-- FULL-WIDTH MAP -->
-          <div class="mt-3">
-            <h4 class="font-semibold text-sm mb-1">Graphical map (click to open fullscreen)</h4>
-            <div id="track-click-${obj.id}" class="group relative rounded-lg border border-gray-100 bg-gray-50 p-2 hover:bg-gray-100 transition cursor-zoom-in">
-              <div id="track-container-${obj.id}" class="w-full"></div>
-              <div class="absolute right-2 top-2 text-[11px] text-gray-500 opacity-80">Zoom in/out in fullscreen</div>
-            </div>
-          </div>
-
-          <!-- Stats & Features (Topology) -->
+          <div class="mt-3"><h4 class="font-semibold text-sm mb-1">Graphical map (click to open fullscreen)</h4><div id="track-click-${obj.id}" class="group relative rounded-lg border border-gray-100 bg-gray-50 p-2 hover:bg-gray-100 transition cursor-zoom-in"><div id="track-container-${obj.id}" class="w-full"></div><div class="absolute right-2 top-2 text-[11px] text-gray-500 opacity-80">Zoom in/out in fullscreen</div></div></div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
-            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
-              <details class="text-sm font-medium" open>
-                <summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary>
-                <div class="h-28 overflow-y-auto mt-1 border-t pt-1">
-                  <table class="w-full text-xs">
-                    <thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead>
-                    <tbody>${statsRows}</tbody>
-                  </table>
-                </div>
-              </details>
-            </div>
-
-            <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">
-              ${buildFeatureListHTML(byLane)}
-            </div>
+            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3"><details class="text-sm font-medium" open><summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary><div class="h-28 overflow-y-auto mt-1 border-t pt-1"><table class="w-full text-xs"><thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead><tbody>${statsRows}</tbody></table></div></details></div>
+            <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">${buildFeatureListHTML(byLane)}</div>
           </div>
-
-          <!-- Quick facts + A280 -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
               <div class="grid grid-cols-2 gap-y-1 text-xs">
-                <div><strong>Theoretical pI:</strong> <span class="mono">${obj.pI.toFixed(2)}</span></div>
+                <div>
+                    <strong>Theoretical pI:</strong> <span class="mono" id="pi-val-${obj.id}">${obj.pI.toFixed(2)}</span>
+                    <select class="text-[10px] border rounded ml-1" id="pi-algo-${obj.id}" data-id="${obj.id}">
+                        <option value="bjell">Bjellqvist (Expasy)</option>
+                        <option value="emboss">EMBOSS</option>
+                    </select>
+                </div>
                 <div><strong>Net charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono">${obj.chargeAtPH.toFixed(2)}</span></div>
                 <div><strong>Aliphatic Index:</strong> <span class="mono">${obj.aliphaticIndex.toFixed(2)}</span></div>
                 <div><strong>GRAVY:</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></div>
@@ -821,108 +735,85 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
               </div>
               <div class="mt-2 pt-2 border-t text-xs">
                 <div class="grid grid-cols-[170px,1fr] gap-y-1 items-center">
-                  <div class="text-gray-500">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono">${obj.extinction.reduced}</div>
-                  <div class="text-gray-500">ε<sub>280</sub> (+cystines)</div><div class="mono">${obj.extinction.cystines}</div>
+                  <div class="text-gray-500">State</div>
+                  <select id="ext-state-${obj.id}" class="text-xs border rounded p-0.5" data-id="${obj.id}">
+                      <option value="unfolded">Unfolded (Edelhoch)</option>
+                      <option value="folded">Folded (Guess +5%)</option>
+                  </select>
+                  <div class="text-gray-500">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono" id="ext-red-${obj.id}">${obj.extinction.reduced}</div>
+                  <div class="text-gray-500">ε<sub>280</sub> (+cystines)</div><div class="mono" id="ext-cys-${obj.id}">${obj.extinction.cystines}</div>
                 </div>
               </div>
             </div>
-
             <div class="bg-white border border-gray-100 rounded-xl p-3">
               <h4 class="font-semibold text-sm mb-2">A<sub>280</sub> helper</h4>
               <div class="grid grid-cols-3 gap-2 items-end">
-                <div>
-                  <label class="block text-xs">Path length (cm)</label>
-                  <input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border rounded-lg" placeholder="1.0" data-a280-path="${obj.id}">
-                </div>
-                <div>
-                  <label class="block text-xs">ε<sub>280</sub> type</label>
-                  <select class="w-full p-2 border rounded-lg" data-a280-eps-type="${obj.id}">
-                    <option value="red">Reduced (Y+W)</option>
-                    <option value="cys" selected>+Cystines (Y+W + Cys pairs)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs">A<sub>280</sub> (unitless)</label>
-                  <input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g. 0.7" data-a280-A="${obj.id}">
-                </div>
+                <div><label class="block text-xs">Path length (cm)</label><input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border rounded-lg" placeholder="1.0" data-a280-path="${obj.id}"></div>
+                <div><label class="block text-xs">ε<sub>280</sub> type</label><select class="w-full p-2 border rounded-lg" data-a280-eps-type="${obj.id}"><option value="red">Reduced (Y+W)</option><option value="cys" selected>+Cystines (Y+W + Cys pairs)</option></select></div>
+                <div><label class="block text-xs">A<sub>280</sub> (unitless)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g. 0.7" data-a280-A="${obj.id}"></div>
               </div>
               <div class="grid grid-cols-2 gap-2 mt-2">
-                <div>
-                  <label class="block text-xs">Conc. (mg/mL)</label>
-                  <input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-mgml="${obj.id}">
-                </div>
-                <div>
-                  <label class="block text-xs">Conc. (μM)</label>
-                  <input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-um="${obj.id}">
-                </div>
+                <div><label class="block text-xs">Conc. (mg/mL)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-mgml="${obj.id}"></div>
+                <div><label class="block text-xs">Conc. (μM)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-um="${obj.id}"></div>
               </div>
-              <div class="flex items-center gap-2 mt-2">
-                <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute</button>
-                <div class="text-xs text-gray-700 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div>
-              </div>
+              <div class="flex items-center gap-2 mt-2"><button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute</button><div class="text-xs text-gray-700 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div></div>
             </div>
           </div>
-
-          <!-- Lab Helpers Section -->
           <div class="mt-4">
              <details class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm">
                 <summary class="cursor-pointer font-semibold text-indigo-900">Lab Tools: Digestion & Mass Spec</summary>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
-                   
-                   <!-- Digestion -->
                    <div>
                      <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">In Silico Digestion</h5>
-                     <div class="flex flex-wrap gap-2 mb-2" id="digest-checks-${obj.id}">
-                        <!-- Checkboxes injected by JS -->
-                     </div>
-                     <div class="flex gap-2">
+                     <div class="flex flex-wrap gap-2 mb-2" id="digest-checks-${obj.id}"></div>
+                     <div class="flex flex-wrap gap-2">
                        <button class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700" data-action="digest" data-id="${obj.id}">Digest</button>
                        <button class="text-xs bg-white border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded hover:bg-indigo-50" data-action="export-peptides" data-id="${obj.id}">Export CSV</button>
+                       <button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700" data-action="mass-match" data-id="${obj.id}">Mass Matcher</button>
                      </div>
                      <div class="mt-2 max-h-60 overflow-y-auto border rounded bg-white">
-                        <table class="lab-table" id="digest-table-${obj.id}">
-                           <thead><tr><th>Start</th><th>End</th><th>Seq</th><th>MW</th><th>pI</th></tr></thead>
-                           <tbody><tr><td colspan="5" class="text-gray-400 text-center py-2">Select protease and click Digest</td></tr></tbody>
-                        </table>
+                        <table class="lab-table" id="digest-table-${obj.id}"><thead><tr><th>Start</th><th>End</th><th>Seq</th><th>MW</th><th>pI</th></tr></thead><tbody><tr><td colspan="5" class="text-gray-400 text-center py-2">Select protease and click Digest</td></tr></tbody></table>
                      </div>
                    </div>
-
-                   <!-- Charge Ladder -->
                    <div>
                      <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">ESI Charge State Ladder</h5>
-                     <div class="max-h-60 overflow-y-auto border rounded bg-white">
-                        <table class="lab-table" id="charge-table-container-${obj.id}">
-                           <caption class="text-xs text-left p-1 text-gray-500" id="charge-caption-${obj.id}">Whole Protein</caption>
-                           <thead><tr><th>z</th><th>m/z (M+zH)<sup>z+</sup></th></tr></thead>
-                           <tbody id="charge-table-${obj.id}"></tbody>
-                        </table>
-                     </div>
-                     <div class="mt-2">
-                       <button class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button>
-                     </div>
+                     <div class="max-h-60 overflow-y-auto border rounded bg-white"><table class="lab-table" id="charge-table-container-${obj.id}"><caption class="text-xs text-left p-1 text-gray-500" id="charge-caption-${obj.id}">Whole Protein</caption><thead><tr><th>z</th><th>m/z (M+zH)<sup>z+</sup></th></tr></thead><tbody id="charge-table-${obj.id}"></tbody></table></div>
+                     <div class="mt-2"><button class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button></div>
                    </div>
                 </div>
              </details>
           </div>
-
-          <!-- Graphs -->
-          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}>
-              <summary class="cursor-pointer font-semibold text-gray-800 mb-2">Plots & Analysis</summary>
-              <div id="plots-${obj.id}"></div>
-          </details>
-
+          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}><summary class="cursor-pointer font-semibold text-gray-800 mb-2">Plots & Analysis</summary><div id="plots-${obj.id}"></div></details>
         </div>
       </div>
     `;
     els.results.insertAdjacentHTML('beforeend', card);
-
-    // Render inline map and wire interactions
     renderGraphicalMap(`track-container-${obj.id}`, byLane, obj.length, obj.seq);
     setupInteractions(obj.id, obj);
     wireA280Helper(obj);
     wirePerCardExports(obj);
     wireMapClickForModal(obj, byLane);
     wireLabTools(obj);
+    wireNewFeatures(obj);
+  }
+
+  function wireNewFeatures(obj){
+      // pI
+      const piSel = document.getElementById(`pi-algo-${obj.id}`);
+      piSel.addEventListener('change', () => {
+          const val = isoelectricPoint(obj.counts, piSel.value);
+          document.getElementById(`pi-val-${obj.id}`).textContent = val.toFixed(2);
+      });
+
+      // Extinction
+      const extSel = document.getElementById(`ext-state-${obj.id}`);
+      extSel.addEventListener('change', () => {
+          const factor = extSel.value === 'folded' ? 1.05 : 1.0; // Simple heuristic
+          const red = Math.round(obj.extinction.reduced * factor);
+          const cys = Math.round(obj.extinction.cystines * factor);
+          document.getElementById(`ext-red-${obj.id}`).textContent = red;
+          document.getElementById(`ext-cys-${obj.id}`).textContent = cys;
+      });
   }
 
   /* ===== Lab Tools Wiring ===== */
@@ -939,8 +830,6 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const getPeptides = () => {
         const selected = Array.from(checksContainer.querySelectorAll('input:checked')).map(cb=>cb.value);
         if(!selected.length){ return { error: "Select at least one protease." }; }
-        
-        // Find all cut sites
         const cutSites = new Set([0, obj.length]);
         selected.forEach(pName => {
             const rule = DEFS.PROTEASES.find(x => x.name === pName);
@@ -971,44 +860,47 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     digestBtn.addEventListener('click', () => {
         const res = getPeptides();
         if(res.error) { alert(res.error); return; }
-
         const tableBody = document.getElementById(`digest-table-${obj.id}`).querySelector('tbody');
         tableBody.innerHTML = '';
         if(!res.peptides.length){ tableBody.innerHTML = '<tr><td colspan="5">No peptides generated.</td></tr>'; return; }
-
         res.peptides.forEach(p => {
-            const row = `<tr>
-              <td class="mono text-xs">${p.start}</td>
-              <td class="mono text-xs">${p.end}</td>
-              <td class="mono text-xs max-w-[150px] truncate" title="${p.seq}">${p.seq}</td>
-              <td class="mono text-xs">${p.mw.toFixed(2)}</td>
-              <td class="mono text-xs">${p.pI.toFixed(2)}</td>
-            </tr>`;
+            const row = `<tr><td class="mono text-xs">${p.start}</td><td class="mono text-xs">${p.end}</td><td class="mono text-xs max-w-[150px] truncate" title="${p.seq}">${p.seq}</td><td class="mono text-xs">${p.mw.toFixed(2)}</td><td class="mono text-xs">${p.pI.toFixed(2)}</td></tr>`;
             tableBody.insertAdjacentHTML('beforeend', row);
         });
     });
 
     const exportBtn = document.querySelector(`button[data-action="export-peptides"][data-id="${obj.id}"]`);
     exportBtn.addEventListener('click', () => {
-        const res = getPeptides();
-        if(res.error) { alert(res.error); return; }
-
-        const headerLines = [
-            `Protein: ${obj.header}`,
-            `Proteases: ${res.selected.join(' + ')}`,
-            `Length: ${obj.length}`,
-            ``,
-            `Start,End,Sequence,MW,pI`
-        ].join('\n');
-
-        const rows = res.peptides.map(p =>
-            `${p.start},${p.end},"${p.seq}",${p.mw.toFixed(2)},${p.pI.toFixed(2)}`
-        ).join('\n');
-
+        const res = getPeptides(); if(res.error) { alert(res.error); return; }
+        const headerLines = [`Protein: ${obj.header}`, `Proteases: ${res.selected.join(' + ')}`, `Length: ${obj.length}`, ``, `Start,End,Sequence,MW,pI`].join('\n');
+        const rows = res.peptides.map(p => `${p.start},${p.end},"${p.seq}",${p.mw.toFixed(2)},${p.pI.toFixed(2)}`).join('\n');
         downloadText(`${sanitizeName(obj.header)}_peptides.csv`, headerLines + '\n' + rows);
     });
 
-    // Charge Ladder (initial)
+    // Mass Matcher
+    const matchBtn = document.querySelector(`button[data-action="mass-match"][data-id="${obj.id}"]`);
+    matchBtn.addEventListener('click', () => {
+        const userInput = prompt("Enter observed masses (space/comma separated):");
+        if(!userInput) return;
+        const masses = userInput.split(/[\s,]+/).map(parseFloat).filter(n => !isNaN(n));
+        if(!masses.length) return;
+
+        const tableBody = document.getElementById(`digest-table-${obj.id}`).querySelector('tbody');
+        const rows = Array.from(tableBody.querySelectorAll('tr'));
+        let found = 0;
+        rows.forEach(row => {
+            row.classList.remove('highlight-match');
+            const mwCell = row.cells[3];
+            if(mwCell){
+                const mw = parseFloat(mwCell.textContent);
+                // Check if any mass matches within 0.5 Da
+                const isMatch = masses.some(m => Math.abs(m - mw) < 0.5);
+                if(isMatch) { row.classList.add('highlight-match'); found++; }
+            }
+        });
+        alert(`Highlighted ${found} matches.`);
+    });
+
     updateChargeLadder(obj.id, obj.seq, obj.molecularWeight, "Whole Protein");
   }
 
@@ -1017,101 +909,50 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
     const caption = document.getElementById(`charge-caption-${id}`);
     const resetBtn = document.getElementById(`reset-charge-${id}`);
     if(!tbody) return;
-
     if(label) caption.textContent = `${label} (MW: ${mw.toFixed(2)})`;
-    
-    // Heuristic: Max charge roughly #Basic residues + N-term
     const basicCount = 1 + Array.from(seq).filter(c => 'KRH'.includes(c)).length;
     const maxZ = Math.min(60, Math.max(3, basicCount)); 
-
     let rows = '';
-    for(let z=1; z<=maxZ; z++){
-        const mz = (mw + z * 1.007276) / z;
-        rows += `<tr><td class="mono font-semibold">+${z}</td><td class="mono">${mz.toFixed(2)}</td></tr>`;
-    }
+    for(let z=1; z<=maxZ; z++){ const mz = (mw + z * 1.007276) / z; rows += `<tr><td class="mono font-semibold">+${z}</td><td class="mono">${mz.toFixed(2)}</td></tr>`; }
     tbody.innerHTML = rows;
-    
     if(resetBtn) resetBtn.classList.toggle('hidden', label === "Whole Protein");
   }
 
-  /* ===== Map rendering (inline) ===== */
+  // ... (renderGraphicalMap, etc. - mostly unchanged, just need to make sure they are in the string)
+  // I will include the rest of the file logic here for completeness.
   function renderGraphicalMap(containerId, byLane, seqLen, seq, vbWidth = 1000) {
     const container = document.getElementById(containerId);
     const laneOrder = Object.keys(byLane).sort();
     const hLane = 18, hSeq = 22, topPad = 5, leftPad = 80, rightPad = 10;
     const vbW = vbWidth;
     const height = (laneOrder.length * hLane) + hSeq + topPad + 24;
-
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%'); svg.setAttribute('height', height);
-    svg.setAttribute('viewBox', `0 0 ${vbW} ${height}`);
-    svg.classList.add('feature-track-svg');
-    svg.dataset.seqLen = String(seqLen);
-    svg.dataset.vbW = String(vbW);
-    svg.dataset.leftPad = String(leftPad);
-    svg.dataset.rightPad = String(rightPad);
-
+    svg.setAttribute('width', '100%'); svg.setAttribute('height', height); svg.setAttribute('viewBox', `0 0 ${vbW} ${height}`);
+    svg.classList.add('feature-track-svg'); svg.dataset.seqLen = String(seqLen); svg.dataset.vbW = String(vbW); svg.dataset.leftPad = String(leftPad); svg.dataset.rightPad = String(rightPad);
     const step = (vbW - leftPad - rightPad) / Math.max(1, seqLen - 1);
     const xScale = (pos) => leftPad + step * pos;
-
     const seqY = topPad + laneOrder.length * hLane;
-    const seqBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    seqBg.setAttribute('x', leftPad); seqBg.setAttribute('y', seqY);
-    seqBg.setAttribute('height', hSeq); seqBg.setAttribute('width', vbW - leftPad - rightPad);
-    seqBg.setAttribute('class', 'seq-bar-bg'); svg.appendChild(seqBg);
-
-    const seqHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    seqHighlight.setAttribute('y', seqY); seqHighlight.setAttribute('height', hSeq);
-    seqHighlight.setAttribute('class', 'seq-bar-highlight'); seqHighlight.style.visibility = 'hidden';
-    svg.appendChild(seqHighlight);
-
+    const seqBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); seqBg.setAttribute('x', leftPad); seqBg.setAttribute('y', seqY); seqBg.setAttribute('height', hSeq); seqBg.setAttribute('width', vbW - leftPad - rightPad); seqBg.setAttribute('class', 'seq-bar-bg'); svg.appendChild(seqBg);
+    const seqHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); seqHighlight.setAttribute('y', seqY); seqHighlight.setAttribute('height', hSeq); seqHighlight.setAttribute('class', 'seq-bar-highlight'); seqHighlight.style.visibility = 'hidden'; svg.appendChild(seqHighlight);
     laneOrder.forEach((laneName, i) => {
       const y = topPad + i * hLane;
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', 4); text.setAttribute('y', y + hLane/2 + 4);
-      text.setAttribute('font-size', '10'); text.setAttribute('fill', '#4b5563');
-      text.textContent = laneName; svg.appendChild(text);
-
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text'); text.setAttribute('x', 4); text.setAttribute('y', y + hLane/2 + 4); text.setAttribute('font-size', '10'); text.setAttribute('fill', '#4b5563'); text.textContent = laneName; svg.appendChild(text);
       byLane[laneName].forEach(f => {
         const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        r.dataset.start = f.start; r.dataset.end = f.end; r.dataset.name = f.name; r.dataset.category = laneName;
-        r.dataset.match = f.match || ""; r.dataset.note = f.note || "";
-        r.setAttribute('y', y + 2); r.setAttribute('height', hLane - 4);
-        r.setAttribute('fill', f.color || '#94a3b8'); r.setAttribute('rx', '3');
-        r.setAttribute('x', xScale(f.start));
-        r.setAttribute('width', Math.max(2, step * (f.end - f.start + 1)));
-        r.classList.add('feat-rect'); svg.appendChild(r);
+        r.dataset.start = f.start; r.dataset.end = f.end; r.dataset.name = f.name; r.dataset.category = laneName; r.dataset.match = f.match || ""; r.dataset.note = f.note || "";
+        r.setAttribute('y', y + 2); r.setAttribute('height', hLane - 4); r.setAttribute('fill', f.color || '#94a3b8'); r.setAttribute('rx', '3'); r.setAttribute('x', xScale(f.start)); r.setAttribute('width', Math.max(2, step * (f.end - f.start + 1))); r.classList.add('feat-rect'); svg.appendChild(r);
       });
     });
-
     const axisY = seqY + hSeq;
     const ticksGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
     for (let i = 0; i <= 10; i++) {
-      const posIdx = Math.round(i * (seqLen - 1) / 10);
-      const x = xScale(posIdx);
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.dataset.pos = posIdx;
-      line.setAttribute('x1', x); line.setAttribute('x2', x);
-      line.setAttribute('y1', axisY); line.setAttribute('y2', axisY + 4);
-      line.setAttribute('stroke', '#9ca3af'); ticksGroup.appendChild(line);
-      if (i > 0 && (seqLen > 50 ? i % 2 === 0 : true)) {
-        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.dataset.pos = posIdx; t.setAttribute('x', x); t.setAttribute('y', axisY + 14);
-        t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '10'); t.setAttribute('fill', '#6b7280');
-        t.textContent = posIdx + 1; ticksGroup.appendChild(t);
-      }
+      const posIdx = Math.round(i * (seqLen - 1) / 10); const x = xScale(posIdx);
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); line.dataset.pos = posIdx; line.setAttribute('x1', x); line.setAttribute('x2', x); line.setAttribute('y1', axisY); line.setAttribute('y2', axisY + 4); line.setAttribute('stroke', '#9ca3af'); ticksGroup.appendChild(line);
+      if (i > 0 && (seqLen > 50 ? i % 2 === 0 : true)) { const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.dataset.pos = posIdx; t.setAttribute('x', x); t.setAttribute('y', axisY + 14); t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '10'); t.setAttribute('fill', '#6b7280'); t.textContent = posIdx + 1; ticksGroup.appendChild(t); }
     }
     svg.appendChild(ticksGroup); container.appendChild(svg);
-
-    // Hover tooltip (inline)
-    function clientToSvgX(evt){
-      const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
-      const wrap = svg.querySelector('g[data-zoom-wrap="1"]');
-      const matrix = wrap ? wrap.getScreenCTM() : svg.getScreenCTM();
-      if(!matrix) return 0;
-      const local = pt.matrixTransform(matrix.inverse());
-      return local.x;
-    }
+    // Tooltip logic
+    function clientToSvgX(evt){ const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY; const wrap = svg.querySelector('g[data-zoom-wrap="1"]'); const matrix = wrap ? wrap.getScreenCTM() : svg.getScreenCTM(); if(!matrix) return 0; const local = pt.matrixTransform(matrix.inverse()); return local.x; }
     const allFeatures = []; Object.values(byLane).forEach(arr => arr.forEach(f => allFeatures.push(f)));
     svg.addEventListener('mousemove', e => {
       const vbW = parseFloat(svg.dataset.vbW), leftPad = parseFloat(svg.dataset.leftPad), rightPad = parseFloat(svg.dataset.rightPad);
@@ -1122,728 +963,79 @@ QTSVDVFYVPKFEAAVRTFTREAGSEVSELTDSFRQKYETAVREMESIRRLLMELQSLARQYEEHVRSMN`;
       if (pos >= 0 && pos < seqLen) {
         const featsAtPos = allFeatures.filter(f => f.start <= pos && f.end >= pos);
         let html = `<strong>Pos: ${pos + 1}</strong>, AA: <span class="mono">${seq[pos]}</span>`;
-        if (featsAtPos.length > 0) {
-          html += '<br><span style="color:#f59e42;font-weight:600">Features:</span><ul style="margin:0;padding-left:1em">';
-          featsAtPos.forEach(f => {
-            const match = f.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${f.match}</span>` : '';
-            const note = f.note ? ` <span style="color:#cbd5e1">(${f.note})</span>` : '';
-            html += `<li><span style="color:${f.color||'#fff'}"><strong>${f.name}</strong></span> <span style="font-size:11px">[${f.category}, ${f.start+1}..${f.end+1}]</span>${match}${note}</li>`;
-          });
-          html += '</ul>';
-        }
-        els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = html;
-        els.tooltip.style.left = `${e.pageX + 10}px`;
-        els.tooltip.style.top = `${e.pageY - 28}px`;
+        if (featsAtPos.length > 0) { html += '<br><span style="color:#f59e42;font-weight:600">Features:</span><ul style="margin:0;padding-left:1em">'; featsAtPos.forEach(f => { const match = f.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${f.match}</span>` : ''; const note = f.note ? ` <span style="color:#cbd5e1">(${f.note})</span>` : ''; html += `<li><span style="color:${f.color||'#fff'}"><strong>${f.name}</strong></span> <span style="font-size:11px">[${f.category}, ${f.start+1}..${f.end+1}]</span>${match}${note}</li>`; }); html += '</ul>'; }
+        els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = html; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top = `${e.pageY - 28}px`;
       }
     });
     svg.addEventListener('mouseleave', () => { els.tooltip.style.visibility = 'hidden'; });
-
-    // Feature rect tooltips
     svg.querySelectorAll('.feat-rect').forEach(r => {
-      r.addEventListener('mouseenter', (e) => {
-        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
-        highlightSvgRange(svg, start, end, true);
-        const match = r.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${r.dataset.match}</span>` : '';
-        const note = r.dataset.note ? ` <span style="color:#cbd5e1">(${r.dataset.note})</span>` : '';
-        els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = `<strong>${r.dataset.name}</strong>${note}<br><span style="font-size:11px">${r.dataset.category} • ${start+1}..${end+1}</span>${match}`;
-        els.tooltip.style.left = `${e.pageX + 10}px`;
-        els.tooltip.style.top  = `${e.pageY - 28}px`;
-      });
+      r.addEventListener('mouseenter', (e) => { const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end); highlightSvgRange(svg, start, end, true); const match = r.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${r.dataset.match}</span>` : ''; const note = r.dataset.note ? ` <span style="color:#cbd5e1">(${r.dataset.note})</span>` : ''; els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `<strong>${r.dataset.name}</strong>${note}<br><span style="font-size:11px">${r.dataset.category} • ${start+1}..${end+1}</span>${match}`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
       r.addEventListener('mousemove', (e)=>{ els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
-      r.addEventListener('mouseleave', () => {
-        const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end);
-        highlightSvgRange(svg, start, end, false);
-        els.tooltip.style.visibility = 'hidden';
-      });
+      r.addEventListener('mouseleave', () => { const start = parseInt(r.dataset.start), end = parseInt(r.dataset.end); highlightSvgRange(svg, start, end, false); els.tooltip.style.visibility = 'hidden'; });
     });
   }
-
-  function toggleSvgRect(svg,start,end,on){
-    svg.querySelectorAll('.feat-rect').forEach(r=>{
-      if(parseInt(r.dataset.start)===start && parseInt(r.dataset.end)===end){
-        r.classList.toggle('highlight', on);
-      }
-    });
-  }
-  function highlightSvgRange(svg,start,end,on){
-    const seqHighlight = svg.querySelector('.seq-bar-highlight');
-    const seqLen = parseInt(svg.dataset.seqLen, 10) || 1;
-    const vbW = parseFloat(svg.dataset.vbW) || 1000;
-    const leftPad = parseFloat(svg.dataset.leftPad) || 80;
-    const rightPad = parseFloat(svg.dataset.rightPad) || 10;
-    const step = (vbW - leftPad - rightPad) / Math.max(1, seqLen - 1);
-    if (on) {
-      const x1 = leftPad + step * start;
-      const width = Math.max(1, step * (end - start + 1));
-      seqHighlight.setAttribute('x', x1);
-      seqHighlight.setAttribute('width', width);
-      seqHighlight.style.visibility = 'visible';
-    } else {
-      seqHighlight.style.visibility = 'hidden';
-    }
-  }
-
+  function toggleSvgRect(svg,start,end,on){ svg.querySelectorAll('.feat-rect').forEach(r=>{ if(parseInt(r.dataset.start)===start && parseInt(r.dataset.end)===end){ r.classList.toggle('highlight', on); } }); }
+  function highlightSvgRange(svg,start,end,on){ const seqHighlight = svg.querySelector('.seq-bar-highlight'); const seqLen = parseInt(svg.dataset.seqLen, 10) || 1; const vbW = parseFloat(svg.dataset.vbW) || 1000; const leftPad = parseFloat(svg.dataset.leftPad) || 80; const rightPad = parseFloat(svg.dataset.rightPad) || 10; const step = (vbW - leftPad - rightPad) / Math.max(1, seqLen - 1); if (on) { const x1 = leftPad + step * start; const width = Math.max(1, step * (end - start + 1)); seqHighlight.setAttribute('x', x1); seqHighlight.setAttribute('width', width); seqHighlight.style.visibility = 'visible'; } else { seqHighlight.style.visibility = 'hidden'; } }
   function setupInteractions(id, obj) {
-    const card = document.getElementById(`result-card-${id}`);
-    const svg = card.querySelector('.feature-track-svg');
+    const card = document.getElementById(`result-card-${id}`); const svg = card.querySelector('.feature-track-svg');
     card.querySelectorAll('.feature-list-item').forEach(item => {
-      item.addEventListener('mouseenter', (ev) => {
-        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
-        highlightSvgRange(svg, start, end, true);
-        toggleSvgRect(svg, start, end, true);
-        item.classList.add('active');
-        const match = item.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${item.dataset.match}</span>` : '';
-        const note = item.dataset.note ? ` <span style="color:#cbd5e1">(${item.dataset.note})</span>` : '';
-        els.tooltip.style.visibility = 'visible';
-        els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong>${note}<br><span style="font-size:11px">${item.dataset.category} • ${start+1}.${end+1}</span>${match}`;
-        els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top = `${ev.pageY - 28}px`;
-      });
+      item.addEventListener('mouseenter', (ev) => { const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end); highlightSvgRange(svg, start, end, true); toggleSvgRect(svg, start, end, true); item.classList.add('active'); const match = item.dataset.match ? ` • <span class="mono" style="background:#1118271a;padding:1px 4px;border-radius:3px">${item.dataset.match}</span>` : ''; const note = item.dataset.note ? ` <span style="color:#cbd5e1">(${item.dataset.note})</span>` : ''; els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `<strong>${item.dataset.name}</strong>${note}<br><span style="font-size:11px">${item.dataset.category} • ${start+1}.${end+1}</span>${match}`; els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top = `${ev.pageY - 28}px`; });
       item.addEventListener('mousemove', (ev)=>{ els.tooltip.style.left = `${ev.pageX + 10}px`; els.tooltip.style.top  = `${ev.pageY - 28}px`; });
-      item.addEventListener('mouseleave', () => {
-        const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end);
-        highlightSvgRange(svg, start, end, false);
-        toggleSvgRect(svg, start, end, false);
-        item.classList.remove('active');
-        els.tooltip.style.visibility = 'hidden';
-      });
+      item.addEventListener('mouseleave', () => { const start = parseInt(item.dataset.start), end = parseInt(item.dataset.end); highlightSvgRange(svg, start, end, false); toggleSvgRect(svg, start, end, false); item.classList.remove('active'); els.tooltip.style.visibility = 'hidden'; });
     });
   }
-
-  /* ===== Plots ===== */
-  function slidingWindowAvg(arr,w){
-    if(w<=1) return arr.slice();
-    const out = new Array(arr.length).fill(0);
-    const halfBack = Math.floor((w - 1) / 2);
-    const halfFwd = Math.ceil((w - 1) / 2); 
-    for(let i=0;i<arr.length;i++){
-      let s=0, n=0;
-      for(let k=i-halfBack;k<=i+halfFwd;k++){ if(k>=0 && k<arr.length){ s+=arr[k]; n++; } }
-      out[i] = n ? s/n : 0;
-    }
-    return out;
-  }
-
-  function getExtremes(arrays) {
-    let min = Infinity, max = -Infinity;
-    arrays.forEach(arr => {
-        for(const v of arr) {
-            if(isFinite(v)) {
-                if(v < min) min = v;
-                if(v > max) max = v;
-            }
-        }
-    });
-    if(!isFinite(min)) min = 0; 
-    if(!isFinite(max)) max = 1;
-    const range = max - min;
-    // Add 5% padding
-    if(range === 0) return { min: min - 0.5, max: max + 0.5 };
-    return { min: min - range * 0.05, max: max + range * 0.05 };
-  }
-  
+  function slidingWindowAvg(arr,w){ if(w<=1) return arr.slice(); const out = new Array(arr.length).fill(0); const halfBack = Math.floor((w - 1) / 2); const halfFwd = Math.ceil((w - 1) / 2); for(let i=0;i<arr.length;i++){ let s=0, n=0; for(let k=i-halfBack;k<=i+halfFwd;k++){ if(k>=0 && k<arr.length){ s+=arr[k]; n++; } } out[i] = n ? s/n : 0; } return out; }
+  function getExtremes(arrays) { let min = Infinity, max = -Infinity; arrays.forEach(arr => { for(const v of arr) { if(isFinite(v)) { if(v < min) min = v; if(v > max) max = v; } } }); if(!isFinite(min)) min = 0; if(!isFinite(max)) max = 1; const range = max - min; if(range === 0) return { min: min - 0.5, max: max + 0.5 }; return { min: min - range * 0.05, max: max + range * 0.05 }; }
   function drawLinePlot(container, data, yMin, yMax, title, yLabel){
-    const parent = document.getElementById(container);
-    const wrap = document.createElement('div'); wrap.className = 'mini-chart-container';
-    const titleEl = document.createElement('div'); titleEl.className = 'chart-title'; titleEl.textContent = title + (yLabel ? ` (${yLabel})` : '');
-    wrap.appendChild(titleEl);
-    const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.classList.add('mini-chart');
-    parent.appendChild(wrap); wrap.appendChild(s);
-
-    let W=600, H=150;
-    const leftPad = 40, rightPad = 10, topPad = 10, botPad = 20;
-    const hoverLine = document.createElementNS('http://www.w3.org/2000/svg','line');
-    hoverLine.setAttribute('class','hover-line'); hoverLine.style.visibility='hidden'; s.appendChild(hoverLine);
-
+    const parent = document.getElementById(container); const wrap = document.createElement('div'); wrap.className = 'mini-chart-container'; const titleEl = document.createElement('div'); titleEl.className = 'chart-title'; titleEl.textContent = title + (yLabel ? ` (${yLabel})` : ''); wrap.appendChild(titleEl); const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.classList.add('mini-chart'); parent.appendChild(wrap); wrap.appendChild(s);
+    let W=600, H=150; const leftPad = 40, rightPad = 10, topPad = 10, botPad = 20; const hoverLine = document.createElementNS('http://www.w3.org/2000/svg','line'); hoverLine.setAttribute('class','hover-line'); hoverLine.style.visibility='hidden'; s.appendChild(hoverLine);
     function xScale(x){ return leftPad + (x * (W-leftPad-rightPad)) / Math.max(1, (Array.isArray(data[0]) ? data[0].length : data.length)-1); }
     function yScale(y){ return topPad + (H-topPad-botPad) * (1 - (y - yMin) / (yMax - yMin)); }
-
     function render(){
-      const rect = s.getBoundingClientRect(); W = rect.width || parent.clientWidth || 600; H = rect.height || 150;
-      s.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      while(s.firstChild) s.removeChild(s.firstChild); s.appendChild(hoverLine);
-      for(let i=0;i<=4;i++){
-        const yVal = yMin + (i*(yMax-yMin))/4; const y = yScale(yVal);
-        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-        line.setAttribute('x1', leftPad); line.setAttribute('x2', W-rightPad);
-        line.setAttribute('y1', y); line.setAttribute('y2', y); line.setAttribute('stroke', '#e5e7eb'); s.appendChild(line);
-        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-        text.setAttribute('x', 2); text.setAttribute('y', y+3); text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280'); text.textContent = yVal.toFixed(1); s.appendChild(text);
-      }
-      
-      if(Array.isArray(data[0])){
-          // Multi-line (e.g. Helix vs Sheet)
-          const colors = ['#2563eb', '#dc2626']; // Blue, Red
-          data.forEach((series, idx) => {
-             const pts = series.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
-             const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline');
-             pl.setAttribute('fill','none'); pl.setAttribute('stroke', colors[idx % colors.length]);
-             pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts);
-             s.appendChild(pl);
-          });
-      } else {
-          // Single line
-          const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' ');
-          const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts);
-          s.appendChild(pl);
-      }
-
-      for(let i=0;i<=10;i++){
-        const idx = Math.round(i*(data.length || data[0].length-1)/10); const x = xScale(idx);
-        const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1', x); l.setAttribute('x2', x); l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4); l.setAttribute('stroke','#9ca3af'); s.appendChild(l);
-        if(i%2===0 && idx>0){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x', x); t.setAttribute('y', H-2); t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10'); t.setAttribute('fill','#6b7280'); t.textContent = idx+1; s.appendChild(t); }
-      }
+      const rect = s.getBoundingClientRect(); W = rect.width || parent.clientWidth || 600; H = rect.height || 150; s.setAttribute('viewBox', `0 0 ${W} ${H}`); while(s.firstChild) s.removeChild(s.firstChild); s.appendChild(hoverLine);
+      for(let i=0;i<=4;i++){ const yVal = yMin + (i*(yMax-yMin))/4; const y = yScale(yVal); const line = document.createElementNS('http://www.w3.org/2000/svg','line'); line.setAttribute('x1', leftPad); line.setAttribute('x2', W-rightPad); line.setAttribute('y1', y); line.setAttribute('y2', y); line.setAttribute('stroke', '#e5e7eb'); s.appendChild(line); const text = document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('x', 2); text.setAttribute('y', y+3); text.setAttribute('font-size','10'); text.setAttribute('fill','#6b7280'); text.textContent = yVal.toFixed(1); s.appendChild(text); }
+      if(Array.isArray(data[0])){ const colors = ['#2563eb', '#dc2626']; data.forEach((series, idx) => { const pts = series.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' '); const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke', colors[idx % colors.length]); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts); s.appendChild(pl); }); } else { const pts = data.map((v,i)=> `${xScale(i)},${isFinite(v) ? yScale(v) : yScale(0)}`).join(' '); const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline'); pl.setAttribute('fill','none'); pl.setAttribute('stroke','#2563eb'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points', pts); s.appendChild(pl); }
+      for(let i=0;i<=10;i++){ const idx = Math.round(i*(data.length || data[0].length-1)/10); const x = xScale(idx); const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1', x); l.setAttribute('x2', x); l.setAttribute('y1', H-botPad); l.setAttribute('y2', H-botPad+4); l.setAttribute('stroke','#9ca3af'); s.appendChild(l); if(i%2===0 && idx>0){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x', x); t.setAttribute('y', H-2); t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10'); t.setAttribute('fill','#6b7280'); t.textContent = idx+1; s.appendChild(t); } }
     }
-    s.addEventListener('mousemove', e=>{
-      const rect = s.getBoundingClientRect(); const x = e.clientX - rect.left;
-      if(x < 40 || x > rect.width - 10){ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; return; }
-      hoverLine.setAttribute('x1', x); hoverLine.setAttribute('x2', x); hoverLine.setAttribute('y1', 10); hoverLine.setAttribute('y2', 150 - 20); hoverLine.style.visibility='visible';
-      
-      const len = Array.isArray(data[0]) ? data[0].length : data.length;
-      const pos = Math.round((x - 40) / ((rect.width-40-10)/Math.max(1,len-1)));
-      if(pos>=0 && pos<len){
-        let valStr = '';
-        if(Array.isArray(data[0])){
-             valStr = data.map((d,i) => `<span style="color:${i===0?'blue':'red'}">${isFinite(d[pos]) ? d[pos].toFixed(2) : 'NaN'}</span>`).join(' vs ');
-        } else {
-             valStr = isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN';
-        }
-        els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${valStr}`;
-        els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - els.tooltip.offsetHeight - 5}px`;
-      }
-    });
+    s.addEventListener('mousemove', e=>{ const rect = s.getBoundingClientRect(); const x = e.clientX - rect.left; if(x < 40 || x > rect.width - 10){ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; return; } hoverLine.setAttribute('x1', x); hoverLine.setAttribute('x2', x); hoverLine.setAttribute('y1', 10); hoverLine.setAttribute('y2', 150 - 20); hoverLine.style.visibility='visible'; const len = Array.isArray(data[0]) ? data[0].length : data.length; const pos = Math.round((x - 40) / ((rect.width-40-10)/Math.max(1,len-1))); if(pos>=0 && pos<len){ let valStr = ''; if(Array.isArray(data[0])){ valStr = data.map((d,i) => `<span style="color:${i===0?'blue':'red'}">${isFinite(d[pos]) ? d[pos].toFixed(2) : 'NaN'}</span>`).join(' vs '); } else { valStr = isFinite(data[pos]) ? data[pos].toFixed(2) : 'NaN'; } els.tooltip.style.visibility = 'visible'; els.tooltip.innerHTML = `Pos: ${pos+1}<br>Value: ${valStr}`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - els.tooltip.offsetHeight - 5}px`; } });
     s.addEventListener('mouseleave', ()=>{ hoverLine.style.visibility='hidden'; els.tooltip.style.visibility='hidden'; });
     render(); new ResizeObserver(()=>render()).observe(parent);
   }
-
-  function drawCysTrack(container, seq){
-    const parent = document.getElementById(container);
-    const titleEl = document.createElement('div'); titleEl.className = 'chart-title'; titleEl.textContent = 'Cysteine positions'; parent.appendChild(titleEl);
-    const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.classList.add('mini-track'); parent.appendChild(s);
-    const positions = []; for(let i=0;i<seq.length;i++) if(seq[i]==='C') positions.push(i);
-
-    function render(){
-      const rect = s.getBoundingClientRect(); const W = rect.width || parent.clientWidth || 600; const H = 40;
-      s.setAttribute('viewBox', `0 0 ${W} ${H}`); while(s.firstChild) s.removeChild(s.firstChild);
-      if(positions.length===0){
-        const text = document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('x', 4); text.setAttribute('y', 22); text.setAttribute('font-size','12'); text.setAttribute('fill','#6b7280'); text.textContent = 'No cysteines found'; s.appendChild(text); return;
-      }
-      const leftPad=10, rightPad=10; const step = (W-leftPad-rightPad)/Math.max(1, seq.length-1);
-      const xScale = idx => leftPad + step * idx;
-      positions.forEach(idx=>{
-        const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-        c.setAttribute('cx', xScale(idx)); c.setAttribute('cy', 20); c.setAttribute('r', 4); c.setAttribute('fill', '#059669');
-        c.addEventListener('mouseenter', (e)=>{ els.tooltip.style.visibility='visible'; els.tooltip.innerHTML = `<strong>Cys</strong> at position <span class="mono">${idx+1}</span>`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
-        c.addEventListener('mousemove', (e)=>{ els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; });
-        c.addEventListener('mouseleave', ()=>{ els.tooltip.style.visibility='hidden'; });
-        s.appendChild(c);
-      });
-    }
-    render(); new ResizeObserver(()=>render()).observe(parent);
-  }
-
-  /* --- 2D Scatter Plot --- */
-  function drawScatterPlot(container, dataX, dataY, nameX, nameY) {
-      const parent = document.getElementById(container);
-      parent.innerHTML = '';
-
-      const W = 500, H = 400;
-      const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      svg.style.maxWidth = '100%';
-      svg.style.height = 'auto';
-      svg.style.border = '1px solid #e5e7eb';
-      svg.style.backgroundColor = '#fff';
-      parent.appendChild(svg);
-
-      const extX = getExtremes([dataX]);
-      const extY = getExtremes([dataY]);
-
-      const xScale = v => margin.left + (v - extX.min) / (extX.max - extX.min) * (W - margin.left - margin.right);
-      const yScale = v => H - margin.bottom - (v - extY.min) / (extY.max - extY.min) * (H - margin.top - margin.bottom);
-
-      // Axes
-      const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      xAxis.setAttribute('x1', margin.left); xAxis.setAttribute('x2', W - margin.right);
-      xAxis.setAttribute('y1', H - margin.bottom); xAxis.setAttribute('y2', H - margin.bottom);
-      xAxis.setAttribute('stroke', '#000');
-      svg.appendChild(xAxis);
-
-      const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      yAxis.setAttribute('x1', margin.left); yAxis.setAttribute('x2', margin.left);
-      yAxis.setAttribute('y1', margin.top); yAxis.setAttribute('y2', H - margin.bottom);
-      yAxis.setAttribute('stroke', '#000');
-      svg.appendChild(yAxis);
-
-      // Labels
-      const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      xLabel.setAttribute('x', W / 2); xLabel.setAttribute('y', H - 5);
-      xLabel.setAttribute('text-anchor', 'middle'); xLabel.setAttribute('font-size', '12');
-      xLabel.textContent = nameX;
-      svg.appendChild(xLabel);
-
-      const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      yLabel.setAttribute('transform', `translate(15, ${H/2}) rotate(-90)`);
-      yLabel.setAttribute('text-anchor', 'middle'); yLabel.setAttribute('font-size', '12');
-      yLabel.textContent = nameY;
-      svg.appendChild(yLabel);
-
-      // Points
-      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      svg.appendChild(g);
-
-      // Color scale based on position (rainbow)
-      const colorAt = i => `hsl(${Math.round(i / dataX.length * 360)}, 70%, 50%)`;
-
-      for(let i=0; i<dataX.length; i++){
-          const cx = xScale(dataX[i]);
-          const cy = yScale(dataY[i]);
-          const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-          c.setAttribute('cx', cx); c.setAttribute('cy', cy);
-          c.setAttribute('r', 3);
-          c.setAttribute('fill', colorAt(i));
-          c.setAttribute('opacity', '0.6');
-
-          c.addEventListener('mouseenter', e => {
-             c.setAttribute('r', 6); c.setAttribute('opacity', '1');
-             els.tooltip.style.visibility='visible';
-             els.tooltip.innerHTML = `<strong>Pos ${i+1}</strong><br>${nameX}: ${dataX[i].toFixed(2)}<br>${nameY}: ${dataY[i].toFixed(2)}`;
-             els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`;
-          });
-          c.addEventListener('mousemove', e => {
-             els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`;
-          });
-          c.addEventListener('mouseleave', e => {
-             c.setAttribute('r', 3); c.setAttribute('opacity', '0.6');
-             els.tooltip.style.visibility='hidden';
-          });
-
-          g.appendChild(c);
-      }
-  }
-
+  function drawCysTrack(container, seq){ const parent = document.getElementById(container); const titleEl = document.createElement('div'); titleEl.className = 'chart-title'; titleEl.textContent = 'Cysteine positions'; parent.appendChild(titleEl); const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.classList.add('mini-track'); parent.appendChild(s); const positions = []; for(let i=0;i<seq.length;i++) if(seq[i]==='C') positions.push(i); function render(){ const rect = s.getBoundingClientRect(); const W = rect.width || parent.clientWidth || 600; const H = 40; s.setAttribute('viewBox', `0 0 ${W} ${H}`); while(s.firstChild) s.removeChild(s.firstChild); if(positions.length===0){ const text = document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('x', 4); text.setAttribute('y', 22); text.setAttribute('font-size','12'); text.setAttribute('fill','#6b7280'); text.textContent = 'No cysteines found'; s.appendChild(text); return; } const leftPad=10, rightPad=10; const step = (W-leftPad-rightPad)/Math.max(1, seq.length-1); const xScale = idx => leftPad + step * idx; positions.forEach(idx=>{ const c = document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx', xScale(idx)); c.setAttribute('cy', 20); c.setAttribute('r', 4); c.setAttribute('fill', '#059669'); c.addEventListener('mouseenter', (e)=>{ els.tooltip.style.visibility='visible'; els.tooltip.innerHTML = `<strong>Cys</strong> at position <span class="mono">${idx+1}</span>`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; }); c.addEventListener('mousemove', (e)=>{ els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; }); c.addEventListener('mouseleave', ()=>{ els.tooltip.style.visibility='hidden'; }); s.appendChild(c); }); } render(); new ResizeObserver(()=>render()).observe(parent); }
+  function drawScatterPlot(container, dataX, dataY, nameX, nameY) { const parent = document.getElementById(container); parent.innerHTML = ''; const W = 500, H = 400; const margin = { top: 20, right: 30, bottom: 40, left: 50 }; const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.maxWidth = '100%'; svg.style.height = 'auto'; svg.style.border = '1px solid #e5e7eb'; svg.style.backgroundColor = '#fff'; parent.appendChild(svg); const extX = getExtremes([dataX]); const extY = getExtremes([dataY]); const xScale = v => margin.left + (v - extX.min) / (extX.max - extX.min) * (W - margin.left - margin.right); const yScale = v => H - margin.bottom - (v - extY.min) / (extY.max - extY.min) * (H - margin.top - margin.bottom); const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line'); xAxis.setAttribute('x1', margin.left); xAxis.setAttribute('x2', W - margin.right); xAxis.setAttribute('y1', H - margin.bottom); xAxis.setAttribute('y2', H - margin.bottom); xAxis.setAttribute('stroke', '#000'); svg.appendChild(xAxis); const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line'); yAxis.setAttribute('x1', margin.left); yAxis.setAttribute('x2', margin.left); yAxis.setAttribute('y1', margin.top); yAxis.setAttribute('y2', H - margin.bottom); yAxis.setAttribute('stroke', '#000'); svg.appendChild(yAxis); const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text'); xLabel.setAttribute('x', W / 2); xLabel.setAttribute('y', H - 5); xLabel.setAttribute('text-anchor', 'middle'); xLabel.setAttribute('font-size', '12'); xLabel.textContent = nameX; svg.appendChild(xLabel); const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text'); yLabel.setAttribute('transform', `translate(15, ${H/2}) rotate(-90)`); yLabel.setAttribute('text-anchor', 'middle'); yLabel.setAttribute('font-size', '12'); yLabel.textContent = nameY; svg.appendChild(yLabel); const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); svg.appendChild(g); const colorAt = i => `hsl(${Math.round(i / dataX.length * 360)}, 70%, 50%)`; for(let i=0; i<dataX.length; i++){ const cx = xScale(dataX[i]); const cy = yScale(dataY[i]); const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', 3); c.setAttribute('fill', colorAt(i)); c.setAttribute('opacity', '0.6'); c.addEventListener('mouseenter', e => { c.setAttribute('r', 6); c.setAttribute('opacity', '1'); els.tooltip.style.visibility='visible'; els.tooltip.innerHTML = `<strong>Pos ${i+1}</strong><br>${nameX}: ${dataX[i].toFixed(2)}<br>${nameY}: ${dataY[i].toFixed(2)}`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; }); c.addEventListener('mousemove', e => { els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; }); c.addEventListener('mouseleave', e => { c.setAttribute('r', 3); c.setAttribute('opacity', '0.6'); els.tooltip.style.visibility='hidden'; }); g.appendChild(c); } }
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
-  function refreshCharges(){
-    currentResults.forEach(o=>{
-      const c = netCharge(o.counts, Number(els.pH.value));
-      const card = document.getElementById(`result-card-${o.id}`);
-      const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono');
-      if(target) target.textContent = c.toFixed(2);
-      if(els.optCharge.checked) updatePlotsForCard(o);
-    });
-  }
-  function refreshAllCards(){
-    currentResults = currentResults.map(o => {
-      // Re-calculate features sensitive to window size
-      const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value));
-      const spSegs = signalPeptideCandidates(o.seq);
-      const motifSegs = scanFeatures(o.seq);
-      o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
-      
-      // Re-calc half-life if organism changed
-      o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value);
-      
-      return o;
-    });
-    currentResults.forEach(o => {
-      const card = document.getElementById(`result-card-${o.id}`); if(!card) return;
-      const list = card.querySelector(`#feature-list-${o.id}`);
-      const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
-      list.innerHTML = buildFeatureListHTML(byLane);
-      const track = card.querySelector(`#track-container-${o.id}`); track.innerHTML = '';
-      renderGraphicalMap(`track-container-${o.id}`, byLane, o.length, o.seq);
-      setupInteractions(o.id, o);
-      updatePlotsForCard(o);
-    });
-  }
-
-  // Data Getter for Plots
-  function getPlotArray(obj, type) {
-      if(type === 'hydro') {
-          const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
-          return slidingWindowAvg(raw, parseInt(els.hydroWindow.value, 10));
-      }
-      if(type === 'charge') {
-          const arr = perResidueChargeArray(obj.seq, Number(els.pH.value));
-          return slidingWindowAvg(arr, parseInt(els.chargeWindow.value, 10));
-      }
-      if(type === 'disorder') {
-          const win = 15;
-          const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 );
-          const qArr = perResidueChargeArray(obj.seq, 7.0);
-          const score = [];
-          const half = Math.floor(win/2);
-          for(let i=0; i<obj.length; i++){
-              let sumH=0, sumQ=0, n=0;
-              for(let k=i-half; k<=i+half; k++){
-                  if(k>=0 && k<obj.length){ sumH += hRaw[k]; sumQ += qArr[k]; n++; }
-              }
-              if(n>0) score.push( 2.785*(sumH/n) - Math.abs(sumQ/n) - 1.151 ); else score.push(0);
-          }
-          return score;
-      }
-      if(type === 'moment') {
-          const angle = 100 * (Math.PI/180);
-          const win = 11;
-          const moments = [];
-          const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0);
-          for(let i=0; i<obj.length; i++){
-              if(i + win > obj.length){ moments.push(0); continue; }
-              let sumC=0, sumS=0;
-              for(let k=0; k<win; k++){
-                  const h = hRaw[i+k];
-                  sumC += h * Math.cos(k * angle);
-                  sumS += h * Math.sin(k * angle);
-              }
-              moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win );
-          }
-          const shifted = new Array(obj.length).fill(0);
-          const offset = Math.floor(win/2);
-          for(let i=0; i<moments.length; i++){
-              if(i+offset < shifted.length) shifted[i+offset] = moments[i];
-          }
-          return shifted;
-      }
-      if(type === 'helix') {
-         const def = DEFS.CHOU_FASMAN;
-         if(!def) return new Array(obj.length).fill(0);
-         const pH = [];
-         for(const aa of obj.seq) pH.push(def[aa] ? def[aa].H : 100);
-         return slidingWindowAvg(pH, 6);
-      }
-      if(type === 'sheet') {
-         const def = DEFS.CHOU_FASMAN;
-         if(!def) return new Array(obj.length).fill(0);
-         const pE = [];
-         for(const aa of obj.seq) pE.push(def[aa] ? def[aa].E : 100);
-         return slidingWindowAvg(pE, 5);
-      }
-      return new Array(obj.length).fill(0);
-  }
-
-  function updatePlotsForCard(obj){
-    const contId = `plots-${obj.id}`;
-    const cont = document.getElementById(contId); if(!cont) return;
-    cont.innerHTML = "";
-    
-    // 1. Hydrophobicity
-    if(els.optHydro.checked){
-      const data = getPlotArray(obj, 'hydro');
-      const range = getExtremes([data]);
-      const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder);
-      drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD');
-    }
-    
-    // 2. Charge
-    if(els.optCharge.checked){
-      const data = getPlotArray(obj, 'charge');
-      const range = getExtremes([data]);
-      const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder);
-      drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge');
-    }
-
-    // 3. Disorder (FoldIndex-like)
-    if(els.optDisorder.checked){
-      const data = getPlotArray(obj, 'disorder');
-      const range = getExtremes([data]);
-      const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder);
-      drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score');
-    }
-
-    // 4. Secondary Structure (Chou-Fasman)
-    if(els.optSecStruct.checked){
-      const sH = getPlotArray(obj, 'helix');
-      const sE = getPlotArray(obj, 'sheet');
-      const range = getExtremes([sH, sE]);
-      const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder);
-      drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity');
-    }
-
-    // 5. Hydrophobic Moment
-    if(els.optMoment.checked){
-        const data = getPlotArray(obj, 'moment');
-        const range = getExtremes([data]);
-        const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder);
-        drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH');
-    }
-
-    if(els.optCys.checked){
-      const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder);
-      drawCysTrack(holder.id, obj.seq);
-    }
-
-    // 6. 2D Plotting UI
-    const twoDContainer = document.createElement('div');
-    twoDContainer.className = "mt-6 border-t pt-4";
-    twoDContainer.innerHTML = `
-        <h4 class="font-semibold text-sm mb-2">2D Analysis</h4>
-        <div class="flex flex-wrap items-center gap-3 mb-3">
-            <select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white">
-                <option value="hydro" selected>Hydrophobicity</option>
-                <option value="charge">Charge</option>
-                <option value="disorder">Disorder</option>
-                <option value="moment">Hydrophobic Moment</option>
-                <option value="helix">Helix Propensity</option>
-                <option value="sheet">Sheet Propensity</option>
-            </select>
-            <span class="text-gray-500 font-bold">vs</span>
-            <select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white">
-                <option value="hydro">Hydrophobicity</option>
-                <option value="charge" selected>Charge</option>
-                <option value="disorder">Disorder</option>
-                <option value="moment">Hydrophobic Moment</option>
-                <option value="helix">Helix Propensity</option>
-                <option value="sheet">Sheet Propensity</option>
-            </select>
-            <button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button>
-        </div>
-        <div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>
-    `;
-    cont.appendChild(twoDContainer);
-
-    document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => {
-        const xType = document.getElementById(`x-axis-${obj.id}`).value;
-        const yType = document.getElementById(`y-axis-${obj.id}`).value;
-        const xData = getPlotArray(obj, xType);
-        const yData = getPlotArray(obj, yType);
-
-        drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType);
-    });
-  }
-
-  /* ===== A280 helper (robust) ===== */
+  function refreshCharges(){ currentResults.forEach(o=>{ const c = netCharge(o.counts, Number(els.pH.value)); const card = document.getElementById(`result-card-${o.id}`); const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono'); if(target) target.textContent = c.toFixed(2); if(els.optCharge.checked) updatePlotsForCard(o); }); }
+  function refreshAllCards(){ currentResults = currentResults.map(o => { const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value)); const spSegs = signalPeptideCandidates(o.seq); const motifSegs = scanFeatures(o.seq); o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]); o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value); return o; }); currentResults.forEach(o => { const card = document.getElementById(`result-card-${o.id}`); if(!card) return; const list = card.querySelector(`#feature-list-${o.id}`); const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {}); list.innerHTML = buildFeatureListHTML(byLane); const track = card.querySelector(`#track-container-${o.id}`); track.innerHTML = ''; renderGraphicalMap(`track-container-${o.id}`, byLane, o.length, o.seq); setupInteractions(o.id, o); updatePlotsForCard(o); }); }
+  function getPlotArray(obj, type) { if(type === 'hydro') { const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0); return slidingWindowAvg(raw, parseInt(els.hydroWindow.value, 10)); } if(type === 'charge') { const arr = perResidueChargeArray(obj.seq, Number(els.pH.value)); return slidingWindowAvg(arr, parseInt(els.chargeWindow.value, 10)); } if(type === 'disorder') { const win = 15; const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 ); const qArr = perResidueChargeArray(obj.seq, 7.0); const score = []; const half = Math.floor(win/2); for(let i=0; i<obj.length; i++){ let sumH=0, sumQ=0, n=0; for(let k=i-half; k<=i+half; k++){ if(k>=0 && k<obj.length){ sumH += hRaw[k]; sumQ += qArr[k]; n++; } } if(n>0) score.push( 2.785*(sumH/n) - Math.abs(sumQ/n) - 1.151 ); else score.push(0); } return score; } if(type === 'moment') { const angle = 100 * (Math.PI/180); const win = 11; const moments = []; const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0); for(let i=0; i<obj.length; i++){ if(i + win > obj.length){ moments.push(0); continue; } let sumC=0, sumS=0; for(let k=0; k<win; k++){ const h = hRaw[i+k]; sumC += h * Math.cos(k * angle); sumS += h * Math.sin(k * angle); } moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win ); } const shifted = new Array(obj.length).fill(0); const offset = Math.floor(win/2); for(let i=0; i<moments.length; i++){ if(i+offset < shifted.length) shifted[i+offset] = moments[i]; } return shifted; } if(type === 'helix') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pH = []; for(const aa of obj.seq) pH.push(def[aa] ? def[aa].H : 100); return slidingWindowAvg(pH, 6); } if(type === 'sheet') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pE = []; for(const aa of obj.seq) pE.push(def[aa] ? def[aa].E : 100); return slidingWindowAvg(pE, 5); } return new Array(obj.length).fill(0); }
+  function updatePlotsForCard(obj){ const contId = `plots-${obj.id}`; const cont = document.getElementById(contId); if(!cont) return; cont.innerHTML = ""; if(els.optHydro.checked){ const data = getPlotArray(obj, 'hydro'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD'); } if(els.optCharge.checked){ const data = getPlotArray(obj, 'charge'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge'); } if(els.optDisorder.checked){ const data = getPlotArray(obj, 'disorder'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score'); } if(els.optSecStruct.checked){ const sH = getPlotArray(obj, 'helix'); const sE = getPlotArray(obj, 'sheet'); const range = getExtremes([sH, sE]); const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder); drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity'); } if(els.optMoment.checked){ const data = getPlotArray(obj, 'moment'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH'); } if(els.optCys.checked){ const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder); drawCysTrack(holder.id, obj.seq); } const twoDContainer = document.createElement('div'); twoDContainer.className = "mt-6 border-t pt-4"; twoDContainer.innerHTML = `<h4 class="font-semibold text-sm mb-2">2D Analysis</h4><div class="flex flex-wrap items-center gap-3 mb-3"><select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white"><option value="hydro" selected>Hydrophobicity</option><option value="charge">Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><span class="text-gray-500 font-bold">vs</span><select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white"><option value="hydro">Hydrophobicity</option><option value="charge" selected>Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button></div><div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>`; cont.appendChild(twoDContainer); document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => { const xType = document.getElementById(`x-axis-${obj.id}`).value; const yType = document.getElementById(`y-axis-${obj.id}`).value; const xData = getPlotArray(obj, xType); const yData = getPlotArray(obj, yType); drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType); }); }
   function calcAFromMgml(eps, mw, mgml, path){ if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN; return (eps / mw) * mgml * path; }
   function calcAFromuM(eps, uM, path){ if(!(eps>0 && path>0 && uM>=0)) return NaN; return eps * (uM * 1e-6) * path; }
   function concFromA({ A=0, path=1.0, eps=0, mw=1 }){ if(!(eps>0 && path>0 && mw>0 && A>=0)) return { mgml: NaN, uM: NaN }; const mgml = A / ((eps / mw) * path); const uM = (A / (eps * path)) * 1e6; return { mgml, uM }; }
-
   function wireA280Helper(obj){
-    const card   = document.getElementById(`result-card-${obj.id}`);
-    const pathEl = card.querySelector(`[data-a280-path="${obj.id}"]`);
-    const epsSel = card.querySelector(`[data-a280-eps-type="${obj.id}"]`);
-    const mgEl   = card.querySelector(`[data-a280-mgml="${obj.id}"]`);
-    const umEl   = card.querySelector(`[data-a280-um="${obj.id}"]`);
-    const aEl    = card.querySelector(`[data-a280-A="${obj.id}"]`);
-    const outEl  = card.querySelector(`[data-a280-out="${obj.id}"]`);
-    const btn    = card.querySelector(`[data-a280-calc="${obj.id}"]`);
-
-    function chosenEps(){
-      return (epsSel.value === 'cys') ? obj.extinction.cystines : obj.extinction.reduced;
-    }
+    const card = document.getElementById(`result-card-${obj.id}`); const pathEl = card.querySelector(`[data-a280-path="${obj.id}"]`); const epsSel = card.querySelector(`[data-a280-eps-type="${obj.id}"]`); const mgEl = card.querySelector(`[data-a280-mgml="${obj.id}"]`); const umEl = card.querySelector(`[data-a280-um="${obj.id}"]`); const aEl = card.querySelector(`[data-a280-A="${obj.id}"]`); const outEl = card.querySelector(`[data-a280-out="${obj.id}"]`); const btn = card.querySelector(`[data-a280-calc="${obj.id}"]`);
+    function chosenEps(){ return (epsSel.value === 'cys') ? obj.extinction.cystines : obj.extinction.reduced; }
     function show(msg){ outEl.textContent = msg; }
-
-    btn.addEventListener('click', ()=>{
-      const path = Number(pathEl.value); const A = Number(aEl.value); const eps = chosenEps();
-      if(!isFinite(path) || !isFinite(A) || path<=0 || A<0 || !isFinite(eps) || eps<=0){ show("Invalid inputs."); return; }
-      const { mgml, uM } = concFromA({A, path, eps, mw: obj.molecularWeight});
-      mgEl.value = isFinite(mgml) ? mgml.toFixed(6) : '';
-      umEl.value = isFinite(uM)   ? uM.toFixed(3)   : '';
-      show(`From A=${A}: ${isFinite(mgml)?mgml.toFixed(6):'—'} mg/mL • ${isFinite(uM)?uM.toFixed(3):'—'} μM`);
-    });
-
-    [pathEl, epsSel, mgEl, umEl].forEach(el=>{
-      el.addEventListener('change', ()=>{
-        const eps = chosenEps(); const path = Number(pathEl.value);
-        const mgml = Number(mgEl.value); const um = Number(umEl.value);
-        if (isFinite(mgml) && mgml>0 && isFinite(eps) && eps>0 && isFinite(path) && path>0){
-          const A = calcAFromMgml(eps, obj.molecularWeight, mgml, path);
-          if (isFinite(A)) aEl.value = A.toFixed(5);
-        } else if (isFinite(um) && um>0 && isFinite(eps) && eps>0 && isFinite(path) && path>0){
-          const A = calcAFromuM(eps, um, path);
-          if (isFinite(A)) aEl.value = A.toFixed(5);
-        }
-      });
-    });
+    btn.addEventListener('click', ()=>{ const path = Number(pathEl.value); const A = Number(aEl.value); const eps = chosenEps(); if(!isFinite(path) || !isFinite(A) || path<=0 || A<0 || !isFinite(eps) || eps<=0){ show("Invalid inputs."); return; } const { mgml, uM } = concFromA({A, path, eps, mw: obj.molecularWeight}); mgEl.value = isFinite(mgml) ? mgml.toFixed(6) : ''; umEl.value = isFinite(uM) ? uM.toFixed(3) : ''; show(`From A=${A}: ${isFinite(mgml)?mgml.toFixed(6):'—'} mg/mL • ${isFinite(uM)?uM.toFixed(3):'—'} μM`); });
+    [pathEl, epsSel, mgEl, umEl].forEach(el=>{ el.addEventListener('change', ()=>{ const eps = chosenEps(); const path = Number(pathEl.value); const mgml = Number(mgEl.value); const um = Number(umEl.value); if (isFinite(mgml) && mgml>0 && isFinite(eps) && eps>0 && isFinite(path) && path>0){ const A = calcAFromMgml(eps, obj.molecularWeight, mgml, path); if (isFinite(A)) aEl.value = A.toFixed(5); } else if (isFinite(um) && um>0 && isFinite(eps) && eps>0 && isFinite(path) && path>0){ const A = calcAFromuM(eps, um, path); if (isFinite(A)) aEl.value = A.toFixed(5); } }); });
   }
-
-  /* ===== Per-card exports ===== */
   function wirePerCardExports(obj){
-    const card = document.getElementById(`result-card-${obj.id}`);
-    const svgBtn = card.querySelector(`[data-download-svg="${obj.id}"]`);
-    const copyBtn = card.querySelector(`[data-copy-fasta="${obj.id}"]`);
-    const propsBtn = card.querySelector(`[data-export-props="${obj.id}"]`);
-
-    svgBtn.addEventListener('click', ()=>{
-      const svg = card.querySelector('.feature-track-svg');
-      if(!svg){ alert('Map not available.'); return; }
-      const cloned = svg.cloneNode(true);
-      const s = new XMLSerializer().serializeToString(cloned);
-      const blob = new Blob([s], {type:'image/svg+xml;charset=utf-8'});
-      const url = URL.createObjectURL(blob); const a = document.createElement('a');
-      a.href = url; a.download = `${sanitizeName(obj.header)}_map.svg`; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url), 500);
-    });
-
-    copyBtn.addEventListener('click', async ()=>{
-      const text = `>${obj.header}\n${obj.seq.replace(/(.{1,80})/g, '$1\n').trim()}\n`;
-      try{ await navigator.clipboard.writeText(text); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy FASTA', 1200); }catch{ alert('Clipboard failed.'); }
-    });
-
-    propsBtn.addEventListener('click', ()=>{
-      const rows = [
-        ['Header', obj.header],
-        ['Length', obj.length],
-        ['MolecularWeight_Da', obj.molecularWeight.toFixed(2)],
-        ['Theoretical_pI', obj.pI.toFixed(3)],
-        ['Charge_at_pH_'+Number(els.pH.value).toFixed(1), obj.chargeAtPH.toFixed(3)],
-        ['GRAVY_KD', obj.gravy.toFixed(4)],
-        ['Aliphatic_Index', obj.aliphaticIndex.toFixed(2)],
-        ['Instability_Index', obj.instability.toFixed(2)],
-        ['Atomic_Formula', obj.atomicFormula],
-        ['Half_Life', obj.halfLife],
-        ['E280_reduced', obj.extinction.reduced],
-        ['E280_plus_cystines', obj.extinction.cystines]
-      ];
-      const csv = rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-      downloadText(`${sanitizeName(obj.header)}_props.csv`, csv);
-    });
+    const card = document.getElementById(`result-card-${obj.id}`); const svgBtn = card.querySelector(`[data-download-svg="${obj.id}"]`); const copyBtn = card.querySelector(`[data-copy-fasta="${obj.id}"]`); const propsBtn = card.querySelector(`[data-export-props="${obj.id}"]`);
+    svgBtn.addEventListener('click', ()=>{ const svg = card.querySelector('.feature-track-svg'); if(!svg){ alert('Map not available.'); return; } const cloned = svg.cloneNode(true); const s = new XMLSerializer().serializeToString(cloned); const blob = new Blob([s], {type:'image/svg+xml;charset=utf-8'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${sanitizeName(obj.header)}_map.svg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 500); });
+    copyBtn.addEventListener('click', async ()=>{ const text = `>${obj.header}\n${obj.seq.replace(/(.{1,80})/g, '$1\n').trim()}\n`; try{ await navigator.clipboard.writeText(text); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy FASTA', 1200); }catch{ alert('Clipboard failed.'); } });
+    propsBtn.addEventListener('click', ()=>{ const rows = [ ['Header', obj.header], ['Length', obj.length], ['MolecularWeight_Da', obj.molecularWeight.toFixed(2)], ['Theoretical_pI', obj.pI.toFixed(3)], ['Charge_at_pH_'+Number(els.pH.value).toFixed(1), obj.chargeAtPH.toFixed(3)], ['GRAVY_KD', obj.gravy.toFixed(4)], ['Aliphatic_Index', obj.aliphaticIndex.toFixed(2)], ['Instability_Index', obj.instability.toFixed(2)], ['Atomic_Formula', obj.atomicFormula], ['Half_Life', obj.halfLife], ['E280_reduced', obj.extinction.reduced], ['E280_plus_cystines', obj.extinction.cystines] ]; const csv = rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n'); downloadText(`${sanitizeName(obj.header)}_props.csv`, csv); });
   }
   function sanitizeName(s){ return s.replace(/[^\w\d\-_.]+/g,'_').slice(0,120)||'sequence'; }
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type:'text/plain;charset=utf-8'}); const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 500);
-  }
-
-  /* ===== Top-level exports & toggles ===== */
-  els.exportAllCsv.addEventListener('click', ()=>{
-    if(currentResults.length===0){ alert('No results to export.'); return; }
-    const header = ['Header','Length','MW_Da','pI','Charge_at_pH_'+Number(els.pH.value).toFixed(1),'GRAVY','Aliphatic','Instability','HalfLife','Formula','E280_red','E280_cys'];
-    const rows = currentResults.map(o=>[
-      o.header,o.length,o.molecularWeight.toFixed(2),o.pI.toFixed(3),netCharge(o.counts, Number(els.pH.value)).toFixed(3),
-      o.gravy.toFixed(4),o.aliphaticIndex.toFixed(2),o.instability.toFixed(2),o.halfLife,o.atomicFormula,
-      o.extinction.reduced,o.extinction.cystines
-    ]);
-    const csv = [header, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-    downloadText('protein_workbench_summary.csv', csv);
-  });
-  els.toggleAllPlots.addEventListener('click', ()=>{
-    plotsVisible = !plotsVisible;
-    currentResults.forEach(o=>{
-      const details = document.getElementById(`plots-details-${o.id}`); if(!details) return;
-      details.open = plotsVisible;
-    });
-  });
-  els.expandAll.addEventListener('click', ()=>{
-    document.querySelectorAll('#results_section details').forEach(d=>d.open=true);
-  });
-  els.collapseAll.addEventListener('click', ()=>{
-    document.querySelectorAll('#results_section details').forEach(d=>d.open=false);
-  });
-
-  /* ===== Fullscreen modal with d3-zoom (tall viewport) ===== */
-function wireMapClickForModal(obj, byLane){
-  const clickBox = document.getElementById(`track-click-${obj.id}`);
-  clickBox.addEventListener('click', ()=>{
-    openMapModal(obj, byLane);
-  }, { passive: true });
-}
-
-let _modalResizeHandler = null;
-const MODAL_VB_WIDTH = 2400; // wider virtual width for smoother zoom
-
-function _sizeModalToViewport(){
-  const modal = els.modal;
-  const modalContent = modal.querySelector('.map-modal-content');
-  const headerEl = modal.querySelector('.map-modal-header');
-  const bodyEl = els.modalBody;
-
-  // Force near full-screen to gain vertical space
-  modalContent.style.width = '98vw';
-  modalContent.style.maxWidth = '98vw';
-  modalContent.style.height = '96vh';
-  modalContent.style.maxHeight = '96vh';
-
-  const headerH = headerEl ? headerEl.offsetHeight : 56;
-  const paddingAllowance = 16; // matches modal paddings
-  const bodyH = Math.max(300, modalContent.clientHeight - headerH - paddingAllowance);
-
-  bodyEl.style.height = bodyH + 'px';
-  bodyEl.style.minHeight = bodyH + 'px';
-
-  // If an SVG is already present, let it fill the tall body
-  const svg = bodyEl.querySelector('svg');
-  if (svg) {
-    svg.style.width = '100%';
-    svg.style.height = (bodyH - 4) + 'px';
-  }
-}
-
-function openMapModal(obj, byLane){
-  els.modalBody.innerHTML = '';
-  els.modal.classList.add('open');
-  els.modal.setAttribute('aria-hidden','false');
-
-  _sizeModalToViewport();
-
-  // Holder that fills the tall modal body
-  const holder = document.createElement('div');
-  holder.id = `modal-track-${obj.id}`;
-  holder.style.width = '100%';
-  holder.style.height = '100%';
-  els.modalBody.appendChild(holder);
-
-  // Render map, then widen the viewBox for better zooming
-  renderGraphicalMap(holder.id, byLane, obj.length, obj.seq, MODAL_VB_WIDTH);
-  const svg = holder.querySelector('svg');
-  const vbH = svg.viewBox.baseVal.height;
-
-  // The render function sets viewBox to [0 0 vbWidth height], so we just ensure it scales
-  svg.style.width = '100%';
-  svg.style.height = '100%';
-  svg.style.display = 'block';
-
-  // Wrap content in a <g> so zoom transforms apply cleanly
-  let wrap = svg.querySelector('g[data-zoom-wrap="1"]');
-  if (!wrap) {
-    wrap = document.createElementNS('http://www.w3.org/2000/svg','g');
-    wrap.setAttribute('data-zoom-wrap','1');
-    while (svg.firstChild) wrap.appendChild(svg.firstChild);
-    svg.appendChild(wrap);
-  }
-
-  // Attach d3 zoom: do not allow zooming out beyond full sequence (min scale 1)
-  if (window.d3 && d3.zoom) {
-    const zoom = d3.zoom()
-      .scaleExtent([1, 20])
-      .translateExtent([[0, 0], [MODAL_VB_WIDTH, vbH]])
-      .on('zoom', (event)=> d3.select(wrap).attr('transform', event.transform));
-
-    d3.select(svg).on('.zoom', null).call(zoom);
-
-    modalState.svg = svg;
-    modalState.zoom = zoom;
-  } else {
-    modalState.svg = null;
-    modalState.zoom = null;
-  }
-
-  // Keep the modal tall on window resize
-  _modalResizeHandler = () => _sizeModalToViewport();
-  window.addEventListener('resize', _modalResizeHandler, { passive: true });
-}
-
-function closeMapModal(){
-  els.modal.classList.remove('open');
-  els.modal.setAttribute('aria-hidden','true');
-  els.modalBody.innerHTML = '';
-  if (_modalResizeHandler) {
-    window.removeEventListener('resize', _modalResizeHandler);
-    _modalResizeHandler = null;
-  }
-  modalState = { svg:null, zoom:null };
-}
-
-els.modalClose.addEventListener('click', closeMapModal);
-els.modal.addEventListener('click', (e)=>{ if (e.target === els.modal) closeMapModal(); });
-document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && els.modal.classList.contains('open')) closeMapModal(); });
-els.modalReset.addEventListener('click', ()=>{
-  if (modalState.svg && modalState.zoom) {
-    d3.select(modalState.svg).transition().duration(200).call(modalState.zoom.transform, d3.zoomIdentity);
-  }
-});
+  function downloadText(filename, text){ const blob = new Blob([text], {type:'text/plain;charset=utf-8'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 500); }
+  els.exportAllCsv.addEventListener('click', ()=>{ if(currentResults.length===0){ alert('No results to export.'); return; } const header = ['Header','Length','MW_Da','pI','Charge_at_pH_'+Number(els.pH.value).toFixed(1),'GRAVY','Aliphatic','Instability','HalfLife','Formula','E280_red','E280_cys']; const rows = currentResults.map(o=>[ o.header,o.length,o.molecularWeight.toFixed(2),o.pI.toFixed(3),netCharge(o.counts, Number(els.pH.value)).toFixed(3), o.gravy.toFixed(4),o.aliphaticIndex.toFixed(2),o.instability.toFixed(2),o.halfLife,o.atomicFormula, o.extinction.reduced,o.extinction.cystines ]); const csv = [header, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n'); downloadText('protein_workbench_summary.csv', csv); });
+  els.toggleAllPlots.addEventListener('click', ()=>{ plotsVisible = !plotsVisible; currentResults.forEach(o=>{ const details = document.getElementById(`plots-details-${o.id}`); if(!details) return; details.open = plotsVisible; }); });
+  els.expandAll.addEventListener('click', ()=>{ document.querySelectorAll('#results_section details').forEach(d=>d.open=true); });
+  els.collapseAll.addEventListener('click', ()=>{ document.querySelectorAll('#results_section details').forEach(d=>d.open=false); });
+  function wireMapClickForModal(obj, byLane){ const clickBox = document.getElementById(`track-click-${obj.id}`); clickBox.addEventListener('click', ()=>{ openMapModal(obj, byLane); }, { passive: true }); }
+  let _modalResizeHandler = null; const MODAL_VB_WIDTH = 2400;
+  function _sizeModalToViewport(){ const modal = els.modal; const modalContent = modal.querySelector('.map-modal-content'); const headerEl = modal.querySelector('.map-modal-header'); const bodyEl = els.modalBody; modalContent.style.width = '98vw'; modalContent.style.maxWidth = '98vw'; modalContent.style.height = '96vh'; modalContent.style.maxHeight = '96vh'; const headerH = headerEl ? headerEl.offsetHeight : 56; const paddingAllowance = 16; const bodyH = Math.max(300, modalContent.clientHeight - headerH - paddingAllowance); bodyEl.style.height = bodyH + 'px'; bodyEl.style.minHeight = bodyH + 'px'; const svg = bodyEl.querySelector('svg'); if (svg) { svg.style.width = '100%'; svg.style.height = (bodyH - 4) + 'px'; } }
+  function openMapModal(obj, byLane){ els.modalBody.innerHTML = ''; els.modal.classList.add('open'); els.modal.setAttribute('aria-hidden','false'); _sizeModalToViewport(); const holder = document.createElement('div'); holder.id = `modal-track-${obj.id}`; holder.style.width = '100%'; holder.style.height = '100%'; els.modalBody.appendChild(holder); renderGraphicalMap(holder.id, byLane, obj.length, obj.seq, MODAL_VB_WIDTH); const svg = holder.querySelector('svg'); const vbH = svg.viewBox.baseVal.height; svg.style.width = '100%'; svg.style.height = '100%'; svg.style.display = 'block'; let wrap = svg.querySelector('g[data-zoom-wrap="1"]'); if (!wrap) { wrap = document.createElementNS('http://www.w3.org/2000/svg','g'); wrap.setAttribute('data-zoom-wrap','1'); while (svg.firstChild) wrap.appendChild(svg.firstChild); svg.appendChild(wrap); } if (window.d3 && d3.zoom) { const zoom = d3.zoom().scaleExtent([1, 20]).translateExtent([[0, 0], [MODAL_VB_WIDTH, vbH]]).on('zoom', (event)=> d3.select(wrap).attr('transform', event.transform)); d3.select(svg).on('.zoom', null).call(zoom); modalState.svg = svg; modalState.zoom = zoom; } else { modalState.svg = null; modalState.zoom = null; } _modalResizeHandler = () => _sizeModalToViewport(); window.addEventListener('resize', _modalResizeHandler, { passive: true }); }
+  function closeMapModal(){ els.modal.classList.remove('open'); els.modal.setAttribute('aria-hidden','true'); els.modalBody.innerHTML = ''; if (_modalResizeHandler) { window.removeEventListener('resize', _modalResizeHandler); _modalResizeHandler = null; } modalState = { svg:null, zoom:null }; }
+  els.modalClose.addEventListener('click', closeMapModal); els.modal.addEventListener('click', (e)=>{ if (e.target === els.modal) closeMapModal(); }); document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && els.modal.classList.contains('open')) closeMapModal(); }); els.modalReset.addEventListener('click', ()=>{ if (modalState.svg && modalState.zoom) { d3.select(modalState.svg).transition().duration(200).call(modalState.zoom.transform, d3.zoomIdentity); } });
 };
 </script>
 

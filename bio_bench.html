@@ -44,8 +44,26 @@
            <!-- Dynamic Rows -->
         </div>
 
+        <!-- pH Adjustment Helper -->
+        <details class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800 mt-2">
+            <summary class="text-xs font-semibold text-gray-500 cursor-pointer">pH Adjustment Calculator</summary>
+            <div class="mt-2 grid grid-cols-3 gap-2 items-end">
+                <div>
+                    <label class="block text-[10px] text-gray-400">Target pH</label>
+                    <input type="number" id="ph-target" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" step="0.1" placeholder="7.4">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-400">pKa</label>
+                    <input type="number" id="ph-pka" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" step="0.1" placeholder="e.g. 7.5">
+                </div>
+                <div class="text-xs text-gray-500 pb-1" id="ph-ratio-out">
+                    Ratio (Base/Acid): --
+                </div>
+            </div>
+        </details>
+
         <div class="flex gap-3 mt-4">
-           <button id="add-component-btn" class="text-sm bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">
+           <button id="add-component-btn" class="text-sm bg-white hover:bg-gray-50 dark:bg-slate-700 dark:hover:bg-slate-600 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-slate-100 px-3 py-2 rounded-lg">
              + Add Component
            </button>
         </div>
@@ -446,6 +464,14 @@
                    <div class="text-xs text-gray-400 italic text-center mt-2">
                        g = (1.118 × 10⁻⁵) × r × RPM²
                    </div>
+                   <div class="pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+                       <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">K-Factor Est.</label>
+                       <div class="grid grid-cols-2 gap-2 mt-1">
+                           <input type="number" id="cen-rmin" placeholder="Rmin (mm)" class="p-1 border rounded text-xs">
+                           <input type="number" id="cen-rmax" placeholder="Rmax (mm)" class="p-1 border rounded text-xs">
+                       </div>
+                       <div class="mt-1 text-xs text-center font-mono">k = <span id="cen-k">--</span></div>
+                   </div>
                </div>
            </div>
 
@@ -469,6 +495,10 @@
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Excess (%)</label>
                     <input type="number" id="mm-excess" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" title="Buffer for pipetting error">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Dead Vol (μL)</label>
+                    <input type="number" id="mm-dead" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" title="Extra volume for troughs/robots">
                 </div>
             </div>
 
@@ -638,6 +668,27 @@
             });
         });
 
+        // --- pH Logic ---
+        const phTarget = document.getElementById('ph-target');
+        const phPka = document.getElementById('ph-pka');
+        const phOut = document.getElementById('ph-ratio-out');
+
+        function calcPH(){
+            const ph = parseFloat(phTarget.value);
+            const pka = parseFloat(phPka.value);
+            if(ph && pka){
+                // HH: pH = pKa + log([A-]/[HA])
+                // pH - pKa = log(Ratio)
+                // Ratio = 10^(pH - pKa)
+                const r = Math.pow(10, ph - pka);
+                phOut.textContent = `Ratio (Base/Acid): ${r.toFixed(2)}`;
+            } else {
+                phOut.textContent = "Ratio (Base/Acid): --";
+            }
+        }
+        phTarget.addEventListener('input', calcPH);
+        phPka.addEventListener('input', calcPH);
+
         // --- Buffer Mixer Logic ---
         const bufferRows = document.getElementById('buffer-rows');
         const addCompBtn = document.getElementById('add-component-btn');
@@ -667,8 +718,8 @@
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Component</label>
                    <div class="flex gap-1">
-                       <input type="text" list="chem-datalist" class="comp-name w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="Search or type...">
-                       <button class="comp-search text-xs bg-indigo-50 dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded px-2 hover:bg-indigo-100" title="Fetch MW from PubChem">🔍</button>
+                       <input type="text" list="chem-datalist" class="comp-name w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100" placeholder="Search or type...">
+                       <button class="comp-search text-xs bg-indigo-50 dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded px-2 hover:bg-indigo-100 dark:hover:bg-slate-600 dark:text-slate-100" title="Fetch MW from PubChem">🔍</button>
                    </div>
                 </div>
                 <div class="min-w-[6rem]">
@@ -680,8 +731,8 @@
                         </div>
                    </div>
                    <div class="flex gap-1">
-                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm" placeholder="0.00">
-                       <select class="comp-stock-unit hidden w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100" placeholder="0.00">
+                       <select class="comp-stock-unit hidden w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-xs text-slate-900 dark:text-slate-100">
                            <option value="M">M</option>
                            <option value="mM">mM</option>
                            <option value="%">%</option>
@@ -691,15 +742,15 @@
                 </div>
                 <div class="w-20">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">+H₂O (n)</label>
-                   <input type="number" step="0.5" min="0" value="0" class="comp-hydro w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm">
+                   <input type="number" step="0.5" min="0" value="0" class="comp-hydro w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100">
                 </div>
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Conc</label>
-                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm">
+                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100">
                 </div>
                 <div class="w-24">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit</label>
-                   <select class="comp-unit w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm">
+                   <select class="comp-unit w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100">
                       <option value="mM" selected>mM</option>
                       <option value="M">M</option>
                       <option value="%">% (w/v)</option>
@@ -1577,18 +1628,38 @@
             }
         });
 
+        // K-Factor
+        const cRmin = document.getElementById('cen-rmin');
+        const cRmax = document.getElementById('cen-rmax');
+        const cK = document.getElementById('cen-k');
+
+        function calcK(){
+            const rpm = parseFloat(cRpm.value);
+            const min = parseFloat(cRmin.value);
+            const max = parseFloat(cRmax.value);
+
+            if(rpm && min && max && max > min){
+                // k = 2.53e11 * ln(max/min) / rpm^2
+                const k = (2.53e11 * Math.log(max/min)) / (rpm * rpm);
+                cK.textContent = Math.round(k);
+            } else {
+                cK.textContent = "--";
+            }
+        }
+        [cRmin, cRmax, cRpm].forEach(el => el.addEventListener('input', calcK));
+
         // --- MASTER MIX LOGIC ---
         const mmRows = document.getElementById('mm-rows');
         const mmAdd = document.getElementById('mm-add-btn');
         const mmResult = document.getElementById('mm-result');
-        const inputsMM = ['mm-vol', 'mm-n', 'mm-excess'];
+        const inputsMM = ['mm-vol', 'mm-n', 'mm-excess', 'mm-dead'];
 
         function createMMRow(name='Reagent', vol=1){
             const div = document.createElement('div');
             div.className = "flex gap-2 items-center";
             div.innerHTML = `
-                <input type="text" value="${name}" class="mm-name flex-1 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs" placeholder="Name">
-                <input type="number" value="${vol}" step="any" class="mm-one-vol w-20 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs text-right" placeholder="1x">
+                <input type="text" value="${name}" class="mm-name flex-1 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs text-slate-900 dark:text-slate-100" placeholder="Name">
+                <input type="number" value="${vol}" step="any" class="mm-one-vol w-20 p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-xs text-right text-slate-900 dark:text-slate-100" placeholder="1x">
                 <span class="text-xs text-gray-400">μL</span>
                 <button class="text-red-400 hover:text-red-600 px-2">×</button>
             `;
@@ -1600,6 +1671,7 @@
         function calcMM(){
             const N = parseFloat(document.getElementById('mm-n').value) || 1;
             const exc = parseFloat(document.getElementById('mm-excess').value) || 0;
+            const dead = parseFloat(document.getElementById('mm-dead').value) || 0;
             const targetVol = parseFloat(document.getElementById('mm-vol').value) || 0;
 
             // Calculate Multiplier (N + excess)
@@ -1613,7 +1685,16 @@
             mmRows.querySelectorAll('div.flex').forEach(row => {
                 const name = row.querySelector('.mm-name').value;
                 const oneVol = parseFloat(row.querySelector('.mm-one-vol').value) || 0;
-                const totVol = oneVol * totalRxns;
+
+                // Dead volume is typically added to the TOTAL master mix volume required.
+                // But reagents are proportional.
+                // Total Vol Required = (TotalRxns * TargetVol) + DeadVol
+                // Reagent_Total = (OneVol / TargetVol) * Total_Vol_Required
+
+                const totalVolReq = (targetVol * totalRxns) + dead;
+
+                const totVol = targetVol > 0 ? (oneVol / targetVol) * totalVolReq : 0;
+
                 currentVol += oneVol;
 
                 html += `<li class="flex justify-between border-b border-dotted border-gray-200 dark:border-gray-700">
@@ -1625,10 +1706,14 @@
             // Water calculation
             const water = targetVol - currentVol;
             if(water >= 0){
+                const totalVolReq = (targetVol * totalRxns) + dead;
+                const waterTot = targetVol > 0 ? (water / targetVol) * totalVolReq : 0;
+
                 html += `<li class="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
                             <span>Water</span>
-                            <span>${(water * totalRxns).toFixed(1)} μL</span>
+                            <span>${waterTot.toFixed(1)} μL</span>
                          </li>`;
+                if(dead > 0) html += `<li class="text-[10px] text-gray-400 text-right mt-1">Includes ${dead}μL dead vol</li>`;
             } else {
                 html += `<li class="text-red-500 text-xs">Error: Volumes exceed ${targetVol}μL</li>`;
             }
