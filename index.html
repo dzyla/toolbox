@@ -9,16 +9,19 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1220">
 
   <script>
-    window.tailwind = window.tailwind || {};
-    window.tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {}
+    // Force the config object to exist immediately
+    window.tailwind = {
+      config: {
+        darkMode: 'class', // Critical: disables system preference
+        theme: {
+          extend: {
+            colors: {}
+          }
         }
       }
     };
   </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -95,10 +98,12 @@
       function applyTheme(isDark, persist = true) {
         if (isDark) {
           docEl.classList.add('dark');
+          docEl.style.colorScheme = 'dark'; // Force browser UI to dark
           themeBtn.textContent = '🌞 Light';
           themeBtn.setAttribute('aria-pressed', 'true');
         } else {
           docEl.classList.remove('dark');
+          docEl.style.colorScheme = 'light'; // Force browser UI to light
           themeBtn.textContent = '🌙 Dark';
           themeBtn.setAttribute('aria-pressed', 'false');
         }
