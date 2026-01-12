@@ -8,6 +8,15 @@
     </div>
   </header>
 
+  <!-- Enforce Tailwind Config here too (safe to repeat or index.html handles it) -->
+  <script>
+    if (!window.tailwind || !window.tailwind.configLoadedOnce) {
+       window.tailwind = window.tailwind || {};
+       window.tailwind.config = { darkMode: 'class' };
+       window.tailwind.configLoadedOnce = true;
+    }
+  </script>
+
   <!-- Navigation Tabs -->
   <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
     <nav class="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs" id="bb-tabs">
@@ -50,11 +59,11 @@
             <div class="mt-2 grid grid-cols-3 gap-2 items-end">
                 <div>
                     <label class="block text-[10px] text-gray-400">Target pH</label>
-                    <input type="number" id="ph-target" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" step="0.1" placeholder="7.4">
+                    <input type="number" id="ph-target" class="w-full p-1 border rounded text-xs bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border-gray-300 dark:border-gray-600" step="0.1" placeholder="7.4">
                 </div>
                 <div>
                     <label class="block text-[10px] text-gray-400">pKa</label>
-                    <input type="number" id="ph-pka" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" step="0.1" placeholder="e.g. 7.5">
+                    <input type="number" id="ph-pka" class="w-full p-1 border rounded text-xs bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border-gray-300 dark:border-gray-600" step="0.1" placeholder="e.g. 7.5">
                 </div>
                 <div class="text-xs text-gray-500 pb-1" id="ph-ratio-out">
                     Ratio (Base/Acid): --
@@ -73,8 +82,8 @@
               <div>
                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Volume</label>
                  <div class="flex gap-2">
-                    <input type="number" id="buffer-total-vol" value="1" class="w-full p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
-                    <select id="buffer-total-unit" class="p-2 border rounded-lg bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                    <input type="number" id="buffer-total-vol" value="1" class="w-full p-2 border rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border-gray-300 dark:border-gray-600">
+                    <select id="buffer-total-unit" class="p-2 border rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border-gray-300 dark:border-gray-600">
                        <option value="L">L</option>
                        <option value="mL">mL</option>
                     </select>
@@ -718,7 +727,7 @@
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Component</label>
                    <div class="flex gap-1">
-                       <input type="text" list="chem-datalist" class="comp-name w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100" placeholder="Search or type...">
+                       <input type="text" list="chem-datalist" class="comp-name w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="Search or type...">
                        <button class="comp-search text-xs bg-indigo-50 dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded px-2 hover:bg-indigo-100 dark:hover:bg-slate-600 dark:text-slate-100" title="Fetch MW from PubChem">🔍</button>
                    </div>
                 </div>
@@ -731,7 +740,7 @@
                         </div>
                    </div>
                    <div class="flex gap-1">
-                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100" placeholder="0.00">
+                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="0.00">
                        <select class="comp-stock-unit hidden w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-xs text-slate-900 dark:text-slate-100">
                            <option value="M">M</option>
                            <option value="mM">mM</option>
@@ -742,15 +751,15 @@
                 </div>
                 <div class="w-20">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">+H₂O (n)</label>
-                   <input type="number" step="0.5" min="0" value="0" class="comp-hydro w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100">
+                   <input type="number" step="0.5" min="0" value="0" class="comp-hydro w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
                 </div>
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Conc</label>
-                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100">
+                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
                 </div>
                 <div class="w-24">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit</label>
-                   <select class="comp-unit w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm text-slate-900 dark:text-slate-100">
+                   <select class="comp-unit w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
                       <option value="mM" selected>mM</option>
                       <option value="M">M</option>
                       <option value="%">% (w/v)</option>

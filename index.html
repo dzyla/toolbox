@@ -10,7 +10,14 @@
 
   <script>
     window.tailwind = window.tailwind || {};
-    window.tailwind.config = { darkMode: 'class' };
+    window.tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {}
+        }
+      }
+    };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -30,8 +37,8 @@
       --bg-0:#0b1220; --surface-1:#0f172a; --surface-2:#111827; --border-1:#334155; --text-1:#e5e7eb; --text-2:#94a3b8; --muted-1:#1f2937; --accent-1:#a5b4fc; --accent-2:#6366f1;
     }
 
-    body { background-color: var(--bg-0); }
-    html.dark body { color: var(--text-1); }
+    /* body { background-color: var(--bg-0); } */
+    /* html.dark body { color: var(--text-1); } */
 
     #topnav { backdrop-filter: blur(8px); }
     /* html.dark overrides removed to rely on Tailwind classes */
@@ -44,7 +51,7 @@
   </style>
 </head>
 
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 antialiased transition-colors">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 antialiased transition-colors duration-200">
   <nav id="topnav" class="bg-white/80 dark:bg-slate-900/80 shadow-sm sticky top-0 z-20 border-b border-transparent dark:border-slate-800">
     <div class="container mx-auto px-4 py-2 flex items-center justify-between gap-2 md:gap-4 overflow-hidden">
       <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pb-0 scrollbar-hide mask-fade">
