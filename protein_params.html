@@ -127,7 +127,7 @@
       </div>
       <div class="hidden md:flex items-center gap-2">
         <button id="export_all_csv" class="text-sm bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-black">Export summary CSV</button>
-        <button id="toggle_all_plots" class="text-sm bg-white border border-slate-300 px-3 py-2 rounded-lg hover:bg-slate-50">Toggle plots</button>
+        <button id="toggle_all_plots" class="text-sm bg-white border border-slate-300 px-3 py-2 rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:hover:bg-slate-700 dark:text-slate-100">Toggle plots</button>
       </div>
     </div>
   </header>
@@ -269,7 +269,7 @@
     <div class="map-modal-header">
       <div class="text-sm opacity-80">Scroll to zoom • drag to pan • press <span class="map-modal-kbd">Esc</span> to close</div>
       <div class="flex items-center gap-2">
-        <button id="map-reset" class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50">Reset view</button>
+        <button id="map-reset" class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700">Reset view</button>
         <button id="map-close" class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black">Close</button>
       </div>
     </div>
@@ -281,7 +281,8 @@
 window.initProteinWorkbench = function(){
   // Load Definitions from global object
   const DEFS = window.PROTEIN_DEFS || {};
-  if(!DEFS.AA){ alert("Error: definitions.js not loaded. Some features will be missing."); return; }
+  const UTILS = window.PROTEIN_UTILS || {};
+  if(!DEFS.AA || !UTILS.getProteinParams){ alert("Error: definitions.js not loaded."); return; }
   
   const AA = DEFS.AA;
   const DIWV = DEFS.DIWV;
@@ -346,8 +347,11 @@ window.initProteinWorkbench = function(){
   let userDomains = [];
 
   /* ===== Core calculations ===== */
-  function countAA(seq){ const c = Object.create(null); for(const ch of seq) c[ch] = (c[ch]||0)+1; return c; }
-  function molecularWeight(counts){ let m = 18.01528; for(const a in counts) m += (counts[a]||0) * (AA.mw[a]||0); return m; }
+  // USE SHARED UTILITIES
+  const countAA = UTILS.countAA;
+  const molecularWeight = UTILS.molecularWeight;
+  const extinctionCoefficients = UTILS.extinctionCoefficients;
+
   function gravy(seq){ if(!seq.length) return 0; let s=0; for(const a of seq) s += (AA.kd[a] ?? 0); return s/seq.length; }
 
   function netCharge(counts, pH, scheme='bjell'){
@@ -373,12 +377,6 @@ window.initProteinWorkbench = function(){
     let score = 0;
     for(let i=0;i<seq.length-1;i++){ const a=seq[i], b=seq[i+1]; if (DIWV[a] && typeof DIWV[a][b] !== 'undefined') score += DIWV[a][b]; }
     return (10 / seq.length) * score;
-  }
-  function extinctionCoefficients(counts, mw){
-    const nY = counts.Y||0, nW = counts.W||0, nC = counts.C||0;
-    const reduced = nY*AA.ext.Y + nW*AA.ext.W;
-    const cystines = reduced + Math.floor(nC/2)*AA.ext.CYS_DISULFIDE_PAIR;
-    return { reduced, cystines };
   }
 
   /* --- New Feature Calculations --- */
@@ -550,52 +548,9 @@ window.initProteinWorkbench = function(){
     return { counts, pct, total, order: std };
   }
 
-  // Fasta parsing flexible, sanitize... (reused)
-  function parseFastaFlexible(text){
-    const lines = text.replace(/\r/g,'').split('\n'); const out = [];
-    let header = null, seq = []; let sawHeader = false;
-    for (const raw of lines) {
-      const l = raw.trim(); if (!l) continue; if (l.startsWith(';')) continue;
-      if (l.startsWith('>')) {
-        if (header !== null) out.push({ header, seq: seq.join('') });
-        const after = l.slice(1).trim();
-        const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/);
-        if (tailAA && tailAA[1].length >= 5) {
-          header = after.slice(0, after.length - tailAA[1].length).trim() || `Sequence ${out.length+1}`;
-          seq = [tailAA[1]];
-        } else { header = after || `Sequence ${out.length+1}`; seq = []; }
-        sawHeader = true;
-      } else { seq.push(l); }
-    }
-    if (header !== null) out.push({ header, seq: seq.join('') });
-    if (!sawHeader) { const joined = lines.join('\n'); if (/[A-Za-z]/.test(joined)) out.push({ header: 'Sequence 1', seq: joined }); }
-    return out;
-  }
-  function sanitizeSequenceWithLog(raw){
-    const upper = raw.toUpperCase();
-    const removed = { whitespace:0, digits:0, dashes:0, stars:0, punctuation:0, other:0 };
-    const keepRe = /[ACDEFGHIKLMNPQRSTVWYUBZOJX]/;
-    let cleanedArr = [];
-    for (let i=0;i<upper.length;i++){
-      const ch = upper[i];
-      if (keepRe.test(ch)) { cleanedArr.push(ch); continue; }
-      if (/\s/.test(ch)) { removed.whitespace++; continue; }
-      if (/[0-9]/.test(ch)) { removed.digits++; continue; }
-      if (/[-–—_]/.test(ch)) { removed.dashes++; continue; }
-      if (ch === '*') { removed.stars++; continue; }
-      if (/[.,:;\/|()\[\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
-      removed.other++;
-    }
-    const seq = cleanedArr.join('');
-    if (!seq.length) throw new Error('Sequence contains no valid residues after cleaning.');
-    const notes = [];
-    if (removed.whitespace) notes.push(`spaces ${removed.whitespace}`);
-    if (removed.digits) notes.push(`digits ${removed.digits}`);
-    if (removed.dashes) notes.push(`dashes ${removed.dashes}`);
-    if (removed.stars) notes.push(`stars ${removed.stars}`);
-    if (removed.punctuation) notes.push(`punct ${removed.punctuation}`);
-    return { seq, issues: removed.other ? `Invalid letters removed: ${removed.other}` : '', notes: notes.join(', ') };
-  }
+  // Use Shared Parsing
+  const parseFastaFlexible = UTILS.parseFastaFlexible;
+  const sanitizeSequenceWithLog = UTILS.sanitizeSequenceWithLog;
 
   /* ===== UI: inputs ===== */
   els.file.addEventListener('change', e=>{
@@ -682,39 +637,39 @@ window.initProteinWorkbench = function(){
     const keys = Object.keys(byLane); if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
     return keys.sort().map(category => {
       const items = byLane[category].map(f => {
-        const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 px-1 rounded">${f.match}</span>` : '';
-        const note = f.note ? ` <span class="text-xs text-gray-600">(${f.note})</span>` : '';
-        return `<li class="feature-list-item p-2 rounded-md cursor-pointer" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}" data-match="${f.match||''}" data-note="${f.note||''}">
+        const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">${f.match}</span>` : '';
+        const note = f.note ? ` <span class="text-xs text-gray-600 dark:text-gray-400">(${f.note})</span>` : '';
+        return `<li class="feature-list-item p-2 rounded-md cursor-pointer dark:text-slate-200" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}" data-match="${f.match||''}" data-note="${f.note||''}">
           <span class="font-semibold text-sm">${f.name}</span>${note}
-          <span class="mono text-xs text-gray-600 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
+          <span class="mono text-xs text-gray-600 dark:text-gray-400 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
         </li>`;
       }).join('');
-      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-gray-800">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
+      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-gray-800 dark:text-slate-100">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
     }).join('');
   }
 
   function buildResultCard(obj){
-    const stabilityText = obj.instability < 40 ? `<span class="text-green-700 font-semibold">Stable</span>` : `<span class="text-red-700 font-semibold">Unstable</span>`;
+    const stabilityText = obj.instability < 40 ? `<span class="text-green-700 dark:text-green-400 font-semibold">Stable</span>` : `<span class="text-red-700 dark:text-red-400 font-semibold">Unstable</span>`;
     const byLane = obj.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
     const stats = getResidueStats(obj.seq);
     const statsRows = stats.order.map(aa => { const n = stats.counts[aa] || 0; const p = stats.pct[aa]; return `<tr><td class="px-1 mono">${aa}</td><td class="px-1 text-right">${n}</td><td class="px-1 text-right">${p}%</td></tr>`; }).join('');
     const parsingNote = (obj.parseNotes || obj.parseIssues) ? `<div class="note mt-1">Parsing notes: ${[obj.parseNotes, obj.parseIssues].filter(Boolean).join('; ')}</div>` : '';
 
     const card = `
-      <div id="result-card-${obj.id}" class="bg-white border border-gray-100 rounded-2xl shadow-sm">
+      <div id="result-card-${obj.id}" class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm transition-colors">
         <div class="p-4 md:p-5">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div><h3 class="text-lg font-semibold">${escapeHTML(obj.header)}</h3><div class="text-xs text-gray-500 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>${parsingNote}</div>
+            <div><h3 class="text-lg font-semibold dark:text-white">${escapeHTML(obj.header)}</h3><div class="text-xs text-gray-500 dark:text-gray-400 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>${parsingNote}</div>
             <div class="flex items-center gap-2 flex-wrap">
-              <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-copy-fasta="${obj.id}">Copy FASTA</button>
-              <button class="text-xs bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50" data-download-svg="${obj.id}">Save map (SVG)</button>
+              <button class="text-xs bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600" data-copy-fasta="${obj.id}">Copy FASTA</button>
+              <button class="text-xs bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600" data-download-svg="${obj.id}">Save map (SVG)</button>
               <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-export-props="${obj.id}">Export props (CSV)</button>
             </div>
           </div>
-          <div class="mt-3"><h4 class="font-semibold text-sm mb-1">Graphical map (click to open fullscreen)</h4><div id="track-click-${obj.id}" class="group relative rounded-lg border border-gray-100 bg-gray-50 p-2 hover:bg-gray-100 transition cursor-zoom-in"><div id="track-container-${obj.id}" class="w-full"></div><div class="absolute right-2 top-2 text-[11px] text-gray-500 opacity-80">Zoom in/out in fullscreen</div></div></div>
+          <div class="mt-3"><h4 class="font-semibold text-sm mb-1 dark:text-slate-200">Graphical map (click to open fullscreen)</h4><div id="track-click-${obj.id}" class="group relative rounded-lg border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 p-2 hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-zoom-in"><div id="track-container-${obj.id}" class="w-full"></div><div class="absolute right-2 top-2 text-[11px] text-gray-500 opacity-80">Zoom in/out in fullscreen</div></div></div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
-            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3"><details class="text-sm font-medium" open><summary class="cursor-pointer font-semibold text-sm">Residue statistics (${stats.total} aa)</summary><div class="h-28 overflow-y-auto mt-1 border-t pt-1"><table class="w-full text-xs"><thead><tr><th>AA</th><th>N</th><th>%</th></tr></thead><tbody>${statsRows}</tbody></table></div></details></div>
-            <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">${buildFeatureListHTML(byLane)}</div>
+            <div class="bg-gray-50 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-xl p-3"><details class="text-sm font-medium" open><summary class="cursor-pointer font-semibold text-sm dark:text-slate-200">Residue statistics (${stats.total} aa)</summary><div class="h-28 overflow-y-auto mt-1 border-t dark:border-slate-700 pt-1 text-slate-700 dark:text-slate-300"><table class="w-full text-xs"><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">AA</th><th class="dark:bg-slate-800 dark:text-slate-200">N</th><th class="dark:bg-slate-800 dark:text-slate-200">%</th></tr></thead><tbody>${statsRows}</tbody></table></div></details></div>
+            <div class="border border-gray-100 dark:border-slate-700 rounded-xl p-3 bg-white dark:bg-slate-800 h-56 overflow-y-auto" id="feature-list-${obj.id}">${buildFeatureListHTML(byLane)}</div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
             <div class="bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-gray-700 rounded-xl p-3">
@@ -760,30 +715,30 @@ window.initProteinWorkbench = function(){
             </div>
           </div>
           <div class="mt-4">
-             <details class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm">
-                <summary class="cursor-pointer font-semibold text-indigo-900">Lab Tools: Digestion & Mass Spec</summary>
+             <details class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3 text-sm">
+                <summary class="cursor-pointer font-semibold text-indigo-900 dark:text-indigo-300">Lab Tools: Digestion & Mass Spec</summary>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
                    <div>
-                     <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">In Silico Digestion</h5>
+                     <h5 class="font-bold text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">In Silico Digestion</h5>
                      <div class="flex flex-wrap gap-2 mb-2" id="digest-checks-${obj.id}"></div>
                      <div class="flex flex-wrap gap-2">
                        <button class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700" data-action="digest" data-id="${obj.id}">Digest</button>
-                       <button class="text-xs bg-white border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded hover:bg-indigo-50" data-action="export-peptides" data-id="${obj.id}">Export CSV</button>
+                       <button class="text-xs bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 border border-indigo-200 text-indigo-800 px-3 py-1.5 rounded hover:bg-indigo-50 dark:hover:bg-slate-600" data-action="export-peptides" data-id="${obj.id}">Export CSV</button>
                        <button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700" data-action="mass-match" data-id="${obj.id}">Mass Matcher</button>
                      </div>
-                     <div class="mt-2 max-h-60 overflow-y-auto border rounded bg-white">
-                        <table class="lab-table" id="digest-table-${obj.id}"><thead><tr><th>Start</th><th>End</th><th>Seq</th><th>MW</th><th>pI</th></tr></thead><tbody><tr><td colspan="5" class="text-gray-400 text-center py-2">Select protease and click Digest</td></tr></tbody></table>
+                     <div class="mt-2 max-h-60 overflow-y-auto border dark:border-slate-600 rounded bg-white dark:bg-slate-800">
+                        <table class="lab-table" id="digest-table-${obj.id}"><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">Start</th><th class="dark:bg-slate-800 dark:text-slate-200">End</th><th class="dark:bg-slate-800 dark:text-slate-200">Seq</th><th class="dark:bg-slate-800 dark:text-slate-200">MW</th><th class="dark:bg-slate-800 dark:text-slate-200">pI</th></tr></thead><tbody class="dark:text-slate-300"><tr><td colspan="5" class="text-gray-400 text-center py-2">Select protease and click Digest</td></tr></tbody></table>
                      </div>
                    </div>
                    <div>
-                     <h5 class="font-bold text-xs uppercase text-gray-500 mb-2">ESI Charge State Ladder</h5>
-                     <div class="max-h-60 overflow-y-auto border rounded bg-white"><table class="lab-table" id="charge-table-container-${obj.id}"><caption class="text-xs text-left p-1 text-gray-500" id="charge-caption-${obj.id}">Whole Protein</caption><thead><tr><th>z</th><th>m/z (M+zH)<sup>z+</sup></th></tr></thead><tbody id="charge-table-${obj.id}"></tbody></table></div>
-                     <div class="mt-2"><button class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button></div>
+                     <h5 class="font-bold text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">ESI Charge State Ladder</h5>
+                     <div class="max-h-60 overflow-y-auto border dark:border-slate-600 rounded bg-white dark:bg-slate-800"><table class="lab-table" id="charge-table-container-${obj.id}"><caption class="text-xs text-left p-1 text-gray-500 dark:text-gray-400" id="charge-caption-${obj.id}">Whole Protein</caption><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">z</th><th class="dark:bg-slate-800 dark:text-slate-200">m/z (M+zH)<sup>z+</sup></th></tr></thead><tbody id="charge-table-${obj.id}" class="dark:text-slate-300"></tbody></table></div>
+                     <div class="mt-2"><button class="text-xs bg-white dark:bg-slate-700 dark:text-slate-200 border border-gray-300 dark:border-slate-600 px-2 py-1 rounded hover:bg-gray-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button></div>
                    </div>
                 </div>
              </details>
           </div>
-          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}><summary class="cursor-pointer font-semibold text-gray-800 mb-2">Plots & Analysis</summary><div id="plots-${obj.id}"></div></details>
+          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}><summary class="cursor-pointer font-semibold text-gray-800 dark:text-slate-200 mb-2">Plots & Analysis</summary><div id="plots-${obj.id}"></div></details>
         </div>
       </div>
     `;
@@ -864,7 +819,7 @@ window.initProteinWorkbench = function(){
         tableBody.innerHTML = '';
         if(!res.peptides.length){ tableBody.innerHTML = '<tr><td colspan="5">No peptides generated.</td></tr>'; return; }
         res.peptides.forEach(p => {
-            const row = `<tr><td class="mono text-xs">${p.start}</td><td class="mono text-xs">${p.end}</td><td class="mono text-xs max-w-[150px] truncate" title="${p.seq}">${p.seq}</td><td class="mono text-xs">${p.mw.toFixed(2)}</td><td class="mono text-xs">${p.pI.toFixed(2)}</td></tr>`;
+            const row = `<tr><td class="mono text-xs border-b dark:border-slate-700">${p.start}</td><td class="mono text-xs border-b dark:border-slate-700">${p.end}</td><td class="mono text-xs max-w-[150px] truncate border-b dark:border-slate-700" title="${p.seq}">${p.seq}</td><td class="mono text-xs border-b dark:border-slate-700">${p.mw.toFixed(2)}</td><td class="mono text-xs border-b dark:border-slate-700">${p.pI.toFixed(2)}</td></tr>`;
             tableBody.insertAdjacentHTML('beforeend', row);
         });
     });
@@ -913,13 +868,11 @@ window.initProteinWorkbench = function(){
     const basicCount = 1 + Array.from(seq).filter(c => 'KRH'.includes(c)).length;
     const maxZ = Math.min(60, Math.max(3, basicCount)); 
     let rows = '';
-    for(let z=1; z<=maxZ; z++){ const mz = (mw + z * 1.007276) / z; rows += `<tr><td class="mono font-semibold">+${z}</td><td class="mono">${mz.toFixed(2)}</td></tr>`; }
+    for(let z=1; z<=maxZ; z++){ const mz = (mw + z * 1.007276) / z; rows += `<tr><td class="mono font-semibold border-b dark:border-slate-700">+${z}</td><td class="mono border-b dark:border-slate-700">${mz.toFixed(2)}</td></tr>`; }
     tbody.innerHTML = rows;
     if(resetBtn) resetBtn.classList.toggle('hidden', label === "Whole Protein");
   }
 
-  // ... (renderGraphicalMap, etc. - mostly unchanged, just need to make sure they are in the string)
-  // I will include the rest of the file logic here for completeness.
   function renderGraphicalMap(containerId, byLane, seqLen, seq, vbWidth = 1000) {
     const container = document.getElementById(containerId);
     const laneOrder = Object.keys(byLane).sort();
@@ -1007,7 +960,7 @@ window.initProteinWorkbench = function(){
   function refreshCharges(){ currentResults.forEach(o=>{ const c = netCharge(o.counts, Number(els.pH.value)); const card = document.getElementById(`result-card-${o.id}`); const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono'); if(target) target.textContent = c.toFixed(2); if(els.optCharge.checked) updatePlotsForCard(o); }); }
   function refreshAllCards(){ currentResults = currentResults.map(o => { const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value)); const spSegs = signalPeptideCandidates(o.seq); const motifSegs = scanFeatures(o.seq); o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]); o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value); return o; }); currentResults.forEach(o => { const card = document.getElementById(`result-card-${o.id}`); if(!card) return; const list = card.querySelector(`#feature-list-${o.id}`); const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {}); list.innerHTML = buildFeatureListHTML(byLane); const track = card.querySelector(`#track-container-${o.id}`); track.innerHTML = ''; renderGraphicalMap(`track-container-${o.id}`, byLane, o.length, o.seq); setupInteractions(o.id, o); updatePlotsForCard(o); }); }
   function getPlotArray(obj, type) { if(type === 'hydro') { const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0); return slidingWindowAvg(raw, parseInt(els.hydroWindow.value, 10)); } if(type === 'charge') { const arr = perResidueChargeArray(obj.seq, Number(els.pH.value)); return slidingWindowAvg(arr, parseInt(els.chargeWindow.value, 10)); } if(type === 'disorder') { const win = 15; const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 ); const qArr = perResidueChargeArray(obj.seq, 7.0); const score = []; const half = Math.floor(win/2); for(let i=0; i<obj.length; i++){ let sumH=0, sumQ=0, n=0; for(let k=i-half; k<=i+half; k++){ if(k>=0 && k<obj.length){ sumH += hRaw[k]; sumQ += qArr[k]; n++; } } if(n>0) score.push( 2.785*(sumH/n) - Math.abs(sumQ/n) - 1.151 ); else score.push(0); } return score; } if(type === 'moment') { const angle = 100 * (Math.PI/180); const win = 11; const moments = []; const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0); for(let i=0; i<obj.length; i++){ if(i + win > obj.length){ moments.push(0); continue; } let sumC=0, sumS=0; for(let k=0; k<win; k++){ const h = hRaw[i+k]; sumC += h * Math.cos(k * angle); sumS += h * Math.sin(k * angle); } moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win ); } const shifted = new Array(obj.length).fill(0); const offset = Math.floor(win/2); for(let i=0; i<moments.length; i++){ if(i+offset < shifted.length) shifted[i+offset] = moments[i]; } return shifted; } if(type === 'helix') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pH = []; for(const aa of obj.seq) pH.push(def[aa] ? def[aa].H : 100); return slidingWindowAvg(pH, 6); } if(type === 'sheet') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pE = []; for(const aa of obj.seq) pE.push(def[aa] ? def[aa].E : 100); return slidingWindowAvg(pE, 5); } return new Array(obj.length).fill(0); }
-  function updatePlotsForCard(obj){ const contId = `plots-${obj.id}`; const cont = document.getElementById(contId); if(!cont) return; cont.innerHTML = ""; if(els.optHydro.checked){ const data = getPlotArray(obj, 'hydro'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD'); } if(els.optCharge.checked){ const data = getPlotArray(obj, 'charge'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge'); } if(els.optDisorder.checked){ const data = getPlotArray(obj, 'disorder'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score'); } if(els.optSecStruct.checked){ const sH = getPlotArray(obj, 'helix'); const sE = getPlotArray(obj, 'sheet'); const range = getExtremes([sH, sE]); const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder); drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity'); } if(els.optMoment.checked){ const data = getPlotArray(obj, 'moment'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH'); } if(els.optCys.checked){ const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder); drawCysTrack(holder.id, obj.seq); } const twoDContainer = document.createElement('div'); twoDContainer.className = "mt-6 border-t pt-4"; twoDContainer.innerHTML = `<h4 class="font-semibold text-sm mb-2">2D Analysis</h4><div class="flex flex-wrap items-center gap-3 mb-3"><select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white"><option value="hydro" selected>Hydrophobicity</option><option value="charge">Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><span class="text-gray-500 font-bold">vs</span><select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white"><option value="hydro">Hydrophobicity</option><option value="charge" selected>Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button></div><div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>`; cont.appendChild(twoDContainer); document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => { const xType = document.getElementById(`x-axis-${obj.id}`).value; const yType = document.getElementById(`y-axis-${obj.id}`).value; const xData = getPlotArray(obj, xType); const yData = getPlotArray(obj, yType); drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType); }); }
+  function updatePlotsForCard(obj){ const contId = `plots-${obj.id}`; const cont = document.getElementById(contId); if(!cont) return; cont.innerHTML = ""; if(els.optHydro.checked){ const data = getPlotArray(obj, 'hydro'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD'); } if(els.optCharge.checked){ const data = getPlotArray(obj, 'charge'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge'); } if(els.optDisorder.checked){ const data = getPlotArray(obj, 'disorder'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score'); } if(els.optSecStruct.checked){ const sH = getPlotArray(obj, 'helix'); const sE = getPlotArray(obj, 'sheet'); const range = getExtremes([sH, sE]); const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder); drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity'); } if(els.optMoment.checked){ const data = getPlotArray(obj, 'moment'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH'); } if(els.optCys.checked){ const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder); drawCysTrack(holder.id, obj.seq); } const twoDContainer = document.createElement('div'); twoDContainer.className = "mt-6 border-t pt-4"; twoDContainer.innerHTML = `<h4 class="font-semibold text-sm mb-2 dark:text-slate-200">2D Analysis</h4><div class="flex flex-wrap items-center gap-3 mb-3"><select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro" selected>Hydrophobicity</option><option value="charge">Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><span class="text-gray-500 font-bold">vs</span><select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro">Hydrophobicity</option><option value="charge" selected>Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button></div><div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>`; cont.appendChild(twoDContainer); document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => { const xType = document.getElementById(`x-axis-${obj.id}`).value; const yType = document.getElementById(`y-axis-${obj.id}`).value; const xData = getPlotArray(obj, xType); const yData = getPlotArray(obj, yType); drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType); }); }
   function calcAFromMgml(eps, mw, mgml, path){ if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN; return (eps / mw) * mgml * path; }
   function calcAFromuM(eps, uM, path){ if(!(eps>0 && path>0 && uM>=0)) return NaN; return eps * (uM * 1e-6) * path; }
   function concFromA({ A=0, path=1.0, eps=0, mw=1 }){ if(!(eps>0 && path>0 && mw>0 && A>=0)) return { mgml: NaN, uM: NaN }; const mgml = A / ((eps / mw) * path); const uM = (A / (eps * path)) * 1e6; return { mgml, uM }; }
@@ -1042,7 +995,7 @@ window.initProteinWorkbench = function(){
 <script>
 (function(){
   function loadDefs() {
-    if (window.PROTEIN_DEFS && window.PROTEIN_DEFS.AA) return Promise.resolve();
+    if (window.PROTEIN_DEFS && window.PROTEIN_UTILS) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = 'definitions.js';

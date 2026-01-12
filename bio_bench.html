@@ -19,7 +19,7 @@
 
   <!-- Navigation Tabs -->
   <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-    <nav class="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs" id="bb-tabs">
+    <nav class="-mb-px flex space-x-6 overflow-x-auto scrollbar-hide" aria-label="Tabs" id="bb-tabs">
       <button class="bb-tab active border-indigo-500 text-indigo-600 dark:text-indigo-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-buffer">
         🧪 Buffer Mixer
       </button>
@@ -47,7 +47,24 @@
     <!-- Buffer Mixer -->
     <div id="tab-buffer" class="bb-pane block space-y-6">
       <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Buffer Recipe Calculator</h3>
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-3">
+             <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Buffer Recipe Calculator</h3>
+             <div class="flex items-center gap-2">
+                 <select id="buffer-preset-sel" class="text-xs p-1.5 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                     <option value="">-- Load Preset --</option>
+                     <option value="PBS_1x">PBS (1x)</option>
+                     <option value="PBST_1x">PBST (0.1% Tween)</option>
+                     <option value="TBS_1x">TBS (1x)</option>
+                     <option value="TBST_1x">TBST (0.1% Tween)</option>
+                     <option value="HBS_1x">HBS (HEPES Buffered Saline)</option>
+                     <option value="TE_1x">TE Buffer (10:1)</option>
+                     <option value="TAE_1x">TAE (1x)</option>
+                 </select>
+                 <button id="btn-import-json" class="text-xs bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-slate-600 dark:text-slate-200">📂 Import JSON</button>
+                 <input type="file" id="file-import-json" class="hidden" accept=".json">
+                 <button id="btn-export-json" class="text-xs bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-slate-600 dark:text-slate-200">💾 Export JSON</button>
+             </div>
+        </div>
 
         <div class="space-y-4" id="buffer-rows">
            <!-- Dynamic Rows -->
@@ -55,7 +72,7 @@
 
         <!-- pH Adjustment Helper -->
         <details class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800 mt-2">
-            <summary class="text-xs font-semibold text-gray-500 cursor-pointer">pH Adjustment Calculator</summary>
+            <summary class="text-xs font-semibold text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">pH Adjustment Calculator</summary>
             <div class="mt-2 grid grid-cols-3 gap-2 items-end">
                 <div>
                     <label class="block text-[10px] text-gray-400">Target pH</label>
@@ -65,7 +82,7 @@
                     <label class="block text-[10px] text-gray-400">pKa</label>
                     <input type="number" id="ph-pka" class="w-full p-1 border rounded text-xs bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border-gray-300 dark:border-gray-600" step="0.1" placeholder="e.g. 7.5">
                 </div>
-                <div class="text-xs text-gray-500 pb-1" id="ph-ratio-out">
+                <div class="text-xs text-gray-500 dark:text-gray-400 pb-1" id="ph-ratio-out">
                     Ratio (Base/Acid): --
                 </div>
             </div>
@@ -121,11 +138,12 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
          <!-- Protein Tool -->
          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-            <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Protein Concentration</h3>
+            <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Protein Concentration & Mods</h3>
             <div class="space-y-3">
                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protein Sequence (for MW & ε)</label>
-                  <textarea id="macro-prot-seq" rows="3" class="w-full p-2 border rounded-lg font-mono text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="MSTRSV..."></textarea>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protein Sequence / FASTA</label>
+                  <textarea id="macro-prot-seq" rows="4" class="w-full p-2 border rounded-lg font-mono text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder=">Header\nMSTRSV... or just Sequence"></textarea>
+                  <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Parses FASTA header if present. Calculates MW & ε automatically.</p>
                </div>
                <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -158,49 +176,19 @@
                </div>
 
                <!-- Modifications Section -->
-               <details class="group bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+               <details class="group bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800" open>
                    <summary class="text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer list-none flex items-center gap-2">
                        <span class="group-open:rotate-90 transition-transform">▶</span>
                        Modifications & Glycosylation
                    </summary>
-                   <div class="mt-3 space-y-3">
-                       <!-- Glycosylation -->
-                       <div>
-                           <label class="block text-[10px] uppercase text-gray-400 tracking-wide mb-1">Glycosylation</label>
-                           <div class="grid grid-cols-[1fr,1.5fr,1fr] gap-2 items-center">
-                               <input type="number" id="mod-glyco-n" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Count (n)">
-                               <select id="mod-glyco-type" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
-                                   <option value="1.5">N-Link (High Man) ~1.5k</option>
-                                   <option value="2.5">N-Link (Complex) ~2.5k</option>
-                                   <option value="0.365">O-Link (Core 1) ~0.37k</option>
-                                   <option value="custom">Custom</option>
-                               </select>
-                               <div class="relative">
-                                   <input type="number" id="mod-glyco-mass" step="0.1" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" value="1.5">
-                                   <span class="absolute right-1 top-1 text-[10px] text-gray-400">kDa</span>
-                               </div>
-                           </div>
+                   <div class="mt-3 space-y-2">
+                       <div id="mod-list-container" class="space-y-2">
+                           <!-- Dynamic Rows -->
                        </div>
-                       <!-- Phosphorylation -->
-                       <div>
-                            <label class="block text-[10px] uppercase text-gray-400 tracking-wide mb-1">Phosphorylation (+80 Da)</label>
-                            <div class="flex gap-2 items-center">
-                                <input type="number" id="mod-phos-n" class="w-20 p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Count">
-                                <span class="text-xs text-gray-500">sites</span>
-                            </div>
+                       <div class="flex gap-2">
+                           <button id="btn-add-mod" class="text-xs bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-slate-200 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-slate-600">+ Add Mod</button>
                        </div>
-                       <!-- Other Custom -->
-                       <div>
-                            <label class="block text-[10px] uppercase text-gray-400 tracking-wide mb-1">Other (Custom)</label>
-                            <div class="grid grid-cols-[1fr,2fr] gap-2 items-center">
-                                <input type="number" id="mod-other-n" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Count">
-                                <div class="relative">
-                                    <input type="number" id="mod-other-mass" step="0.1" class="w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" placeholder="Mass">
-                                    <span class="absolute right-1 top-1 text-[10px] text-gray-400">kDa</span>
-                                </div>
-                            </div>
-                       </div>
-                       <div class="text-[10px] text-right text-indigo-500" id="mod-total-display">
+                       <div class="text-[10px] text-right text-indigo-500 pt-2 border-t border-gray-200 dark:border-gray-700" id="mod-total-display">
                            Mods: +0.00 kDa
                        </div>
                    </div>
@@ -220,10 +208,6 @@
                        <div class="text-xs text-indigo-600 dark:text-indigo-300 font-semibold">Conc (μM)</div>
                        <div id="macro-prot-res-um" class="text-lg font-mono text-slate-900 dark:text-slate-100 pt-1">0.00</div>
                    </div>
-               </div>
-               <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                   Tip: Use <a href="#" class="text-indigo-500 hover:underline" onclick="document.getElementById('macro-prot-seq').value = 'MW'; document.getElementById('macro-prot-seq').dispatchEvent(new Event('input')); return false;">MW</a> as sequence to just set weight manually (not supported yet, edit inputs directly below). <br>
-                   *Manual override of MW and ε allowed if sequence is empty.*
                </div>
             </div>
          </div>
@@ -363,22 +347,22 @@
                    <div class="grid grid-cols-2 gap-2">
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Stock Conc (M1)</label>
-                           <input type="number" id="util-dil-m1" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                           <input type="number" id="util-dil-m1" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                        </div>
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Stock Vol (V1)</label>
-                           <input type="number" id="util-dil-v1" class="w-full p-2 border rounded bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 font-semibold" placeholder="?" readonly>
+                           <input type="number" id="util-dil-v1" class="w-full p-2 border rounded bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-slate-900 dark:text-slate-100 font-semibold" placeholder="?" readonly>
                        </div>
                    </div>
                    <div class="flex justify-center text-gray-400">↓</div>
                    <div class="grid grid-cols-2 gap-2">
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Target Conc (M2)</label>
-                           <input type="number" id="util-dil-m2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                           <input type="number" id="util-dil-m2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                        </div>
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Target Vol (V2)</label>
-                           <input type="number" id="util-dil-v2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                           <input type="number" id="util-dil-v2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                        </div>
                    </div>
                    <div id="util-dil-res" class="p-2 bg-slate-50 dark:bg-slate-700 rounded text-xs text-center text-slate-700 dark:text-slate-300">
@@ -404,14 +388,14 @@
                    <hr class="border-gray-100 dark:border-gray-700">
                    <div>
                        <label class="block text-xs text-gray-500 dark:text-gray-400">MW (g/mol)</label>
-                       <input type="number" id="util-mol-mw" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       <input type="number" id="util-mol-mw" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                    </div>
                    <div class="grid grid-cols-2 gap-2">
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Volume</label>
                            <div class="flex gap-1">
-                               <input type="number" id="util-mol-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
-                               <select id="util-mol-vol-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                               <input type="number" id="util-mol-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                               <select id="util-mol-vol-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100">
                                    <option value="L">L</option>
                                    <option value="mL">mL</option>
                                    <option value="uL">µL</option>
@@ -423,8 +407,8 @@
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Conc</label>
                            <div class="flex gap-1">
-                               <input type="number" id="util-mol-conc" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
-                               <select id="util-mol-conc-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                               <input type="number" id="util-mol-conc" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                               <select id="util-mol-conc-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100">
                                    <option value="M">M</option>
                                    <option value="mM">mM</option>
                                    <option value="uM">µM</option>
@@ -437,8 +421,8 @@
                    <div>
                        <label class="block text-xs text-gray-500 dark:text-gray-400">Mass</label>
                        <div class="flex gap-1">
-                           <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" readonly>
-                           <select id="util-mol-mass-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs">
+                           <input type="number" id="util-mol-mass" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" readonly>
+                           <select id="util-mol-mass-unit" class="p-2 border rounded bg-gray-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100">
                                <option value="kg">kg</option>
                                <option value="g" selected>g</option>
                                <option value="mg">mg</option>
@@ -457,18 +441,18 @@
                <div class="space-y-3 text-sm">
                    <div>
                        <label class="block text-xs text-gray-500 dark:text-gray-400">Rotor Radius (mm)</label>
-                       <input type="number" id="util-cen-r" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                       <input type="number" id="util-cen-r" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                    </div>
                    <div class="grid grid-cols-2 gap-2 items-center">
                        <div>
                            <label class="block text-xs text-gray-500 dark:text-gray-400">Speed (RPM)</label>
-                           <input type="number" id="util-cen-rpm" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                           <input type="number" id="util-cen-rpm" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                        </div>
                        <div class="text-center text-gray-400">↔</div>
                    </div>
                    <div>
                         <label class="block text-xs text-gray-500 dark:text-gray-400">Force (RCF / g)</label>
-                        <input type="number" id="util-cen-rcf" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        <input type="number" id="util-cen-rcf" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                    </div>
                    <div class="text-xs text-gray-400 italic text-center mt-2">
                        g = (1.118 × 10⁻⁵) × r × RPM²
@@ -476,10 +460,10 @@
                    <div class="pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">K-Factor Est.</label>
                        <div class="grid grid-cols-2 gap-2 mt-1">
-                           <input type="number" id="cen-rmin" placeholder="Rmin (mm)" class="p-1 border rounded text-xs">
-                           <input type="number" id="cen-rmax" placeholder="Rmax (mm)" class="p-1 border rounded text-xs">
+                           <input type="number" id="cen-rmin" placeholder="Rmin (mm)" class="p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                           <input type="number" id="cen-rmax" placeholder="Rmax (mm)" class="p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                        </div>
-                       <div class="mt-1 text-xs text-center font-mono">k = <span id="cen-k">--</span></div>
+                       <div class="mt-1 text-xs text-center font-mono text-slate-900 dark:text-slate-100">k = <span id="cen-k">--</span></div>
                    </div>
                </div>
            </div>
@@ -495,19 +479,19 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Reaction Vol (μL)</label>
-                    <input type="number" id="mm-vol" value="20" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                    <input type="number" id="mm-vol" value="20" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sample Count (N)</label>
-                    <input type="number" id="mm-n" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                    <input type="number" id="mm-n" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Excess (%)</label>
-                    <input type="number" id="mm-excess" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" title="Buffer for pipetting error">
+                    <input type="number" id="mm-excess" value="10" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" title="Buffer for pipetting error">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Dead Vol (μL)</label>
-                    <input type="number" id="mm-dead" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600" title="Extra volume for troughs/robots">
+                    <input type="number" id="mm-dead" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" title="Extra volume for troughs/robots">
                 </div>
             </div>
 
@@ -539,11 +523,11 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400">Start Vol (mL)</label>
-                            <input type="number" id="as-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                            <input type="number" id="as-vol" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400">Temp</label>
-                            <select id="as-temp" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                            <select id="as-temp" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                                 <option value="20">20°C (Standard)</option>
                                 <option value="4">4°C (Cold Room)</option>
                             </select>
@@ -552,11 +536,11 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400">Current %</label>
-                            <input type="number" id="as-s1" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                            <input type="number" id="as-s1" value="0" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400">Target %</label>
-                            <input type="number" id="as-s2" value="30" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                            <input type="number" id="as-s2" value="30" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                         </div>
                     </div>
 
@@ -577,19 +561,19 @@
                     <div class="grid grid-cols-2 gap-2 mt-2">
                         <div>
                             <label class="block text-[10px] text-gray-500 dark:text-gray-400">Master Stock Conc</label>
-                            <input type="number" id="sd-prep-stock-c" class="w-full p-1 border rounded bg-white dark:bg-slate-900 text-xs" placeholder="e.g. 100">
+                            <input type="number" id="sd-prep-stock-c" class="w-full p-1 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100 text-xs" placeholder="e.g. 100">
                         </div>
                         <div>
                             <label class="block text-[10px] text-gray-500 dark:text-gray-400">Target Start Conc</label>
-                            <input type="number" id="sd-prep-target-c" class="w-full p-1 border rounded bg-white dark:bg-slate-900 text-xs" placeholder="e.g. 10">
+                            <input type="number" id="sd-prep-target-c" class="w-full p-1 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100 text-xs" placeholder="e.g. 10">
                         </div>
                     </div>
                     <div class="mt-2">
                          <label class="block text-[10px] text-gray-500 dark:text-gray-400">Required Start Volume (Well 1)</label>
-                         <input type="number" id="sd-prep-vol" class="w-full p-1 border rounded bg-white dark:bg-slate-900 text-xs" value="200" placeholder="e.g. 200">
+                         <input type="number" id="sd-prep-vol" class="w-full p-1 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100 text-xs" value="200" placeholder="e.g. 200">
                     </div>
-                    <div class="mt-2 text-xs font-mono text-center bg-white dark:bg-slate-900 p-2 rounded border border-gray-200 dark:border-gray-700">
-                        Mix <span id="sd-prep-res-stock" class="font-bold text-indigo-600">--</span> Stock + <span id="sd-prep-res-buf" class="font-bold">--</span> Buffer
+                    <div class="mt-2 text-xs font-mono text-center bg-white dark:bg-slate-900 p-2 rounded border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-300">
+                        Mix <span id="sd-prep-res-stock" class="font-bold text-indigo-600 dark:text-indigo-400">--</span> Stock + <span id="sd-prep-res-buf" class="font-bold">--</span> Buffer
                     </div>
                 </details>
 
@@ -598,14 +582,14 @@
                 <div class="space-y-3">
                      <div>
                         <label class="block text-xs text-gray-500 dark:text-gray-400">Desired Dilution Factor (e.g., 2 for 1:2)</label>
-                        <input type="number" id="sd-factor" value="2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        <input type="number" id="sd-factor" value="2" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                      </div>
                      <div>
                         <label class="block text-xs text-gray-500 dark:text-gray-400">Final Volume per Well (μL)</label>
-                        <input type="number" id="sd-vol" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600">
+                        <input type="number" id="sd-vol" value="100" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
                      </div>
 
-                     <div class="mt-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded border border-gray-200 dark:border-gray-700">
+                     <div class="mt-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded border border-gray-200 dark:border-gray-700 text-slate-700 dark:text-slate-300">
                          <div class="text-sm font-medium text-center mb-2">Pipetting Scheme</div>
                          <div class="flex justify-between text-xs mb-1">
                              <span>Diluent per well:</span>
@@ -639,22 +623,25 @@
     function loadScripts(srcs) {
         return Promise.all(srcs.map(src => {
             return new Promise((resolve, reject) => {
+                if (window.PROTEIN_UTILS && src === 'definitions.js') { resolve(); return; } // already loaded
                 const s = document.createElement('script');
                 s.src = src;
                 s.onload = resolve;
-                s.onerror = () => { console.warn("Failed to load "+src); resolve(); }; // Soft fail
+                s.onerror = () => { console.warn("Failed to load "+src); resolve(); };
                 document.head.appendChild(s);
             });
         }));
     }
 
-    // Ensure dependencies
     loadScripts(['labConstants.js', 'definitions.js']).then(() => {
         initBioBench();
     });
 
     function initBioBench(){
         const CONSTANTS = window.LAB_CONSTANTS || { chemicals: [] };
+        const PROT_UTILS = window.PROTEIN_UTILS || {
+            getProteinParams: ()=>({mw:0}), parseFastaFlexible: ()=>[{header:'', seq:''}]
+        };
 
         // --- Tab Logic ---
         const tabs = document.querySelectorAll('.bb-tab');
@@ -686,9 +673,6 @@
             const ph = parseFloat(phTarget.value);
             const pka = parseFloat(phPka.value);
             if(ph && pka){
-                // HH: pH = pKa + log([A-]/[HA])
-                // pH - pKa = log(Ratio)
-                // Ratio = 10^(pH - pKa)
                 const r = Math.pow(10, ph - pka);
                 phOut.textContent = `Ratio (Base/Acid): ${r.toFixed(2)}`;
             } else {
@@ -704,6 +688,10 @@
         const totalVolIn = document.getElementById('buffer-total-vol');
         const totalVolUnit = document.getElementById('buffer-total-unit');
         const recipeList = document.getElementById('buffer-recipe-list');
+        const btnImportJson = document.getElementById('btn-import-json');
+        const fileImportJson = document.getElementById('file-import-json');
+        const btnExportJson = document.getElementById('btn-export-json');
+        const presetSel = document.getElementById('buffer-preset-sel');
 
         // Prepare Datalist once
         const chemDatalist = document.createElement('datalist');
@@ -716,12 +704,14 @@
         });
         document.body.appendChild(chemDatalist);
 
-        function createBufferRow(){
+        function createBufferRow(data = {}){
             const div = document.createElement('div');
             div.className = "grid grid-cols-1 md:grid-cols-[2fr,minmax(7rem,auto),1fr,1fr,auto,auto] gap-3 items-end p-3 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-slate-700/50";
-
-            // Unique ID for MW field to link update logic if needed
             const rowId = Math.random().toString(36).substr(2,9);
+
+            const initialIsLiquid = data.isLiquid || false;
+            const initialUnit = data.unit || "mM";
+            const initialStockUnit = data.stockUnit || "M";
 
             div.innerHTML = `
                 <div>
@@ -733,25 +723,25 @@
                 </div>
                 <div class="min-w-[6rem]">
                    <div class="flex justify-between items-center mb-1">
-                        <label class="block text-xs text-gray-500 dark:text-gray-400 label-mw">MW (g/mol)</label>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 label-mw">${initialIsLiquid ? "Stock Conc" : "MW (g/mol)"}</label>
                         <div class="flex items-center gap-1">
-                            <input type="checkbox" class="comp-is-liquid" title="Use liquid stock solution?" id="chk-${rowId}">
+                            <input type="checkbox" class="comp-is-liquid" ${initialIsLiquid ? "checked" : ""} id="chk-${rowId}">
                             <label for="chk-${rowId}" class="text-[10px] text-indigo-500 dark:text-indigo-400 cursor-pointer" title="Liquid Stock Solution">Liq</label>
                         </div>
                    </div>
                    <div class="flex gap-1">
-                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="0.00">
-                       <select class="comp-stock-unit hidden w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-xs text-slate-900 dark:text-slate-100">
-                           <option value="M">M</option>
-                           <option value="mM">mM</option>
-                           <option value="%">%</option>
-                           <option value="x">x</option>
+                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="${initialIsLiquid ? 'e.g. 5' : '0.00'}">
+                       <select class="comp-stock-unit ${initialIsLiquid ? '' : 'hidden'} w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-xs text-slate-900 dark:text-slate-100">
+                           <option value="M" ${initialStockUnit==='M'?'selected':''}>M</option>
+                           <option value="mM" ${initialStockUnit==='mM'?'selected':''}>mM</option>
+                           <option value="%" ${initialStockUnit==='%'?'selected':''}>%</option>
+                           <option value="x" ${initialStockUnit==='x'?'selected':''}>x</option>
                        </select>
                    </div>
                 </div>
                 <div class="w-20">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">+H₂O (n)</label>
-                   <input type="number" step="0.5" min="0" value="0" class="comp-hydro w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
+                   <input type="number" step="0.5" min="0" class="comp-hydro w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" ${initialIsLiquid ? "disabled" : ""}>
                 </div>
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Conc</label>
@@ -760,15 +750,20 @@
                 <div class="w-24">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit</label>
                    <select class="comp-unit w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
-                      <option value="mM" selected>mM</option>
-                      <option value="M">M</option>
-                      <option value="%">% (w/v)</option>
+                      <option value="mM" ${initialUnit==='mM'?'selected':''}>mM</option>
+                      <option value="M" ${initialUnit==='M'?'selected':''}>M</option>
+                      <option value="%" ${initialUnit==='%'?'selected':''}>% (w/v)</option>
                    </select>
                 </div>
                 <button class="remove-row text-red-500 hover:text-red-700 p-2 mb-1" title="Remove">✕</button>
             `;
 
-            // Events
+            // Safe assignment
+            if(data.name) div.querySelector('.comp-name').value = data.name;
+            if(data.mw) div.querySelector('.comp-mw').value = data.mw;
+            if(data.hydro) div.querySelector('.comp-hydro').value = data.hydro;
+            if(data.conc) div.querySelector('.comp-conc').value = data.conc;
+
             const nameInput = div.querySelector('.comp-name');
             const mwInput = div.querySelector('.comp-mw');
             const searchBtn = div.querySelector('.comp-search');
@@ -777,7 +772,6 @@
             const hydroInput = div.querySelector('.comp-hydro');
             const stockUnitSel = div.querySelector('.comp-stock-unit');
 
-            // Toggle Liquid Mode
             isLiquidChk.addEventListener('change', () => {
                 if(isLiquidChk.checked){
                     mwLabel.textContent = "Stock Conc";
@@ -795,15 +789,10 @@
                 updateRecipe();
             });
 
-            // 1. Datalist selection & Fuzzy Search updates MW
             nameInput.addEventListener('input', (e) => {
                 const val = e.target.value;
                 const valLower = val.toLowerCase();
-
-                // 1. Try exact match first
                 let match = CONSTANTS.chemicals.find(c => c.name === val);
-
-                // 2. Try fuzzy / synonym match if no exact match
                 if (!match && val.length > 1) {
                      match = CONSTANTS.chemicals.find(c => {
                          if (c.name.toLowerCase() === valLower) return true;
@@ -811,30 +800,21 @@
                          return false;
                      });
                 }
-
                 if(match) {
                     mwInput.value = match.mw;
                     updateRecipe();
                 }
             });
 
-            // Handle "Enter" on name input to trigger fetch if no match
             nameInput.addEventListener('keydown', (e) => {
                 if(e.key === 'Enter'){
                     const val = nameInput.value;
                     const match = CONSTANTS.chemicals.find(c => c.name.toLowerCase() === val.toLowerCase() || (c.synonyms && c.synonyms.some(s => s.toLowerCase() === val.toLowerCase())));
-                    if(!match) {
-                        searchBtn.click(); // Trigger fetch
-                    } else {
-                        // Found locally, maybe update name to canonical if needed
-                        nameInput.value = match.name;
-                        mwInput.value = match.mw;
-                        updateRecipe();
-                    }
+                    if(!match) searchBtn.click();
+                    else { nameInput.value = match.name; mwInput.value = match.mw; updateRecipe(); }
                 }
             });
 
-            // 2. PubChem Fetch
             searchBtn.addEventListener('click', async () => {
                  const name = nameInput.value.trim();
                  if(!name) return;
@@ -843,45 +823,24 @@
                  searchBtn.disabled = true;
                  try {
                      const resp = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/MolecularWeight/JSON`);
-                     if(!resp.ok) {
-                         if(resp.status === 404) throw new Error('Molecule not found');
-                         throw new Error(`API Error (${resp.status})`);
-                     }
+                     if(!resp.ok) throw new Error(resp.status === 404 ? 'Not found' : 'API Error');
                      const data = await resp.json();
                      if(data.PropertyTable && data.PropertyTable.Properties.length > 0){
-                         const mw = data.PropertyTable.Properties[0].MolecularWeight;
-                         mwInput.value = mw;
-                         // If we found a MW, ensure we are in Solid mode (or just update the field, user can switch)
-                         // But if user was in Liq mode, this MW is "Stock Conc" which is wrong.
-                         // So force Solid mode?
-                         if(isLiquidChk.checked) {
-                             isLiquidChk.checked = false;
-                             isLiquidChk.dispatchEvent(new Event('change'));
-                         }
+                         mwInput.value = data.PropertyTable.Properties[0].MolecularWeight;
+                         if(isLiquidChk.checked) { isLiquidChk.checked = false; isLiquidChk.dispatchEvent(new Event('change')); }
                          updateRecipe();
                          searchBtn.textContent = '✅';
                          setTimeout(() => searchBtn.textContent = originalText, 1500);
-                     } else {
-                         throw new Error('No properties found');
-                     }
+                     } else throw new Error('No properties');
                  } catch(err) {
                      console.error(err);
                      searchBtn.textContent = '❌';
-                     searchBtn.title = err.message;
-                     setTimeout(() => {
-                         searchBtn.textContent = originalText;
-                         searchBtn.title = "Fetch MW from PubChem";
-                     }, 1500);
-                     // Optional: Alert user only if explicit click?
-                     // alert('PubChem Error: ' + err.message);
-                 } finally {
-                     searchBtn.disabled = false;
-                 }
+                     setTimeout(() => searchBtn.textContent = originalText, 1500);
+                 } finally { searchBtn.disabled = false; }
             });
 
             div.querySelector('.remove-row').addEventListener('click', () => { div.remove(); updateRecipe(); });
             div.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateRecipe));
-
             return div;
         }
 
@@ -897,7 +856,7 @@
 
             bufferRows.querySelectorAll('div.grid').forEach(row => {
                 const name = row.querySelector('.comp-name').value || "Unknown";
-                const valInput = parseFloat(row.querySelector('.comp-mw').value) || 0; // MW or Stock Conc
+                const valInput = parseFloat(row.querySelector('.comp-mw').value) || 0;
                 const hydroN = parseFloat(row.querySelector('.comp-hydro').value) || 0;
                 const conc = parseFloat(row.querySelector('.comp-conc').value);
                 const unit = row.querySelector('.comp-unit').value;
@@ -905,50 +864,25 @@
 
                 if(valInput > 0 && conc > 0){
                     hasComp = true;
-
                     if(isLiquid){
-                        // Liquid Stock Logic
                         const stockVal = valInput;
                         const stockUnit = row.querySelector('.comp-stock-unit').value;
+                        let volNeededL = 0; let valid = false;
 
-                        let volNeededL = 0;
-                        let valid = false;
-
-                        // Normalize to base unit (M or %) or simple ratio
                         if (stockUnit === 'M' || stockUnit === 'mM') {
                             const sM = stockUnit === 'M' ? stockVal : stockVal/1000;
-                            let tM = 0;
-                            if(unit === 'M') tM = conc;
-                            else if(unit === 'mM') tM = conc/1000;
-
-                            if(tM > 0) {
-                                volNeededL = (tM * volL) / sM;
-                                valid = true;
-                            }
-                        } else if (stockUnit === '%') {
-                            // If Stock is %, target must be % ideally.
-                            // Or if target is M, we fail?
-                            if (unit === '%') {
-                                // C1V1 = C2V2 => V1 = C2V2/C1
-                                // 50% * V1 = 5% * 1L => V1 = 0.05 * 1 / 0.5 = 0.1
-                                // C is dimensionless ratio here, so just match
-                                volNeededL = (conc * volL) / stockVal;
-                                valid = true;
-                            }
-                            // If user puts 100% Acetic Acid and asks for 50 mM.
-                            // We can't do it without density/MW.
+                            let tM = unit === 'M' ? conc : (unit === 'mM' ? conc/1000 : 0);
+                            if(tM > 0) { volNeededL = (tM * volL) / sM; valid = true; }
+                        } else if (stockUnit === '%' && unit === '%') {
+                            volNeededL = (conc * volL) / stockVal; valid = true;
                         } else if (stockUnit === 'x') {
-                            // e.g. 10x stock. Target is usually 1x?
-                            // If unit is 'x', we assume target is 1x (implied) OR
-                            // the user enters '1' in conc and selects 'x' unit?
-                            // Actually, let's assume if Stock is 'x', the Conc Input is the target 'x'.
-                            // e.g. Stock 10x. Target 1x.
-                            // If user selected 'M' or 'mM' for target, we can't convert.
-                            // But usually 'x' implies "Concentration Factor".
-                            // Let's support: If stock is '10' (unit x), and user wants '1' (unit M? No).
-                            // User should probably select 'x' as target unit too? My target units are M, mM, %.
-                            // Maybe user puts '1' (unit M) but means 1x?
-                            // Let's strictly handle M/mM and % pairs.
+                             // Assuming conc target is "1" for 1x? No, let's treat conc as factor.
+                             // e.g. Stock 10x, Target 1x.
+                             // Input: Conc=1, Unit=x (we don't have x unit in dropdown).
+                             // User usually enters 1 'M' ?? No.
+                             // Fallback: simple dilution C1V1=C2V2.
+                             // If Stock=10, Conc=1.
+                             volNeededL = (conc * volL) / stockVal; valid = true;
                         }
 
                         if(valid){
@@ -957,44 +891,26 @@
                             else if(volNeededL < 0.001) volDisplay = (volNeededL * 1e6).toFixed(1) + ' μL';
                             else if(volNeededL < 1) volDisplay = (volNeededL * 1000).toFixed(1) + ' mL';
                             else volDisplay = volNeededL.toFixed(3) + ' L';
-
-                            html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
-                                <span>${name} (Target: ${conc} ${unit})</span>
-                                <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">Add ${volDisplay} <span class="text-[10px] text-gray-400 font-normal">of ${stockVal}${stockUnit}</span></span>
-                            </li>`;
+                            html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1"><span>${name} (${conc} ${unit})</span><span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">Add ${volDisplay} <span class="text-[10px] text-gray-400 font-normal">of ${stockVal}${stockUnit}</span></span></li>`;
                         } else {
-                            html += `<li class="text-red-400 text-xs">Cannot calc volume for ${name}. Ensure Stock/Target units match type (M/mM or %).</li>`;
+                            html += `<li class="text-red-400 text-xs">Cannot calc volume for ${name}. Check units.</li>`;
                         }
-
                     } else {
-                        // Solid Logic
-                        const baseMw = valInput;
-                        const effMw = baseMw + (hydroN * 18.015);
+                        const effMw = valInput + (hydroN * 18.015);
                         let massG = 0;
+                        if(unit === 'M') massG = conc * volL * effMw;
+                        else if (unit === 'mM') massG = (conc / 1000) * volL * effMw;
+                        else if (unit === '%') massG = (conc / 100) * (volL*1000);
 
-                        if(unit === 'M') {
-                            massG = conc * volL * effMw;
-                        } else if (unit === 'mM') {
-                            massG = (conc / 1000) * volL * effMw;
-                        } else if (unit === '%') {
-                            const volmL = volL * 1000;
-                            massG = (conc / 100) * volmL;
-                        }
-
-                        const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O, MW ${effMw.toFixed(2)})` : '';
+                        const hydroNote = hydroN > 0 ? ` (+${hydroN} H₂O)` : '';
                         const massDisp = massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g';
-
-                        html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1">
-                            <span>${name} (${conc} ${unit})${hydroNote}</span>
-                            <span class="font-mono font-bold">${massDisp}</span>
-                        </li>`;
+                        html += `<li class="flex justify-between border-b border-dotted border-gray-300 dark:border-gray-700 pb-1"><span>${name} (${conc} ${unit})${hydroNote}</span><span class="font-mono font-bold">${massDisp}</span></li>`;
                     }
                 }
             });
 
             if(!hasComp) html += '<li class="italic text-gray-400">Add components above.</li>';
             else html += `<li class="mt-2 text-xs text-gray-500">Fill to ${volVal} ${volUnit} with water.</li>`;
-
             recipeList.innerHTML = html;
         }
 
@@ -1002,289 +918,216 @@
         totalVolIn.addEventListener('input', updateRecipe);
         totalVolUnit.addEventListener('change', updateRecipe);
 
-        // Print Table Logic
-        document.getElementById('btn-print-table').addEventListener('click', () => {
-             // Gather data
-             const volVal = parseFloat(totalVolIn.value) || 0;
-             const volUnit = totalVolUnit.value;
-
-             let rows = [];
+        // JSON Import/Export
+        btnExportJson.addEventListener('click', () => {
+             const data = {
+                 volume: totalVolIn.value,
+                 volUnit: totalVolUnit.value,
+                 components: []
+             };
              bufferRows.querySelectorAll('div.grid').forEach(row => {
-                const name = row.querySelector('.comp-name').value || "Unknown";
-                const valInput = parseFloat(row.querySelector('.comp-mw').value) || 0;
-                const hydroN = parseFloat(row.querySelector('.comp-hydro').value) || 0;
-                const conc = parseFloat(row.querySelector('.comp-conc').value);
-                const unit = row.querySelector('.comp-unit').value;
-                const isLiquid = row.querySelector('.comp-is-liquid').checked;
+                 data.components.push({
+                     name: row.querySelector('.comp-name').value,
+                     mw: row.querySelector('.comp-mw').value,
+                     isLiquid: row.querySelector('.comp-is-liquid').checked,
+                     hydro: row.querySelector('.comp-hydro').value,
+                     conc: row.querySelector('.comp-conc').value,
+                     unit: row.querySelector('.comp-unit').value,
+                     stockUnit: row.querySelector('.comp-stock-unit').value
+                 });
+             });
+             const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+             const url = URL.createObjectURL(blob);
+             const a = document.createElement('a'); a.href = url; a.download = 'buffer_recipe.json';
+             document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        });
 
-                if(valInput > 0 && conc > 0){
-                    let amountStr = '';
-                    let stockStr = '';
-                    let notes = '';
+        btnImportJson.addEventListener('click', () => fileImportJson.click());
+        fileImportJson.addEventListener('change', (e) => {
+             const f = e.target.files[0];
+             if(!f) return;
+             const r = new FileReader();
+             r.onload = (ev) => {
+                 try {
+                     const data = JSON.parse(ev.target.result);
+                     totalVolIn.value = data.volume || 1;
+                     totalVolUnit.value = data.volUnit || 'L';
+                     bufferRows.innerHTML = '';
+                     if(data.components && Array.isArray(data.components)){
+                         data.components.forEach(c => bufferRows.appendChild(createBufferRow(c)));
+                     }
+                     updateRecipe();
+                 } catch(err){ alert("Invalid JSON"); }
+             };
+             r.readAsText(f);
+             e.target.value = '';
+        });
 
-                    // Re-calculate simply for display (logic duplicated from updateRecipe slightly)
-                    // We can scrape the recipe list, but cleaner to recalculate or parse.
-                    // Let's use the inputs to be precise.
+        // Presets
+        const PRESETS = {
+            "PBS_1x": { volume: 1, volUnit: 'L', components: [
+                { name: "NaCl", mw: 58.44, conc: 137, unit: "mM" },
+                { name: "KCl", mw: 74.55, conc: 2.7, unit: "mM" },
+                { name: "Na2HPO4", mw: 141.96, conc: 10, unit: "mM" },
+                { name: "KH2PO4", mw: 136.09, conc: 1.8, unit: "mM" }
+            ]},
+            "PBST_1x": { volume: 1, volUnit: 'L', components: [
+                { name: "NaCl", mw: 58.44, conc: 137, unit: "mM" },
+                { name: "KCl", mw: 74.55, conc: 2.7, unit: "mM" },
+                { name: "Na2HPO4", mw: 141.96, conc: 10, unit: "mM" },
+                { name: "KH2PO4", mw: 136.09, conc: 1.8, unit: "mM" },
+                { name: "Tween 20", mw: 1228, isLiquid: true, conc: 0.1, unit: "%", stockUnit: "%" }
+            ]},
+            "TBS_1x": { volume: 1, volUnit: 'L', components: [
+                { name: "Tris-base", mw: 121.14, conc: 50, unit: "mM" },
+                { name: "NaCl", mw: 58.44, conc: 150, unit: "mM" }
+            ]},
+            "TBST_1x": { volume: 1, volUnit: 'L', components: [
+                { name: "Tris-base", mw: 121.14, conc: 50, unit: "mM" },
+                { name: "NaCl", mw: 58.44, conc: 150, unit: "mM" },
+                { name: "Tween 20", mw: 1228, isLiquid: true, conc: 0.1, unit: "%", stockUnit: "%" }
+            ]},
+            "HBS_1x": { volume: 1, volUnit: 'L', components: [
+                { name: "HEPES", mw: 238.3, conc: 20, unit: "mM" },
+                { name: "NaCl", mw: 58.44, conc: 150, unit: "mM" }
+            ]},
+            "TE_1x": { volume: 1, volUnit: 'L', components: [
+                { name: "Tris-HCl", mw: 157.6, conc: 10, unit: "mM" },
+                { name: "EDTA", mw: 372.24, conc: 1, unit: "mM" }
+            ]},
+            "TAE_1x": { volume: 1, volUnit: 'L', components: [
+                 { name: "Tris-base", mw: 121.14, conc: 40, unit: "mM" },
+                 { name: "Acetic Acid", mw: 60.05, isLiquid: true, conc: 20, unit: "mM", stockUnit: "M" },
+                 { name: "EDTA", mw: 372.24, conc: 1, unit: "mM" }
+            ]}
+        };
 
-                    const volL = volUnit === 'mL' ? volVal / 1000 : volVal;
-
-                    if(isLiquid){
-                         stockStr = valInput + row.querySelector('.comp-stock-unit').value + " (Liq)";
-                         // Calculate volume needed
-                         const stockVal = valInput;
-                         const stockUnit = row.querySelector('.comp-stock-unit').value;
-                         let volNeededL = 0;
-
-                         if (stockUnit === 'M' || stockUnit === 'mM') {
-                            const sM = stockUnit === 'M' ? stockVal : stockVal/1000;
-                            let tM = 0;
-                            if(unit === 'M') tM = conc; else if(unit === 'mM') tM = conc/1000;
-                            if(tM > 0) volNeededL = (tM * volL) / sM;
-                         } else if (stockUnit === '%') {
-                             if(unit === '%') volNeededL = (conc * volL) / stockVal;
-                         }
-
-                         if(volNeededL < 0.000001) amountStr = (volNeededL * 1e9).toFixed(1) + ' nL';
-                         else if(volNeededL < 0.001) amountStr = (volNeededL * 1e6).toFixed(1) + ' μL';
-                         else if(volNeededL < 1) amountStr = (volNeededL * 1000).toFixed(1) + ' mL';
-                         else amountStr = volNeededL.toFixed(3) + ' L';
-
-                    } else {
-                        const baseMw = valInput;
-                        const effMw = baseMw + (hydroN * 18.015);
-                        stockStr = effMw.toFixed(2) + " g/mol";
-                        if(hydroN > 0) notes = `+${hydroN} H₂O`;
-
-                        let massG = 0;
-                        if(unit === 'M') massG = conc * volL * effMw;
-                        else if (unit === 'mM') massG = (conc / 1000) * volL * effMw;
-                        else if (unit === '%') massG = (conc / 100) * (volL*1000);
-
-                        amountStr = massG < 1 ? (massG*1000).toFixed(1)+' mg' : massG.toFixed(3)+' g';
-                    }
-
-                    rows.push({ name, stockStr, target: `${conc} ${unit}`, amountStr, notes });
+        presetSel.addEventListener('change', () => {
+            const p = PRESETS[presetSel.value];
+            if(p){
+                if(confirm("Replace current recipe?")){
+                    bufferRows.innerHTML = '';
+                    totalVolIn.value = p.volume;
+                    totalVolUnit.value = p.volUnit;
+                    p.components.forEach(c => bufferRows.appendChild(createBufferRow(c)));
+                    updateRecipe();
                 }
-             });
-
-             if(rows.length === 0) { alert("Add components first."); return; }
-
-             const win = window.open('', '_blank');
-             const d = new Date().toLocaleDateString();
-
-             win.document.write(`
-                <html>
-                <head>
-                    <title>Buffer Recipe - ${d}</title>
-                    <style>
-                        body { font-family: sans-serif; padding: 2rem; }
-                        h1 { margin-bottom: 0.5rem; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f3f4f6; }
-                        .footer { margin-top: 2rem; font-style: italic; color: #555; }
-                        @media print {
-                            .no-print { display: none; }
-                            body { padding: 0; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <h1>Buffer Recipe</h1>
-                    <p><strong>Date:</strong> ${d}</p>
-                    <p><strong>Final Volume:</strong> ${volVal} ${volUnit}</p>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Component</th>
-                                <th>MW / Stock</th>
-                                <th>Target Conc</th>
-                                <th>Amount to Add</th>
-                                <th>Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rows.map(r => `
-                                <tr>
-                                    <td>${r.name}</td>
-                                    <td>${r.stockStr}</td>
-                                    <td>${r.target}</td>
-                                    <td><strong>${r.amountStr}</strong></td>
-                                    <td>${r.notes}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    <div class="footer">
-                        <p>Instructions: Add components to approx 80% volume, adjust pH if necessary, then fill to ${volVal} ${volUnit}.</p>
-                    </div>
-                    <script>window.print();<\/script>
-                </body>
-                </html>
-             `);
-             win.document.close();
+                presetSel.value = "";
+            }
         });
 
-        // Export Markdown Logic
-        document.getElementById('btn-export-recipe').addEventListener('click', () => {
-             const items = recipeList.querySelectorAll('li');
-             if(items.length === 0 || (items.length===1 && items[0].classList.contains('italic'))) {
-                 alert("Nothing to export.");
-                 return;
-             }
-
-             let md = `## Buffer Recipe\n\n`;
-             items.forEach(li => {
-                 const t = li.innerText.replace(/\n/g, ' ').trim();
-                 // Naive parsing: just list
-                 md += `- ${t}\n`;
-             });
-
-             // Copy to clipboard
-             navigator.clipboard.writeText(md).then(() => {
-                 const btn = document.getElementById('btn-export-recipe');
-                 const old = btn.textContent;
-                 btn.textContent = "✅ Copied!";
-                 setTimeout(() => btn.textContent = old, 2000);
-             }).catch(err => {
-                 console.error(err);
-                 prompt("Copy markdown below:", md);
-             });
-        });
-
-        // Add one empty row initially
+        // Initial Empty Row
         bufferRows.appendChild(createBufferRow());
+
 
         // --- Macromolecule Logic ---
         const pSeq = document.getElementById('macro-prot-seq');
         const pMW = document.getElementById('macro-prot-mw');
-        const pBaseMW = document.getElementById('macro-prot-base-mw'); // Hidden base
+        const pBaseMW = document.getElementById('macro-prot-base-mw');
         const pEps = document.getElementById('macro-prot-eps');
         const pAbsPerc = document.getElementById('macro-prot-abs-percent');
         const pA280 = document.getElementById('macro-prot-a280');
         const pMg = document.getElementById('macro-prot-res-mgml-in');
         const pUm = document.getElementById('macro-prot-res-um');
-        // Extinction Buttons
         const btnEpsRed = document.getElementById('btn-eps-red');
         const btnEpsOx = document.getElementById('btn-eps-ox');
         const valEpsRed = document.getElementById('val-eps-red');
         const valEpsOx = document.getElementById('val-eps-ox');
-        // Mods Inputs
-        const modGlycoN = document.getElementById('mod-glyco-n');
-        const modGlycoType = document.getElementById('mod-glyco-type');
-        const modGlycoMass = document.getElementById('mod-glyco-mass');
-        const modPhosN = document.getElementById('mod-phos-n');
-        const modOtherN = document.getElementById('mod-other-n');
-        const modOtherMass = document.getElementById('mod-other-mass');
+
+        // Mods List
+        const modListContainer = document.getElementById('mod-list-container');
+        const btnAddMod = document.getElementById('btn-add-mod');
         const modTotalDisplay = document.getElementById('mod-total-display');
 
-        // Helper to count Y/W/C
-        function getProteinParams(seq){
-             const s = seq.toUpperCase().replace(/[^A-Z]/g,'');
-             if(!s) return { mw: 0, epsRed: 0, epsOx: 0, cystines: 0 };
+        function createModRow(){
+             const div = document.createElement('div');
+             div.className = "mod-row grid grid-cols-[1.5fr,1fr,1fr,auto] gap-2 items-center";
+             div.innerHTML = `
+                 <select class="mod-type p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                     <option value="custom">Custom</option>
+                     <option value="phos">Phospho (+80)</option>
+                     <option value="glyco-n-high">N-Glyc (HighMan ~1.5k)</option>
+                     <option value="glyco-n-cpx">N-Glyc (Complex ~2.5k)</option>
+                     <option value="glyco-o">O-Glyc (Core1 ~0.37k)</option>
+                 </select>
+                 <input type="number" class="mod-count w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="Count" value="1">
+                 <div class="relative">
+                    <input type="number" step="0.1" class="mod-mass w-full p-1 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="Mass (kDa)">
+                 </div>
+                 <button class="remove-mod text-red-400 hover:text-red-600 px-1">✕</button>
+             `;
 
-             const AA_MW = (CONSTANTS.aminoAcids) || {};
-             let mw = 18.02; // water
-             let Y=0, W=0, C=0;
-             for(let c of s){
-                 mw += (AA_MW[c] || 110.0);
-                 if(c==='Y') Y++;
-                 if(c==='W') W++;
-                 if(c==='C') C++;
-             }
-             // Reduced: No Disulfides (C remains C-H)
-             const epsRed = (W * 5500) + (Y * 1490);
-             // Oxidized: Assume all C pairs form S-S. Floor(C/2) * 125 ? Or is the 125 per bond? Yes, 125 M-1 cm-1 per S-S bond.
-             // Actually, usually stated as: e(S-S) approx 125, but some sources say 60 per C?
-             // Standard: "E(Prot) = N(Tyr)*1490 + N(Trp)*5500 + N(Cystine)*125"
-             // Cystine is a pair.
-             const nCystine = Math.floor(C / 2);
-             const epsOx = epsRed + (nCystine * 125);
+             const typeSel = div.querySelector('.mod-type');
+             const massIn = div.querySelector('.mod-mass');
 
-             return { mw: mw / 1000, epsRed, epsOx }; // MW in kDa
+             typeSel.addEventListener('change', () => {
+                 const t = typeSel.value;
+                 if(t === 'phos') massIn.value = 0.08;
+                 else if(t === 'glyco-n-high') massIn.value = 1.5;
+                 else if(t === 'glyco-n-cpx') massIn.value = 2.5;
+                 else if(t === 'glyco-o') massIn.value = 0.365;
+                 updateMods();
+             });
+
+             div.querySelectorAll('input').forEach(i => i.addEventListener('input', updateMods));
+             div.querySelector('.remove-mod').addEventListener('click', () => { div.remove(); updateMods(); });
+
+             return div;
         }
 
-        // Logic for Mod Mass
+        btnAddMod.addEventListener('click', () => { modListContainer.appendChild(createModRow()); updateMods(); });
+
         function updateMods(){
-             // Base MW should be available
              const base = parseFloat(pBaseMW.value) || 0;
-             if(base <= 0) return; // Wait for base
+             let addedMass = 0;
 
-             // Glyco
-             const nG = parseFloat(modGlycoN.value) || 0;
-             const mG = parseFloat(modGlycoMass.value) || 0;
+             modListContainer.querySelectorAll('.mod-row').forEach(row => {
+                 const count = parseFloat(row.querySelector('.mod-count').value) || 0;
+                 const mass = parseFloat(row.querySelector('.mod-mass').value) || 0;
+                 addedMass += count * mass;
+             });
 
-             // Phos
-             const nP = parseFloat(modPhosN.value) || 0;
-             const mP = (CONSTANTS.modifications && CONSTANTS.modifications.phosphorylation) ? (CONSTANTS.modifications.phosphorylation/1000) : 0.08;
-
-             // Other
-             const nO = parseFloat(modOtherN.value) || 0;
-             const mO = parseFloat(modOtherMass.value) || 0;
-
-             const addedMass = (nG * mG) + (nP * mP) + (nO * mO);
-             const totalMW = base + addedMass;
-
-             pMW.value = totalMW.toFixed(2);
+             if(base > 0) {
+                 pMW.value = (base + addedMass).toFixed(2);
+             }
              modTotalDisplay.textContent = `Mods: +${addedMass.toFixed(2)} kDa`;
-
-             // Trigger updates dependent on MW (Abs 0.1%, uM)
              recalE1();
         }
 
-        // Glyco Type change
-        modGlycoType.addEventListener('change', () => {
-             const val = modGlycoType.value;
-             if(val !== 'custom') {
-                 modGlycoMass.value = val;
-                 updateMods();
-             }
-        });
-
-        [modGlycoN, modGlycoMass, modPhosN, modOtherN, modOtherMass].forEach(el => el.addEventListener('input', updateMods));
-
         function updateProtParams(){
-            const vals = getProteinParams(pSeq.value);
-            if(vals.mw > 0.02) {
-                // Set Base MW
-                pBaseMW.value = vals.mw.toFixed(2);
+            const raw = pSeq.value;
+            // Use shared parser
+            const records = PROT_UTILS.parseFastaFlexible(raw);
+            if(records.length > 0 && records[0].seq) {
+                const seq = records[0].seq;
+                const params = PROT_UTILS.getProteinParams(seq);
 
-                // Update Extinction Options
-                valEpsRed.textContent = vals.epsRed;
-                valEpsOx.textContent = vals.epsOx;
+                if(params.mw > 0.02) {
+                    pBaseMW.value = params.mw.toFixed(2);
+                    valEpsRed.textContent = params.epsRed;
+                    valEpsOx.textContent = params.epsOx;
 
-                // Store in buttons
-                btnEpsRed.dataset.val = vals.epsRed;
-                btnEpsOx.dataset.val = vals.epsOx;
+                    btnEpsRed.dataset.val = params.epsRed;
+                    btnEpsOx.dataset.val = params.epsOx;
 
-                // Default to Reduced if not set? Or use previous logic?
-                // Let's set Reduced by default if empty
-                if(!pEps.value) pEps.value = vals.epsRed;
-
-                // Update Mods (Calculate total MW)
-                updateMods();
+                    if(!pEps.value || pEps.value == "0") pEps.value = params.epsRed;
+                    updateMods();
+                }
             }
         }
 
+        pSeq.addEventListener('input', updateProtParams);
         btnEpsRed.onclick = () => { if(btnEpsRed.dataset.val) { pEps.value = btnEpsRed.dataset.val; recalE1(); } };
         btnEpsOx.onclick = () => { if(btnEpsOx.dataset.val) { pEps.value = btnEpsOx.dataset.val; recalE1(); } };
 
         function calcProtConcFromA280(){
-            // Driven by A280 input
             const A = parseFloat(pA280.value) || 0;
             const abs1 = parseFloat(pAbsPerc.value);
-
-            // If we have Abs 0.1% (E1%), use it: Conc(mg/ml) = A280 / E1%
             if(abs1 > 0){
                 const mgml = A / abs1;
                 pMg.value = mgml.toFixed(3);
-
-                // Calc uM from mg/ml and MW
                 const mwKDa = parseFloat(pMW.value);
                 if(mwKDa > 0){
-                    // uM = (mg/ml / MW_kDa) * 1000 ? No.
-                    // mg/mL = g/L. M = (g/L) / MW_Da. uM = M * 1e6 = (g/L / MW_Da) * 1e6.
-                    // uM = (mgml / (mwKDa*1000)) * 1e6 = mgml / mwKDa * 1000.
                     const um = (mgml / mwKDa) * 1000;
                     pUm.textContent = um.toFixed(2);
                 }
@@ -1292,28 +1135,19 @@
         }
 
         function calcProtConcFromMg(){
-             // Driven by Conc(mg/ml) input
              const mgml = parseFloat(pMg.value) || 0;
              const abs1 = parseFloat(pAbsPerc.value);
              const mwKDa = parseFloat(pMW.value);
-
-             // Update A280
-             if(abs1 > 0){
-                 pA280.value = (mgml * abs1).toFixed(3);
-             }
-
-             // Update uM
-             if(mwKDa > 0){
+             if(abs1 > 0) pA280.value = (mgml * abs1).toFixed(3);
+             if(mwKDa > 0) {
                  const um = (mgml / mwKDa) * 1000;
                  pUm.textContent = um.toFixed(2);
              }
         }
 
-        pSeq.addEventListener('input', updateProtParams);
         pA280.addEventListener('input', calcProtConcFromA280);
         pMg.addEventListener('input', calcProtConcFromMg);
 
-        // Recalculate Abs1% if Eps or MW is edited manually
         function recalE1(){
              const e = parseFloat(pEps.value);
              const mw = parseFloat(pMW.value);
@@ -1322,7 +1156,6 @@
         }
         pEps.addEventListener('input', recalE1);
         pMW.addEventListener('input', recalE1);
-        // If E1% changed manually, just recalc conc
         pAbsPerc.addEventListener('input', calcProtConcFromA280);
 
 
@@ -1343,19 +1176,17 @@
             let len = parseInt(nLen.value) || 0;
             if(seq.length > 0) {
                 len = seq.length;
-                nLen.value = len; // Auto-update length if seq present
+                nLen.value = len;
             }
 
-            // MW Calculation
             let mw = 0;
             if(len > 0){
-                if(type === 'dsDNA') mw = len * 650; // approx 650 Da/bp (Na salt)
+                if(type === 'dsDNA') mw = len * 650;
                 else if (type === 'ssDNA') mw = len * 330;
                 else if (type === 'ssRNA') mw = len * 340;
             }
             nMww.value = mw > 0 ? mw.toFixed(0) : '';
 
-            // Conc: ng/uL -> nM
             const concNg = parseFloat(nConc.value) || 0;
             if(mw > 0 && concNg > 0){
                 const nm = (concNg * 1e6) / mw;
@@ -1364,23 +1195,16 @@
                 nRes.value = '';
             }
 
-            // Tm Calc (Only if sequence)
             if(seq.length > 0 && (type === 'dsDNA' || type === 'ssDNA')){
                 nTmBox.classList.remove('hidden');
-                // Basic rules
                 let tm = 0;
                 const A = (seq.match(/A/g)||[]).length;
                 const T = (seq.match(/T/g)||[]).length;
                 const G = (seq.match(/G/g)||[]).length;
                 const C = (seq.match(/C/g)||[]).length;
 
-                if(len < 14){
-                    // Wallace rule: 2(A+T) + 4(G+C)
-                    tm = 2*(A+T) + 4*(G+C);
-                } else {
-                    // Approximate: 64.9 + 41*(G+C - 16.4)/(A+T+G+C)
-                    tm = 64.9 + 41 * (G+C - 16.4)/len;
-                }
+                if(len < 14) tm = 2*(A+T) + 4*(G+C);
+                else tm = 64.9 + 41 * (G+C - 16.4)/len;
                 nTm.textContent = tm.toFixed(1);
             } else {
                 nTmBox.classList.add('hidden');
@@ -1393,12 +1217,11 @@
         const cPix = document.getElementById('cryo-pix');
         const cBox = document.getElementById('cryo-box');
         const cBin = document.getElementById('cryo-bin');
-        const cFcBox = document.getElementById('cryo-fc-box'); // Fourier Crop Box
+        const cFcBox = document.getElementById('cryo-fc-box');
         const cTargetRes = document.getElementById('cryo-target-res');
         const cSuggestion = document.getElementById('cryo-box-suggestion');
 
         function isGoodBox(n) {
-             // Must be even. Prefer factors 2, 3, 5, 7.
              if(n % 2 !== 0) return false;
              let x = n;
              [2,3,5,7].forEach(f => { while(x % f === 0) x /= f; });
@@ -1416,32 +1239,19 @@
             const pix = parseFloat(cPix.value) || 0;
             const box = parseFloat(cBox.value) || 0;
             let bin = parseFloat(cBin.value) || 1;
-
-            // Fourier Crop Logic
-            // If FC Box is set, it overrides Binning displayed (effective binning)
-            // Bin = Box / FC_Box
-            // But user might set Bin explicitly.
-            // Let's assume FC Box drives binning if FC Box was the last edited?
-            // Or simpler: Calculate Binned values based on inputs.
-
             const fcBox = parseFloat(cFcBox.value);
 
-            // Raw Stats
             document.getElementById('cryo-res-pix-raw').textContent = pix ? pix.toFixed(3) : '--';
             document.getElementById('cryo-res-nyq-raw').textContent = pix ? (2*pix).toFixed(2) + ' Å' : '--';
             document.getElementById('cryo-res-box-raw').textContent = box ? box : '--';
             document.getElementById('cryo-res-phys-raw').textContent = (pix && box) ? (pix*box).toFixed(1) + ' Å' : '--';
 
-            // Effective Binning
             let effBin = bin;
             let effBox = box / bin;
 
             if(fcBox && box){
-                // If user entered FC Box, effective binning changes
                 effBox = fcBox;
                 effBin = box / fcBox;
-                // Update Bin input to reflect this relationship?
-                // cBin.value = effBin.toFixed(4); // Maybe annoying if typing
             }
 
             if(pix > 0 && effBox > 0){
@@ -1452,7 +1262,6 @@
                 document.getElementById('cryo-res-phys-bin').textContent = (bPix*effBox).toFixed(1) + ' Å';
             }
 
-            // Suggestion
             if(fcBox && !isGoodBox(fcBox)){
                 const better = findNextGoodBox(fcBox);
                 cSuggestion.textContent = `Tip: ${better} is a better box size (FFT friendly). Click to set.`;
@@ -1462,33 +1271,21 @@
             }
         }
 
-        // Handle Target Res Input -> Calculate needed box
         cTargetRes.addEventListener('input', () => {
              const targetNyq = parseFloat(cTargetRes.value);
              const rawPix = parseFloat(cPix.value);
              const rawBox = parseFloat(cBox.value);
 
              if(targetNyq && rawPix && rawBox){
-                 // Target Nyquist = 2 * NewPixelSize
-                 // NewPixelSize = TargetNyq / 2
-                 // NewPixelSize = RawPix * (RawBox / NewBox)
-                 // TargetNyq/2 = RawPix * RawBox / NewBox
-                 // NewBox = (RawPix * RawBox * 2) / TargetNyq
-
                  let reqBox = (rawPix * rawBox * 2) / targetNyq;
-                 // Find nearest good box
                  reqBox = findNextGoodBox(reqBox);
-
-                 // Don't exceed raw box
                  if(reqBox > rawBox) reqBox = rawBox;
-
                  cFcBox.value = reqBox;
                  updateCryo();
              }
         });
 
         cFcBox.addEventListener('input', () => {
-             // Update Bin to match
              const rawBox = parseFloat(cBox.value);
              const fc = parseFloat(cFcBox.value);
              if(rawBox && fc) cBin.value = (rawBox/fc).toFixed(3);
@@ -1496,7 +1293,6 @@
         });
 
         cBin.addEventListener('input', () => {
-             // Update FC Box to match
              const rawBox = parseFloat(cBox.value);
              const b = parseFloat(cBin.value);
              if(rawBox && b) cFcBox.value = Math.round(rawBox/b);
@@ -1512,21 +1308,16 @@
         const dM2 = document.getElementById('util-dil-m2');
         const dV2 = document.getElementById('util-dil-v2');
         const dRes = document.getElementById('util-dil-res');
-        const dSchematic = document.getElementById('sd-schematic');
 
         function calcDilution(){
              const m1 = parseFloat(dM1.value);
              const m2 = parseFloat(dM2.value);
              const v2 = parseFloat(dV2.value);
-
              if(m1 > 0 && m2 > 0 && v2 > 0){
-                 // M1V1 = M2V2 => V1 = (M2*V2)/M1
                  const v1 = (m2 * v2) / m1;
                  dV1.value = v1.toFixed(3);
                  dRes.textContent = `Take ${v1.toFixed(3)} of Stock, add ${(v2-v1).toFixed(3)} diluent.`;
-             } else {
-                 dV1.value = '';
-             }
+             } else dV1.value = '';
         }
         [dM1, dM2, dV2].forEach(el => el.addEventListener('input', calcDilution));
 
@@ -1542,19 +1333,17 @@
         const mMassUnit = document.getElementById('util-mol-mass-unit');
 
         function updateSolverUI(){
-            const target = mSolve.value; // mass, conc, vol, mw
+            const target = mSolve.value;
             [mMw, mVol, mConc, mMass].forEach(el => {
                 el.readOnly = false;
                 el.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-semibold');
                 el.classList.add('bg-white', 'dark:bg-slate-900');
             });
-
             let elTarget;
             if(target === 'mass') elTarget = mMass;
             else if(target === 'conc') elTarget = mConc;
             else if(target === 'vol') elTarget = mVol;
             else if(target === 'mw') elTarget = mMw;
-
             if(elTarget){
                 elTarget.readOnly = true;
                 elTarget.classList.remove('bg-white', 'dark:bg-slate-900');
@@ -1566,38 +1355,31 @@
         function solveMolarity(){
             const target = mSolve.value;
             const mw = parseFloat(mMw.value);
-
-            // Unit Multipliers to Base (g, L, M)
             const units = {
                 'kg': 1000, 'g': 1, 'mg': 1e-3, 'ug': 1e-6, 'ng': 1e-9, 'pg': 1e-12,
                 'L': 1, 'mL': 1e-3, 'uL': 1e-6, 'nL': 1e-9, 'pL': 1e-12,
                 'M': 1, 'mM': 1e-3, 'uM': 1e-6, 'nM': 1e-9, 'pM': 1e-12
             };
-
             const uVol = units[mVolUnit.value];
             const uConc = units[mConcUnit.value];
             const uMass = units[mMassUnit.value];
 
-            // Get base values (or 0)
             const valVol = parseFloat(mVol.value);
             const valConc = parseFloat(mConc.value);
             const valMass = parseFloat(mMass.value);
 
-            // M = mol/L = (g/MW) / L = g / (MW*L)
-            // g = M * MW * L
-
             if(target === 'mass' && mw && valVol && valConc){
-                const baseMass = (valConc * uConc) * (valVol * uVol) * mw; // g
+                const baseMass = (valConc * uConc) * (valVol * uVol) * mw;
                 mMass.value = (baseMass / uMass).toPrecision(4);
             } else if (target === 'conc' && valMass && valVol && mw){
-                const baseMass = valMass * uMass; // g
-                const baseVol = valVol * uVol; // L
-                const baseConc = baseMass / (mw * baseVol); // M
+                const baseMass = valMass * uMass;
+                const baseVol = valVol * uVol;
+                const baseConc = baseMass / (mw * baseVol);
                 mConc.value = (baseConc / uConc).toPrecision(4);
             } else if (target === 'vol' && valMass && valConc && mw){
-                const baseMass = valMass * uMass; // g
-                const baseConc = valConc * uConc; // M
-                const baseVol = baseMass / (baseConc * mw); // L
+                const baseMass = valMass * uMass;
+                const baseConc = valConc * uConc;
+                const baseVol = baseMass / (baseConc * mw);
                 mVol.value = (baseVol / uVol).toPrecision(4);
             } else if (target === 'mw' && valMass && valConc && valVol){
                 const baseMass = valMass * uMass;
@@ -1610,7 +1392,7 @@
         mSolve.addEventListener('change', updateSolverUI);
         [mMw, mVol, mConc, mMass].forEach(el => el.addEventListener('input', solveMolarity));
         [mVolUnit, mConcUnit, mMassUnit].forEach(el => el.addEventListener('change', solveMolarity));
-        updateSolverUI(); // Init
+        updateSolverUI();
 
         // Centrifugation
         const cR = document.getElementById('util-cen-r');
@@ -1621,19 +1403,18 @@
             const r = parseFloat(cR.value);
             const rpm = parseFloat(cRpm.value);
             if(r && rpm){
-                // g = 1.118e-5 * r * rpm^2
                 const g = 1.118e-5 * r * rpm * rpm;
                 cRcf.value = Math.round(g);
+                calcK();
             }
         });
-
         cRcf.addEventListener('input', () => {
             const r = parseFloat(cR.value);
             const g = parseFloat(cRcf.value);
             if(r && g){
-                 // rpm = sqrt( g / (1.118e-5 * r) )
                  const rpm = Math.sqrt( g / (1.118e-5 * r) );
                  cRpm.value = Math.round(rpm);
+                 calcK();
             }
         });
 
@@ -1646,16 +1427,12 @@
             const rpm = parseFloat(cRpm.value);
             const min = parseFloat(cRmin.value);
             const max = parseFloat(cRmax.value);
-
             if(rpm && min && max && max > min){
-                // k = 2.53e11 * ln(max/min) / rpm^2
                 const k = (2.53e11 * Math.log(max/min)) / (rpm * rpm);
                 cK.textContent = Math.round(k);
-            } else {
-                cK.textContent = "--";
-            }
+            } else cK.textContent = "--";
         }
-        [cRmin, cRmax, cRpm].forEach(el => el.addEventListener('input', calcK));
+        [cRmin, cRmax, cR].forEach(el => el.addEventListener('input', calcK));
 
         // --- MASTER MIX LOGIC ---
         const mmRows = document.getElementById('mm-rows');
@@ -1683,57 +1460,35 @@
             const dead = parseFloat(document.getElementById('mm-dead').value) || 0;
             const targetVol = parseFloat(document.getElementById('mm-vol').value) || 0;
 
-            // Calculate Multiplier (N + excess)
             const totalRxns = N * (1 + exc/100);
             document.getElementById('mm-total-n').textContent = totalRxns.toFixed(1);
 
             let currentVol = 0;
             let html = '';
 
-            // Calculate reagents
             mmRows.querySelectorAll('div.flex').forEach(row => {
                 const name = row.querySelector('.mm-name').value;
                 const oneVol = parseFloat(row.querySelector('.mm-one-vol').value) || 0;
-
-                // Dead volume is typically added to the TOTAL master mix volume required.
-                // But reagents are proportional.
-                // Total Vol Required = (TotalRxns * TargetVol) + DeadVol
-                // Reagent_Total = (OneVol / TargetVol) * Total_Vol_Required
-
                 const totalVolReq = (targetVol * totalRxns) + dead;
-
                 const totVol = targetVol > 0 ? (oneVol / targetVol) * totalVolReq : 0;
-
                 currentVol += oneVol;
-
-                html += `<li class="flex justify-between border-b border-dotted border-gray-200 dark:border-gray-700">
-                            <span>${name}</span>
-                            <span>${totVol.toFixed(1)} μL</span>
-                         </li>`;
+                html += `<li class="flex justify-between border-b border-dotted border-gray-200 dark:border-gray-700"><span>${name}</span><span>${totVol.toFixed(1)} μL</span></li>`;
             });
 
-            // Water calculation
             const water = targetVol - currentVol;
             if(water >= 0){
                 const totalVolReq = (targetVol * totalRxns) + dead;
                 const waterTot = targetVol > 0 ? (water / targetVol) * totalVolReq : 0;
-
-                html += `<li class="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
-                            <span>Water</span>
-                            <span>${waterTot.toFixed(1)} μL</span>
-                         </li>`;
+                html += `<li class="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold"><span>Water</span><span>${waterTot.toFixed(1)} μL</span></li>`;
                 if(dead > 0) html += `<li class="text-[10px] text-gray-400 text-right mt-1">Includes ${dead}μL dead vol</li>`;
             } else {
                 html += `<li class="text-red-500 text-xs">Error: Volumes exceed ${targetVol}μL</li>`;
             }
-
             mmResult.innerHTML = html;
         }
 
         inputsMM.forEach(id => document.getElementById(id).addEventListener('input', calcMM));
         mmAdd.addEventListener('click', () => { mmRows.appendChild(createMMRow()); calcMM(); });
-
-        // Init standard MM rows
         mmRows.appendChild(createMMRow("Buffer (10x)", 2));
         mmRows.appendChild(createMMRow("Enzyme", 0.5));
         mmRows.appendChild(createMMRow("Template", 1));
@@ -1747,23 +1502,16 @@
             const v = parseFloat(document.getElementById('as-vol').value);
             const s1 = parseFloat(document.getElementById('as-s1').value);
             const s2 = parseFloat(document.getElementById('as-s2').value);
-            const temp = document.getElementById('as-temp').value; // 20 or 4
+            const temp = document.getElementById('as-temp').value;
 
             if(v && !isNaN(s1) && s2){
-                // Constants for AmmSulf (Gomori)
                 const factor = temp === "20" ? 533 : 516;
-                const expansion = temp === "20" ? 0.3 : 0.27; // approx volume correction
-
-                // Target must be < 100
+                const expansion = temp === "20" ? 0.3 : 0.27;
                 if(s2 >= 100) { document.getElementById('as-result').textContent = "ERR"; return; }
-
                 const numerator = factor * (s2 - s1);
                 const denominator = 100 - (expansion * s2);
-
-                // Result is g/L. Scale to Volume (mL -> L)
                 const gPerL = numerator / denominator;
                 const gFinal = gPerL * (v / 1000);
-
                 document.getElementById('as-result').textContent = gFinal.toFixed(2);
             }
         }
@@ -1771,7 +1519,6 @@
         // --- SERIAL DILUTION LOGIC ---
         const sdIds = ['sd-factor', 'sd-vol'];
         sdIds.forEach(id => document.getElementById(id).addEventListener('input', calcSD));
-
         const sdPrepIds = ['sd-prep-stock-c', 'sd-prep-target-c', 'sd-prep-vol'];
         sdPrepIds.forEach(id => document.getElementById(id).addEventListener('input', calcSDPrep));
 
@@ -1779,12 +1526,9 @@
             const stockC = parseFloat(document.getElementById('sd-prep-stock-c').value);
             const targetC = parseFloat(document.getElementById('sd-prep-target-c').value);
             const targetV = parseFloat(document.getElementById('sd-prep-vol').value);
-
             if(stockC && targetC && targetV && stockC >= targetC){
-                // V_stock = C2 * V2 / C1
                 const vStock = (targetC * targetV) / stockC;
                 const vBuf = targetV - vStock;
-
                 document.getElementById('sd-prep-res-stock').textContent = vStock.toFixed(1) + ' μL';
                 document.getElementById('sd-prep-res-buf').textContent = vBuf.toFixed(1) + ' μL';
             } else {
@@ -1796,16 +1540,10 @@
         function calcSD(){
             const factor = parseFloat(document.getElementById('sd-factor').value);
             const vFinal = parseFloat(document.getElementById('sd-vol').value);
-
             if(factor > 1 && vFinal > 0){
-                // V_transfer = V_final / (Factor - 1)
                 const vTrans = vFinal / (factor - 1);
-                const vDil = vFinal;
-
                 document.getElementById('sd-diluent').textContent = vFinal + " μL";
                 document.getElementById('sd-transfer').textContent = vTrans.toFixed(1) + " μL";
-
-                // Update Schematic
                 drawSDSchematic(vFinal, vTrans, factor);
             }
         }
@@ -1813,16 +1551,10 @@
         function drawSDSchematic(vWell, vTrans, factor){
              const container = document.getElementById('sd-schematic');
              container.innerHTML = '';
-
-             // Draw 4 steps
              for(let i=1; i<=4; i++){
                  const tube = document.createElement('div');
                  tube.className = "flex flex-col items-center min-w-[60px]";
                  const isFirst = i===1;
-
-                 // For first tube, show "Start" or calc from prep?
-                 // Usually user prepares Well 1, then transfers.
-
                  tube.innerHTML = `
                     <div class="mb-1 text-[10px] text-gray-500 font-mono">1:${Math.pow(factor, i-1)}</div>
                     <div class="relative w-10 h-16 border-2 border-gray-300 dark:border-gray-600 rounded-b-lg bg-white dark:bg-slate-800 overflow-hidden">
@@ -1832,18 +1564,15 @@
                         ${isFirst ? 'Start Mix' : '+'+vTrans.toFixed(1)+'μL'}
                     </div>
                  `;
-
                  if(!isFirst){
                      const arrow = document.createElement('div');
                      arrow.className = "mb-8 mx-1 text-gray-400 text-xs font-mono relative";
                      arrow.innerHTML = `<span class="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">${vTrans.toFixed(0)}μL</span>→`;
                      container.appendChild(arrow);
                  }
-
                  container.appendChild(tube);
              }
         }
     }
-
 })();
 </script>

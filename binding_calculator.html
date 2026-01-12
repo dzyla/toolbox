@@ -16,12 +16,29 @@
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+
+    /* Info Icon */
+    .info-icon {
+        cursor: help;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background-color: #e2e8f0;
+        color: #64748b;
+        font-size: 0.75rem;
+        margin-left: 0.25rem;
+        vertical-align: middle;
+    }
+    html.dark .info-icon { background-color: #334155; color: #cbd5e1; }
 </style>
 
 <div class="container mx-auto p-4 md:p-8 max-w-7xl">
   <header class="text-center mb-8">
-    <h1 class="text-4xl font-bold text-gray-900">Binding Equilibrium Calculator</h1>
-    <p class="mt-2 text-lg text-gray-600">Compute equilibrium for two rigorous models and visualize saturation curves.</p>
+    <h1 class="text-4xl font-bold text-gray-900 dark:text-slate-100">Binding Equilibrium Calculator</h1>
+    <p class="mt-2 text-lg text-gray-600 dark:text-gray-400">Compute equilibrium for two rigorous models and visualize saturation curves.</p>
   </header>
 
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -138,7 +155,7 @@
 
       <!-- Analysis Dashboard (Tabs) -->
       <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg min-h-[400px]">
-          <div class="flex border-b border-gray-200 mb-4 overflow-x-auto">
+          <div class="flex border-b border-gray-200 dark:border-slate-700 mb-4 overflow-x-auto">
              <button class="tab-btn active" data-target="tab-status">Status & Species</button>
              <button class="tab-btn" data-target="tab-mix">Recipe & Mix</button>
              <button class="tab-btn" data-target="tab-target">Target Solver</button>
@@ -268,7 +285,10 @@
     <!-- Right Column: Visualization -->
     <div class="lg:col-span-3 space-y-8">
       <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
-        <h2 class="text-2xl font-semibold text-gray-800 dark:text-slate-100">Saturation Binding Curve</h2>
+        <div class="flex items-center gap-2 mb-4">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-slate-100">Saturation Binding Curve</h2>
+            <span class="info-icon" title="A plot showing the fraction of P1 bound as the concentration of P2 increases. Helps determine affinity and cooperativity.">?</span>
+        </div>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Titrate P2 against fixed P1. Click on the curve to update "Protein 2 Total" inputs.
         </p>
@@ -335,13 +355,26 @@
         </div>
 
         <div class="mt-8 border-t dark:border-slate-700 pt-4">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">Species Landscape</h3>
+            <div class="flex items-center gap-2 mb-2">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100">Species Landscape</h3>
+                <span class="info-icon" title="Shows the concentration of each oligomeric state (P1, P1·P2, P1·P2₂, etc.) as P2 concentration increases.">?</span>
+            </div>
             <canvas id="speciesChart"></canvas>
         </div>
 
         <div class="mt-8 border-t dark:border-slate-700 pt-4">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">Hill Plot (Linearization)</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">log(θ/(1-θ)) vs log[L]. Slope ≈ Hill Coefficient.</p>
+            <div class="flex items-center gap-2 mb-2">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100">Hill Plot (Linearization)</h3>
+                <span class="info-icon" title="A log-log plot used to determine cooperativity. The slope of the line equals the Hill coefficient (nH).">?</span>
+            </div>
+            <div class="bg-blue-50 dark:bg-slate-900/50 border border-blue-100 dark:border-slate-700 rounded p-3 mb-2 text-sm text-slate-700 dark:text-slate-300">
+                <p>The Hill plot linearizes binding data to assess cooperativity.</p>
+                <ul class="list-disc list-inside mt-1 ml-1 text-xs">
+                    <li><strong>X-axis:</strong> log([Ligand])</li>
+                    <li><strong>Y-axis:</strong> log(θ / (1 - θ)), where θ is fraction bound.</li>
+                    <li><strong>Slope:</strong> Indicates the Hill Coefficient (n<sub>H</sub>). >1 is positive cooperativity, <1 is negative.</li>
+                </ul>
+            </div>
             <canvas id="hillChart"></canvas>
         </div>
       </div>
@@ -424,20 +457,9 @@
   }
 
   // Unit conversion with Mass support
-  // unit: nM, uM, mM, mg/mL
-  // mw: kDa (g/mol / 1000 -> actually kDa = kg/mol? No. kDa = 1000 Da. 1 Da = 1 g/mol)
-  // 1 M = 1 mol/L = MW g/L = MW mg/mL.
-  // Wait. 1 M of 1000 Da protein. 1 mol = 1000 g. 1000 g/L = 1000 mg/mL.
-  // Correct: Molar (M) = (MassConc (g/L)) / (MW (g/mol)).
-  // mg/mL = g/L.
-  // So Conc (M) = (Conc (mg/mL)) / MW (Da).
-  // Conc (nM) = Conc (M) * 1e9 = (mg/mL / MW) * 1e9.
   function to_nM(v, unit, mw) {
       if (unit === 'mg/mL') {
-          if (!mw || mw <= 0) return 0; // Prevent div/0
-          // nM = (mg/mL / MW_Da) * 1e9
-          // MW input is in kDa. MW_Da = MW_kDa * 1000.
-          // nM = (mg/mL / (MW_kDa * 1000)) * 1e9 = (mg/mL / MW_kDa) * 1e6.
+          if (!mw || mw <= 0) return 0;
           return (v / mw) * 1e6;
       }
       return v * (FACTORS[unit] || 1);
@@ -445,12 +467,6 @@
 
   function from_nM(v_nM, unit, mw) {
       if (unit === 'mg/mL') {
-          // mg/mL = (nM * 1e-9) * MW_Da * 1000 (g->mg is not needed if MW is Da? wait)
-          // mg/mL = g/L.
-          // g/L = mol/L * MW_Da.
-          // mol/L = nM * 1e-9.
-          // g/L = nM * 1e-9 * (mw * 1000).
-          // = nM * mw * 1e-6.
           return v_nM * mw * 1e-6;
       }
       return v_nM / (FACTORS[unit] || 1);
@@ -463,10 +479,8 @@
   // --------------------------------------------------------------------------
   els.tabBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-          // Deactivate all
           els.tabBtns.forEach(b => b.classList.remove('active'));
           els.tabContents.forEach(c => c.classList.remove('active'));
-          // Activate clicked
           btn.classList.add('active');
           const target = document.getElementById(btn.dataset.target);
           if(target) target.classList.add('active');
@@ -479,13 +493,9 @@
   els.massMode.addEventListener('change', () => {
       const isMass = els.massMode.checked;
       const targetUnit = isMass ? 'mg/mL' : 'nM';
-
-      // Update P1/P2/Stock units if they were compatible
-      // We force them to the target unit for convenience
       const selects = [els.p1u, els.p2u, els.p1StockU, els.p2StockU];
       selects.forEach(sel => {
           sel.value = targetUnit;
-          // Trigger change event to update plots/calcs
           sel.dispatchEvent(new Event('change'));
       });
   });
@@ -660,13 +670,6 @@
              let max_sig = (sigMode === 'threshold') ? P1_tot : (n * P1_tot);
              plotted_y = max_sig > 0 ? (100 * signal_val / max_sig) : 0;
         } else {
-             // Convert nM signal back to display units
-             // If signal is bound P2 (linear), it might be better to use P2 units?
-             // But existing code used P1 units (displaying complex conc).
-             // If linear (sum bound P2), it's effectively P2 concentration.
-             // If threshold (P1_n), it's P1 concentration.
-             // Let's stick to P1 units for 'Complex' and P2 units for 'Bound Ligand'?
-             // Current logic uses p1_units.
              plotted_y = from_nM(signal_val, p1_units, getMW('p1'));
         }
 
@@ -705,7 +708,6 @@
 
     if (chartInstance) chartInstance.destroy();
 
-    // Interactive Graph Config
     const isDark = document.documentElement.classList.contains('dark');
     const tickColor = isDark ? '#9ca3af' : '#4b5563';
     const gridColor = isDark ? '#374151' : '#e5e7eb';
@@ -718,16 +720,11 @@
       options: {
         responsive: true, maintainAspectRatio: true,
         onClick: (e, activeEls, chart) => {
-            // Get X value from click
             const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
             const xVal = chart.scales.x.getValueForPixel(canvasPosition.x);
             if (xVal !== null && xVal >= 0) {
-                // Update P2 Input
-                // xVal is in p2_units
                 els.p2.value = xVal.toPrecision(4);
-                // Trigger recalculation (but avoid infinite loop or jitter)
                 debouncedRun();
-                // Optionally visually indicate selection?
             }
         },
         scales: {
@@ -751,7 +748,6 @@
       }
     });
 
-    // Species Chart
     const speciesDatasets = [];
     const colors = ['#9ca3af', '#f87171', '#fbbf24', '#34d399', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6'];
     for (let k = 0; k <= n; k++) {
@@ -787,7 +783,6 @@
 
     lastCurveData = { x: labels, columns: [{ name: mainLabel, data: complexData }] };
 
-    // Update Hill Plot
     let maxSig = 0;
     if(els.yAxisMode.value === 'normalized') maxSig = 100;
     else {
@@ -817,10 +812,23 @@
                 scales: {
                     x: { title: { display: true, text: 'log[L]' } },
                     y: { title: { display: true, text: 'log(θ / 1-θ)' } }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `Slope approx here: ${calculateLocalSlope(hillData, ctx.dataIndex)}`
+                        }
+                    }
                 }
             }
         });
     }
+  }
+
+  function calculateLocalSlope(data, idx){
+      if(idx < 1 || idx >= data.length -1) return "N/A";
+      const p1 = data[idx-1], p2 = data[idx+1];
+      return ((p2.y - p1.y) / (p2.x - p1.x)).toFixed(2);
   }
 
   function freezeReference() {
@@ -871,10 +879,10 @@
       const P2_free = clamp0(P2_tot - n * x);
       const pctP1 = (P1_tot > 0) ? (100 * x / P1_tot) : 0;
       html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1·(P2)<sub>${n}</sub>]</h4><p class="text-xl text-indigo-900">${from_nM(x, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub></h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(P2_free, els.p2u.value, getMW('p2')).toPrecision(6)} ${els.p2u.value}</p></div>
-          <div class="p-3 bg-gray-100 rounded-lg"><h4 class="font-semibold text-gray-800">% of P1 in complex</h4><p class="text-xl text-gray-900">${pctP1.toFixed(2)}%</p></div>
+          <div class="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg"><h4 class="font-semibold text-indigo-800 dark:text-indigo-300">[P1·(P2)<sub>${n}</sub>]</h4><p class="text-xl text-indigo-900 dark:text-indigo-100">${from_nM(x, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"><h4 class="font-semibold text-green-800 dark:text-green-300">[P1]<sub>free</sub></h4><p class="text-xl text-green-900 dark:text-green-100">${from_nM(P1_free, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><h4 class="font-semibold text-blue-800 dark:text-blue-300">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900 dark:text-blue-100">${from_nM(P2_free, els.p2u.value, getMW('p2')).toPrecision(6)} ${els.p2u.value}</p></div>
+          <div class="p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><h4 class="font-semibold text-gray-800 dark:text-gray-300">% of P1 in complex</h4><p class="text-xl text-gray-900 dark:text-gray-100">${pctP1.toFixed(2)}%</p></div>
         </div>`;
       els.results.innerHTML = html;
       renderSpeciesTable(null);
@@ -888,11 +896,11 @@
       const bound_sites = n * theta;
       const P1_free = P1_tot - P1_any;
       html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="p-3 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-800">[P1]<sub>free</sub> (0 bound)</h4><p class="text-xl text-green-900">${from_nM(P1_free, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-blue-50 rounded-lg"><h4 class="font-semibold text-blue-800">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900">${from_nM(L, els.p2u.value, getMW('p2')).toPrecision(6)} ${els.p2u.value}</p></div>
-          <div class="p-3 bg-indigo-50 rounded-lg"><h4 class="font-semibold text-indigo-800">[P1 with ≥1 P2]</h4><p class="text-xl text-indigo-900">${from_nM(P1_any, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-purple-50 rounded-lg"><h4 class="font-semibold text-purple-800">[P1 with n P2]</h4><p class="text-xl text-purple-900">${from_nM(P1_full, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
-          <div class="p-3 bg-amber-50 rounded-lg"><h4 class="font-semibold text-amber-800">Average bound sites per P1</h4><p class="text-xl text-amber-900">${bound_sites.toPrecision(6)} of ${n}</p></div>
+          <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"><h4 class="font-semibold text-green-800 dark:text-green-300">[P1]<sub>free</sub> (0 bound)</h4><p class="text-xl text-green-900 dark:text-green-100">${from_nM(P1_free, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><h4 class="font-semibold text-blue-800 dark:text-blue-300">[P2]<sub>free</sub></h4><p class="text-xl text-blue-900 dark:text-blue-100">${from_nM(L, els.p2u.value, getMW('p2')).toPrecision(6)} ${els.p2u.value}</p></div>
+          <div class="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg"><h4 class="font-semibold text-indigo-800 dark:text-indigo-300">[P1 with ≥1 P2]</h4><p class="text-xl text-indigo-900 dark:text-indigo-100">${from_nM(P1_any, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg"><h4 class="font-semibold text-purple-800 dark:text-purple-300">[P1 with n P2]</h4><p class="text-xl text-purple-900 dark:text-purple-100">${from_nM(P1_full, els.p1u.value, getMW('p1')).toPrecision(6)} ${els.p1u.value}</p></div>
+          <div class="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg"><h4 class="font-semibold text-amber-800 dark:text-amber-300">Average bound sites per P1</h4><p class="text-xl text-amber-900 dark:text-amber-100">${bound_sites.toPrecision(6)} of ${n}</p></div>
         </div>`;
       els.results.innerHTML = html;
       renderSpeciesTable({ probs, concs });
@@ -911,12 +919,10 @@
     let rows = '';
     for (let k = 0; k < probs.length; k++) {
       const frac = probs[k];
-      const conc_unit = from_nM(concs[k], p1_units, mwP1); // Approx P1 MW for complex P1 units
-      // Calculate Mass Conc (mg/mL) specifically for this complex
-      // Molar conc = concs[k] * 1e-9
+      const conc_unit = from_nM(concs[k], p1_units, mwP1);
       const mw_complex_kDa = mwP1 + k * mwP2;
       const mg_per_ml = (concs[k] * 1e-9) * (mw_complex_kDa * 1000);
-      rows += `<tr class="border-b">
+      rows += `<tr class="border-b dark:border-slate-700">
         <td class="py-1 pr-4"> ${k} </td>
         <td class="py-1 pr-4"> ${(frac*100).toFixed(2)}% </td>
         <td class="py-1 pr-4"> ${conc_unit.toPrecision(6)} ${p1_units} </td>
@@ -1016,46 +1022,32 @@
   }
 
   function generateSerialDilution() {
-      // Inputs
       const start = parseFloat(els.p2Start.value); // Min
       const end = parseFloat(els.p2End.value); // Max
       const unit = els.p2u.value;
       const isLog = els.log.checked;
 
-      // We assume we want to go from End (High) down to Start (Low)
       const high = Math.max(start, end);
       const low = Math.min(start, end);
 
       if (low <= 0) { alert("Serial dilution requires positive concentrations."); return; }
 
-      // Determine dilution factor
-      // Try 2-fold (div by 2), 3-fold, 10-fold?
-      // Heuristic: If range is huge (log scale), use 3-fold or 10-fold.
-      // If range is small (< 10x), maybe 2-fold.
       const ratio = high / low;
       let factor = 2;
       if (ratio > 1000) factor = 10;
       else if (ratio > 50) factor = 3;
 
-      // Or just standard 2-fold
-      // User requested: "e.g., 2-fold or 3-fold".
-      // Let's hardcode 2-fold as it's most common, or provide choices?
-      // I'll stick to a calculated factor to fit ~8-12 points, or default to 2-fold.
-      // Let's just do 2-fold steps until we pass 'low'.
-
       let rows = [];
       let current = high;
       let i = 1;
 
-      // Table Header
       let html = `<table class="min-w-full text-sm text-left">
-        <thead><tr class="border-b font-semibold">
+        <thead><tr class="border-b font-semibold dark:border-slate-700">
             <th class="p-2">Tube</th>
             <th class="p-2">Conc (${unit})</th>
             <th class="p-2">Recipe</th>
         </tr></thead><tbody>`;
 
-      // Tube 1: High
       const P2_stock_nM = to_nM(parseFloat(els.p2Stock.value), els.p2StockU.value, getMW('p2'));
       const P2_high_nM = to_nM(high, unit, getMW('p2'));
 
@@ -1067,16 +1059,13 @@
           else recipe1 = `1 part Stock + ${(dil-1).toFixed(2)} parts Buffer`;
       }
 
-      html += `<tr class="border-b"><td class="p-2">1</td><td class="p-2">${high.toPrecision(4)}</td><td class="p-2">${recipe1}</td></tr>`;
+      html += `<tr class="border-b dark:border-slate-700"><td class="p-2">1</td><td class="p-2">${high.toPrecision(4)}</td><td class="p-2">${recipe1}</td></tr>`;
 
-      // Serial steps (2-fold)
-      // Standard volume: 100 uL transfer? Let's just say "1 vol + 1 vol buffer" for 2-fold.
-
-      while (current / 2 >= low * 0.9) { // Go slightly below low
+      while (current / 2 >= low * 0.9) {
           i++;
           current /= 2;
-          html += `<tr class="border-b"><td class="p-2">${i}</td><td class="p-2">${current.toPrecision(4)}</td><td class="p-2">1 vol Tube ${i-1} + 1 vol Buffer (2-fold)</td></tr>`;
-          if (i > 20) break; // Safety
+          html += `<tr class="border-b dark:border-slate-700"><td class="p-2">${i}</td><td class="p-2">${current.toPrecision(4)}</td><td class="p-2">1 vol Tube ${i-1} + 1 vol Buffer (2-fold)</td></tr>`;
+          if (i > 20) break;
       }
 
       html += `</tbody></table>`;
