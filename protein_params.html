@@ -133,7 +133,7 @@
   </header>
 
   <!-- Input card -->
-  <section class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 card-pad rounded-2xl shadow-sm transition-colors">
+  <section class="bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-gray-200 dark:border-gray-700 card-pad rounded-2xl shadow-sm transition-colors">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
       <div>
         <label for="fasta_input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paste FASTA sequences</label>
@@ -717,46 +717,46 @@ window.initProteinWorkbench = function(){
             <div class="border border-gray-100 rounded-xl p-3 bg-white h-56 overflow-y-auto" id="feature-list-${obj.id}">${buildFeatureListHTML(byLane)}</div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
-            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
+            <div class="bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-gray-700 rounded-xl p-3">
               <div class="grid grid-cols-2 gap-y-1 text-xs">
                 <div>
-                    <strong>Theoretical pI:</strong> <span class="mono" id="pi-val-${obj.id}">${obj.pI.toFixed(2)}</span>
-                    <select class="text-[10px] border rounded ml-1" id="pi-algo-${obj.id}" data-id="${obj.id}">
+                    <strong class="dark:text-slate-200">Theoretical pI:</strong> <span class="mono dark:text-slate-300" id="pi-val-${obj.id}">${obj.pI.toFixed(2)}</span>
+                    <select class="text-[10px] border border-gray-300 dark:border-gray-600 rounded ml-1 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100" id="pi-algo-${obj.id}" data-id="${obj.id}">
                         <option value="bjell">Bjellqvist (Expasy)</option>
                         <option value="emboss">EMBOSS</option>
                     </select>
                 </div>
-                <div><strong>Net charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono">${obj.chargeAtPH.toFixed(2)}</span></div>
-                <div><strong>Aliphatic Index:</strong> <span class="mono">${obj.aliphaticIndex.toFixed(2)}</span></div>
-                <div><strong>GRAVY:</strong> <span class="mono">${obj.gravy.toFixed(3)}</span></div>
-                <div class="col-span-2"><strong>Instability:</strong> <span class="mono">${obj.instability.toFixed(2)}</span> ${stabilityText}</div>
-                <div class="col-span-2"><strong>Formula:</strong> <span class="mono text-[10px] break-all">${obj.atomicFormula}</span></div>
-                <div class="col-span-2"><strong>Est. Half-life (${els.halfLifeOrg.value}):</strong> <span class="mono">${obj.halfLife}</span></div>
+                <div><strong class="dark:text-slate-200">Net charge (pH ${Number(els.pH.value).toFixed(1)}):</strong> <span class="mono dark:text-slate-300">${obj.chargeAtPH.toFixed(2)}</span></div>
+                <div><strong class="dark:text-slate-200">Aliphatic Index:</strong> <span class="mono dark:text-slate-300">${obj.aliphaticIndex.toFixed(2)}</span></div>
+                <div><strong class="dark:text-slate-200">GRAVY:</strong> <span class="mono dark:text-slate-300">${obj.gravy.toFixed(3)}</span></div>
+                <div class="col-span-2"><strong class="dark:text-slate-200">Instability:</strong> <span class="mono dark:text-slate-300">${obj.instability.toFixed(2)}</span> ${stabilityText}</div>
+                <div class="col-span-2"><strong class="dark:text-slate-200">Formula:</strong> <span class="mono dark:text-slate-300 text-[10px] break-all">${obj.atomicFormula}</span></div>
+                <div class="col-span-2"><strong class="dark:text-slate-200">Est. Half-life (${els.halfLifeOrg.value}):</strong> <span class="mono dark:text-slate-300">${obj.halfLife}</span></div>
               </div>
-              <div class="mt-2 pt-2 border-t text-xs">
+              <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs">
                 <div class="grid grid-cols-[170px,1fr] gap-y-1 items-center">
-                  <div class="text-gray-500">State</div>
-                  <select id="ext-state-${obj.id}" class="text-xs border rounded p-0.5" data-id="${obj.id}">
+                  <div class="text-gray-500 dark:text-gray-400">State</div>
+                  <select id="ext-state-${obj.id}" class="text-xs border border-gray-300 dark:border-gray-600 rounded p-0.5 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100" data-id="${obj.id}">
                       <option value="unfolded">Unfolded (Edelhoch)</option>
                       <option value="folded">Folded (Guess +5%)</option>
                   </select>
-                  <div class="text-gray-500">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono" id="ext-red-${obj.id}">${obj.extinction.reduced}</div>
-                  <div class="text-gray-500">ε<sub>280</sub> (+cystines)</div><div class="mono" id="ext-cys-${obj.id}">${obj.extinction.cystines}</div>
+                  <div class="text-gray-500 dark:text-gray-400">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono dark:text-slate-300" id="ext-red-${obj.id}">${obj.extinction.reduced}</div>
+                  <div class="text-gray-500 dark:text-gray-400">ε<sub>280</sub> (+cystines)</div><div class="mono dark:text-slate-300" id="ext-cys-${obj.id}">${obj.extinction.cystines}</div>
                 </div>
               </div>
             </div>
-            <div class="bg-white border border-gray-100 rounded-xl p-3">
-              <h4 class="font-semibold text-sm mb-2">A<sub>280</sub> helper</h4>
+            <div class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3">
+              <h4 class="font-semibold text-sm mb-2 dark:text-slate-200">A<sub>280</sub> helper</h4>
               <div class="grid grid-cols-3 gap-2 items-end">
-                <div><label class="block text-xs">Path length (cm)</label><input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border rounded-lg" placeholder="1.0" data-a280-path="${obj.id}"></div>
-                <div><label class="block text-xs">ε<sub>280</sub> type</label><select class="w-full p-2 border rounded-lg" data-a280-eps-type="${obj.id}"><option value="red">Reduced (Y+W)</option><option value="cys" selected>+Cystines (Y+W + Cys pairs)</option></select></div>
-                <div><label class="block text-xs">A<sub>280</sub> (unitless)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="e.g. 0.7" data-a280-A="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">Path length (cm)</label><input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="1.0" data-a280-path="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">ε<sub>280</sub> type</label><select class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" data-a280-eps-type="${obj.id}"><option value="red">Reduced (Y+W)</option><option value="cys" selected>+Cystines</option></select></div>
+                <div><label class="block text-xs dark:text-slate-300">A<sub>280</sub> (unitless)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="e.g. 0.7" data-a280-A="${obj.id}"></div>
               </div>
               <div class="grid grid-cols-2 gap-2 mt-2">
-                <div><label class="block text-xs">Conc. (mg/mL)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-mgml="${obj.id}"></div>
-                <div><label class="block text-xs">Conc. (μM)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border rounded-lg" placeholder="0.0" data-a280-um="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">Conc. (mg/mL)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="0.0" data-a280-mgml="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">Conc. (μM)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="0.0" data-a280-um="${obj.id}"></div>
               </div>
-              <div class="flex items-center gap-2 mt-2"><button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-a280-calc="${obj.id}">Compute</button><div class="text-xs text-gray-700 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div></div>
+              <div class="flex items-center gap-2 mt-2"><button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black border border-transparent" data-a280-calc="${obj.id}">Compute</button><div class="text-xs text-gray-700 dark:text-gray-300 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div></div>
             </div>
           </div>
           <div class="mt-4">
@@ -822,8 +822,8 @@ window.initProteinWorkbench = function(){
     const checksContainer = document.getElementById(`digest-checks-${obj.id}`);
     DEFS.PROTEASES.forEach(p => {
        const lbl = document.createElement('label');
-       lbl.className = "flex items-center gap-1 text-xs bg-white border rounded px-2 py-1 cursor-pointer hover:bg-gray-50";
-       lbl.innerHTML = `<input type="checkbox" value="${p.name}" class="rounded text-indigo-600 focus:ring-indigo-500"> ${p.name}`;
+       lbl.className = "flex items-center gap-1 text-xs bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800";
+       lbl.innerHTML = `<input type="checkbox" value="${p.name}" class="rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 dark:border-gray-600"> ${p.name}`;
        checksContainer.appendChild(lbl);
     });
 
