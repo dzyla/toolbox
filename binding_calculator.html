@@ -142,6 +142,7 @@
              <button class="tab-btn active" data-target="tab-status">Status & Species</button>
              <button class="tab-btn" data-target="tab-mix">Recipe & Mix</button>
              <button class="tab-btn" data-target="tab-target">Target Solver</button>
+             <button class="tab-btn" data-target="tab-ki">Ki (Inhib)</button>
           </div>
 
           <!-- Tab 1: Status & Species -->
@@ -237,6 +238,30 @@
               </div>
               <div id="targetOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
           </div>
+
+          <!-- Tab 4: Ki Calculator -->
+          <div id="tab-ki" class="tab-content space-y-4">
+              <h3 class="text-xl font-semibold">Ki Calculator (Cheng-Prusoff)</h3>
+              <p class="text-sm text-gray-600">Calculate inhibition constant from IC50.</p>
+              <div class="grid grid-cols-1 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">IC50</label>
+                    <input type="number" id="ki_ic50" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g. 50">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">[Ligand] (Substrate/Radioligand)</label>
+                    <input type="number" id="ki_ligand" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g. 10">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kd (of Ligand)</label>
+                    <input type="number" id="ki_kd" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g. 5">
+                  </div>
+                  <div class="pt-2">
+                    <button id="calcKiBtn" class="btn w-full">Calculate Ki</button>
+                  </div>
+              </div>
+              <div id="kiOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
+          </div>
       </div>
     </div>
 
@@ -313,6 +338,12 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-2">Species Landscape</h3>
             <canvas id="speciesChart"></canvas>
         </div>
+
+        <div class="mt-8 border-t pt-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Hill Plot (Linearization)</h3>
+            <p class="text-xs text-gray-500 mb-2">log(θ/(1-θ)) vs log[L]. Slope ≈ Hill Coefficient.</p>
+            <canvas id="hillChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -370,6 +401,13 @@
     yAxisMode: document.getElementById('y_axis_mode'),
     freezeRefBtn: document.getElementById('freezeRefBtn'),
     speciesChartCanvas: document.getElementById('speciesChart'),
+    hillChartCanvas: document.getElementById('hillChart'),
+    // Ki
+    kiIc50: document.getElementById('ki_ic50'),
+    kiLigand: document.getElementById('ki_ligand'),
+    kiKd: document.getElementById('ki_kd'),
+    calcKiBtn: document.getElementById('calcKiBtn'),
+    kiOut: document.getElementById('kiOut'),
     // Dilution
     genDilutionBtn: document.getElementById('genDilutionBtn'),
     dilutionOutput: document.getElementById('dilutionOutput'),
@@ -548,6 +586,7 @@
   // --------------------------------------------------------------------------
   let chartInstance = null;
   let speciesChartInstance = null;
+  let hillChartInstance = null;
   let lastCurveData = null;
   let referenceCurve = null;
 
@@ -727,6 +766,41 @@
     });
 
     lastCurveData = { x: labels, columns: [{ name: mainLabel, data: complexData }] };
+
+    // Update Hill Plot
+    let maxSig = 0;
+    if(els.yAxisMode.value === 'normalized') maxSig = 100;
+    else {
+        const P1_display = from_nM(P1_tot, els.p1u.value, getMW('p1'));
+        if(sigMode === 'threshold') maxSig = P1_display;
+        else maxSig = n * P1_display;
+    }
+
+    if(els.hillChartCanvas) {
+        const hillData = [];
+        for(let i=0; i<labels.length; i++){
+            const L = labels[i];
+            const Y = complexData[i];
+            const theta = maxSig > 0 ? Y / maxSig : 0;
+            if(theta > 0.05 && theta < 0.95){
+                const yHill = Math.log10(theta / (1 - theta));
+                const xHill = Math.log10(L);
+                if(isFinite(yHill) && isFinite(xHill)) hillData.push({x: xHill, y: yHill});
+            }
+        }
+        if(hillChartInstance) hillChartInstance.destroy();
+        hillChartInstance = new Chart(els.hillChartCanvas.getContext('2d'), {
+            type: 'scatter',
+            data: { datasets: [{ label: 'Hill Data', data: hillData, backgroundColor: '#ef4444' }] },
+            options: {
+                responsive: true, maintainAspectRatio: true,
+                scales: {
+                    x: { title: { display: true, text: 'log[L]' } },
+                    y: { title: { display: true, text: 'log(θ / 1-θ)' } }
+                }
+            }
+        });
+    }
   }
 
   function freezeReference() {
@@ -1042,6 +1116,22 @@
   }
 
   const debouncedRun = debounce(runAll, 300);
+
+  // Ki Logic
+  function calcKi() {
+      const ic50 = parseFloat(els.kiIc50.value);
+      const L = parseFloat(els.kiLigand.value);
+      const Kd = parseFloat(els.kiKd.value);
+
+      if(ic50 > 0 && L >= 0 && Kd > 0){
+          // Cheng-Prusoff: Ki = IC50 / (1 + [L]/Kd)
+          const ki = ic50 / (1 + L/Kd);
+          els.kiOut.textContent = `Ki = ${ki.toPrecision(4)} (Units match inputs)`;
+      } else {
+          els.kiOut.textContent = "Enter positive values.";
+      }
+  }
+  els.calcKiBtn.addEventListener('click', calcKi);
 
   // Listeners
   [els.model, els.n, els.kdu].forEach(el => el.addEventListener('change', () => { updateKdLabel(); runAll(); }));

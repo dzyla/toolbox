@@ -26,6 +26,21 @@
           <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         </div>
       </div>
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+        <div>
+          <label for="sim-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Blindness Sim</label>
+          <select id="sim-select" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+            <option value="normal">Normal Vision</option>
+            <option value="protanopia">Protanopia (No Red)</option>
+            <option value="deuteranopia">Deuteranopia (No Green)</option>
+            <option value="tritanopia">Tritanopia (No Blue)</option>
+            <option value="achromatopsia">Achromatopsia (No Color)</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button id="btn-pymol" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors font-medium">Copy for PyMOL</button>
+        </div>
+      </div>
     </div>
 
     <!-- Moved Shade Panel Container Here -->
@@ -47,9 +62,51 @@
 
       const $map = document.getElementById('colormap-select');
       const $count = document.getElementById('color-count');
+      const $sim = document.getElementById('sim-select');
+      const $btnPymol = document.getElementById('btn-pymol');
       const $grid = document.getElementById('palette-display');
       const $panel = document.getElementById('shade-panel-container');
       let activeCard = null;
+
+      // Color Blindness Simulation Matrix (Brettel 1997 / Viénot 1999)
+      // Input RGB, Output RGB. Simple approximate matrix application.
+      function simulateColor(hex, type) {
+          if(type === 'normal') return hex;
+          const rgb = d3.color(hex).rgb();
+          const r = rgb.r, g = rgb.g, b = rgb.b;
+          let R=r, G=g, B=b;
+
+          // Linear RGB (Gamma correction removal not strictly done here for brevity, assuming sRGB ~ Linear for UI visual)
+          // Matrices from standard CVD research
+          if (type === 'protanopia') {
+              // 0.567, 0.433, 0
+              // 0.558, 0.442, 0
+              // 0, 0.242, 0.758
+              R = 0.56667 * r + 0.43333 * g + 0 * b;
+              G = 0.55833 * r + 0.44167 * g + 0 * b;
+              B = 0 * r + 0.24167 * g + 0.75833 * b;
+          } else if (type === 'deuteranopia') {
+              // 0.625, 0.375, 0
+              // 0.7, 0.3, 0
+              // 0, 0.3, 0.7
+              R = 0.625 * r + 0.375 * g + 0 * b;
+              G = 0.7 * r + 0.3 * g + 0 * b;
+              B = 0 * r + 0.3 * g + 0.7 * b;
+          } else if (type === 'tritanopia') {
+              // 0.95, 0.05, 0
+              // 0, 0.433, 0.567
+              // 0, 0.475, 0.525
+              R = 0.95 * r + 0.05 * g + 0 * b;
+              G = 0 * r + 0.43333 * g + 0.56667 * b;
+              B = 0 * r + 0.475 * g + 0.525 * b;
+          } else if (type === 'achromatopsia') {
+              // Monochromacy
+              const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+              R = lum; G = lum; B = lum;
+          }
+
+          return d3.rgb(R, G, B).formatHex();
+      }
 
       function paletteFromSelection() {
         const name = $map.value;
@@ -85,23 +142,50 @@
         $panel.innerHTML = '';
         activeCard = null;
 
-        for (const hex of palette) {
+        const simType = $sim.value;
+
+        for (const originalHex of palette) {
+          const hex = simulateColor(originalHex, simType);
           const card = document.createElement('div');
           // Tailwind classes for card
           card.className = 'flex flex-col h-auto rounded-xl overflow-hidden shadow-md transition-transform hover:-translate-y-1 cursor-pointer bg-transparent';
           card.dataset.color = hex;
+
+          // Show original code but simulated color if simulating
+          const label = simType === 'normal' ? hex : `${hex}*`;
+
           card.innerHTML = `
             <div class="h-24 w-full relative" style="background-color:${hex};"></div>
             <div class="bg-white dark:bg-slate-800 p-3">
-              <p class="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300 m-0">${hex}</p>
+              <p class="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300 m-0">${label}</p>
+              ${simType !== 'normal' ? `<p class="text-[10px] text-gray-400">Orig: ${originalHex}</p>` : ''}
             </div>
           `;
           card.addEventListener('click', () => {
             copy(hex, card.querySelector('div')); // copy logic targets the swatch div
-            showShades(hex, card);
+            showShades(originalHex, card); // Always show shades of the REAL color
           });
           $grid.appendChild(card);
         }
+      }
+
+      function exportPyMOL() {
+          const palette = paletteFromSelection(); // Gets original colors
+          let script = "# PyMOL Colors\n";
+          palette.forEach((hex, i) => {
+              const c = d3.color(hex);
+              // PyMOL RGB is 0.0-1.0
+              const r = (c.r / 255).toFixed(3);
+              const g = (c.g / 255).toFixed(3);
+              const b = (c.b / 255).toFixed(3);
+              script += `set_color color_${i+1}, [${r}, ${g}, ${b}]\n`;
+          });
+
+          copy(script, $btnPymol);
+          // Small visual feedback on button
+          const originalText = $btnPymol.textContent;
+          $btnPymol.textContent = "Copied!";
+          setTimeout(() => $btnPymol.textContent = originalText, 2000);
       }
 
       function vary(baseHex) {
@@ -205,6 +289,8 @@
         }
         $map.addEventListener('change', render);
         $count.addEventListener('change', render);
+        $sim.addEventListener('change', render);
+        $btnPymol.addEventListener('click', exportPyMOL);
         let t; $count.addEventListener('input', () => { clearTimeout(t); t = setTimeout(render, 300); });
         render();
       }

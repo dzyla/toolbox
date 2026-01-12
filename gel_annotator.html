@@ -106,7 +106,7 @@
           <input id="file" type="file" accept="image/*" class="hidden"/>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
-            <button id="fitView" class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Fit Active Gel</button>
+            <button id="fitView" class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Fit Active Gel</button>
             <button id="resetAll" class="btn px-3 py-2 rounded-md bg-rose-800 hover:bg-rose-700">Reset All</button>
         </div>
       </div>
@@ -115,24 +115,26 @@
         <div class="label mb-2">Canvas Size</div>
         <div class="row mt-2">
             <div class="sub">Width (px)</div>
-            <input id="canvasWidth" type="number" value="1280" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-white">
+            <input id="canvasWidth" type="number" value="1280" min="200" step="10" class="w-24 text-sm bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md px-2 py-1 text-slate-900 dark:text-slate-100">
         </div>
         <div class="row mt-2">
             <div class="sub">Height (px)</div>
-            <input id="canvasHeight" type="number" value="900" min="200" step="10" class="w-24 text-sm bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-white">
+            <input id="canvasHeight" type="number" value="900" min="200" step="10" class="w-24 text-sm bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md px-2 py-1 text-slate-900 dark:text-slate-100">
         </div>
       </div>
 
       <div class="section mt-3">
         <div class="label mb-2">2. Tools</div>
         <div class="grid grid-cols-2 gap-2">
-          <button id="toolSelect"   class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700 active">Select <span class="ml-1 kbd">V</span></button>
-          <button id="toolCrop"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Crop <span class="ml-1 kbd">C</span></button>
-          <button id="toolText"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Text <span class="ml-1 kbd">T</span></button>
-          <button id="toolTextarea" class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Text Area</button>
-          <button id="toolRect"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Rectangle</button>
-          <button id="toolLine"     class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Line <span class="ml-1 kbd">L</span></button>
-          <button id="toolArrow"    class="btn btn-toggle px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Arrow <span class="ml-1 kbd">A</span></button>
+          <button id="toolSelect"   class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 active">Select <span class="ml-1 kbd">V</span></button>
+          <button id="toolCrop"     class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Crop <span class="ml-1 kbd">C</span></button>
+          <button id="toolText"     class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Text <span class="ml-1 kbd">T</span></button>
+          <button id="toolTextarea" class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Text Area</button>
+          <button id="toolRect"     class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Rectangle</button>
+          <button id="toolLine"     class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Line <span class="ml-1 kbd">L</span></button>
+          <button id="toolArrow"    class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Arrow <span class="ml-1 kbd">A</span></button>
+          <button id="toolLadder"   class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Ladder</button>
+          <button id="toolDense"    class="btn btn-toggle px-3 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Densitometry</button>
         </div>
         <div class="text-xs text-slate-400 mt-2">
           Shift-click to multi-select. Double-click or press <span class="kbd">Enter</span>/<span class="kbd">F2</span> to edit text.
@@ -168,16 +170,16 @@
       <div class="section mt-3">
         <div class="label">4. Alignment & Distribution</div>
         <div class="grid grid-cols-3 gap-2 mt-2">
-          <button id="alignLeft"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Left</button>
-          <button id="alignHMid"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">H-Center</button>
-          <button id="alignRight"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Right</button>
-          <button id="alignTop"    class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Top</button>
-          <button id="alignVMid"   class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">V-Center</button>
-          <button id="alignBottom" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bottom</button>
+          <button id="alignLeft"   class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Left</button>
+          <button id="alignHMid"   class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">H-Center</button>
+          <button id="alignRight"  class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Right</button>
+          <button id="alignTop"    class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Top</button>
+          <button id="alignVMid"   class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">V-Center</button>
+          <button id="alignBottom" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Bottom</button>
         </div>
         <div class="grid grid-cols-2 gap-2 mt-2">
-          <button id="distH" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Distribute H</button>
-          <button id="distV" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Distribute V</button>
+          <button id="distH" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Distribute H</button>
+          <button id="distV" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Distribute V</button>
         </div>
       </div>
 
@@ -228,9 +230,9 @@
             <div class="row mt-2"><div>Saturation (<span id="satVal">100</span>%)</div><div class="w-40"><input id="saturation" type="range" min="0" max="300" value="100" class="slider"/></div></div>
             <div class="row mt-2"><div>Invert (<span id="invVal">0</span>%)</div><div class="w-40"><input id="invert" type="range" min="0" max="100" value="0" class="slider"/></div></div>
             <div class="grid grid-cols-3 gap-2 mt-3">
-            <button id="autoLevels" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Auto Levels</button>
-            <button id="equalize" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Equalize</button>
-            <button id="resetAdj" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Reset</button>
+            <button id="autoLevels" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Auto Levels</button>
+            <button id="equalize" class="btn btn-toggle px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Equalize</button>
+            <button id="resetAdj" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Reset</button>
             </div>
             <div class="mt-3">
             <div class="sub">Levels: Black / White (<span id="lvlBVal">0</span> / <span id="lvlWVal">255</span>)</div>
@@ -249,8 +251,8 @@
             <div class="label">Image Rotation (Active Gel)</div>
             <div class="row mt-2"><div>Angle (<span id="rotImgVal">0</span>°)</div><div class="w-40"><input id="imgRotation" type="range" min="-180" max="180" step="1" value="0" class="slider"/></div></div>
             <div class="grid grid-cols-2 gap-2 mt-2">
-            <button id="rotLeft90"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">-90°</button>
-            <button id="rotRight90" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">+90°</button>
+            <button id="rotLeft90"  class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">-90°</button>
+            <button id="rotRight90" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">+90°</button>
             </div>
         </div>
       </div>
@@ -260,13 +262,13 @@
         <div class="text-xs text-slate-400">Editing <span id="selCount">0</span> item(s).</div>
 
         <div class="mt-2 grid grid-cols-2 gap-2">
-          <button id="btnGroup" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Group</button>
-          <button id="btnUngroup" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Ungroup</button>
+          <button id="btnGroup" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Group</button>
+          <button id="btnUngroup" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Ungroup</button>
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button id="bringFront" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bring Front</button>
-          <button id="sendBack"  class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Send Back</button>
+          <button id="bringFront" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Bring Front</button>
+          <button id="sendBack"  class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Send Back</button>
         </div>
 
         <div class="mt-3">
@@ -278,9 +280,9 @@
           <div class="sub mb-1">Font Size (<span id="fontVal">16</span> px)</div>
           <input id="propFont" type="range" min="8" max="128" value="16" class="slider">
           <div class="grid grid-cols-3 gap-2 mt-2">
-            <button id="propBold" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Bold</button>
-            <button id="propItalic" class="btn btn-toggle px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Italic</button>
-            <button id="toggleEditor" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Edit Text</button>
+            <button id="propBold" class="btn btn-toggle px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Bold</button>
+            <button id="propItalic" class="btn btn-toggle px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Italic</button>
+            <button id="toggleEditor" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Edit Text</button>
           </div>
         </div>
 
@@ -300,8 +302,13 @@
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button id="btnDuplicate" class="btn px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700">Duplicate</button>
+          <button id="btnDuplicate" class="btn px-2 py-2 rounded-md bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">Duplicate</button>
           <button id="btnDelete" class="btn px-2 py-2 rounded-md bg-rose-600 hover:bg-rose-500">Delete</button>
+        </div>
+
+        <div id="densePanel" class="mt-3 bg-slate-800 p-2 rounded hidden">
+            <div class="text-xs text-slate-400">Integrated Density</div>
+            <div id="denseVal" class="text-lg font-mono text-emerald-400">--</div>
         </div>
 
         <div id="overflowWarn" class="mt-3 text-xs hidden">
@@ -336,6 +343,10 @@
     toolRect: document.getElementById('toolRect'),
     toolLine: document.getElementById('toolLine'),
     toolArrow: document.getElementById('toolArrow'),
+    toolLadder: document.getElementById('toolLadder'),
+    toolDense: document.getElementById('toolDense'),
+    densePanel: document.getElementById('densePanel'),
+    denseVal: document.getElementById('denseVal'),
     snapElements: document.getElementById('snapElements'),
     snapGrid: document.getElementById('snapGrid'),
     gridSize: document.getElementById('gridSize'),
@@ -399,7 +410,7 @@
     status: document.getElementById('status'),
     floatingEditor: document.getElementById('floatingEditor'),
   };
-  const toolButtons = [els.toolSelect, els.toolCrop, els.toolText, els.toolTextarea, els.toolRect, els.toolLine, els.toolArrow];
+  const toolButtons = [els.toolSelect, els.toolCrop, els.toolText, els.toolTextarea, els.toolRect, els.toolLine, els.toolArrow, els.toolLadder, els.toolDense];
 
   // ====== State ======
   let gels = [];
@@ -411,6 +422,7 @@
   let dragging = null;
   let marquee = null;
   let snapGuides = [];
+  let ladderState = null;
   let gridSize = 16;
   let snapThreshold = 6;
   
@@ -572,11 +584,25 @@
   function aabbOfRotatedRect(cx,cy,w,h,rotDeg){ const r=rad(rotDeg); const c=Math.cos(r), s=Math.sin(r); const hw=w/2, hh=h/2; const pts=[{x:-hw,y:-hh},{x:hw,y:-hh},{x:hw,y:hh},{x:-hw,y:hh}].map(p=>({x:cx+p.x*c-p.y*s, y:cy+p.x*s+p.y*c})); const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y); return { x:Math.min(...xs), y:Math.min(...ys), w:Math.max(...xs)-Math.min(...xs), h:Math.max(...ys)-Math.min(...ys) } }
   function getAnnAABB(a){ if(a.type==='line'||a.type==='arrow'){ const minX=Math.min(a.x,a.x2), minY=Math.min(a.y,a.y2); const maxX=Math.max(a.x,a.x2), maxY=Math.max(a.y,a.y2); return { x:minX,y:minY,w:maxX-minX,h:maxY-minY }; } else if(a.type==='group'){ const boxes=a.children.map(ch=>getAnnAABB(worldChild(a,ch))); const minX=Math.min(...boxes.map(b=>b.x)), minY=Math.min(...boxes.map(b=>b.y)); const maxX=Math.max(...boxes.map(b=>b.x+b.w)), maxY=Math.max(...boxes.map(b=>b.y+b.h)); return { x:minX, y:minY, w:maxX-minX, h:maxY-minY }; } else { return aabbOfRotatedRect(a.x,a.y,a.w,a.h,a.rotation); } }
   function worldChild(g,ch){ return { ...ch, x: ch.x+g.x, y: ch.y+g.y, rotation:(ch.rotation||0)+(g.rotation||0) }; }
+
   function drawAnnotation(a){ if(a.type==='group'){ a.children.forEach(ch=>drawAnnotation(worldChild(a,ch))); if(selection.includes(a)){ const bb=getAnnAABB(a); drawBox(bb.x,bb.y,bb.w,bb.h,true); } return; }
     if(a.type==='line'||a.type==='arrow'){ ctx.save(); ctx.globalAlpha=a.opacity; ctx.strokeStyle=a.color; ctx.lineWidth=a.strokeWidth; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x2,a.y2); ctx.stroke(); if(a.type==='arrow'){ const angle=Math.atan2(a.y2-a.y,a.x2-a.x); const size=8+(a.strokeWidth||0); ctx.beginPath(); ctx.moveTo(a.x2,a.y2); ctx.lineTo(a.x2 - size*Math.cos(angle-Math.PI/6), a.y2 - size*Math.sin(angle-Math.PI/6)); ctx.lineTo(a.x2 - size*Math.cos(angle+Math.PI/6), a.y2 - size*Math.sin(angle+Math.PI/6)); ctx.closePath(); ctx.fillStyle=a.color; ctx.fill(); } ctx.restore(); if(selection.includes(a)) drawLineHandles(a); return; }
-    if(a.type==='rect'){ ctx.save(); ctx.globalAlpha=a.opacity; ctx.translate(a.x,a.y); ctx.rotate(rad(a.rotation)); ctx.strokeStyle=a.color; ctx.lineWidth=a.strokeWidth; ctx.strokeRect(-a.w/2,-a.h/2,a.w,a.h); ctx.restore(); if(selection.includes(a)) drawRectHandles(a); return; }
+
+    // Updated rect/dense logic
+    if(a.type==='rect' || a.type==='dense'){
+        ctx.save(); ctx.globalAlpha=a.opacity; ctx.translate(a.x,a.y); ctx.rotate(rad(a.rotation));
+        ctx.strokeStyle=a.color; ctx.lineWidth=a.strokeWidth;
+        if(a.type==='dense') ctx.fillStyle = a.color + '40'; // Transparent fill
+        ctx.beginPath(); ctx.rect(-a.w/2,-a.h/2,a.w,a.h);
+        if(a.type==='dense') ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        if(selection.includes(a)) drawRectHandles(a); return;
+    }
+
     // text & textarea
     ctx.save(); ctx.globalAlpha=a.opacity; ctx.translate(a.x,a.y); ctx.rotate(rad(a.rotation)); ctx.fillStyle=a.color; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`${a.fontItalic?'italic ':''}${a.fontBold?'700':'400'} ${a.fontSize}px Inter`; const lines=String(a.text).split('\n'); const lh=a.fontSize*1.2; let y=-(lines.length-1)*lh/2; lines.forEach(line=>{ ctx.fillText(line,0,y); y+=lh; }); ctx.restore(); if(selection.includes(a)) drawRectHandles(a); }
+
   function drawRectHandles(a){ const bb=getAnnAABB(a); drawBox(bb.x,bb.y,bb.w,bb.h,true); const cx=bb.x+bb.w/2, cy=bb.y; const ry=cy-24; ctx.save(); ctx.strokeStyle='#3b82f6'; ctx.fillStyle='#3b82f6'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx,ry); ctx.stroke(); ctx.beginPath(); ctx.arc(cx,ry,7,0,2*Math.PI); ctx.fill(); ctx.restore(); }
   function drawLineHandles(a){ const bb=getAnnAABB(a); drawBox(bb.x,bb.y,bb.w,bb.h,false); ctx.save(); ctx.fillStyle='#3b82f6'; ctx.strokeStyle='#3b82f6'; ctx.beginPath(); ctx.arc(a.x,a.y,7,0,2*Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(a.x2,a.y2,7,0,2*Math.PI); ctx.fill(); const top={ x:bb.x+bb.w/2, y:bb.y }; const ry=top.y-24; ctx.beginPath(); ctx.moveTo(top.x,top.y); ctx.lineTo(top.x,ry); ctx.stroke(); ctx.beginPath(); ctx.arc(top.x,ry,7,0,2*Math.PI); ctx.fill(); ctx.restore(); }
   function drawBox(x,y,w,h,showCorners){ ctx.save(); ctx.strokeStyle='#3b82f6'; ctx.setLineDash([6,4]); ctx.lineWidth=1; ctx.strokeRect(x,y,w,h); ctx.setLineDash([]); if(showCorners){ const hs=8, corners=[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}]; ctx.fillStyle='#3b82f6'; corners.forEach(c=>ctx.fillRect(c.x-hs/2,c.y-hs/2,hs,hs)); } ctx.restore(); }
@@ -681,7 +707,106 @@
 
   // ====== Selection and transforms ======
   function selectPreserveOrReplace(target, additive, clickedInside){ if(!target){ if(!additive) selection.length=0; updateSelectionPanel(); redraw(); return; } if(clickedInside){ updateSelectionPanel(); redraw(); return; } if(additive){ const i=selection.indexOf(target); if(i>=0) selection.splice(i,1); else selection.push(target); } else { selection=[target]; } updateSelectionPanel(); redraw(); }
-  function updateSelectionPanel(){ const n=selection.length; els.selectionPanel.classList.toggle('hidden', n===0); els.selCount.textContent=n; const hasText=selection.some(a=>a.type==='text'||a.type==='textarea'); const hasShape=selection.some(a=>a.type==='line'||a.type==='arrow'||a.type==='rect'); document.getElementById('textProps').classList.toggle('hidden', !hasText); document.getElementById('shapeProps').classList.toggle('hidden', !hasShape); if(n>0){ const a=selection[0]; els.propColor.value=a.color||'#000000'; els.propOpacity.value=Math.round((a.opacity??1)*100); els.opVal.textContent=els.propOpacity.value; els.propRotation.value=Math.round((a.rotation??0)%360); els.rotVal.textContent=els.propRotation.value; if(hasText){ const t=selection.find(s=>s.type==='text'||s.type==='textarea')||a; els.propFont.value=t.fontSize??16; els.fontVal.textContent=els.propFont.value; els.propBold.classList.toggle('active', !!t.fontBold); els.propItalic.classList.toggle('active', !!t.fontItalic); } if(hasShape){ const s=selection.find(s=>s.type==='line'||s.type==='arrow'||s.type==='rect')||a; els.propStroke.value=s.strokeWidth??2; els.strokeVal.textContent=els.propStroke.value; } } }
+  function updateSelectionPanel(){
+      const n=selection.length;
+      els.selectionPanel.classList.toggle('hidden', n===0);
+      els.selCount.textContent=n;
+      const hasText=selection.some(a=>a.type==='text'||a.type==='textarea');
+      const hasShape=selection.some(a=>a.type==='line'||a.type==='arrow'||a.type==='rect'||a.type==='dense');
+      document.getElementById('textProps').classList.toggle('hidden', !hasText);
+      document.getElementById('shapeProps').classList.toggle('hidden', !hasShape);
+
+      const hasDense = selection.some(a=>a.type==='dense');
+      els.densePanel.classList.toggle('hidden', !hasDense);
+      if(hasDense){
+          const a = selection.find(s=>s.type==='dense');
+          if(activeGel) {
+              const d = calcDensity(a, activeGel);
+              els.denseVal.textContent = d.toLocaleString();
+          } else {
+              els.denseVal.textContent = "No Gel";
+          }
+      }
+
+      if(n>0){
+          const a=selection[0];
+          els.propColor.value=a.color||'#000000';
+          els.propOpacity.value=Math.round((a.opacity??1)*100);
+          els.opVal.textContent=els.propOpacity.value;
+          els.propRotation.value=Math.round((a.rotation??0)%360);
+          els.rotVal.textContent=els.propRotation.value;
+          if(hasText){
+              const t=selection.find(s=>s.type==='text'||s.type==='textarea')||a;
+              els.propFont.value=t.fontSize??16;
+              els.fontVal.textContent=els.propFont.value;
+              els.propBold.classList.toggle('active', !!t.fontBold);
+              els.propItalic.classList.toggle('active', !!t.fontItalic);
+          }
+          if(hasShape){
+              const s=selection.find(s=>s.type==='line'||s.type==='arrow'||s.type==='rect'||s.type==='dense')||a;
+              els.propStroke.value=s.strokeWidth??2;
+              els.strokeVal.textContent=els.propStroke.value;
+          }
+      }
+  }
+
+  function calcDensity(rect, gel){
+      // Map rect to gel coords
+      const gr = getGelDisplayRect(gel);
+      if(!gr) return 0;
+      // Intersection
+      const x = Math.max(rect.x, gr.x);
+      const y = Math.max(rect.y, gr.y);
+      const w = Math.min(rect.x+rect.w, gr.x+gr.w) - x;
+      const h = Math.min(rect.y+rect.h, gr.y+gr.h) - y;
+      if(w<=0 || h<=0) return 0;
+
+      // Transform to source image coords
+      const scale = gel.scale;
+      const sx = (x - gr.x) / scale;
+      const sy = (y - gr.y) / scale;
+      const sw = w / scale;
+      const sh = h / scale;
+
+      try {
+          const data = gel.rotCtx.getImageData(sx, sy, sw, sh).data;
+          let sum = 0;
+          for(let i=0; i<data.length; i+=4){
+              // Invert: 255 - brightness
+              const lum = 0.2126*data[i] + 0.7152*data[i+1] + 0.0722*data[i+2];
+              sum += (255 - lum);
+          }
+          return Math.round(sum);
+      } catch(e) { return 0; }
+  }
+
+  function createLadder(p1, p2){
+      // Ask for MW range
+      const topMW = prompt("Top MW (kDa)?", "250");
+      const botMW = prompt("Bottom MW (kDa)?", "10");
+      if(!topMW || !botMW) return;
+      const t = parseFloat(topMW), b = parseFloat(botMW);
+      if(t<=0 || b<=0 || t<=b) return;
+
+      const steps = [250, 150, 100, 75, 50, 37, 25, 20, 15, 10].filter(m => m <= t && m >= b);
+
+      const logT = Math.log10(t);
+      const logB = Math.log10(b);
+      const distY = p2.y - p1.y;
+      const logRange = logT - logB;
+
+      steps.forEach(mw => {
+          const logM = Math.log10(mw);
+          const frac = (logT - logM) / logRange;
+          const y = p1.y + frac * distY;
+          const x = (p1.x + p2.x) / 2;
+
+          annotations.push(baseAnnotation({ type:'line', x: x-10, y: y, x2: x+10, y2: y, strokeWidth:1, color:'#ef4444' }));
+          annotations.push(baseAnnotation({ type:'text', x: x+25, y: y, text: mw.toString(), fontSize:12, color:'#ef4444' }));
+      });
+      redraw();
+  }
+
   function applyToSelection(fn){ selection.forEach(fn); redraw(); }
   function bringToFront(){ selection.forEach(a=>a.z=zCounter.annotations++); redraw(); }
   function sendToBack(){ selection.forEach(a=>a.z=0); let list=annotations.slice().sort((a,b)=>a.z-b.z); let n=1; list.forEach(a=>a.z=n++); zCounter.annotations=n+1; redraw(); }
@@ -725,8 +850,28 @@
     }
     
     if(tool==='text' || tool==='textarea'){ const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, text: tool==='text'?'Label':'Notes\nWrite here' }); updateTextSize(a); annotations.push(a); selection=[a]; updateSelectionPanel(); openFloatingEditor(a); setTool('select'); return; }
-    if(tool==='rect'){ const a=baseAnnotation({ type:'rect', x:pt.x, y:pt.y, w:120, h:60, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'resize-se', start:pt, last:pt, target:a, rectStart:{x:a.x,y:a.y,w:a.w,h:a.h} }; setTool('select'); redraw(); return; }
+
+    if(tool==='rect' || tool==='dense'){
+        const type = tool === 'dense' ? 'dense' : 'rect';
+        const color = type === 'dense' ? '#10b981' : '#000000';
+        const a=baseAnnotation({ type, x:pt.x, y:pt.y, w:120, h:60, strokeWidth:2, color });
+        if(type==='dense') a.opacity = 0.3;
+        annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'resize-se', start:pt, last:pt, target:a, rectStart:{x:a.x,y:a.y,w:a.w,h:a.h} }; setTool('select'); redraw(); return;
+    }
+
     if(tool==='line' || tool==='arrow'){ const a=baseAnnotation({ type:tool, x:pt.x, y:pt.y, x2:pt.x+1, y2:pt.y+1, strokeWidth:2 }); annotations.push(a); selection=[a]; updateSelectionPanel(); dragging={ mode:'annotation', handle:'p2', start:pt, last:pt, target:a }; setTool('select'); redraw(); return; }
+
+    if(tool==='ladder'){
+        if(!ladderState) {
+            ladderState = { p1: pt };
+            status('Click bottom band');
+        } else {
+            ladderState.p2 = pt;
+            createLadder(ladderState.p1, ladderState.p2);
+            ladderState = null;
+            setTool('select');
+        }
+    }
   });
 
   canvas.addEventListener('dblclick', (e)=>{
@@ -776,7 +921,7 @@
         dragging.last=pt; redraw(); return;
     }
     const a=target; if(!a){ dragging=null; return; }
-    if(handle.startsWith('resize-') && (a.type==='text'||a.type==='textarea'||a.type==='rect')){ const start=rectStart||{x:a.x,y:a.y,w:a.w,h:a.h}; const sign={ 'nw':[-1,-1], 'ne':[1,-1], 'se':[1,1], 'sw':[-1,1] }[handle.split('-')[1]]; const dw=(pt.x-dragging.start.x)*sign[0], dh=(pt.y-dragging.start.y)*sign[1]; a.w=Math.max(16, start.w+dw); a.h=Math.max(16, start.h+dh); redraw(); return; }
+    if(handle.startsWith('resize-') && (a.type==='text'||a.type==='textarea'||a.type==='rect'||a.type==='dense')){ const start=rectStart||{x:a.x,y:a.y,w:a.w,h:a.h}; const sign={ 'nw':[-1,-1], 'ne':[1,-1], 'se':[1,1], 'sw':[-1,1] }[handle.split('-')[1]]; const dw=(pt.x-dragging.start.x)*sign[0], dh=(pt.y-dragging.start.y)*sign[1]; a.w=Math.max(16, start.w+dw); a.h=Math.max(16, start.h+dh); redraw(); return; }
     if(handle==='rotate'){ let cx,cy; if(a.type==='line'||a.type==='arrow'){ cx=(a.x+a.x2)/2; cy=(a.y+a.y2)/2; } else { cx=a.x; cy=a.y; } const ang=Math.atan2(pt.y-cy, pt.x-cx); const deg=(ang*180/Math.PI)+90; if(a.type==='line'||a.type==='arrow'){ const r=rad(deg-90); const len=Math.hypot(a.x2-a.x,a.y2-a.y)/2; a.x=cx-Math.cos(r)*len; a.y=cy-Math.sin(r)*len; a.x2=cx+Math.cos(r)*len; a.y2=cy+Math.sin(r)*len; } else { a.rotation=(deg+360)%360; } dragging.last=pt; redraw(); return; }
     if((handle==='p1'||handle==='p2') && (a.type==='line'||a.type==='arrow')){ if(handle==='p1'){ a.x+=dx; a.y+=dy; } else { a.x2+=dx; a.y2+=dy; } dragging.last=pt; redraw(); return; }
   });
@@ -845,7 +990,7 @@
 
     const url=out.toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download='gel_annotator_export.png'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }
-  function drawExportAnn(sctx,a,ox,oy){ sctx.save(); sctx.globalAlpha=a.opacity??1; if(a.type==='line'||a.type==='arrow'){ sctx.strokeStyle=a.color||'#000'; sctx.lineWidth=a.strokeWidth||2; sctx.lineCap='round'; sctx.beginPath(); sctx.moveTo(a.x+ox,a.y+oy); sctx.lineTo(a.x2+ox,a.y2+oy); sctx.stroke(); if(a.type==='arrow'){ const ang=Math.atan2(a.y2-a.y,a.x2-a.x); const sz=8+(a.strokeWidth||2); sctx.beginPath(); sctx.moveTo(a.x2+ox,a.y2+oy); sctx.lineTo(a.x2+ox - sz*Math.cos(ang-Math.PI/6), a.y2+oy - sz*Math.sin(ang-Math.PI/6)); sctx.lineTo(a.x2+ox - sz*Math.cos(ang+Math.PI/6), a.y2+oy - sz*Math.sin(ang+Math.PI/6)); sctx.closePath(); sctx.fillStyle=a.color||'#000'; sctx.fill(); } } else if(a.type==='rect'){ sctx.translate(a.x+ox,a.y+oy); sctx.rotate(rad(a.rotation||0)); sctx.strokeStyle=a.color||'#000'; sctx.lineWidth=a.strokeWidth||2; sctx.strokeRect(-a.w/2,-a.h/2,a.w,a.h); } else if(a.type==='text'||a.type==='textarea'){ sctx.translate(a.x+ox,a.y+oy); sctx.rotate(rad(a.rotation||0)); sctx.fillStyle=a.color||'#000'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font=`${a.fontItalic?'italic ':''}${a.fontBold?'700':'400'} ${a.fontSize||16}px Inter`; const lines=String(a.text||'').split('\n'); const lh=(a.fontSize||16)*1.2; let y=-(lines.length-1)*lh/2; lines.forEach(line=>{ sctx.fillText(line,0,y); y+=lh; }); } sctx.restore(); }
+  function drawExportAnn(sctx,a,ox,oy){ sctx.save(); sctx.globalAlpha=a.opacity??1; if(a.type==='line'||a.type==='arrow'){ sctx.strokeStyle=a.color||'#000'; sctx.lineWidth=a.strokeWidth||2; sctx.lineCap='round'; sctx.beginPath(); sctx.moveTo(a.x+ox,a.y+oy); sctx.lineTo(a.x2+ox,a.y2+oy); sctx.stroke(); if(a.type==='arrow'){ const ang=Math.atan2(a.y2-a.y,a.x2-a.x); const sz=8+(a.strokeWidth||2); sctx.beginPath(); sctx.moveTo(a.x2+ox,a.y2+oy); sctx.lineTo(a.x2+ox - sz*Math.cos(ang-Math.PI/6), a.y2+oy - sz*Math.sin(ang-Math.PI/6)); sctx.lineTo(a.x2+ox - sz*Math.cos(ang+Math.PI/6), a.y2+oy - sz*Math.sin(ang+Math.PI/6)); sctx.closePath(); sctx.fillStyle=a.color||'#000'; sctx.fill(); } } else if(a.type==='rect' || a.type==='dense'){ sctx.translate(a.x+ox,a.y+oy); sctx.rotate(rad(a.rotation||0)); sctx.strokeStyle=a.color||'#000'; sctx.lineWidth=a.strokeWidth||2; if(a.type==='dense'){ sctx.fillStyle=a.color+'40'; sctx.fillRect(-a.w/2,-a.h/2,a.w,a.h); } sctx.strokeRect(-a.w/2,-a.h/2,a.w,a.h); } else if(a.type==='text'||a.type==='textarea'){ sctx.translate(a.x+ox,a.y+oy); sctx.rotate(rad(a.rotation||0)); sctx.fillStyle=a.color||'#000'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font=`${a.fontItalic?'italic ':''}${a.fontBold?'700':'400'} ${a.fontSize||16}px Inter`; const lines=String(a.text||'').split('\n'); const lh=(a.fontSize||16)*1.2; let y=-(lines.length-1)*lh/2; lines.forEach(line=>{ sctx.fillText(line,0,y); y+=lh; }); } sctx.restore(); }
 
   // ====== Floating text editor ======
   function openFloatingEditor(a){ const ed = els.floatingEditor; const bb = getAnnAABB(a); ed.style.left = (bb.x + bb.w/2) + 'px'; ed.style.top = (bb.y + bb.h/2) + 'px'; ed.style.transform = `translate(-50%,-50%) rotate(${a.rotation||0}deg)`; ed.style.fontSize = a.fontSize + 'px'; ed.style.display = 'block'; ed.value = a.text; ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); const original = a.text; const cleanup = ()=>{ ed.oninput = null; ed.removeEventListener('blur', onBlur); document.removeEventListener('keydown', onKey); }; const onBlur = ()=>{ a.text = ed.value; updateTextSize(a); ed.style.display='none'; cleanup(); redraw(); }; const onKey = (event)=>{ if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); a.text = ed.value; updateTextSize(a); ed.style.display='none'; cleanup(); redraw(); } if(event.key==='Escape'){ event.preventDefault(); a.text = original; updateTextSize(a); ed.style.display='none'; cleanup(); redraw(); } }; ed.oninput = ()=>{ a.text = ed.value; updateTextSize(a); redraw(); }; ed.addEventListener('blur', onBlur); document.addEventListener('keydown', onKey); }
@@ -857,6 +1002,7 @@
   // ====== Wiring ======
   function setBtnTool(btn,name){ btn.addEventListener('click', ()=>setTool(name)); }
   setBtnTool(els.toolSelect,'select'); setBtnTool(els.toolCrop,'crop'); setBtnTool(els.toolText,'text'); setBtnTool(els.toolTextarea,'textarea'); setBtnTool(els.toolRect,'rect'); setBtnTool(els.toolLine,'line'); setBtnTool(els.toolArrow,'arrow');
+  setBtnTool(els.toolLadder, 'ladder'); setBtnTool(els.toolDense, 'dense');
   
   els.addGelBtn.addEventListener('click', () => els.file.click());
   els.file.addEventListener('change', (e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const image=new Image(); image.onload=()=>{ const newGel = createGelObject(image); gels.push(newGel); setActiveGel(newGel); fitToView(newGel, true); status(`Gel loaded: ${image.naturalWidth}×${image.naturalHeight}`); }; image.src=URL.createObjectURL(f); e.target.value = ''; });

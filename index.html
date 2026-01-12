@@ -34,49 +34,7 @@
     html.dark body { color: var(--text-1); }
 
     #topnav { backdrop-filter: blur(8px); }
-    html.dark #topnav { background-color: rgba(2, 6, 23, 0.8) !important; }
-    html.dark footer { background-color: var(--surface-1) !important; color: var(--text-2) !important; }
-
-    html.dark .nav-button { color: var(--text-2); border-color: var(--border-1); }
-    html.dark .nav-button:hover { background-color: var(--muted-1); border-color: var(--text-2); }
-    html.dark .active-nav-button { color: var(--accent-2); border-color: var(--accent-2); background-color: rgba(99,102,241,0.12); }
-
-    html.dark .bg-white        { background-color: var(--surface-1) !important; }
-    html.dark .bg-gray-50      { background-color: var(--surface-2) !important; }
-    html.dark .bg-slate-100    { background-color: var(--surface-2) !important; }
-    html.dark .bg-indigo-50    { background-color: rgba(99,102,241,0.12) !important; }
-
-    html.dark .border-gray-100,
-    html.dark .border-gray-200,
-    html.dark .border-gray-300,
-    html.dark .border-slate-300 { border-color: var(--border-1) !important; }
-
-    html.dark .text-slate-800,
-    html.dark .text-gray-800,
-    html.dark .text-gray-700 { color: var(--text-1) !important; }
-    html.dark .text-gray-600,
-    html.dark .text-gray-500,
-    html.dark .text-slate-500 { color: var(--text-2) !important; }
-    html.dark .text-indigo-700 { color: #c7d2fe !important; }
-
-    html.dark input, html.dark select, html.dark textarea { background-color: var(--surface-1) !important; color: var(--text-1) !important; border-color: var(--border-1) !important; }
-    html.dark input::placeholder, html.dark textarea::placeholder { color: var(--text-2) !important; }
-
-    html.dark .hover\:bg-slate-50:hover,
-    html.dark .bg-slate-50 { background-color: var(--muted-1) !important; }
-
-    html.dark table { color: var(--text-1); }
-    html.dark thead th { color: var(--text-2); }
-
-    html.dark .note { color: var(--text-2) !important; }
-    html.dark .note b { color: var(--text-1) !important; }
-    html.dark .chart-title { color: var(--text-2) !important; }
-
-    html.dark .feature-list-item:hover { background-color: rgba(99,102,241,0.12) !important; }
-    html.dark .feature-list-item.active { background-color: rgba(99,102,241,0.18) !important; outline-color: var(--accent-1) !important; }
-
-    html.dark #svg-tooltip { color: #fff !important; }
-
+    /* html.dark overrides removed to rely on Tailwind classes */
     html.dark ::-webkit-scrollbar{ width:8px; height:8px;}
     html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
     html.dark ::-webkit-scrollbar-thumb{ background:#475569; border-radius:4px;}
@@ -86,20 +44,20 @@
   </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 antialiased transition-colors">
-  <nav id="topnav" class="bg-white/80 shadow-sm sticky top-0 z-20">
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 antialiased transition-colors">
+  <nav id="topnav" class="bg-white/80 dark:bg-slate-900/80 shadow-sm sticky top-0 z-20 border-b border-transparent dark:border-slate-800">
     <div class="container mx-auto px-4 py-2 flex items-center justify-between gap-2 md:gap-4 overflow-hidden">
       <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pb-0 scrollbar-hide mask-fade">
-        <button class="nav-button text-sm px-3 py-1" data-src="protein_params.html">🧬 Protein Workbench</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="bio_bench.html">🧪 Bio-Bench</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="binding_calculator.html">📈 Binding Calculator</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="color_generator.html">🎨 Color Generator</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="text_counter.html">📝 Text Counter</button>
-        <button class="nav-button text-sm px-3 py-1" data-src="text_detector.html">🔎 Text Detector</button>
+        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="protein_params.html">🧬 Protein Workbench</button>
+        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="bio_bench.html">🧪 Bio-Bench</button>
+        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="binding_calculator.html">📈 Binding Calculator</button>
+        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="color_generator.html">🎨 Color Generator</button>
+        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="text_counter.html">📝 Text Counter</button>
+        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="text_detector.html">🔎 Text Detector</button>
       </div>
 
       <button id="theme-toggle"
-              class="nav-button text-sm px-3 py-1 shrink-0"
+              class="nav-button text-sm px-3 py-1 shrink-0 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700"
               type="button"
               aria-pressed="false"
               aria-label="Toggle dark mode"
