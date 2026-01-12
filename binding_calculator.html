@@ -29,63 +29,63 @@
     <div class="lg:col-span-2 space-y-8">
 
       <!-- Collapsible Settings: MW, Temp, Mass Mode -->
-      <details id="settings_panel" class="bg-white rounded-xl shadow-lg group" open>
-        <summary class="p-6 cursor-pointer list-none flex justify-between items-center font-semibold text-gray-800 text-lg border-b border-transparent group-open:border-gray-200 transition-colors">
+      <details id="settings_panel" class="bg-white dark:bg-slate-800 rounded-xl shadow-lg group" open>
+        <summary class="p-6 cursor-pointer list-none flex justify-between items-center font-semibold text-gray-800 dark:text-slate-100 text-lg border-b border-transparent group-open:border-gray-200 dark:group-open:border-slate-700 transition-colors">
             <span>Experimental Settings (MW, Temp)</span>
             <span class="transform group-open:rotate-180 transition-transform">▼</span>
         </summary>
-        <div class="p-6 space-y-4 bg-gray-50 rounded-b-xl">
+        <div class="p-6 space-y-4 bg-gray-50 dark:bg-slate-900/50 rounded-b-xl">
             <div class="flex items-center space-x-2 mb-4">
-                <input type="checkbox" id="mass_mode_toggle" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                <label for="mass_mode_toggle" class="text-sm font-medium text-gray-700">Mass Concentration Mode (Input as mg/mL)</label>
+                <input type="checkbox" id="mass_mode_toggle" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500">
+                <label for="mass_mode_toggle" class="text-sm font-medium text-gray-700 dark:text-gray-300">Mass Concentration Mode (Input as mg/mL)</label>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">P1 MW (kDa)</label>
-                  <input type="number" id="mw_p1" value="150" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">P1 MW (kDa)</label>
+                  <input type="number" id="mw_p1" value="150" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">P2 MW (kDa)</label>
-                  <input type="number" id="mw_p2" value="25" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">P2 MW (kDa)</label>
+                  <input type="number" id="mw_p2" value="25" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Temp (°C)</label>
-                  <input type="number" id="temp_c" value="25" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temp (°C)</label>
+                  <input type="number" id="temp_c" value="25" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
                 </div>
             </div>
-            <button id="deltaGBtn" class="btn-secondary w-full text-xs mt-2">Compute ΔG from Kd</button>
-            <div id="deltaGOut" class="text-xs mono mt-1 text-gray-600"></div>
+            <button id="deltaGBtn" class="btn-secondary w-full text-xs mt-2 dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-600">Compute ΔG from Kd</button>
+            <div id="deltaGOut" class="text-xs mono mt-1 text-gray-600 dark:text-gray-400"></div>
         </div>
       </details>
 
-      <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
-        <h2 class="text-2xl font-semibold text-gray-800 border-b pb-3">Inputs</h2>
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg space-y-4">
+        <h2 class="text-2xl font-semibold text-gray-800 dark:text-slate-100 border-b dark:border-slate-700 pb-3">Inputs</h2>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-          <select id="model" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+          <select id="model" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md">
             <option value="single_step" selected>Single-step n-mer assembly: P1 + n·P2 ⇌ P1·(P2)<sub>n</sub></option>
             <option value="stepwise_identical">Stepwise binding, n identical independent sites on P1</option>
           </select>
-          <p class="text-xs text-gray-500 mt-1">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Choose “single-step” only for true one-step assemblies. Choose “stepwise” for typical multi-site binding.
           </p>
         </div>
 
         <div>
-          <label for="stoichiometry" class="block text-sm font-medium text-gray-700 mb-1">Stoichiometry n (integer)</label>
+          <label for="stoichiometry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stoichiometry n (integer)</label>
           <input type="number" id="stoichiometry" value="1" min="1" step="1"
-                 class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-          <p class="text-xs text-gray-500 mt-1">n is the number of P2 molecules per P1 in the fully bound state.</p>
+                 class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">n is the number of P2 molecules per P1 in the fully bound state.</p>
         </div>
 
         <div>
-          <label for="protein1_conc" class="block text-sm font-medium text-gray-700 mb-1">Protein 1 Total</label>
+          <label for="protein1_conc" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protein 1 Total</label>
           <div class="input-group">
             <input type="number" id="protein1_conc" value="10"
-                   class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md" />
-            <select id="protein1_units" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                   class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md" />
+            <select id="protein1_units" class="px-3 py-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100">
               <option value="nM" selected>nM</option>
               <option value="uM">µM</option>
               <option value="mM">mM</option>
@@ -95,11 +95,11 @@
         </div>
 
         <div>
-          <label for="protein2_conc" class="block text-sm font-medium text-gray-700 mb-1">Protein 2 Total (single point)</label>
+          <label for="protein2_conc" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protein 2 Total (single point)</label>
           <div class="input-group">
             <input type="number" id="protein2_conc" value="50"
-                   class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md" />
-            <select id="protein2_units" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                   class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md" />
+            <select id="protein2_units" class="px-3 py-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100">
               <option value="nM" selected>nM</option>
               <option value="uM">µM</option>
               <option value="mM">mM</option>
@@ -109,35 +109,35 @@
         </div>
 
         <div id="kd_block">
-          <label for="kd" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="kd" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Dissociation Constant <span id="kd_label_span"></span>
           </label>
           <div class="input-group">
             <input type="number" id="kd" value="100"
-                   class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md" />
-            <select id="kd_units" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                   class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md" />
+            <select id="kd_units" class="px-3 py-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100">
               <option value="nM" selected>nM</option>
               <option value="uM">µM</option>
               <option value="mM">mM</option>
             </select>
           </div>
-          <p id="kd_help" class="text-xs text-gray-500 mt-1"></p>
+          <p id="kd_help" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
         </div>
 
         <div id="coop_block" class="hidden">
-            <label for="cooperativity" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="cooperativity" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Cooperativity (α)
             </label>
             <input type="number" id="cooperativity" value="1.0" step="0.1"
-                 class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-            <p class="text-xs text-gray-500 mt-1">α=1: Independent. α&lt;1: Positive cooperativity. α&gt;1: Negative.</p>
+                 class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">α=1: Independent. α&lt;1: Positive cooperativity. α&gt;1: Negative.</p>
         </div>
 
-        <div id="validationMsg" class="text-red-600 text-sm"></div>
+        <div id="validationMsg" class="text-red-600 dark:text-red-400 text-sm"></div>
       </div>
 
       <!-- Analysis Dashboard (Tabs) -->
-      <div class="bg-white p-6 rounded-xl shadow-lg min-h-[400px]">
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg min-h-[400px]">
           <div class="flex border-b border-gray-200 mb-4 overflow-x-auto">
              <button class="tab-btn active" data-target="tab-status">Status & Species</button>
              <button class="tab-btn" data-target="tab-mix">Recipe & Mix</button>
@@ -147,20 +147,20 @@
 
           <!-- Tab 1: Status & Species -->
           <div id="tab-status" class="tab-content active space-y-4">
-              <h3 class="text-xl font-semibold text-gray-800">Equilibrium Results</h3>
+              <h3 class="text-xl font-semibold text-gray-800 dark:text-slate-100">Equilibrium Results</h3>
               <div id="results" class="space-y-4">
-                  <p class="text-gray-500">Results will appear here.</p>
+                  <p class="text-gray-500 dark:text-gray-400">Results will appear here.</p>
               </div>
 
               <div class="mt-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">Species Breakdown (Stepwise)</h3>
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">Species Breakdown (Stepwise)</h3>
                 <div class="flex items-center gap-2 mb-2">
-                  <button id="exportSpeciesCsv" class="btn-secondary text-xs">Export CSV</button>
+                  <button id="exportSpeciesCsv" class="btn-secondary text-xs dark:bg-slate-700 dark:hover:bg-slate-600">Export CSV</button>
                 </div>
                 <div class="overflow-x-auto">
-                  <table class="min-w-full text-sm">
+                  <table class="min-w-full text-sm dark:text-slate-300">
                     <thead>
-                      <tr class="text-left border-b">
+                      <tr class="text-left border-b dark:border-slate-700">
                         <th class="py-2 pr-4">k</th>
                         <th class="py-2 pr-4">Fraction</th>
                         <th class="py-2 pr-4">[P1·(P2)<sub>k</sub>]</th>
@@ -168,7 +168,7 @@
                       </tr>
                     </thead>
                     <tbody id="speciesBody">
-                      <tr><td class="py-1" colspan="4" class="text-gray-500">Run Calculate to populate.</td></tr>
+                      <tr><td class="py-1" colspan="4" class="text-gray-500 dark:text-gray-400">Run Calculate to populate.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -177,14 +177,14 @@
 
           <!-- Tab 2: Mixing Helper -->
           <div id="tab-mix" class="tab-content space-y-4">
-              <h3 class="text-xl font-semibold">Mixing Helper</h3>
-              <p class="text-sm text-gray-600">Prepare the single point defined above.</p>
+              <h3 class="text-xl font-semibold dark:text-slate-100">Mixing Helper</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Prepare the single point defined above.</p>
               <div class="grid grid-cols-1 gap-4">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">P1 Stock</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">P1 Stock</label>
                     <div class="input-group">
-                      <input type="number" id="p1_stock" value="100" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                      <select id="p1_stock_u" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                      <input type="number" id="p1_stock" value="100" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
+                      <select id="p1_stock_u" class="px-3 py-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100">
                         <option value="uM">µM</option>
                         <option value="nM">nM</option>
                         <option value="mM">mM</option>
@@ -193,10 +193,10 @@
                     </div>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">P2 Stock</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">P2 Stock</label>
                     <div class="input-group">
-                      <input type="number" id="p2_stock" value="100" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                      <select id="p2_stock_u" class="px-3 py-2 border-gray-300 rounded-md bg-white">
+                      <input type="number" id="p2_stock" value="100" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
+                      <select id="p2_stock_u" class="px-3 py-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100">
                         <option value="uM">µM</option>
                         <option value="nM">nM</option>
                         <option value="mM">mM</option>
@@ -205,28 +205,28 @@
                     </div>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Final Volume (µL)</label>
-                    <input type="number" id="final_vol" value="50" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Final Volume (µL)</label>
+                    <input type="number" id="final_vol" value="50" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
                   </div>
                   <div class="pt-2">
-                    <button id="mixBtn" class="btn-secondary w-full">Compute Recipe</button>
+                    <button id="mixBtn" class="btn-secondary w-full dark:bg-slate-700 dark:hover:bg-slate-600">Compute Recipe</button>
                   </div>
               </div>
-              <div id="mixOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
+              <div id="mixOut" class="text-sm mono mt-2 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-lg dark:text-slate-300"></div>
           </div>
 
           <!-- Tab 3: Target Solver -->
           <div id="tab-target" class="tab-content space-y-4">
-              <h3 class="text-xl font-semibold">Target Occupancy Solver</h3>
-              <p class="text-sm text-gray-600">Solve for required [P2]<sub>total</sub> to reach X%.</p>
+              <h3 class="text-xl font-semibold dark:text-slate-100">Target Occupancy Solver</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Solve for required [P2]<sub>total</sub> to reach X%.</p>
               <div class="grid grid-cols-1 gap-4">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Target %</label>
-                    <input type="number" id="target_pct" value="90" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target %</label>
+                    <input type="number" id="target_pct" value="90" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Definition</label>
-                    <select id="target_mode" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Definition</label>
+                    <select id="target_mode" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md">
                       <option value="single_complex">Single-step: % of P1 in P1·(P2)<sub>n</sub></option>
                       <option value="any_bound">Stepwise: % P1 with ≥1 P2</option>
                       <option value="fully_bound">Stepwise: % P1 with n P2</option>
@@ -236,75 +236,75 @@
                     <button id="solveTargetBtn" class="btn w-full">Solve</button>
                   </div>
               </div>
-              <div id="targetOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
+              <div id="targetOut" class="text-sm mono mt-2 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-lg dark:text-slate-300"></div>
           </div>
 
           <!-- Tab 4: Ki Calculator -->
           <div id="tab-ki" class="tab-content space-y-4">
-              <h3 class="text-xl font-semibold">Ki Calculator (Cheng-Prusoff)</h3>
-              <p class="text-sm text-gray-600">Calculate inhibition constant from IC50.</p>
+              <h3 class="text-xl font-semibold dark:text-slate-100">Ki Calculator (Cheng-Prusoff)</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Calculate inhibition constant from IC50.</p>
               <div class="grid grid-cols-1 gap-4">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">IC50</label>
-                    <input type="number" id="ki_ic50" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g. 50">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IC50</label>
+                    <input type="number" id="ki_ic50" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md" placeholder="e.g. 50">
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">[Ligand] (Substrate/Radioligand)</label>
-                    <input type="number" id="ki_ligand" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g. 10">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">[Ligand] (Substrate/Radioligand)</label>
+                    <input type="number" id="ki_ligand" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md" placeholder="e.g. 10">
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Kd (of Ligand)</label>
-                    <input type="number" id="ki_kd" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g. 5">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kd (of Ligand)</label>
+                    <input type="number" id="ki_kd" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md" placeholder="e.g. 5">
                   </div>
                   <div class="pt-2">
                     <button id="calcKiBtn" class="btn w-full">Calculate Ki</button>
                   </div>
               </div>
-              <div id="kiOut" class="text-sm mono mt-2 bg-gray-50 p-3 rounded-lg"></div>
+              <div id="kiOut" class="text-sm mono mt-2 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-lg dark:text-slate-300"></div>
           </div>
       </div>
     </div>
 
     <!-- Right Column: Visualization -->
     <div class="lg:col-span-3 space-y-8">
-      <div class="bg-white p-6 rounded-xl shadow-lg">
-        <h2 class="text-2xl font-semibold text-gray-800">Saturation Binding Curve</h2>
-        <p class="text-sm text-gray-500 mb-4">
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+        <h2 class="text-2xl font-semibold text-gray-800 dark:text-slate-100">Saturation Binding Curve</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Titrate P2 against fixed P1. Click on the curve to update "Protein 2 Total" inputs.
         </p>
 
         <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">P2 Titration Start</label>
-            <input type="number" id="p2_start" value="0.1" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">P2 Titration Start</label>
+            <input type="number" id="p2_start" value="0.1" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">P2 Titration End</label>
-            <input type="number" id="p2_end" value="1000" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">P2 Titration End</label>
+            <input type="number" id="p2_end" value="1000" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Number of Points</label>
-            <input type="number" id="plot_points" value="100" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Number of Points</label>
+            <input type="number" id="plot_points" value="100" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-slate-100 rounded-md">
           </div>
           <div class="flex items-end">
             <label class="flex items-center space-x-2 cursor-pointer">
-              <input type="checkbox" id="log_scale" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-              <span class="text-sm font-medium text-gray-700">Logarithmic X‑axis</span>
+              <input type="checkbox" id="log_scale" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Logarithmic X‑axis</span>
             </label>
           </div>
         </div>
 
         <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700">Signal Definition</label>
-                <select id="signal_mode" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Signal Definition</label>
+                <select id="signal_mode" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md bg-white dark:bg-slate-900">
                     <option value="linear" selected>Linear (sum of bound sites)</option>
                     <option value="threshold">Threshold (fully bound only)</option>
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">Y-Axis Display</label>
-                <select id="y_axis_mode" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Y-Axis Display</label>
+                <select id="y_axis_mode" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:text-slate-100 rounded-md bg-white dark:bg-slate-900">
                     <option value="concentration" selected>Molar Concentration</option>
                     <option value="normalized">Normalized Signal (%)</option>
                 </select>
@@ -313,35 +313,35 @@
 
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <button id="freezeRefBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg">Freeze Reference</button>
-          <button id="exportPlotCsv" class="btn-secondary">Export curve (CSV)</button>
-          <button id="savePngBtn" class="btn-secondary">Save chart (PNG)</button>
+          <button id="exportPlotCsv" class="btn-secondary dark:bg-slate-700 dark:hover:bg-slate-600">Export curve (CSV)</button>
+          <button id="savePngBtn" class="btn-secondary dark:bg-slate-700 dark:hover:bg-slate-600">Save chart (PNG)</button>
         </div>
 
         <div class="relative">
             <canvas id="complexFormationChart"></canvas>
-            <div class="absolute top-2 right-2 bg-white/80 p-2 rounded text-xs text-gray-500 pointer-events-none border">
+            <div class="absolute top-2 right-2 bg-white/80 dark:bg-slate-800/80 p-2 rounded text-xs text-gray-500 dark:text-gray-400 pointer-events-none border dark:border-slate-700">
                 Tip: Click curve to set [P2]
             </div>
         </div>
 
         <!-- Serial Dilution Generator -->
-        <div class="mt-6 border-t pt-4">
-            <h3 class="text-lg font-semibold text-gray-800 mb-2">Serial Dilution Planner</h3>
-            <p class="text-sm text-gray-600 mb-2">Generate a pipetting plan covering the chart range.</p>
+        <div class="mt-6 border-t dark:border-slate-700 pt-4">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">Serial Dilution Planner</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Generate a pipetting plan covering the chart range.</p>
             <button id="genDilutionBtn" class="btn w-full sm:w-auto">Generate Pipetting Plan</button>
-            <div id="dilutionOutput" class="mt-4 hidden overflow-x-auto bg-gray-50 rounded-lg p-4">
+            <div id="dilutionOutput" class="mt-4 hidden overflow-x-auto bg-gray-50 dark:bg-slate-900/50 rounded-lg p-4 dark:text-slate-300">
                 <!-- Table injected here -->
             </div>
         </div>
 
-        <div class="mt-8 border-t pt-4">
-            <h3 class="text-lg font-semibold text-gray-800 mb-2">Species Landscape</h3>
+        <div class="mt-8 border-t dark:border-slate-700 pt-4">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">Species Landscape</h3>
             <canvas id="speciesChart"></canvas>
         </div>
 
-        <div class="mt-8 border-t pt-4">
-            <h3 class="text-lg font-semibold text-gray-800 mb-2">Hill Plot (Linearization)</h3>
-            <p class="text-xs text-gray-500 mb-2">log(θ/(1-θ)) vs log[L]. Slope ≈ Hill Coefficient.</p>
+        <div class="mt-8 border-t dark:border-slate-700 pt-4">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">Hill Plot (Linearization)</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">log(θ/(1-θ)) vs log[L]. Slope ≈ Hill Coefficient.</p>
             <canvas id="hillChart"></canvas>
         </div>
       </div>
@@ -706,6 +706,13 @@
     if (chartInstance) chartInstance.destroy();
 
     // Interactive Graph Config
+    const isDark = document.documentElement.classList.contains('dark');
+    const tickColor = isDark ? '#9ca3af' : '#4b5563';
+    const gridColor = isDark ? '#374151' : '#e5e7eb';
+
+    Chart.defaults.color = tickColor;
+    Chart.defaults.borderColor = gridColor;
+
     chartInstance = new Chart(els.chartCanvas.getContext('2d'), {
       type: 'line', data: { labels, datasets },
       options: {
@@ -724,10 +731,23 @@
             }
         },
         scales: {
-          x: { type: els.log.checked ? 'logarithmic' : 'linear', title: { display: true, text: `[P2] (${p2_units})`, font: { size: 14 } } },
-          y: { beginAtZero: true, title: { display: true, text: yLabel, font: { size: 14 } } },
+          x: {
+              type: els.log.checked ? 'logarithmic' : 'linear',
+              title: { display: true, text: `[P2] (${p2_units})`, font: { size: 14 }, color: tickColor },
+              ticks: { color: tickColor },
+              grid: { color: gridColor }
+          },
+          y: {
+              beginAtZero: true,
+              title: { display: true, text: yLabel, font: { size: 14 }, color: tickColor },
+              ticks: { color: tickColor },
+              grid: { color: gridColor }
+          },
         },
-        plugins: { tooltip: { mode: 'index', intersect: false } }
+        plugins: {
+            tooltip: { mode: 'index', intersect: false },
+            legend: { labels: { color: tickColor } }
+        }
       }
     });
 
