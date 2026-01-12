@@ -709,19 +709,15 @@
             div.className = "grid grid-cols-1 md:grid-cols-[2fr,minmax(7rem,auto),1fr,1fr,auto,auto] gap-3 items-end p-3 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-slate-700/50";
             const rowId = Math.random().toString(36).substr(2,9);
 
-            const initialName = data.name || "";
-            const initialMw = data.mw || "";
             const initialIsLiquid = data.isLiquid || false;
-            const initialConc = data.conc || "";
             const initialUnit = data.unit || "mM";
             const initialStockUnit = data.stockUnit || "M";
-            const initialHydro = data.hydro || 0;
 
             div.innerHTML = `
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Component</label>
                    <div class="flex gap-1">
-                       <input type="text" list="chem-datalist" value="${initialName}" class="comp-name w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="Search or type...">
+                       <input type="text" list="chem-datalist" class="comp-name w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="Search or type...">
                        <button class="comp-search text-xs bg-indigo-50 dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded px-2 hover:bg-indigo-100 dark:hover:bg-slate-600 dark:text-slate-100" title="Fetch MW from PubChem">🔍</button>
                    </div>
                 </div>
@@ -734,7 +730,7 @@
                         </div>
                    </div>
                    <div class="flex gap-1">
-                       <input type="number" step="0.01" value="${initialMw}" class="comp-mw w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="${initialIsLiquid ? 'e.g. 5' : '0.00'}">
+                       <input type="number" step="0.01" class="comp-mw w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" placeholder="${initialIsLiquid ? 'e.g. 5' : '0.00'}">
                        <select class="comp-stock-unit ${initialIsLiquid ? '' : 'hidden'} w-16 p-1 border rounded bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-xs text-slate-900 dark:text-slate-100">
                            <option value="M" ${initialStockUnit==='M'?'selected':''}>M</option>
                            <option value="mM" ${initialStockUnit==='mM'?'selected':''}>mM</option>
@@ -745,11 +741,11 @@
                 </div>
                 <div class="w-20">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">+H₂O (n)</label>
-                   <input type="number" step="0.5" min="0" value="${initialHydro}" class="comp-hydro w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" ${initialIsLiquid ? "disabled" : ""}>
+                   <input type="number" step="0.5" min="0" class="comp-hydro w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100" ${initialIsLiquid ? "disabled" : ""}>
                 </div>
                 <div>
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Conc</label>
-                   <input type="number" step="any" value="${initialConc}" class="comp-conc w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
+                   <input type="number" step="any" class="comp-conc w-full p-2 border rounded bg-white text-slate-900 dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-sm dark:text-slate-100">
                 </div>
                 <div class="w-24">
                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit</label>
@@ -761,6 +757,12 @@
                 </div>
                 <button class="remove-row text-red-500 hover:text-red-700 p-2 mb-1" title="Remove">✕</button>
             `;
+
+            // Safe assignment
+            if(data.name) div.querySelector('.comp-name').value = data.name;
+            if(data.mw) div.querySelector('.comp-mw').value = data.mw;
+            if(data.hydro) div.querySelector('.comp-hydro').value = data.hydro;
+            if(data.conc) div.querySelector('.comp-conc').value = data.conc;
 
             const nameInput = div.querySelector('.comp-name');
             const mwInput = div.querySelector('.comp-mw');
