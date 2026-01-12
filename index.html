@@ -9,13 +9,35 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1220">
 
   <script>
-    // Force the config object to exist immediately
+    // Critical: Apply theme immediately to prevent FOUC
+    (function() {
+      try {
+        const saved = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = saved ? (saved === 'dark') : prefersDark;
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = 'dark';
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.style.colorScheme = 'light';
+        }
+      } catch (e) {}
+    })();
+
+    // Force the config object to exist for Tailwind
     window.tailwind = {
       config: {
-        darkMode: 'class', // Critical: disables system preference
+        darkMode: 'class',
         theme: {
           extend: {
-            colors: {}
+            colors: {
+              slate: {
+                850: '#151e2e',
+                900: '#0f172a',
+                950: '#020617',
+              }
+            }
           }
         }
       }
@@ -29,58 +51,90 @@
 
   <style>
     body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans"; scroll-behavior: smooth; }
-    .nav-button { padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; border-radius: 9999px; border: 2px solid #e2e8f0; transition: all .25s ease; color: #475569; cursor: pointer; background: transparent; }
-    .nav-button:hover { background-color: #f1f5f9; border-color: #cbd5e1; }
-    .active-nav-button { color: #4f46e5; border-color: #6366f1; background-color: #eef2ff; }
-    main { min-height: calc(100vh - 80px); }
 
-    :root { --bg-0:#f1f5f9; --text-1:#0f172a; --text-2:#334155; }
-    html.dark {
-      color-scheme: dark;
-      --bg-0:#0b1220; --surface-1:#0f172a; --surface-2:#111827; --border-1:#334155; --text-1:#e5e7eb; --text-2:#94a3b8; --muted-1:#1f2937; --accent-1:#a5b4fc; --accent-2:#6366f1;
+    /* Navigation Button Styles */
+    .nav-button {
+      padding: .6rem 1.25rem;
+      font-size: .95rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      transition: all .2s ease;
+      color: #64748b;
+      cursor: pointer;
+      background: transparent;
+      white-space: nowrap;
+    }
+    .nav-button:hover {
+      background-color: #f1f5f9;
+      color: #334155;
+    }
+    .active-nav-button {
+      color: #4f46e5;
+      background-color: #eef2ff;
+      border-color: #c7d2fe;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
 
-    /* body { background-color: var(--bg-0); } */
-    /* html.dark body { color: var(--text-1); } */
+    /* Dark Mode Overrides */
+    html.dark .nav-button { color: #94a3b8; }
+    html.dark .nav-button:hover { background-color: #1e293b; color: #e2e8f0; }
+    html.dark .active-nav-button {
+      color: #818cf8;
+      background-color: #1e1b4b; /* Indigo 950 approx */
+      border-color: #4338ca;
+    }
 
-    #topnav { backdrop-filter: blur(8px); }
-    /* html.dark overrides removed to rely on Tailwind classes */
-    html.dark ::-webkit-scrollbar{ width:8px; height:8px;}
-    html.dark ::-webkit-scrollbar-track{ background: #0b1220; }
-    html.dark ::-webkit-scrollbar-thumb{ background:#475569; border-radius:4px;}
+    /* Main Content Area */
+    main { min-height: calc(100vh - 80px); }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar{ width:8px; height:8px;}
+    ::-webkit-scrollbar-track{ background:transparent;}
+    ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
+    ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
+
+    html.dark ::-webkit-scrollbar-thumb{ background:#475569;}
     html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b;}
 
-    #content-area { transition: background-color .2s ease, color .2s ease; }
+    /* Utility */
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 
-<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 antialiased transition-colors duration-200">
-  <nav id="topnav" class="bg-white/80 dark:bg-slate-900/80 shadow-sm sticky top-0 z-20 border-b border-transparent dark:border-slate-800">
-    <div class="container mx-auto px-4 py-2 flex items-center justify-between gap-2 md:gap-4 overflow-hidden">
-      <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pb-0 scrollbar-hide mask-fade">
-        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="protein_params.html">🧬 Protein Workbench</button>
-        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="bio_bench.html">🧪 Bio-Bench</button>
-        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="binding_calculator.html">📈 Binding Calculator</button>
-        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="color_generator.html">🎨 Color Generator</button>
-        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="text_counter.html">📝 Text Counter</button>
-        <button class="nav-button text-sm px-3 py-1 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700" data-src="text_detector.html">🔎 Text Detector</button>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+
+  <nav id="topnav" class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm sticky top-0 z-30 border-b border-gray-200 dark:border-slate-800 transition-colors duration-200">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+
+      <!-- Scrollable Nav Container -->
+      <div class="flex-1 overflow-hidden relative group">
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide mask-fade">
+            <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
+            <button class="nav-button" data-src="bio_bench.html">🧪 Bio-Bench</button>
+            <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calc</button>
+            <button class="nav-button" data-src="color_generator.html">🎨 Colors</button>
+            <button class="nav-button" data-src="text_counter.html">📝 Text Tools</button>
+            <button class="nav-button" data-src="text_detector.html">🔎 Forensics</button>
+            <button class="nav-button" data-src="gel_annotator.html">📷 Gel Annotator</button>
+        </div>
+        <!-- Fade masks for scroll indication could go here -->
       </div>
 
       <button id="theme-toggle"
-              class="nav-button text-sm px-3 py-1 shrink-0 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700"
+              class="nav-button shrink-0 flex items-center gap-2 px-4 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               type="button"
-              aria-pressed="false"
-              aria-label="Toggle dark mode"
-              title="Toggle dark mode">
-        🌙 Dark
+              aria-label="Toggle dark mode">
+        <span id="theme-icon">🌙</span> <span class="hidden sm:inline">Dark</span>
       </button>
     </div>
   </nav>
 
-  <main id="content-area"></main>
+  <main id="content-area" class="transition-opacity duration-200 ease-out p-1"></main>
 
-  <footer class="text-center text-sm text-slate-500 dark:text-slate-400 py-8 bg-slate-100 dark:bg-slate-900">
-    Created by <a href="https://github.com/dzyla" class="text-indigo-600 dark:text-indigo-400 hover:underline">Dawid Zyla</a>
+  <footer class="text-center text-sm text-slate-500 dark:text-slate-400 py-8 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-auto">
+    <p>Bio-Bench Suite • Created by <a href="https://github.com/dzyla" class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">Dawid Zyla</a></p>
   </footer>
 
   <script>
@@ -88,63 +142,76 @@
       const contentArea = document.getElementById('content-area');
       const navButtons  = document.querySelectorAll('.nav-button[data-src]');
       const themeBtn    = document.getElementById('theme-toggle');
+      const themeIcon   = document.getElementById('theme-icon');
+      const themeText   = themeBtn.querySelector('span.hidden');
       const docEl       = document.documentElement;
 
-      /* Theme init */
-      const saved = localStorage.getItem('theme');
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const startDark = saved ? (saved === 'dark') : prefersDark;
-
-      function applyTheme(isDark, persist = true) {
+      /* Theme Logic */
+      function updateThemeUI(isDark) {
         if (isDark) {
+          themeIcon.textContent = '🌞';
+          if(themeText) themeText.textContent = 'Light';
           docEl.classList.add('dark');
-          docEl.style.colorScheme = 'dark'; // Force browser UI to dark
-          themeBtn.textContent = '🌞 Light';
-          themeBtn.setAttribute('aria-pressed', 'true');
+          docEl.style.colorScheme = 'dark';
         } else {
+          themeIcon.textContent = '🌙';
+          if(themeText) themeText.textContent = 'Dark';
           docEl.classList.remove('dark');
-          docEl.style.colorScheme = 'light'; // Force browser UI to light
-          themeBtn.textContent = '🌙 Dark';
-          themeBtn.setAttribute('aria-pressed', 'false');
+          docEl.style.colorScheme = 'light';
         }
-        if (persist) localStorage.setItem('theme', isDark ? 'dark' : 'light');
       }
-      applyTheme(startDark, false);
+
+      // Init based on what was set in head script
+      updateThemeUI(docEl.classList.contains('dark'));
 
       themeBtn.addEventListener('click', () => {
-        const nowDark = !docEl.classList.contains('dark');
-        applyTheme(nowDark, true);
+        const isDark = !docEl.classList.contains('dark');
+        updateThemeUI(isDark);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
       });
 
-      /* Load embedded tool into main area */
+      /* Content Loading */
       async function loadContent(src) {
-        try {
-          const response = await fetch(src);
-          if (!response.ok) throw new Error(`Failed to load ${src}: ${response.status} ${response.statusText}`);
-          const text = await response.text();
-          contentArea.innerHTML = '';
+        // Simple fade out
+        contentArea.style.opacity = '0.5';
 
+        try {
+          // Add cache busting or simple fetch
+          const response = await fetch(src);
+          if (!response.ok) throw new Error(`Status ${response.status}`);
+          const text = await response.text();
+
+          // Clear and inject
+          contentArea.innerHTML = '';
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = text;
-          while (tempDiv.firstChild) contentArea.appendChild(tempDiv.firstChild);
 
-          // Re-execute scripts from embedded HTML
+          // Move children
+          while (tempDiv.firstChild) {
+              contentArea.appendChild(tempDiv.firstChild);
+          }
+
+          // Execute Scripts
           const scripts = contentArea.querySelectorAll('script');
-          scripts.forEach((script) => {
+          for (const script of scripts) {
             const s = document.createElement('script');
-            for (let i = 0; i < script.attributes.length; i++) {
-              const a = script.attributes[i]; s.setAttribute(a.name, a.value);
-            }
+            Array.from(script.attributes).forEach(attr => s.setAttribute(attr.name, attr.value));
             s.textContent = script.textContent;
-            script.parentNode.replaceChild(s, script);
-          });
+            script.replaceWith(s);
+          }
+
         } catch (err) {
-          contentArea.innerHTML = `<p class="text-center text-red-500 p-8">Error loading content: ${err.message}</p>`;
-          console.error('Fetch error:', err);
+          contentArea.innerHTML = `<div class="text-center p-10 text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl m-4 border border-red-200 dark:border-red-800">
+            <h3 class="text-lg font-bold">Error Loading Tool</h3>
+            <p>${err.message}</p>
+          </div>`;
+          console.error(err);
+        } finally {
+            contentArea.style.opacity = '1';
         }
       }
 
-      // Nav interactions
+      // Nav Click Handlers
       navButtons.forEach(button => {
         button.addEventListener('click', () => {
           const src = button.getAttribute('data-src');
@@ -154,8 +221,11 @@
         });
       });
 
-      // Auto-load the first tool (Protein Workbench now first)
-      if (navButtons.length > 0) navButtons[0].click();
+      // Default Load
+      if (navButtons.length > 0) {
+          // Check hash or default to first
+          navButtons[0].click();
+      }
     });
   </script>
 </body>

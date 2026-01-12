@@ -7,7 +7,6 @@ window.PROTEIN_DEFS = {
     pKa_side: { C:8.5, D:3.9, E:4.07, H:6.5, K:10.4, R:12.5, Y:10.0 },
     pKa_term: { N:8.6, C:3.55 },
     // Atomic composition of RESIDUES (C, H, N, O, S). Add H2O for free AA.
-    // Based on standard tables (e.g. sigma, unimod).
     atoms: {
       A: {C:3,H:5,N:1,O:1,S:0}, R: {C:6,H:12,N:4,O:1,S:0}, N: {C:4,H:6,N:2,O:2,S:0},
       D: {C:4,H:5,N:1,O:3,S:0}, C: {C:3,H:5,N:1,O:1,S:1}, Q: {C:5,H:8,N:2,O:2,S:0},
@@ -16,7 +15,7 @@ window.PROTEIN_DEFS = {
       M: {C:5,H:9,N:1,O:1,S:1}, F: {C:9,H:9,N:1,O:1,S:0}, P: {C:5,H:7,N:1,O:1,S:0},
       S: {C:3,H:5,N:1,O:2,S:0}, T: {C:4,H:7,N:1,O:2,S:0}, W: {C:11,H:10,N:2,O:1,S:0},
       Y: {C:9,H:9,N:1,O:2,S:0}, V: {C:5,H:9,N:1,O:1,S:0},
-      U: {C:3,H:5,N:1,O:1,Se:1}, // Selenocysteine (approx, treated as C usually but here precise)
+      U: {C:3,H:5,N:1,O:1,Se:1}, // Selenocysteine
       O: {C:12,H:19,N:3,O:2,S:0} // Pyrrolysine
     }
   },
@@ -55,35 +54,35 @@ window.PROTEIN_DEFS = {
 
   /* Combined Tags & Motifs */
   TAGS: {
-  /* ===== Small Purification & Detection Tags ===== */
-  "His-Tag (6x)":         { seqs:["HHHHHH"],                                  color:"#14b8a6", category:"Tags & Sites", note:"Purification via Immobilized Metal Affinity Chromatography (IMAC)." },
-  "His-Tag (8x–10x)":     { seqs:["HHHHHHHH","HHHHHHHHH","HHHHHHHHHH"],        color:"#0ea5e9", category:"Tags & Sites", note:"Longer His-tags for stronger binding to IMAC resins." },
-  "FLAG":                 { seqs:["DYKDDDDK"],                                color:"#6366f1", category:"Tags & Sites", note:"Hydrophilic; contains Enterokinase cleavage site." },
-  "3xFLAG":               { seqs:["DYKDHDGDYKDHDIDYKDDDDK"],                  color:"#7c3aed", category:"Tags & Sites", note:"Tandem tag for higher affinity detection and purification." },
-  "HA":                   { seqs:["YPYDVPDYA"],                               color:"#f59e0b", category:"Tags & Sites", note:"From Influenza Hemagglutinin; widely used for detection." },
-  "3xHA":                 { seqs:["YPYDVPDYAGYPYDVPDYAGYPYDVPDYA"],             color:"#fb923c", category:"Tags & Sites", note:"Tandem tag for higher affinity detection." },
-  "Myc":                  { seqs:["EQKLISEEDL"],                              color:"#ec4899", category:"Tags & Sites", note:"From human c-Myc. WARNING: Antibody binding (e.g., 9E10 clone) can be context-dependent." },
-  "V5":                   { seqs:["GKPIPNPLLGLDST"],                          color:"#22d3ee", category:"Tags & Sites", note:"From P and V proteins of Simian Virus 5." },
-  "T7":                   { seqs:["MASMTGGQQMG"],                             color:"#06b6d4", category:"Tags & Sites", note:"Leader sequence from T7 bacteriophage major capsid protein." },
-  "S-tag":                { seqs:["KETAAAKFERQHMDS"],                         color:"#8b5cf6", category:"Tags & Sites", note:"Binds to S-protein (derived from RNase A)." },
-  "Strep-II":             { seqs:["WSHPQFEK"],                                color:"#06b6d4", category:"Tags & Sites", note:"Binds with high affinity to Strep-Tactin resin." },
-  "Twin-Strep":           { seqs:["WSHPQFEKGGGSGGGSGGSAWSHPQFEK"],            color:"#0891b2", category:"Tags & Sites", note:"Tandem tag for enhanced binding to Strep-Tactin." },
-  "ALFA-tag":             { seqs:["SRLEEELRRRLTE"],                           color:"#ef4444", category:"Tags & Sites", note:"Small, stable alpha-helical tag for capture and detection." },
-  "AviTag":               { seqs:["GLNDIFEAQKIEWHE"],                         color:"#3b82f6", category:"Tags & Sites", note:"Site for specific in vivo or in vitro biotinylation by BirA ligase." },
-  "SBP-tag":              { seqs:["MDEKTTGWRGGHVVEGLAGELEQLRARLEHHPQGQREP"],  color:"#2563eb", category:"Tags & Sites", note:"Streptavidin-Binding Peptide for affinity purification." },
-  "Calmodulin-Binding":   { seqs:["KRRWKKNFIAVSAANRFKKISSSGAL"],              color:"#16a34a", category:"Tags & Sites", note:"Ca2+-dependent binding to Calmodulin resin; allows for gentle elution with EGTA." },
-  "Rho1D4":               { seqs:["TETSQVAPA"],                               color:"#059669", category:"Tags & Sites", note:"C-terminal tag for membrane protein purification." },
-  "VSV-G":                { seqs:["YTDIEMNRLGK"],                             color:"#0ea5e9", category:"Tags & Sites", note:"Epitope from Vesicular Stomatitis Virus Glycoprotein." },
-  "SpyTag":               { seqs:["AHIVMVDAYKPTK"],                           color:"#f472b6", category:"Tags & Sites", note:"Forms a spontaneous, covalent isopeptide bond with its SpyCatcher protein partner." },
-  "SnoopTag":             { seqs:["KLGDIEFIKVNK"],                            color:"#a78bfa", category:"Tags & Sites", note:"Forms a covalent bond with its SnoopCatcher partner; orthogonal to SpyTag." },
-  "Spot-Tag":             { seqs:["PDRVRAVSHWSS"],                            color:"#10b981", category:"Tags & Sites", note:"Binds Spot-Nanobody with high affinity for detection and IP." },
-  "HiBiT":                { seqs:["VSGWRLFKKIS"],                             color:"#14b8a6", category:"Tags & Sites", note:"Luminescent tag; reconstitutes NanoLuciferase with the LgBiT protein fragment." },
-  "TEV site":             { seqs:["ENLYFQG","ENLYFQS"],                       color:"#64748b", category:"Tags & Sites", note:"Tobacco Etch Virus protease site. Cleavage between Q and G/S." },
-  "Thrombin site":        { seqs:["LVPRGS"],                                  color:"#78716c", category:"Tags & Sites", note:"Common recognition site; cleaves after R. Can have off-target effects." },
-  "HRV 3C / PreScission": { seqs:["LEVLFQGP"],                                color:"#71717a", category:"Tags & Sites", note:"Human Rhinovirus 3C protease. Cleavage between Q and G." },
-  "Factor Xa site":       { seqs:["IEGR", "IDGR"],                            color:"#854d0e", category:"Tags & Sites", note:"Cleavage after R. Can have off-target effects." },
-  "Enterokinase site":    { seqs:["DDDDK"],                                   color:"#6366f1", category:"Tags & Sites", note:"Highly specific; cleaves after K." },
-  "RGD motif":            { seqs:["RGD"],                                     color:"#34d399", category:"Site",       note:"Integrin-binding motif involved in cell adhesion." }
+    /* ===== Small Purification & Detection Tags ===== */
+    "His-Tag (6x)":         { seqs:["HHHHHH"],                                  color:"#14b8a6", category:"Tags & Sites", note:"Purification via Immobilized Metal Affinity Chromatography (IMAC)." },
+    "His-Tag (8x–10x)":     { seqs:["HHHHHHHH","HHHHHHHHH","HHHHHHHHHH"],        color:"#0ea5e9", category:"Tags & Sites", note:"Longer His-tags for stronger binding to IMAC resins." },
+    "FLAG":                 { seqs:["DYKDDDDK"],                                color:"#6366f1", category:"Tags & Sites", note:"Hydrophilic; contains Enterokinase cleavage site." },
+    "3xFLAG":               { seqs:["DYKDHDGDYKDHDIDYKDDDDK"],                  color:"#7c3aed", category:"Tags & Sites", note:"Tandem tag for higher affinity detection and purification." },
+    "HA":                   { seqs:["YPYDVPDYA"],                               color:"#f59e0b", category:"Tags & Sites", note:"From Influenza Hemagglutinin; widely used for detection." },
+    "3xHA":                 { seqs:["YPYDVPDYAGYPYDVPDYAGYPYDVPDYA"],             color:"#fb923c", category:"Tags & Sites", note:"Tandem tag for higher affinity detection." },
+    "Myc":                  { seqs:["EQKLISEEDL"],                              color:"#ec4899", category:"Tags & Sites", note:"From human c-Myc. WARNING: Antibody binding (e.g., 9E10 clone) can be context-dependent." },
+    "V5":                   { seqs:["GKPIPNPLLGLDST"],                          color:"#22d3ee", category:"Tags & Sites", note:"From P and V proteins of Simian Virus 5." },
+    "T7":                   { seqs:["MASMTGGQQMG"],                             color:"#06b6d4", category:"Tags & Sites", note:"Leader sequence from T7 bacteriophage major capsid protein." },
+    "S-tag":                { seqs:["KETAAAKFERQHMDS"],                         color:"#8b5cf6", category:"Tags & Sites", note:"Binds to S-protein (derived from RNase A)." },
+    "Strep-II":             { seqs:["WSHPQFEK"],                                color:"#06b6d4", category:"Tags & Sites", note:"Binds with high affinity to Strep-Tactin resin." },
+    "Twin-Strep":           { seqs:["WSHPQFEKGGGSGGGSGGSAWSHPQFEK"],            color:"#0891b2", category:"Tags & Sites", note:"Tandem tag for enhanced binding to Strep-Tactin." },
+    "ALFA-tag":             { seqs:["SRLEEELRRRLTE"],                           color:"#ef4444", category:"Tags & Sites", note:"Small, stable alpha-helical tag for capture and detection." },
+    "AviTag":               { seqs:["GLNDIFEAQKIEWHE"],                         color:"#3b82f6", category:"Tags & Sites", note:"Site for specific in vivo or in vitro biotinylation by BirA ligase." },
+    "SBP-tag":              { seqs:["MDEKTTGWRGGHVVEGLAGELEQLRARLEHHPQGQREP"],  color:"#2563eb", category:"Tags & Sites", note:"Streptavidin-Binding Peptide for affinity purification." },
+    "Calmodulin-Binding":   { seqs:["KRRWKKNFIAVSAANRFKKISSSGAL"],              color:"#16a34a", category:"Tags & Sites", note:"Ca2+-dependent binding to Calmodulin resin; allows for gentle elution with EGTA." },
+    "Rho1D4":               { seqs:["TETSQVAPA"],                               color:"#059669", category:"Tags & Sites", note:"C-terminal tag for membrane protein purification." },
+    "VSV-G":                { seqs:["YTDIEMNRLGK"],                             color:"#0ea5e9", category:"Tags & Sites", note:"Epitope from Vesicular Stomatitis Virus Glycoprotein." },
+    "SpyTag":               { seqs:["AHIVMVDAYKPTK"],                           color:"#f472b6", category:"Tags & Sites", note:"Forms a spontaneous, covalent isopeptide bond with its SpyCatcher protein partner." },
+    "SnoopTag":             { seqs:["KLGDIEFIKVNK"],                            color:"#a78bfa", category:"Tags & Sites", note:"Forms a covalent bond with its SnoopCatcher partner; orthogonal to SpyTag." },
+    "Spot-Tag":             { seqs:["PDRVRAVSHWSS"],                            color:"#10b981", category:"Tags & Sites", note:"Binds Spot-Nanobody with high affinity for detection and IP." },
+    "HiBiT":                { seqs:["VSGWRLFKKIS"],                             color:"#14b8a6", category:"Tags & Sites", note:"Luminescent tag; reconstitutes NanoLuciferase with the LgBiT protein fragment." },
+    "TEV site":             { seqs:["ENLYFQG","ENLYFQS"],                       color:"#64748b", category:"Tags & Sites", note:"Tobacco Etch Virus protease site. Cleavage between Q and G/S." },
+    "Thrombin site":        { seqs:["LVPRGS"],                                  color:"#78716c", category:"Tags & Sites", note:"Common recognition site; cleaves after R. Can have off-target effects." },
+    "HRV 3C / PreScission": { seqs:["LEVLFQGP"],                                color:"#71717a", category:"Tags & Sites", note:"Human Rhinovirus 3C protease. Cleavage between Q and G." },
+    "Factor Xa site":       { seqs:["IEGR", "IDGR"],                            color:"#854d0e", category:"Tags & Sites", note:"Cleavage after R. Can have off-target effects." },
+    "Enterokinase site":    { seqs:["DDDDK"],                                   color:"#6366f1", category:"Tags & Sites", note:"Highly specific; cleaves after K." },
+    "RGD motif":            { seqs:["RGD"],                                     color:"#34d399", category:"Site",       note:"Integrin-binding motif involved in cell adhesion." }
   },
 
   LARGE_TAGS: {
@@ -96,7 +95,7 @@ window.PROTEIN_DEFS = {
       color: "#4d7c0f", category: "Tags & Sites", note: "Maltose-Binding Protein (~42 kDa). One of the most effective solubility-enhancing tags; allows purification on amylose resin."
     },
     "MBP (general)": {
-    seq: "KIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKELKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEAPKDAQT",
+      seq: "KIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKELKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEAPKDAQT",
       color: "#4d7c0f", category: "Tags & Sites", note: "Maltose-Binding Protein (~59 kDa). Generalized version for solubility enhancement; allows purification on amylose resin."
     },
     "Thioredoxin (E. coli)": {
@@ -132,7 +131,7 @@ window.PROTEIN_DEFS = {
   { name:"Arg Methylation (GAR motif)",  category:"PTM", color:"#4ade80",
     note:"Glycine-Arginine Rich motif heuristic for PRMTs. HIGH FALSE-POSITIVE RATE.", regex:/G.{0,3}R.{0,3}G/g },
   { name:"CK2 phosphorylation",          category:"PTM", color:"#22c55e",
-    note:"Casein Kinase 2 site: (S/T)xx(D/E).",                  regex:/[ST]..[DE]/g },
+    note:"Casein Kinase 2 site: (S/T)x(D/E).",                   regex:/[ST]..[DE]/g },
   { name:"PKA phosphorylation",          category:"PTM", color:"#f59e0b",
     note:"Protein Kinase A site: (R/K)(R/K)x(S/T), no Pro at +1.", regex:/(?:R|K){2}.[ST](?!P)/g },
   { name:"PKC phosphorylation",          category:"PTM", color:"#f43f5e",
@@ -202,4 +201,136 @@ window.PROTEIN_DEFS = {
   { name:"D-box (RxxL)",                 category:"Degron", color:"#f87171",
     note:"Destruction box for APC/C E3 ligase.",               regex:/R..L..[ILV]/g }
   ]
+};
+
+/* ===== SHARED PROTEIN UTILITIES ===== */
+window.PROTEIN_UTILS = {
+  countAA: function(seq) {
+    const c = Object.create(null);
+    if (!seq) return c;
+    for (const ch of seq) c[ch] = (c[ch] || 0) + 1;
+    return c;
+  },
+
+  molecularWeight: function(counts) {
+    let m = 18.01528; // Water mass for N-term H and C-term OH (H2O)
+    const AA_MW = window.PROTEIN_DEFS.AA.mw;
+    for (const a in counts) {
+      m += (counts[a] || 0) * (AA_MW[a] || 0);
+    }
+    return m;
+  },
+
+  // Calculate Extinction Coefficients (Reduced and Oxidized)
+  // Returns: { reduced, cystines }
+  extinctionCoefficients: function(counts, mw) {
+    const AA_EXT = window.PROTEIN_DEFS.AA.ext;
+    const nY = counts.Y || 0;
+    const nW = counts.W || 0;
+    const nC = counts.C || 0;
+
+    // Reduced: No Disulfides
+    const reduced = (nY * AA_EXT.Y) + (nW * AA_EXT.W);
+
+    // Oxidized: All pairs form disulfides
+    // Each bond adds ~125 M-1 cm-1 (actually ranges, but 60-125 is common per bond).
+    // Some sources say +60 per bond. Edelhoch method usually just counts W and Y.
+    // Expasy ProtParam uses: Ext(Cystine) = 125.
+    // Note: It's 125 per bond.
+    const nCystine = Math.floor(nC / 2);
+    const cystines = reduced + (nCystine * AA_EXT.CYS_DISULFIDE_PAIR);
+
+    return { reduced, cystines };
+  },
+
+  // Unified Protein Parameter Calculation
+  getProteinParams: function(seq) {
+      if(!seq) return { mw: 0, epsRed: 0, epsOx: 0, counts: {} };
+      const s = seq.toUpperCase().replace(/[^A-Z]/g, '');
+      const counts = this.countAA(s);
+      const mw = this.molecularWeight(counts);
+      const ext = this.extinctionCoefficients(counts, mw);
+
+      return {
+          mw: mw / 1000, // kDa
+          mwDa: mw,
+          epsRed: ext.reduced,
+          epsOx: ext.cystines,
+          counts: counts,
+          length: s.length
+      };
+  },
+
+  parseFastaFlexible: function(text) {
+    const lines = text.replace(/\r/g, '').split('\n');
+    const out = [];
+    let header = null, seq = [];
+    let sawHeader = false;
+
+    for (const raw of lines) {
+      const l = raw.trim();
+      if (!l) continue;
+      if (l.startsWith(';')) continue; // Comment
+      if (l.startsWith('>')) {
+        if (header !== null) out.push({ header, seq: seq.join('') });
+        const after = l.slice(1).trim();
+        // Heuristic: check if header line ends with sequence
+        const tailAA = after.match(/([ACDEFGHIKLMNPQRSTVWYUBZOJX]+)\s*$/);
+        if (tailAA && tailAA[1].length >= 5) {
+           // It might be "Header SEQUENCE" on one line? Rare but possible.
+           // Usually FASTA is >Header\nSEQUENCE
+           // Let's assume standard behavior primarily.
+           header = after;
+           seq = [];
+        } else {
+           header = after || `Sequence ${out.length + 1}`;
+           seq = [];
+        }
+        sawHeader = true;
+      } else {
+        seq.push(l);
+      }
+    }
+    if (header !== null) out.push({ header, seq: seq.join('') });
+
+    // If no header found, treat whole text as one sequence if it looks like AA
+    if (!sawHeader) {
+        const joined = lines.join('').replace(/\s/g,'');
+        if (/[A-Z]/.test(joined)) {
+            out.push({ header: 'Sequence 1', seq: joined });
+        }
+    }
+    return out;
+  },
+
+  sanitizeSequenceWithLog: function(raw) {
+    const upper = raw.toUpperCase();
+    const removed = { whitespace: 0, digits: 0, dashes: 0, stars: 0, punctuation: 0, other: 0 };
+    const keepRe = /[ACDEFGHIKLMNPQRSTVWYUBZOJX]/;
+    let cleanedArr = [];
+
+    for (let i = 0; i < upper.length; i++) {
+      const ch = upper[i];
+      if (keepRe.test(ch)) { cleanedArr.push(ch); continue; }
+      if (/\s/.test(ch)) { removed.whitespace++; continue; }
+      if (/[0-9]/.test(ch)) { removed.digits++; continue; }
+      if (/[-–—_]/.test(ch)) { removed.dashes++; continue; }
+      if (ch === '*') { removed.stars++; continue; }
+      if (/[.,:;\/|()\[\]{}'"+=<>?~`!@#$%^&]/.test(ch)) { removed.punctuation++; continue; }
+      removed.other++;
+    }
+
+    const seq = cleanedArr.join('');
+    // Note: Do not throw error here, return empty if must.
+    const notes = [];
+    if (removed.digits) notes.push(`digits ${removed.digits}`);
+    if (removed.stars) notes.push(`stars ${removed.stars}`);
+
+    return {
+        seq,
+        issues: removed.other ? `Invalid letters removed: ${removed.other}` : '',
+        notes: notes.join(', '),
+        removed
+    };
+  }
 };

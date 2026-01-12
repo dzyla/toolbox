@@ -6,10 +6,8 @@
 <title>Advanced Color Palette Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  /* ===== Tight, masonry-free grid with no vertical stretching ===== */
-  /* Replaced by Tailwind utility classes in HTML where possible, but grid layout is cleaner here for now */
-  /* Actually, user asked for full bright or dark theme consistency.
-     Using Tailwind classes for colors is safer. */
+  /* Base styles handled by Tailwind via parent frame, but kept for standalone */
+  .feedback-anim { pointer-events: none; }
 </style>
 </head>
 <body>
@@ -37,14 +35,13 @@
             <option value="achromatopsia">Achromatopsia (No Color)</option>
           </select>
         </div>
-        <div class="flex items-end">
+        <div class="flex items-end relative">
           <button id="btn-pymol" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors font-medium">Copy for PyMOL</button>
         </div>
       </div>
     </div>
 
-    <!-- Moved Shade Panel Container Here -->
-    <div id="shade-panel-container" class="mb-8"></div>
+    <div id="shade-panel-container" class="mb-8 scroll-mt-24"></div>
 
     <main id="palette-display" class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-x-4 gap-y-3 content-start justify-start auto-rows-[min-content]"></main>
   </div>
@@ -68,50 +65,33 @@
       const $panel = document.getElementById('shade-panel-container');
       let activeCard = null;
 
-      // Color Blindness Simulation Matrix (Brettel 1997 / Viénot 1999)
-      // Input RGB, Output RGB. Simple approximate matrix application.
       function simulateColor(hex, type) {
           if(type === 'normal') return hex;
           const rgb = d3.color(hex).rgb();
           const r = rgb.r, g = rgb.g, b = rgb.b;
           let R=r, G=g, B=b;
-
-          // Linear RGB (Gamma correction removal not strictly done here for brevity, assuming sRGB ~ Linear for UI visual)
-          // Matrices from standard CVD research
           if (type === 'protanopia') {
-              // 0.567, 0.433, 0
-              // 0.558, 0.442, 0
-              // 0, 0.242, 0.758
               R = 0.56667 * r + 0.43333 * g + 0 * b;
               G = 0.55833 * r + 0.44167 * g + 0 * b;
               B = 0 * r + 0.24167 * g + 0.75833 * b;
           } else if (type === 'deuteranopia') {
-              // 0.625, 0.375, 0
-              // 0.7, 0.3, 0
-              // 0, 0.3, 0.7
               R = 0.625 * r + 0.375 * g + 0 * b;
               G = 0.7 * r + 0.3 * g + 0 * b;
               B = 0 * r + 0.3 * g + 0.7 * b;
           } else if (type === 'tritanopia') {
-              // 0.95, 0.05, 0
-              // 0, 0.433, 0.567
-              // 0, 0.475, 0.525
               R = 0.95 * r + 0.05 * g + 0 * b;
               G = 0 * r + 0.43333 * g + 0.56667 * b;
               B = 0 * r + 0.475 * g + 0.525 * b;
           } else if (type === 'achromatopsia') {
-              // Monochromacy
               const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
               R = lum; G = lum; B = lum;
           }
-
           return d3.rgb(R, G, B).formatHex();
       }
 
       function paletteFromSelection() {
         const name = $map.value;
         let colors = [];
-
         if (name.startsWith('scheme')) {
           $count.disabled = true;
           const scheme = d3[name];
@@ -121,11 +101,10 @@
           }
         } else {
           $count.disabled = false;
-          let n = parseInt(($count.value || '').toString().replace(/\D+/g,''), 10); // robust to stray spaces/characters
+          let n = parseInt(($count.value || '').toString().replace(/\D+/g,''), 10);
           if (Number.isNaN(n) || n < 2) n = 2;
           if (n > 256) n = 256;
           $count.value = n;
-
           const interp = d3[name];
           if (typeof interp !== 'function') return [];
           for (let i = 0; i < n; i++) {
@@ -141,51 +120,47 @@
         $grid.innerHTML = '';
         $panel.innerHTML = '';
         activeCard = null;
-
         const simType = $sim.value;
 
         for (const originalHex of palette) {
           const hex = simulateColor(originalHex, simType);
           const card = document.createElement('div');
-          // Tailwind classes for card
-          card.className = 'flex flex-col h-auto rounded-xl overflow-hidden shadow-md transition-transform hover:-translate-y-1 cursor-pointer bg-transparent';
+          card.className = 'group relative flex flex-col h-auto rounded-xl overflow-hidden shadow-md transition-transform hover:-translate-y-1 cursor-pointer bg-transparent';
           card.dataset.color = hex;
-
-          // Show original code but simulated color if simulating
           const label = simType === 'normal' ? hex : `${hex}*`;
 
           card.innerHTML = `
-            <div class="h-24 w-full relative" style="background-color:${hex};"></div>
+            <div class="h-24 w-full relative" style="background-color:${hex};">
+               <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+            </div>
             <div class="bg-white dark:bg-slate-800 p-3">
               <p class="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300 m-0">${label}</p>
               ${simType !== 'normal' ? `<p class="text-[10px] text-gray-400">Orig: ${originalHex}</p>` : ''}
             </div>
           `;
-          card.addEventListener('click', () => {
-            copy(hex, card.querySelector('div')); // copy logic targets the swatch div
-            showShades(originalHex, card); // Always show shades of the REAL color
+          card.addEventListener('click', (e) => {
+            // Copy logic
+            const rect = card.getBoundingClientRect();
+            copy(hex, card, e.clientX - rect.left, e.clientY - rect.top);
+            showShades(originalHex, card);
           });
           $grid.appendChild(card);
         }
       }
 
       function exportPyMOL() {
-          const palette = paletteFromSelection(); // Gets original colors
+          const palette = paletteFromSelection();
           let script = "# PyMOL Colors\n";
           palette.forEach((hex, i) => {
               const c = d3.color(hex);
-              // PyMOL RGB is 0.0-1.0
               const r = (c.r / 255).toFixed(3);
               const g = (c.g / 255).toFixed(3);
               const b = (c.b / 255).toFixed(3);
               script += `set_color color_${i+1}, [${r}, ${g}, ${b}]\n`;
           });
-
-          copy(script, $btnPymol);
-          // Small visual feedback on button
-          const originalText = $btnPymol.textContent;
-          $btnPymol.textContent = "Copied!";
-          setTimeout(() => $btnPymol.textContent = originalText, 2000);
+          const btnRect = $btnPymol.getBoundingClientRect();
+          // Relative to button
+          copy(script, $btnPymol.parentElement, btnRect.width/2, -10, true);
       }
 
       function vary(baseHex) {
@@ -209,8 +184,8 @@
             <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">${label}</h4>
             <div class="flex gap-2">
               ${arr.map(c=>`
-                <div class="flex-1" title="Click to copy ${c}">
-                  <div data-color="${c}" class="shade-swatch h-16 w-full border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer" style="background:${c}"></div>
+                <div class="flex-1 group relative" title="Click to copy ${c}">
+                  <div data-color="${c}" class="shade-swatch h-16 w-full border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer hover:scale-105 transition-transform" style="background:${c}"></div>
                   <p class="text-center text-xs text-gray-500 dark:text-gray-400 mt-2 mono">${c}</p>
                 </div>
               `).join('')}
@@ -218,7 +193,7 @@
           </div>`;
 
         $panel.innerHTML = `
-          <div id="shade-panel" class="panel-fade-in bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transition-all duration-300">
+          <div id="shade-panel" class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transition-all duration-300 animate-in fade-in slide-in-from-top-4">
             <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
               <div>
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Color Variations</h3>
@@ -239,40 +214,57 @@
 
         document.getElementById('shade-panel').scrollIntoView({ behavior:'smooth', block:'center' });
         $panel.querySelectorAll('.shade-swatch').forEach(s => {
-          s.addEventListener('click', (e) => { e.stopPropagation(); copy(s.dataset.color, s); });
+          s.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const rect = s.getBoundingClientRect();
+              copy(s.dataset.color, s.parentElement, e.clientX - rect.left, e.clientY - rect.top);
+          });
         });
       }
 
-      function copy(text, el) {
-        const doCopy = () => navigator.clipboard.writeText(text).catch(()=>{});
-        if (navigator.clipboard && window.isSecureContext) doCopy();
-        else {
-          const ta = document.createElement('textarea');
-          ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
-          document.body.appendChild(ta); ta.focus(); ta.select();
-          try { document.execCommand('copy'); } catch {}
-          ta.remove();
+      function copy(text, containerEl, x, y, isStatic=false) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).catch(()=>{});
+        } else {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            try { document.execCommand('copy'); } catch {}
+            ta.remove();
         }
 
-        // Remove existing feedback
-        const existing = el.querySelector('.feedback-anim');
-        if(existing) existing.remove();
+        // Visual Feedback
+        // Remove old
+        containerEl.querySelectorAll('.feedback-msg').forEach(el => el.remove());
 
         const fb = document.createElement('div');
         fb.textContent = 'Copied!';
-        fb.className = 'feedback-anim absolute inset-0 flex items-center justify-center bg-slate-900/80 text-white font-bold text-xs rounded-md pointer-events-none transition-opacity duration-300';
-        // Simple manual animation logic if css animation is annoying to inline
-        fb.animate([
-            { opacity: 1, transform: 'scale(0.8)' },
-            { opacity: 0, transform: 'scale(1.2)' }
-        ], {
-            duration: 1000,
-            easing: 'ease-out',
-            fill: 'forwards'
-        });
+        fb.className = 'feedback-msg absolute z-20 bg-slate-900 text-white text-xs font-bold py-1 px-2 rounded pointer-events-none';
 
-        el.appendChild(fb);
-        setTimeout(()=>fb.remove(), 1000);
+        // Position at click
+        if(!isStatic) {
+            fb.style.left = `${x}px`;
+            fb.style.top = `${y}px`;
+            fb.style.transform = 'translate(-50%, -100%) translateY(-8px)';
+        } else {
+            // Center for static button
+            fb.style.left = '50%';
+            fb.style.top = '0';
+            fb.style.transform = 'translate(-50%, -100%) translateY(-4px)';
+        }
+
+        containerEl.appendChild(fb);
+
+        // Animate
+        const anim = fb.animate([
+            { opacity: 0, transform: `translate(-50%, -100%) translateY(0px) scale(0.8)` },
+            { opacity: 1, transform: `translate(-50%, -100%) translateY(-10px) scale(1)` },
+            { opacity: 1, offset: 0.8 },
+            { opacity: 0, transform: `translate(-50%, -100%) translateY(-20px)` }
+        ], { duration: 800, easing: 'ease-out' });
+
+        anim.onfinish = () => fb.remove();
       }
 
       function init() {
