@@ -212,11 +212,11 @@
         </div>
 
         <details class="mt-4" open>
-          <summary class="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">Plots & advanced</summary>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+          <summary class="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">Plots & Analysis Settings</summary>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
             <div>
               <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Plots Enabled</h4>
-              <div class="grid grid-cols-2 gap-2 mt-1">
+              <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 mt-1">
                 <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Hydrophobicity</label>
                 <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Charge</label>
                 <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_disorder" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Disorder (FoldIndex)</label>
@@ -226,10 +226,21 @@
               </div>
             </div>
             <div>
+              <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Map Features</h4>
+              <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 mt-1">
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_topology" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Topology (TM, Signal)</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_ptm" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">PTMs (Motifs)</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_domain" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Domains & Degrons</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_local" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Localization</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_tags" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Tags & Sites</label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_user" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>User Domains</label>
+              </div>
+            </div>
+            <div>
               <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Smoothing Windows</h4>
-              <div class="grid grid-cols-2 gap-3 mt-1">
+              <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 mt-1">
                 <div>
-                  <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300" for="hydro_window">Hydro</label>
+                  <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300" for="hydro_window">Hydrophobicity</label>
                   <select id="hydro_window" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
                     <option value="1">1</option><option value="3">3</option><option value="5" selected>5</option><option value="9">9</option><option value="13">13</option>
                   </select>
@@ -326,6 +337,15 @@ window.initProteinWorkbench = function(){
     optMoment: document.getElementById('opt_moment'),
     optSecStruct: document.getElementById('opt_secstruct'),
     optCys: document.getElementById('opt_cys'),
+
+    // Feature Filters
+    featTopology: document.getElementById('feat_topology'),
+    featPtm: document.getElementById('feat_ptm'),
+    featDomain: document.getElementById('feat_domain'),
+    featLocal: document.getElementById('feat_local'),
+    featTags: document.getElementById('feat_tags'),
+    featUser: document.getElementById('feat_user'),
+
     halfLifeOrg: document.getElementById('half_life_org'),
     
     hydroWindow: document.getElementById('hydro_window'),
@@ -585,7 +605,11 @@ window.initProteinWorkbench = function(){
   els.pHslider.addEventListener('input', ()=>syncPHInputs('slider')); els.pH.addEventListener('change', ()=>syncPHInputs('box'));
   function syncDomainThr(from){ if(from==='slider'){ els.domainThr.value = els.domainThrSlider.value; } if(from==='box'){ els.domainThrSlider.value = els.domainThr.value; } refreshAllCards(); }
   els.domainThrSlider.addEventListener('input', ()=>syncDomainThr('slider')); els.domainThr.addEventListener('change', ()=>syncDomainThr('box'));
-  [els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys, els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg].forEach(c=>{ c.addEventListener('change', ()=> { refreshAllCards(); }); });
+  [
+      els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys,
+      els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg,
+      els.featTopology, els.featPtm, els.featDomain, els.featLocal, els.featTags, els.featUser
+  ].forEach(c=>{ c.addEventListener('change', ()=> { refreshAllCards(); }); });
 
   els.analyze.addEventListener('click', ()=>{
     const t=els.fasta.value.trim(); if(!t){ alert("Please paste or upload sequences."); return; }
@@ -958,7 +982,44 @@ window.initProteinWorkbench = function(){
   function drawScatterPlot(container, dataX, dataY, nameX, nameY) { const parent = document.getElementById(container); parent.innerHTML = ''; const W = 500, H = 400; const margin = { top: 20, right: 30, bottom: 40, left: 50 }; const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.maxWidth = '100%'; svg.style.height = 'auto'; svg.style.border = '1px solid #e5e7eb'; svg.style.backgroundColor = '#fff'; parent.appendChild(svg); const extX = getExtremes([dataX]); const extY = getExtremes([dataY]); const xScale = v => margin.left + (v - extX.min) / (extX.max - extX.min) * (W - margin.left - margin.right); const yScale = v => H - margin.bottom - (v - extY.min) / (extY.max - extY.min) * (H - margin.top - margin.bottom); const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line'); xAxis.setAttribute('x1', margin.left); xAxis.setAttribute('x2', W - margin.right); xAxis.setAttribute('y1', H - margin.bottom); xAxis.setAttribute('y2', H - margin.bottom); xAxis.setAttribute('stroke', '#000'); svg.appendChild(xAxis); const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line'); yAxis.setAttribute('x1', margin.left); yAxis.setAttribute('x2', margin.left); yAxis.setAttribute('y1', margin.top); yAxis.setAttribute('y2', H - margin.bottom); yAxis.setAttribute('stroke', '#000'); svg.appendChild(yAxis); const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text'); xLabel.setAttribute('x', W / 2); xLabel.setAttribute('y', H - 5); xLabel.setAttribute('text-anchor', 'middle'); xLabel.setAttribute('font-size', '12'); xLabel.textContent = nameX; svg.appendChild(xLabel); const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text'); yLabel.setAttribute('transform', `translate(15, ${H/2}) rotate(-90)`); yLabel.setAttribute('text-anchor', 'middle'); yLabel.setAttribute('font-size', '12'); yLabel.textContent = nameY; svg.appendChild(yLabel); const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); svg.appendChild(g); const colorAt = i => `hsl(${Math.round(i / dataX.length * 360)}, 70%, 50%)`; for(let i=0; i<dataX.length; i++){ const cx = xScale(dataX[i]); const cy = yScale(dataY[i]); const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', 3); c.setAttribute('fill', colorAt(i)); c.setAttribute('opacity', '0.6'); c.addEventListener('mouseenter', e => { c.setAttribute('r', 6); c.setAttribute('opacity', '1'); els.tooltip.style.visibility='visible'; els.tooltip.innerHTML = `<strong>Pos ${i+1}</strong><br>${nameX}: ${dataX[i].toFixed(2)}<br>${nameY}: ${dataY[i].toFixed(2)}`; els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; }); c.addEventListener('mousemove', e => { els.tooltip.style.left = `${e.pageX + 10}px`; els.tooltip.style.top  = `${e.pageY - 28}px`; }); c.addEventListener('mouseleave', e => { c.setAttribute('r', 3); c.setAttribute('opacity', '0.6'); els.tooltip.style.visibility='hidden'; }); g.appendChild(c); } }
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
   function refreshCharges(){ currentResults.forEach(o=>{ const c = netCharge(o.counts, Number(els.pH.value)); const card = document.getElementById(`result-card-${o.id}`); const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono'); if(target) target.textContent = c.toFixed(2); if(els.optCharge.checked) updatePlotsForCard(o); }); }
-  function refreshAllCards(){ currentResults = currentResults.map(o => { const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value)); const spSegs = signalPeptideCandidates(o.seq); const motifSegs = scanFeatures(o.seq); o.features = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]); o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value); return o; }); currentResults.forEach(o => { const card = document.getElementById(`result-card-${o.id}`); if(!card) return; const list = card.querySelector(`#feature-list-${o.id}`); const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {}); list.innerHTML = buildFeatureListHTML(byLane); const track = card.querySelector(`#track-container-${o.id}`); track.innerHTML = ''; renderGraphicalMap(`track-container-${o.id}`, byLane, o.length, o.seq); setupInteractions(o.id, o); updatePlotsForCard(o); }); }
+  function refreshAllCards(){
+      // 1. Gather enabled categories (Feature Filtering)
+      const enabled = new Set();
+      if(els.featTopology.checked) enabled.add('Topology');
+      if(els.featPtm.checked) enabled.add('PTM');
+      if(els.featLocal.checked) enabled.add('Localization');
+      if(els.featTags.checked) { enabled.add('Tags & Sites'); enabled.add('Site'); }
+      if(els.featDomain.checked) { enabled.add('Domain'); enabled.add('Degron'); enabled.add('Large Domain'); }
+      if(els.featUser.checked) enabled.add('User Domains');
+
+      currentResults = currentResults.map(o => {
+          const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value));
+          const spSegs = signalPeptideCandidates(o.seq);
+          const motifSegs = scanFeatures(o.seq);
+
+          let all = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
+
+          // Filter by enabled categories
+          all = all.filter(f => enabled.has(f.category));
+
+          o.features = all;
+          o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value);
+          return o;
+      });
+
+      currentResults.forEach(o => {
+          const card = document.getElementById(`result-card-${o.id}`);
+          if(!card) return;
+          const list = card.querySelector(`#feature-list-${o.id}`);
+          const byLane = o.features.reduce((acc, f) => { (acc[f.category] = acc[f.category] || []).push(f); return acc; }, {});
+          list.innerHTML = buildFeatureListHTML(byLane);
+          const track = card.querySelector(`#track-container-${o.id}`);
+          track.innerHTML = '';
+          renderGraphicalMap(`track-container-${o.id}`, byLane, o.length, o.seq);
+          setupInteractions(o.id, o);
+          updatePlotsForCard(o);
+      });
+  }
   function getPlotArray(obj, type) { if(type === 'hydro') { const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0); return slidingWindowAvg(raw, parseInt(els.hydroWindow.value, 10)); } if(type === 'charge') { const arr = perResidueChargeArray(obj.seq, Number(els.pH.value)); return slidingWindowAvg(arr, parseInt(els.chargeWindow.value, 10)); } if(type === 'disorder') { const win = 15; const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 ); const qArr = perResidueChargeArray(obj.seq, 7.0); const score = []; const half = Math.floor(win/2); for(let i=0; i<obj.length; i++){ let sumH=0, sumQ=0, n=0; for(let k=i-half; k<=i+half; k++){ if(k>=0 && k<obj.length){ sumH += hRaw[k]; sumQ += qArr[k]; n++; } } if(n>0) score.push( 2.785*(sumH/n) - Math.abs(sumQ/n) - 1.151 ); else score.push(0); } return score; } if(type === 'moment') { const angle = 100 * (Math.PI/180); const win = 11; const moments = []; const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0); for(let i=0; i<obj.length; i++){ if(i + win > obj.length){ moments.push(0); continue; } let sumC=0, sumS=0; for(let k=0; k<win; k++){ const h = hRaw[i+k]; sumC += h * Math.cos(k * angle); sumS += h * Math.sin(k * angle); } moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win ); } const shifted = new Array(obj.length).fill(0); const offset = Math.floor(win/2); for(let i=0; i<moments.length; i++){ if(i+offset < shifted.length) shifted[i+offset] = moments[i]; } return shifted; } if(type === 'helix') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pH = []; for(const aa of obj.seq) pH.push(def[aa] ? def[aa].H : 100); return slidingWindowAvg(pH, 6); } if(type === 'sheet') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pE = []; for(const aa of obj.seq) pE.push(def[aa] ? def[aa].E : 100); return slidingWindowAvg(pE, 5); } return new Array(obj.length).fill(0); }
   function updatePlotsForCard(obj){ const contId = `plots-${obj.id}`; const cont = document.getElementById(contId); if(!cont) return; cont.innerHTML = ""; if(els.optHydro.checked){ const data = getPlotArray(obj, 'hydro'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD'); } if(els.optCharge.checked){ const data = getPlotArray(obj, 'charge'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge'); } if(els.optDisorder.checked){ const data = getPlotArray(obj, 'disorder'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score'); } if(els.optSecStruct.checked){ const sH = getPlotArray(obj, 'helix'); const sE = getPlotArray(obj, 'sheet'); const range = getExtremes([sH, sE]); const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder); drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity'); } if(els.optMoment.checked){ const data = getPlotArray(obj, 'moment'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH'); } if(els.optCys.checked){ const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder); drawCysTrack(holder.id, obj.seq); } const twoDContainer = document.createElement('div'); twoDContainer.className = "mt-6 border-t pt-4"; twoDContainer.innerHTML = `<h4 class="font-semibold text-sm mb-2 dark:text-slate-200">2D Analysis</h4><div class="flex flex-wrap items-center gap-3 mb-3"><select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro" selected>Hydrophobicity</option><option value="charge">Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><span class="text-gray-500 font-bold">vs</span><select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro">Hydrophobicity</option><option value="charge" selected>Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button></div><div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>`; cont.appendChild(twoDContainer); document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => { const xType = document.getElementById(`x-axis-${obj.id}`).value; const yType = document.getElementById(`y-axis-${obj.id}`).value; const xData = getPlotArray(obj, xType); const yData = getPlotArray(obj, yType); drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType); }); }
   function calcAFromMgml(eps, mw, mgml, path){ if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN; return (eps / mw) * mgml * path; }
