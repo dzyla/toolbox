@@ -983,7 +983,7 @@ window.initProteinWorkbench = function(){
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
   function refreshCharges(){ currentResults.forEach(o=>{ const c = netCharge(o.counts, Number(els.pH.value)); const card = document.getElementById(`result-card-${o.id}`); const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono'); if(target) target.textContent = c.toFixed(2); if(els.optCharge.checked) updatePlotsForCard(o); }); }
   function refreshAllCards(){
-      // 1. Gather enabled categories
+      // 1. Gather enabled categories (Feature Filtering)
       const enabled = new Set();
       if(els.featTopology.checked) enabled.add('Topology');
       if(els.featPtm.checked) enabled.add('PTM');
