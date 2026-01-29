@@ -8,6 +8,15 @@
     </div>
   </header>
 
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+      /* Animation */
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-enter { animation: fadeIn 0.4s ease-out forwards; }
+  </style>
+
   <!-- Enforce Tailwind Config here too (safe to repeat or index.html handles it) -->
   <script>
     if (!window.tailwind || !window.tailwind.configLoadedOnce) {
@@ -38,11 +47,19 @@
       <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-purify">
         🧼 Purification
       </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-align">
+        🧬 BioAlign
+      </button>
     </nav>
   </div>
 
   <!-- Tab Contents -->
   <div id="bb-content">
+
+    <!-- BioAlign Pro -->
+    <div id="tab-align" class="bb-pane hidden space-y-6">
+        <div id="bioalign-root"></div>
+    </div>
 
     <!-- Buffer Mixer -->
     <div id="tab-buffer" class="bb-pane block space-y-6">
@@ -617,15 +634,421 @@
   </div>
 </div>
 
+<!-- REACT APP -->
+<script type="text/babel">
+
+    const { useState, useEffect, useMemo } = React;
+
+    // --- Visualization Helpers ---
+
+    // Zappo Color Scheme
+    const getResidueColor = (char, mode) => {
+        if (char === '-') return 'bg-gray-100 text-gray-400 border-gray-200';
+
+        if (mode === 'dna') {
+            const colors = {
+                'A': 'bg-red-100 text-red-800 border-red-200',
+                'T': 'bg-blue-100 text-blue-800 border-blue-200',
+                'C': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                'G': 'bg-green-100 text-green-800 border-green-200'
+            };
+            return colors[char] || 'bg-gray-50 text-gray-500';
+        } else {
+            // Protein (Physicochemical properties)
+            // Hydrophobic (ILVAM) - Pink
+            if (['I','L','V','A','M'].includes(char)) return 'bg-pink-100 text-pink-800 border-pink-200';
+            // Aromatic (FWY) - Orange
+            if (['F','W','Y'].includes(char)) return 'bg-orange-100 text-orange-800 border-orange-200';
+            // Positive (KRH) - Blue
+            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800 border-blue-200';
+            // Negative (DE) - Red
+            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800 border-red-200';
+            // Polar (STNQ) - Green
+            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800 border-green-200';
+            // Proline/Glycine (Special)
+            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            // Cysteine
+            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border-yellow-300';
+
+            return 'bg-gray-50 text-gray-500';
+        }
+    };
+
+    function MatrixSelector({ mode, value, onChange }) {
+        if (mode === 'dna') return (
+            <select className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-sm text-slate-600" disabled>
+                <option>Standard DNA (EDNAFULL)</option>
+            </select>
+        );
+
+        return (
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+            >
+                <optgroup label="BLOSUM (Divergence)">
+                    <option value="BLOSUM80">BLOSUM80 (Closely related)</option>
+                    <option value="BLOSUM62">BLOSUM62 (Standard)</option>
+                    <option value="BLOSUM45">BLOSUM45 (Distant)</option>
+                </optgroup>
+                <optgroup label="PAM (Evolutionary Time)">
+                    <option value="PAM250">PAM250 (Long timeframe)</option>
+                </optgroup>
+            </select>
+        );
+    }
+
+    function AlignmentViewer({ result, mode, matrixName }) {
+        if (!result) return null;
+
+        const { seq1Aligned, seq2Aligned, score, startI } = result;
+
+        // Calculate Statistics
+        let matches = 0;
+        let similarities = 0;
+        let gaps = 0;
+        let length = seq1Aligned.length;
+
+        const viz = [];
+
+        for(let i=0; i<length; i++) {
+            const c1 = seq1Aligned[i];
+            const c2 = seq2Aligned[i];
+            let symbol = ' ';
+            let scoreVal = 0;
+
+            if (c1 === '-' || c2 === '-') {
+                gaps++;
+                symbol = ' ';
+            } else {
+                scoreVal = BioCompute.getScore(c1, c2, matrixName);
+                if (c1 === c2) {
+                    matches++;
+                    similarities++; // Identity implies similarity
+                    symbol = '|';
+                } else if (scoreVal > 0) {
+                    similarities++;
+                    symbol = ':'; // Strong similarity
+                } else if (scoreVal === 0) {
+                    symbol = '.'; // Weak
+                }
+            }
+
+            viz.push({ c1, c2, symbol });
+        }
+
+        const identity = ((matches / length) * 100).toFixed(1);
+        const similarity = ((similarities / length) * 100).toFixed(1);
+        const gapPct = ((gaps / length) * 100).toFixed(1);
+
+        return (
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200 mt-8 overflow-hidden animate-enter">
+                {/* Header Stats */}
+                <div className="bg-slate-800 text-slate-200 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-slate-700 p-2 rounded-lg">
+                            <span className="block text-xs uppercase tracking-wider text-slate-400 font-bold">Raw Score</span>
+                            <span className="text-xl font-mono text-emerald-400 font-bold">{score}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-6 text-sm">
+                        <div className="text-center">
+                            <span className="block text-xs text-slate-400 uppercase">Identity</span>
+                            <span className="font-bold text-white">{identity}%</span>
+                        </div>
+                        <div className="text-center">
+                            <span className="block text-xs text-slate-400 uppercase">Similarity</span>
+                            <span className="font-bold text-white">{similarity}%</span>
+                        </div>
+                        <div className="text-center">
+                            <span className="block text-xs text-slate-400 uppercase">Gaps</span>
+                            <span className="font-bold text-white">{gapPct}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Alignment Canvas */}
+                <div className="p-6 overflow-x-auto">
+                    <div className="inline-flex flex-col space-y-1 min-w-full">
+                        {/* Sequence 1 */}
+                        <div className="flex">
+                             {viz.map((item, idx) => (
+                                 <div key={idx} className={`w-8 h-8 flex items-center justify-center font-mono text-sm font-bold border-r border-b border-t first:border-l ${getResidueColor(item.c1, mode)}`}>
+                                     {item.c1}
+                                 </div>
+                             ))}
+                        </div>
+
+                        {/* Consensus Line */}
+                        <div className="flex h-4 items-center">
+                             {viz.map((item, idx) => (
+                                 <div key={idx} className="w-8 flex justify-center text-slate-400 font-mono font-bold text-xs">
+                                     {item.symbol}
+                                 </div>
+                             ))}
+                        </div>
+
+                        {/* Sequence 2 */}
+                        <div className="flex">
+                             {viz.map((item, idx) => (
+                                 <div key={idx} className={`w-8 h-8 flex items-center justify-center font-mono text-sm font-bold border-r border-b border-t first:border-l ${getResidueColor(item.c2, mode)}`}>
+                                     {item.c2}
+                                 </div>
+                             ))}
+                        </div>
+
+                        {/* Ruler */}
+                        <div className="flex mt-1">
+                             {viz.map((item, idx) => (
+                                 <div key={idx} className="w-8 flex justify-center text-[10px] text-slate-300 font-mono">
+                                     {(idx + 1) % 10 === 0 ? idx + 1 : (idx === 0 ? 1 : '')}
+                                 </div>
+                             ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function App() {
+        const [mode, setMode] = useState('protein');
+        const [algo, setAlgo] = useState('local');
+        const [matrix, setMatrix] = useState('BLOSUM62');
+
+        // Affine Gap Penalties
+        const [gapOpen, setGapOpen] = useState(-11);
+        const [gapExt, setGapExt] = useState(-1);
+
+        const [seq1, setSeq1] = useState("MSTKYNPTQEEHLKAVFKADNDAVLCAEKLPSL");
+        const [seq2, setSeq2] = useState("MSTKYNPTQAEHLKAVFKADNDAV");
+
+        const [result, setResult] = useState(null);
+        const [error, setError] = useState('');
+
+        const handleModeChange = (newMode) => {
+            setMode(newMode);
+            if (newMode === 'dna') {
+                setMatrix('EDNAFULL');
+                setSeq1("ATGCGTCGTAGCTAGCTAG");
+                setSeq2("ATGCGTCGACGT");
+                setGapOpen(-10);
+            } else {
+                setMatrix('BLOSUM62');
+                setSeq1("HEAGAWGHEE");
+                setSeq2("PAWHEAE");
+                setGapOpen(-11);
+            }
+        };
+
+        const runAlignment = () => {
+            setError('');
+            setResult(null);
+
+            // Sanitize
+            const cleanS1 = seq1.toUpperCase().replace(/[\s\r\n]/g, '');
+            const cleanS2 = seq2.toUpperCase().replace(/[\s\r\n]/g, '');
+
+            if(!cleanS1 || !cleanS2) return;
+
+            // Validation
+            const validPattern = mode === 'dna' ? /^[ATCGNX-]*$/ : /^[ARNDCQEGHILKMFPSTWYVBZX*-]*$/;
+            if (!validPattern.test(cleanS1) || !validPattern.test(cleanS2)) {
+                setError(`Invalid characters found for ${mode.toUpperCase()} mode.`);
+                return;
+            }
+
+            try {
+                // Yield to main thread for UI update before crunching
+                setTimeout(() => {
+                    const res = BioCompute.run(cleanS1, cleanS2, algo, matrix, parseInt(gapOpen), parseInt(gapExt));
+                    setResult(res);
+                }, 10);
+            } catch (e) {
+                setError(e.message);
+            }
+        };
+
+        return (
+            <div className="max-w-6xl mx-auto px-4 py-10">
+                <header className="mb-8">
+                    <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
+                        BioAlign <span className="text-blue-600">Pro</span>
+                    </h1>
+                    <p className="text-slate-500 mt-2 text-lg">
+                        Gotoh's Algorithm with Affine Gap Penalties
+                    </p>
+                </header>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+                    {/* LEFT PANEL: CONTROLS */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Configuration</h2>
+
+                            {/* Algorithm Mode */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Method</label>
+                                <div className="flex bg-slate-100 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setAlgo('local')}
+                                        className={`flex-1 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${algo === 'local' ? 'bg-white text-blue-600' : 'text-slate-500'}`}
+                                    >
+                                        Local (SW)
+                                    </button>
+                                    <button
+                                        onClick={() => setAlgo('global')}
+                                        className={`flex-1 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${algo === 'global' ? 'bg-white text-purple-600' : 'text-slate-500'}`}
+                                    >
+                                        Global (NW)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Molecule Type */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Molecule</label>
+                                <div className="flex gap-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="mode" checked={mode==='dna'} onChange={() => handleModeChange('dna')} />
+                                        <span className="text-sm">DNA</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="mode" checked={mode==='protein'} onChange={() => handleModeChange('protein')} />
+                                        <span className="text-sm">Protein</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Matrix */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Substitution Matrix</label>
+                                <MatrixSelector mode={mode} value={matrix} onChange={setMatrix} />
+                            </div>
+
+                            {/* Penalties */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gap Open</label>
+                                    <input
+                                        type="number"
+                                        max="0"
+                                        value={gapOpen}
+                                        onChange={(e) => setGapOpen(e.target.value)}
+                                        className="w-full border border-slate-300 rounded p-2 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gap Ext</label>
+                                    <input
+                                        type="number"
+                                        max="0"
+                                        value={gapExt}
+                                        onChange={(e) => setGapExt(e.target.value)}
+                                        className="w-full border border-slate-300 rounded p-2 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={runAlignment}
+                                className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition-colors"
+                            >
+                                Run Alignment
+                            </button>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Color Key {mode === 'protein' ? '(Zappo)' : ''}</h2>
+                             <div className="text-xs space-y-1">
+                                {mode === 'dna' ? (
+                                    <>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-100 border border-red-300"></div> Adenine (A)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-100 border border-blue-300"></div> Thymine (T)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-yellow-100 border border-yellow-300"></div> Cytosine (C)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-100 border border-green-300"></div> Guanine (G)</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-pink-100 border border-pink-300"></div> Aliphatic/Hydrophobic (ILVAM)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-100 border border-orange-300"></div> Aromatic (FWY)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-100 border border-blue-300"></div> Positive (KRH)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-100 border border-red-300"></div> Negative (DE)</div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-100 border border-green-300"></div> Hydrophilic (STNQ)</div>
+                                    </>
+                                )}
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT PANEL: INPUTS & OUTPUT */}
+                    <div className="lg:col-span-8">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="flex justify-between text-sm font-bold text-slate-700 mb-2">
+                                    <span>Sequence 1</span>
+                                    <span className="text-xs font-normal text-slate-400">{seq1.length} chars</span>
+                                </label>
+                                <textarea
+                                    className="w-full p-3 font-mono text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 h-28 uppercase"
+                                    value={seq1}
+                                    onChange={(e) => setSeq1(e.target.value)}
+                                    placeholder="Paste FASTA or raw sequence..."
+                                />
+                            </div>
+                            <div>
+                                <label className="flex justify-between text-sm font-bold text-slate-700 mb-2">
+                                    <span>Sequence 2</span>
+                                    <span className="text-xs font-normal text-slate-400">{seq2.length} chars</span>
+                                </label>
+                                <textarea
+                                    className="w-full p-3 font-mono text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 h-28 uppercase"
+                                    value={seq2}
+                                    onChange={(e) => setSeq2(e.target.value)}
+                                    placeholder="Paste FASTA or raw sequence..."
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="mt-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium animate-enter">
+                                {error}
+                            </div>
+                        )}
+
+                        <AlignmentViewer result={result} mode={mode} matrixName={matrix} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('bioalign-root'));
+    root.render(<App />);
+
+</script>
+
 <script>
 (function(){
     // --- Dependency Loading ---
     function loadScripts(srcs) {
         return Promise.all(srcs.map(src => {
             return new Promise((resolve, reject) => {
-                if (window.PROTEIN_UTILS && src === 'definitions.js') { resolve(); return; } // already loaded
+                // Dependency Checks to prevent reloading
+                if (window.PROTEIN_UTILS && src.includes('definitions.js')) { resolve(); return; }
+                if (window.LAB_CONSTANTS && src.includes('labConstants.js')) { resolve(); return; }
+                if (window.React && src.includes('react.development')) { resolve(); return; }
+                if (window.ReactDOM && src.includes('react-dom')) { resolve(); return; }
+                if (window.Babel && src.includes('babel.min')) { resolve(); return; }
+                if (window.BioCompute && src.includes('bio_align_engine.js')) { resolve(); return; }
+
                 const s = document.createElement('script');
                 s.src = src;
+                if(src.includes('react') || src.includes('babel')) s.crossOrigin = "anonymous";
                 s.onload = resolve;
                 s.onerror = () => { console.warn("Failed to load "+src); resolve(); };
                 document.head.appendChild(s);
@@ -633,8 +1056,16 @@
         }));
     }
 
-    loadScripts(['labConstants.js', 'definitions.js']).then(() => {
+    loadScripts([
+        'labConstants.js',
+        'definitions.js',
+        'https://unpkg.com/react@18/umd/react.development.js',
+        'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
+        'https://unpkg.com/@babel/standalone/babel.min.js',
+        'bio_align_engine.js'
+    ]).then(() => {
         initBioBench();
+        if(window.Babel) window.Babel.transformScriptTags();
     });
 
     function initBioBench(){
