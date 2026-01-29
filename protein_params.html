@@ -226,14 +226,13 @@
               </div>
             </div>
             <div>
-              <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Map Features</h4>
-              <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 mt-1">
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_topology" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Topology (TM, Signal)</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_ptm" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">PTMs (Motifs)</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_domain" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Domains & Degrons</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_local" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Localization</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_tags" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Tags & Sites</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="feat_user" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>User Domains</label>
+              <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Map Features</h4>
+              <div class="mb-2">
+                 <input type="text" id="feature_search" placeholder="Search features..." class="w-full p-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 transition"/>
+              </div>
+              <div id="feature-controls-container" class="max-h-60 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-lg p-2 bg-gray-50 dark:bg-slate-900/50 space-y-2">
+                 <!-- Dynamic Content -->
+                 <div class="text-xs text-gray-500 text-center py-4">Loading features...</div>
               </div>
             </div>
             <div>
@@ -339,12 +338,7 @@ window.initProteinWorkbench = function(){
     optCys: document.getElementById('opt_cys'),
 
     // Feature Filters
-    featTopology: document.getElementById('feat_topology'),
-    featPtm: document.getElementById('feat_ptm'),
-    featDomain: document.getElementById('feat_domain'),
-    featLocal: document.getElementById('feat_local'),
-    featTags: document.getElementById('feat_tags'),
-    featUser: document.getElementById('feat_user'),
+    featureSearch: document.getElementById('feature_search'),
 
     halfLifeOrg: document.getElementById('half_life_org'),
     
@@ -365,6 +359,158 @@ window.initProteinWorkbench = function(){
   let plotsVisible=true;
   let modalState = { svg: null, zoom: null };
   let userDomains = [];
+
+  /* ===== Feature Control Logic ===== */
+  const FEATURE_GROUPS = [
+    { label: "Topology", categories: ["Topology"] },
+    { label: "PTMs (Motifs)", categories: ["PTM"] },
+    { label: "Domains & Degrons", categories: ["Domain", "Degron", "Large Domain"] },
+    { label: "Localization", categories: ["Localization"] },
+    { label: "Tags & Sites", categories: ["Tags & Sites", "Site"] },
+    { label: "User Domains", categories: ["User Domains"] }
+  ];
+
+  let availableFeatures = {}; // Structure: { GroupLabel: [FeatureName1, FeatureName2] }
+  let enabledFeatures = new Set(); // Stores specific feature names (e.g. "N-glycosylation...")
+
+  function compileAvailableFeatures() {
+    availableFeatures = {};
+    FEATURE_GROUPS.forEach(g => availableFeatures[g.label] = new Set());
+
+    // 1. Hardcoded Topology Features
+    availableFeatures["Topology"].add("Transmembrane");
+    availableFeatures["Topology"].add("Signal peptide (candidate)");
+
+    // 2. Scan Definitions
+    if(DEFS.TAGS) {
+        Object.entries(DEFS.TAGS).forEach(([name, def]) => {
+            const grp = FEATURE_GROUPS.find(g => g.categories.includes(def.category));
+            if(grp) availableFeatures[grp.label].add(name);
+        });
+    }
+    if(DEFS.MOTIFS) {
+        DEFS.MOTIFS.forEach(m => {
+            const grp = FEATURE_GROUPS.find(g => g.categories.includes(m.category));
+            if(grp) availableFeatures[grp.label].add(m.name);
+        });
+    }
+    if(DEFS.LARGE_TAGS) {
+         Object.entries(DEFS.LARGE_TAGS).forEach(([name, def]) => {
+            const grp = FEATURE_GROUPS.find(g => g.categories.includes(def.category));
+            if(grp) availableFeatures[grp.label].add(name);
+        });
+    }
+
+    // 3. User Domains
+    if(userDomains && userDomains.length > 0) {
+        userDomains.forEach(ud => availableFeatures["User Domains"].add(ud.name));
+    }
+
+    // Convert Sets to sorted Arrays
+    Object.keys(availableFeatures).forEach(k => {
+        availableFeatures[k] = Array.from(availableFeatures[k]).sort();
+    });
+
+    // Default: Enable All (on first load)
+    if(enabledFeatures.size === 0) {
+        Object.values(availableFeatures).forEach(arr => arr.forEach(f => enabledFeatures.add(f)));
+    }
+  }
+
+  function renderFeatureControls() {
+    const container = document.getElementById('feature-controls-container');
+    if(!container) return;
+    container.innerHTML = '';
+
+    const searchTerm = (document.getElementById('feature_search').value || '').toLowerCase();
+
+    FEATURE_GROUPS.forEach(group => {
+        const feats = availableFeatures[group.label] || [];
+        if(feats.length === 0) return;
+
+        // Filter for search
+        const visibleFeats = feats.filter(f => f.toLowerCase().includes(searchTerm));
+        if(visibleFeats.length === 0 && searchTerm) return; // Hide group if no matches in search
+
+        const details = document.createElement('details');
+        details.className = "group";
+        // Open by default if searching or if it's Topology/PTMs (common ones)
+        if(searchTerm || ["Topology", "PTMs (Motifs)", "Domains & Degrons"].includes(group.label)) details.open = true;
+
+        const summary = document.createElement('summary');
+        summary.className = "cursor-pointer text-xs font-semibold text-gray-700 dark:text-slate-300 select-none py-1 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-between";
+        summary.innerHTML = `<span>${group.label} <span class="text-[10px] font-normal opacity-70">(${feats.length})</span></span>`;
+        details.appendChild(summary);
+
+        const list = document.createElement('div');
+        list.className = "pl-2 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-slate-700 ml-1";
+
+        // Select All for this group
+        if(!searchTerm) {
+            const allDiv = document.createElement('div');
+            allDiv.className = "flex items-center gap-2";
+            const allCheck = document.createElement('input');
+            allCheck.type = "checkbox";
+            allCheck.className = "h-3 w-3 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500";
+            // Check if all features in this group are enabled
+            const allEnabled = feats.every(f => enabledFeatures.has(f));
+            allCheck.checked = allEnabled;
+            allCheck.addEventListener('change', (e) => {
+                feats.forEach(f => {
+                    if(e.target.checked) enabledFeatures.add(f);
+                    else enabledFeatures.delete(f);
+                });
+                renderFeatureControls(); // Re-render to update UI state
+                refreshAllCards();
+            });
+            const allLabel = document.createElement('span');
+            allLabel.className = "text-xs text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer";
+            allLabel.textContent = allEnabled ? "Deselect All" : "Select All";
+            allLabel.onclick = () => allCheck.click();
+            allDiv.appendChild(allCheck);
+            allDiv.appendChild(allLabel);
+            list.appendChild(allDiv);
+        }
+
+        visibleFeats.forEach(f => {
+             const div = document.createElement('div');
+             div.className = "flex items-center gap-2";
+             const chk = document.createElement('input');
+             chk.type = "checkbox";
+             chk.className = "h-3 w-3 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500";
+             chk.checked = enabledFeatures.has(f);
+             chk.addEventListener('change', (e) => {
+                 if(e.target.checked) enabledFeatures.add(f);
+                 else enabledFeatures.delete(f);
+                 refreshAllCards();
+                 // Update "Select All" state visually without full re-render if possible, but re-render is safer for consistency
+                 // Simple re-check of group header
+                 const groupAllCheck = list.querySelector('input[type="checkbox"]');
+                 if(groupAllCheck) groupAllCheck.checked = feats.every(x => enabledFeatures.has(x));
+             });
+
+             const lbl = document.createElement('label');
+             lbl.className = "text-xs text-gray-700 dark:text-slate-300 cursor-pointer break-words";
+             lbl.textContent = f;
+             lbl.onclick = () => chk.click();
+
+             div.appendChild(chk);
+             div.appendChild(lbl);
+             list.appendChild(div);
+        });
+
+        details.appendChild(list);
+        container.appendChild(details);
+    });
+
+    if(container.innerHTML === '') {
+        container.innerHTML = '<div class="text-xs text-gray-400 text-center py-2">No matching features found.</div>';
+    }
+  }
+
+  function filterFeatures() {
+      return enabledFeatures;
+  }
 
   /* ===== Core calculations ===== */
   // USE SHARED UTILITIES
@@ -594,7 +740,12 @@ window.initProteinWorkbench = function(){
                  if(name && seq) { userDomains.push({name, seq}); count++; }
              }
          });
-         if(count > 0) alert(`Loaded ${count} user domains.`);
+         if(count > 0) {
+             alert(`Loaded ${count} user domains.`);
+             compileAvailableFeatures();
+             renderFeatureControls();
+             refreshAllCards();
+         }
      };
      r.readAsText(f);
   });
@@ -607,9 +758,12 @@ window.initProteinWorkbench = function(){
   els.domainThrSlider.addEventListener('input', ()=>syncDomainThr('slider')); els.domainThr.addEventListener('change', ()=>syncDomainThr('box'));
   [
       els.optHydro, els.optCharge, els.optDisorder, els.optMoment, els.optSecStruct, els.optCys,
-      els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg,
-      els.featTopology, els.featPtm, els.featDomain, els.featLocal, els.featTags, els.featUser
+      els.hydroWindow, els.chargeWindow, els.tmWindow, els.tmThr, els.halfLifeOrg
   ].forEach(c=>{ c.addEventListener('change', ()=> { refreshAllCards(); }); });
+
+  els.featureSearch.addEventListener('input', () => renderFeatureControls());
+  compileAvailableFeatures();
+  renderFeatureControls();
 
   els.analyze.addEventListener('click', ()=>{
     const t=els.fasta.value.trim(); if(!t){ alert("Please paste or upload sequences."); return; }
@@ -983,24 +1137,18 @@ window.initProteinWorkbench = function(){
   function refreshAllPlots(){ currentResults.forEach(o=>updatePlotsForCard(o)); }
   function refreshCharges(){ currentResults.forEach(o=>{ const c = netCharge(o.counts, Number(els.pH.value)); const card = document.getElementById(`result-card-${o.id}`); const target = card.querySelector('.grid.grid-cols-2 div:nth-child(2) span.mono'); if(target) target.textContent = c.toFixed(2); if(els.optCharge.checked) updatePlotsForCard(o); }); }
   function refreshAllCards(){
-      // 1. Gather enabled categories (Feature Filtering)
-      const enabled = new Set();
-      if(els.featTopology.checked) enabled.add('Topology');
-      if(els.featPtm.checked) enabled.add('PTM');
-      if(els.featLocal.checked) enabled.add('Localization');
-      if(els.featTags.checked) { enabled.add('Tags & Sites'); enabled.add('Site'); }
-      if(els.featDomain.checked) { enabled.add('Domain'); enabled.add('Degron'); enabled.add('Large Domain'); }
-      if(els.featUser.checked) enabled.add('User Domains');
+      // 1. Get enabled specific features
+      const enabled = filterFeatures();
 
       currentResults = currentResults.map(o => {
           const tmSegs = transmembranes(o.seq, parseInt(els.tmWindow.value,10), Number(els.tmThr.value));
           const spSegs = signalPeptideCandidates(o.seq);
-          const motifSegs = scanFeatures(o.seq);
+          const motifSegs = scanFeatures(o.seq, Number(els.domainThr.value));
 
           let all = mergeSegments([ ...tmSegs, ...spSegs, ...motifSegs ]);
 
-          // Filter by enabled categories
-          all = all.filter(f => enabled.has(f.category));
+          // Filter by enabled feature names
+          all = all.filter(f => enabled.has(f.name));
 
           o.features = all;
           o.halfLife = estimatedHalfLife(o.seq, els.halfLifeOrg.value);
