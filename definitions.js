@@ -221,6 +221,27 @@ window.PROTEIN_UTILS = {
     return m;
   },
 
+  netCharge: function(counts, pH, scheme='bjell') {
+    const AA = window.PROTEIN_DEFS.AA;
+    const pKaSets = {
+      bjell: {
+          term: { N: AA.pKa_term.N, C: AA.pKa_term.C },
+          side: { ...AA.pKa_side }
+      }
+    };
+    const pK = pKaSets[scheme] || pKaSets.bjell;
+    let p = 1/(1+10**(pH - pK.term.N));
+    p += (counts.K||0)/(1+10**(pH - pK.side.K));
+    p += (counts.R||0)/(1+10**(pH - pK.side.R));
+    p += (counts.H||0)/(1+10**(pH - pK.side.H));
+    let n = 1/(1+10**(pK.term.C - pH));
+    n += (counts.D||0)/(1+10**(pK.side.D - pH));
+    n += (counts.E||0)/(1+10**(pK.side.E - pH));
+    n += (counts.C||0)/(1+10**(pK.side.C - pH));
+    n += (counts.Y||0)/(1+10**(pK.side.Y - pH));
+    return p - n;
+  },
+
   // Calculate Extinction Coefficients (Reduced and Oxidized)
   // Returns: { reduced, cystines }
   extinctionCoefficients: function(counts, mw) {
