@@ -7,6 +7,22 @@
 
   <!-- Dev-only Tailwind CDN. For production, build Tailwind locally. -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#151e2e',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 
   <style>

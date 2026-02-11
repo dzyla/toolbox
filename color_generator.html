@@ -5,12 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Advanced Color Palette Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <script>
-  if (!window.tailwind) {
-    window.tailwind = { config: { darkMode: 'class' } };
-    var s = document.createElement('script');
-    s.src = "https://cdn.tailwindcss.com";
-    document.head.appendChild(s);
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          slate: {
+            850: '#151e2e',
+            900: '#0f172a',
+            950: '#020617',
+          }
+        }
+      }
+    }
   }
 </script>
 <style>
