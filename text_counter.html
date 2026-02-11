@@ -1,3 +1,12 @@
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<script>
+  if (!window.tailwind) {
+    window.tailwind = { config: { darkMode: 'class' } };
+    var s = document.createElement('script');
+    s.src = "https://cdn.tailwindcss.com";
+    document.head.appendChild(s);
+  }
+</script>
 <!-- This file contains only the content for the Text Counter tool. -->
 <!-- It will be loaded into the main index.html file. -->
 
@@ -178,3 +187,4 @@
         updateCounts();
     })();
 </script>
+</body>
