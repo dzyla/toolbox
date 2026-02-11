@@ -82,7 +82,8 @@
                     <input type="number" id="sv-hl-end" class="w-20 p-1.5 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="10">
                  </div>
              </div>
-             <div>
+             <div class="flex items-center gap-2">
+                 <input type="color" id="sv-hl-color" value="#fca5a5" class="w-6 h-6 p-0 border-0 rounded overflow-hidden cursor-pointer bg-transparent" title="Highlight Color">
                  <button id="sv-add-hl" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700">Add Region</button>
              </div>
 
@@ -116,13 +117,22 @@
           <!-- Features Panel (Expandable) -->
           <details id="sv-features-panel" class="mb-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg hidden">
               <summary class="cursor-pointer p-2 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-900/50 rounded-t-lg select-none">Detected Features</summary>
+              <div class="flex justify-end px-2 pt-2">
+                  <button id="sv-uncheck-all" class="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">Uncheck All</button>
+              </div>
               <div id="sv-features-list" class="p-2 text-xs grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   <!-- Dynamic Checkboxes -->
               </div>
           </details>
 
+          <!-- Output -->
+          <div id="sv-output" class="font-mono text-sm overflow-x-auto whitespace-pre p-4 border rounded-lg bg-white dark:bg-slate-950 border-gray-200 dark:border-gray-700 text-slate-800 dark:text-slate-200 relative">
+             <!-- Rendered sequence will go here -->
+             <div class="text-gray-400 italic">Enter sequence above.</div>
+          </div>
+
           <!-- Selection Stats -->
-          <div id="sv-sel-stats" class="mb-2 hidden">
+          <div id="sv-sel-stats" class="mb-2 hidden mt-2">
               <div class="flex flex-wrap gap-3 items-center text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-200 p-2 rounded border border-indigo-100 dark:border-indigo-800">
                   <span class="font-bold">Selection:</span>
                   <span><span id="sv-sel-len">0</span> aa</span>
@@ -132,11 +142,8 @@
               </div>
           </div>
 
-          <!-- Output -->
-          <div id="sv-output" class="font-mono text-sm overflow-x-auto whitespace-pre p-4 border rounded-lg bg-white dark:bg-slate-950 border-gray-200 dark:border-gray-700 text-slate-800 dark:text-slate-200 relative">
-             <!-- Rendered sequence will go here -->
-             <div class="text-gray-400 italic">Enter sequence above.</div>
-          </div>
+          <!-- Residue Key -->
+          <div id="sv-legend" class="mt-2 text-xs text-gray-500 dark:text-gray-400 empty:hidden"></div>
        </div>
     </div>
 
@@ -722,34 +729,34 @@
 
     // Zappo Color Scheme
     const getResidueColor = (char, mode) => {
-        if (char === '-') return 'bg-gray-100 text-gray-400 border-gray-200';
+        if (char === '-') return 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-700 dark:text-gray-500 dark:border-gray-600';
 
         if (mode === 'dna') {
             const colors = {
-                'A': 'bg-red-100 text-red-800 border-red-200',
-                'T': 'bg-blue-100 text-blue-800 border-blue-200',
-                'C': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                'G': 'bg-green-100 text-green-800 border-green-200'
+                'A': 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-200 dark:border-red-800',
+                'T': 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800',
+                'C': 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-800',
+                'G': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-800'
             };
-            return colors[char] || 'bg-gray-50 text-gray-500';
+            return colors[char] || 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
         } else {
             // Protein (Physicochemical properties)
             // Hydrophobic (ILVAM) - Pink
-            if (['I','L','V','A','M'].includes(char)) return 'bg-pink-100 text-pink-800 border-pink-200';
+            if (['I','L','V','A','M'].includes(char)) return 'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-800';
             // Aromatic (FWY) - Orange
-            if (['F','W','Y'].includes(char)) return 'bg-orange-100 text-orange-800 border-orange-200';
+            if (['F','W','Y'].includes(char)) return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-800';
             // Positive (KRH) - Blue
-            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800 border-blue-200';
+            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800';
             // Negative (DE) - Red
-            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800 border-red-200';
+            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-200 dark:border-red-800';
             // Polar (STNQ) - Green
-            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800 border-green-200';
+            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-800';
             // Proline/Glycine (Special)
-            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-800';
             // Cysteine
-            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border-yellow-300';
+            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border-yellow-300 dark:bg-yellow-600 dark:text-yellow-100 dark:border-yellow-500';
 
-            return 'bg-gray-50 text-gray-500';
+            return 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
         }
     };
 
@@ -2104,28 +2111,28 @@
 
         // Color Helper (from React part)
         const getResidueColor = (char, mode) => {
-            if (char === '-') return 'bg-gray-100 text-gray-400';
+            if (char === '-') return 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500';
             // Protein (Physicochemical properties)
             // Hydrophobic (ILVAM) - Pink
             if (['I','L','V','A','M'].includes(char)) {
-                if(mode==='hydro') return 'bg-pink-200 text-pink-900';
-                if(mode==='type') return 'bg-pink-100 text-pink-800';
+                if(mode==='hydro') return 'bg-pink-200 text-pink-900 dark:bg-pink-800 dark:text-pink-100';
+                if(mode==='type') return 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200';
             }
             // Aromatic (FWY) - Orange
             if (['F','W','Y'].includes(char)) {
-                if(mode==='hydro') return 'bg-orange-200 text-orange-900';
-                if(mode==='type') return 'bg-orange-100 text-orange-800';
+                if(mode==='hydro') return 'bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100';
+                if(mode==='type') return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
             }
             // Positive (KRH) - Blue
-            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800';
+            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
             // Negative (DE) - Red
-            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800';
+            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
             // Polar (STNQ) - Green
-            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800';
+            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
             // Proline/Glycine (Special)
-            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800';
+            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
             // Cysteine
-            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border border-yellow-300';
+            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border border-yellow-300 dark:bg-yellow-600 dark:text-yellow-100 dark:border-yellow-500';
 
             return ''; // Default
         };
@@ -2236,21 +2243,49 @@
                         hlRect.style.width = `${width}ch`;
                         hlRect.style.top = "1.25rem"; // Approx
                         hlRect.style.height = "1.1em";
-                        if(h.id) hlRect.dataset.featId = h.id; // For hover targeting
+                        if(h.id) {
+                            hlRect.dataset.featId = h.id; // For hover targeting
+                            hlRect.title = `${h.label || 'Feature'} (${h.group || 'Region'})`;
+                        } else {
+                            hlRect.title = "User Region";
+                        }
                         lineContainer.appendChild(hlRect);
                     }
                 });
 
                 svOutput.appendChild(lineContainer);
             }
+            svUpdateLegend(colorMode);
+        }
+
+        function svUpdateLegend(mode) {
+            const el = document.getElementById('sv-legend');
+            if(mode === 'none') { el.innerHTML = ''; el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            let html = '<span class="font-bold mr-2">Key:</span>';
+            if(mode === 'type') {
+                html += '<span class="bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200 px-1 rounded mr-1">Hydrophobic</span>';
+                html += '<span class="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 px-1 rounded mr-1">Aromatic</span>';
+                html += '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-1 rounded mr-1">Positive</span>';
+                html += '<span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1 rounded mr-1">Negative</span>';
+                html += '<span class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1 rounded mr-1">Polar</span>';
+                html += '<span class="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-1 rounded mr-1">P/G</span>';
+                html += '<span class="bg-yellow-200 text-yellow-900 dark:bg-yellow-600 dark:text-yellow-100 px-1 rounded mr-1">Cys</span>';
+            } else if (mode === 'charge') {
+                html += '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-1 rounded mr-1">Positive (KRH)</span>';
+                html += '<span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1 rounded mr-1">Negative (DE)</span>';
+            } else if (mode === 'hydro') {
+                html += '<span class="bg-pink-200 text-pink-900 dark:bg-pink-800 dark:text-pink-100 px-1 rounded mr-1">Hydrophobic (ILVAM)</span>';
+                html += '<span class="bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100 px-1 rounded mr-1">Aromatic (FWY)</span>';
+            }
+            el.innerHTML = html;
         }
 
         function svAddUserHighlight() {
             const s = parseInt(svStart.value);
             const e = parseInt(svEnd.value);
             if(s && e && s<=e) {
-                const colors = ['#fca5a5', '#86efac', '#93c5fd', '#fde047', '#d8b4fe', '#fdba74'];
-                const color = colors[svUserHighlights.length % colors.length];
+                const color = document.getElementById('sv-hl-color').value;
                 svUserHighlights.push({start: s, end: e, color});
                 svUpdateList();
                 svRender();
@@ -2303,6 +2338,7 @@
                              color: def.color,
                              label: name,
                              group: name,
+                             category: def.category,
                              enabled: oldState[name] !== false
                          });
                          idx = seq.indexOf(pattern, idx+1);
@@ -2321,6 +2357,7 @@
                         color: m.color,
                         label: m.name,
                         group: m.name,
+                        category: m.category,
                         enabled: oldState[m.name] !== false
                     });
                 }
@@ -2436,6 +2473,12 @@
                     e.clipboardData.setData('text/plain', clean);
                 }
             }
+        });
+
+        document.getElementById('sv-uncheck-all').addEventListener('click', () => {
+             svFeatureHighlights.forEach(f => f.enabled = false);
+             svFeatsList.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+             svRender();
         });
 
         svInput.addEventListener('input', () => { svRender(); if(svShowFeats.checked) svScanFeatures(); });

@@ -1,0 +1,6 @@
+127.0.0.1 - - [11/Feb/2026 07:11:24] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 07:11:25] "GET /protein_params.html?t=1770793885218 HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 07:11:25] "GET /definitions.js HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 07:11:26] "GET /bio_bench.html?t=1770793886220 HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 07:11:26] "GET /labConstants.js HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 07:11:26] "GET /bio_align_engine.js HTTP/1.1" 200 -
