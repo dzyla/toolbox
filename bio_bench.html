@@ -19,10 +19,8 @@
 
   <!-- Enforce Tailwind Config here too (safe to repeat or index.html handles it) -->
   <script>
-    if (!window.tailwind || !window.tailwind.configLoadedOnce) {
-       window.tailwind = window.tailwind || {};
-       window.tailwind.config = { darkMode: 'class' };
-       window.tailwind.configLoadedOnce = true;
+    if (typeof window.tailwind === 'undefined') {
+       window.tailwind = { config: { darkMode: 'class' } };
     }
   </script>
 
@@ -50,6 +48,9 @@
       <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-align">
         🧬 BioAlign
       </button>
+      <button class="bb-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="tab-seq-viewer">
+        🧬 Sequence Viewer
+      </button>
     </nav>
   </div>
 
@@ -59,6 +60,49 @@
     <!-- BioAlign Pro -->
     <div id="tab-align" class="bb-pane hidden space-y-6">
         <div id="bioalign-root"></div>
+    </div>
+
+    <!-- Sequence Viewer -->
+    <div id="tab-seq-viewer" class="bb-pane hidden space-y-6">
+       <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <h3 class="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Sequence Viewer</h3>
+
+          <!-- Input -->
+          <div class="mb-4">
+             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sequence</label>
+             <textarea id="sv-seq-input" rows="4" class="w-full p-2 border rounded-lg font-mono text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100 uppercase" placeholder="Paste sequence..."></textarea>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex flex-wrap items-end gap-3 mb-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+             <div>
+                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Highlight Region (Start - End)</label>
+                 <div class="flex gap-2">
+                    <input type="number" id="sv-hl-start" class="w-20 p-1.5 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="1">
+                    <input type="number" id="sv-hl-end" class="w-20 p-1.5 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100" placeholder="10">
+                 </div>
+             </div>
+             <div>
+                 <button id="sv-add-hl" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700">Add Region</button>
+             </div>
+             <div class="ml-auto flex items-center gap-2">
+                 <label class="flex items-center gap-2 text-xs text-gray-700 dark:text-slate-300 cursor-pointer select-none">
+                     <input type="checkbox" id="sv-show-feats" class="rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 dark:border-gray-600">
+                     Show Features (Protein)
+                 </label>
+                 <button id="sv-clear-hl" class="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-slate-700">Clear All</button>
+             </div>
+          </div>
+
+          <!-- Highlight List -->
+          <div id="sv-hl-list" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
+
+          <!-- Output -->
+          <div id="sv-output" class="font-mono text-sm overflow-x-auto whitespace-pre p-4 border rounded-lg bg-white dark:bg-slate-950 border-gray-200 dark:border-gray-700 text-slate-800 dark:text-slate-200 relative">
+             <!-- Rendered sequence will go here -->
+             <div class="text-gray-400 italic">Enter sequence above.</div>
+          </div>
+       </div>
     </div>
 
     <!-- Buffer Mixer -->
@@ -676,7 +720,7 @@
 
     function MatrixSelector({ mode, value, onChange }) {
         if (mode === 'dna') return (
-            <select className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-sm text-slate-600" disabled>
+            <select className="w-full bg-slate-50 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded p-2 text-sm text-slate-600" disabled>
                 <option>Standard DNA (EDNAFULL)</option>
             </select>
         );
@@ -685,7 +729,7 @@
             <select
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                className="w-full bg-white dark:bg-slate-700 dark:text-white border border-slate-300 dark:border-slate-600 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
             >
                 <optgroup label="BLOSUM (Divergence)">
                     <option value="BLOSUM80">BLOSUM80 (Closely related)</option>
@@ -743,9 +787,9 @@
         const gapPct = ((gaps / length) * 100).toFixed(1);
 
         return (
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 mt-8 overflow-hidden animate-enter">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 mt-8 overflow-hidden animate-enter">
                 {/* Header Stats */}
-                <div className="bg-slate-800 text-slate-200 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+                <div className="bg-slate-800 dark:bg-slate-900 text-slate-200 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-slate-700 p-2 rounded-lg">
                             <span className="block text-xs uppercase tracking-wider text-slate-400 font-bold">Raw Score</span>
@@ -874,10 +918,10 @@
         return (
             <div className="max-w-6xl mx-auto px-4 py-10">
                 <header className="mb-8">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-                        BioAlign <span className="text-blue-600">Pro</span>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                        BioAlign <span className="text-blue-600 dark:text-blue-400">Pro</span>
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">
+                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
                         Gotoh's Algorithm with Affine Gap Penalties
                     </p>
                 </header>
@@ -886,22 +930,22 @@
 
                     {/* LEFT PANEL: CONTROLS */}
                     <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Configuration</h2>
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">Configuration</h2>
 
                             {/* Algorithm Mode */}
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Method</label>
-                                <div className="flex bg-slate-100 p-1 rounded-lg">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Method</label>
+                                <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
                                     <button
                                         onClick={() => setAlgo('local')}
-                                        className={`flex-1 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${algo === 'local' ? 'bg-white text-blue-600' : 'text-slate-500'}`}
+                                        className={`flex-1 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${algo === 'local' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}
                                     >
                                         Local (SW)
                                     </button>
                                     <button
                                         onClick={() => setAlgo('global')}
-                                        className={`flex-1 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${algo === 'global' ? 'bg-white text-purple-600' : 'text-slate-500'}`}
+                                        className={`flex-1 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${algo === 'global' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'}`}
                                     >
                                         Global (NW)
                                     </button>
@@ -910,13 +954,13 @@
 
                             {/* Molecule Type */}
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Molecule</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Molecule</label>
                                 <div className="flex gap-2">
-                                    <label className="flex items-center gap-2 cursor-pointer">
+                                    <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                                         <input type="radio" name="mode" checked={mode==='dna'} onChange={() => handleModeChange('dna')} />
                                         <span className="text-sm">DNA</span>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
+                                    <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                                         <input type="radio" name="mode" checked={mode==='protein'} onChange={() => handleModeChange('protein')} />
                                         <span className="text-sm">Protein</span>
                                     </label>
@@ -925,30 +969,30 @@
 
                             {/* Matrix */}
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Substitution Matrix</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Substitution Matrix</label>
                                 <MatrixSelector mode={mode} value={matrix} onChange={setMatrix} />
                             </div>
 
                             {/* Penalties */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gap Open</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gap Open</label>
                                     <input
                                         type="number"
                                         max="0"
                                         value={gapOpen}
                                         onChange={(e) => setGapOpen(e.target.value)}
-                                        className="w-full border border-slate-300 rounded p-2 text-sm"
+                                        className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded p-2 text-sm"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gap Ext</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gap Ext</label>
                                     <input
                                         type="number"
                                         max="0"
                                         value={gapExt}
                                         onChange={(e) => setGapExt(e.target.value)}
-                                        className="w-full border border-slate-300 rounded p-2 text-sm"
+                                        className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded p-2 text-sm"
                                     />
                                 </div>
                             </div>
@@ -962,9 +1006,9 @@
                         </div>
 
                         {/* Legend */}
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Color Key {mode === 'protein' ? '(Zappo)' : ''}</h2>
-                             <div className="text-xs space-y-1">
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                             <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Color Key {mode === 'protein' ? '(Zappo)' : ''}</h2>
+                             <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">
                                 {mode === 'dna' ? (
                                     <>
                                         <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-100 border border-red-300"></div> Adenine (A)</div>
@@ -989,24 +1033,24 @@
                     <div className="lg:col-span-8">
                         <div className="space-y-4">
                             <div>
-                                <label className="flex justify-between text-sm font-bold text-slate-700 mb-2">
+                                <label className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                                     <span>Sequence 1</span>
                                     <span className="text-xs font-normal text-slate-400">{seq1.length} chars</span>
                                 </label>
                                 <textarea
-                                    className="w-full p-3 font-mono text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 h-28 uppercase"
+                                    className="w-full p-3 font-mono text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 h-28 uppercase"
                                     value={seq1}
                                     onChange={(e) => setSeq1(e.target.value)}
                                     placeholder="Paste FASTA or raw sequence..."
                                 />
                             </div>
                             <div>
-                                <label className="flex justify-between text-sm font-bold text-slate-700 mb-2">
+                                <label className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                                     <span>Sequence 2</span>
                                     <span className="text-xs font-normal text-slate-400">{seq2.length} chars</span>
                                 </label>
                                 <textarea
-                                    className="w-full p-3 font-mono text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 h-28 uppercase"
+                                    className="w-full p-3 font-mono text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 h-28 uppercase"
                                     value={seq2}
                                     onChange={(e) => setSeq2(e.target.value)}
                                     placeholder="Paste FASTA or raw sequence..."
@@ -1015,7 +1059,7 @@
                         </div>
 
                         {error && (
-                            <div className="mt-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium animate-enter">
+                            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-sm font-medium animate-enter">
                                 {error}
                             </div>
                         )}
@@ -2004,6 +2048,187 @@
                  container.appendChild(tube);
              }
         }
+
+        // --- SEQUENCE VIEWER LOGIC ---
+        const svInput = document.getElementById('sv-seq-input');
+        const svOutput = document.getElementById('sv-output');
+        const svStart = document.getElementById('sv-hl-start');
+        const svEnd = document.getElementById('sv-hl-end');
+        const svAddHl = document.getElementById('sv-add-hl');
+        const svClearHl = document.getElementById('sv-clear-hl');
+        const svShowFeats = document.getElementById('sv-show-feats');
+        const svHlList = document.getElementById('sv-hl-list');
+
+        let svUserHighlights = []; // {start, end, color}
+        let svFeatureHighlights = []; // {start, end, color, label}
+
+        function svRender() {
+            const raw = svInput.value;
+            const seq = raw.replace(/[^A-Za-z*]/g, '');
+            svOutput.innerHTML = '';
+
+            if(!seq) {
+                svOutput.innerHTML = '<div class="text-gray-400 italic">Enter sequence above.</div>';
+                return;
+            }
+
+            const charsPerLine = 60;
+            const lines = Math.ceil(seq.length / charsPerLine);
+            const formatBlock = (s) => s.match(/.{1,10}/g).join(' ');
+
+            for(let i=0; i<lines; i++) {
+                const startIdx = i * charsPerLine;
+                const lineSeq = seq.substr(startIdx, charsPerLine);
+
+                const lineContainer = document.createElement('div');
+                lineContainer.className = "mb-6 relative font-mono text-sm leading-none";
+
+                // Ladder
+                const ladder = document.createElement('div');
+                ladder.className = "select-none text-gray-400 mb-1 pointer-events-none whitespace-pre";
+
+                let numLine = " ".repeat(lineSeq.length);
+                for(let k=10; k<=seq.length; k+=10) {
+                    if(k > startIdx && k <= startIdx + charsPerLine) {
+                        const s = k.toString();
+                        const pos = k - startIdx - 1;
+                         const insertAt = pos - s.length + 1;
+                         if(insertAt >= 0) {
+                            numLine = numLine.substring(0, insertAt) + s + numLine.substring(pos+1);
+                         }
+                    }
+                }
+                ladder.textContent = formatBlock(numLine);
+                lineContainer.appendChild(ladder);
+
+                // Sequence Text
+                const textDiv = document.createElement('div');
+                textDiv.className = "relative z-10 break-all whitespace-pre";
+                textDiv.textContent = formatBlock(lineSeq);
+                lineContainer.appendChild(textDiv);
+
+                // Highlights Layer
+                // Calculate position relative to lineContainer
+                const allHl = [...svUserHighlights];
+                if(svShowFeats.checked) allHl.push(...svFeatureHighlights);
+
+                allHl.forEach(h => {
+                    const hStart = Math.max(h.start, startIdx + 1);
+                    const hEnd = Math.min(h.end, startIdx + charsPerLine);
+
+                    if(hStart <= hEnd) {
+                        const localStart = hStart - startIdx - 1;
+                        const localEnd = hEnd - startIdx - 1;
+
+                        const spacesBeforeStart = Math.floor(localStart / 10);
+                        const visualStart = localStart + spacesBeforeStart;
+
+                        const spacesBeforeEnd = Math.floor(localEnd / 10);
+                        const visualEnd = localEnd + spacesBeforeEnd;
+
+                        const width = visualEnd - visualStart + 1;
+
+                        const hlRect = document.createElement('div');
+                        hlRect.className = "absolute opacity-30 pointer-events-none z-0";
+                        hlRect.style.backgroundColor = h.color || 'yellow';
+                        hlRect.style.left = `${visualStart}ch`;
+                        hlRect.style.width = `${width}ch`;
+                        // Top offset: Ladder is mb-1 + line-height.
+                        // We want to cover the sequence text.
+                        // Ladder is separate div.
+                        // Use bottom? Or fixed top?
+                        // Ladder (text-sm) ~ 20px height + 4px margin.
+                        // Let's rely on standard line height of text-sm (1.25rem = 20px).
+                        // Ladder height approx 20px. mb-1 = 4px.
+                        // So top ~ 24px.
+                        hlRect.style.top = "1.25rem"; // Approx
+                        hlRect.style.height = "1.1em";
+                        lineContainer.appendChild(hlRect);
+                    }
+                });
+
+                svOutput.appendChild(lineContainer);
+            }
+        }
+
+        function svAddUserHighlight() {
+            const s = parseInt(svStart.value);
+            const e = parseInt(svEnd.value);
+            if(s && e && s<=e) {
+                const colors = ['#fca5a5', '#86efac', '#93c5fd', '#fde047', '#d8b4fe', '#fdba74'];
+                const color = colors[svUserHighlights.length % colors.length];
+                svUserHighlights.push({start: s, end: e, color});
+                svUpdateList();
+                svRender();
+            }
+        }
+
+        function svUpdateList() {
+            svHlList.innerHTML = '';
+            svUserHighlights.forEach((h, idx) => {
+                const tag = document.createElement('div');
+                tag.className = "text-xs px-2 py-1 rounded flex items-center gap-1 border border-gray-200 dark:border-gray-600 dark:text-slate-100";
+                tag.style.background = h.color;
+                tag.style.color = '#1f2937';
+                tag.innerHTML = `<span>${h.start}-${h.end}</span> <button class="ml-1 font-bold hover:text-red-700">×</button>`;
+                tag.querySelector('button').onclick = () => {
+                    svUserHighlights.splice(idx, 1);
+                    svUpdateList();
+                    svRender();
+                };
+                svHlList.appendChild(tag);
+            });
+        }
+
+        function svScanFeatures() {
+            if(!svShowFeats.checked) {
+                svFeatureHighlights = [];
+                svRender();
+                return;
+            }
+            const seq = svInput.value.replace(/[^A-Za-z*]/g, '').toUpperCase();
+            if(!window.PROTEIN_DEFS || !window.PROTEIN_DEFS.TAGS) return;
+
+            svFeatureHighlights = [];
+            const TAGS = window.PROTEIN_DEFS.TAGS;
+            const MOTIFS = window.PROTEIN_DEFS.MOTIFS;
+
+            for(const name in TAGS) {
+                const def = TAGS[name];
+                def.seqs.forEach(pattern => {
+                    let idx = seq.indexOf(pattern);
+                    while(idx !== -1) {
+                         svFeatureHighlights.push({
+                             start: idx + 1,
+                             end: idx + pattern.length,
+                             color: def.color,
+                             label: name
+                         });
+                         idx = seq.indexOf(pattern, idx+1);
+                    }
+                });
+            }
+
+            MOTIFS.forEach(m => {
+                const re = new RegExp(m.regex.source, 'g');
+                let match;
+                while((match = re.exec(seq)) !== null) {
+                    svFeatureHighlights.push({
+                        start: match.index + 1,
+                        end: match.index + match[0].length,
+                        color: m.color,
+                        label: m.name
+                    });
+                }
+            });
+            svRender();
+        }
+
+        svInput.addEventListener('input', () => { svRender(); if(svShowFeats.checked) svScanFeatures(); });
+        svAddHl.addEventListener('click', svAddUserHighlight);
+        svClearHl.addEventListener('click', () => { svUserHighlights = []; svUpdateList(); svRender(); });
+        svShowFeats.addEventListener('change', svScanFeatures);
+
     }
 })();
 </script>
