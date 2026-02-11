@@ -176,19 +176,23 @@
         contentArea.style.opacity = '0.5';
 
         try {
-          // Add cache busting or simple fetch
-          const response = await fetch(src);
+          // Add cache busting
+          const response = await fetch(src + '?t=' + Date.now());
           if (!response.ok) throw new Error(`Status ${response.status}`);
           const text = await response.text();
 
-          // Clear and inject
-          contentArea.innerHTML = '';
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = text;
+          // Inject directly (Atomic update helps observers)
+          contentArea.innerHTML = text;
 
-          // Move children
-          while (tempDiv.firstChild) {
-              contentArea.appendChild(tempDiv.firstChild);
+          // Force Tailwind JIT/Observer refresh by toggling class
+          if (document.documentElement.classList.contains('dark')) {
+              document.documentElement.classList.remove('dark');
+              void document.documentElement.offsetWidth; // Force reflow
+              document.documentElement.classList.add('dark');
+          } else {
+              document.documentElement.classList.add('dark');
+              void document.documentElement.offsetWidth;
+              document.documentElement.classList.remove('dark');
           }
 
           // Execute Scripts
