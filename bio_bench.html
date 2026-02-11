@@ -85,10 +85,26 @@
              <div>
                  <button id="sv-add-hl" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700">Add Region</button>
              </div>
+
+             <!-- New Controls -->
+             <div class="ml-4 pl-4 border-l border-gray-200 dark:border-gray-700">
+                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Residues/Row</label>
+                 <input type="number" id="sv-row-len" value="60" class="w-16 p-1.5 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+             </div>
+             <div>
+                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Color Mode</label>
+                 <select id="sv-color-mode" class="p-1.5 border rounded text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-gray-600 text-slate-900 dark:text-slate-100">
+                     <option value="none">None</option>
+                     <option value="type">Residue Type</option>
+                     <option value="charge">Charge</option>
+                     <option value="hydro">Hydrophobicity</option>
+                 </select>
+             </div>
+
              <div class="ml-auto flex items-center gap-2">
                  <label class="flex items-center gap-2 text-xs text-gray-700 dark:text-slate-300 cursor-pointer select-none">
                      <input type="checkbox" id="sv-show-feats" class="rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 dark:border-gray-600">
-                     Show Features (Protein)
+                     Show Features
                  </label>
                  <button id="sv-clear-hl" class="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-slate-700">Clear All</button>
              </div>
@@ -96,6 +112,25 @@
 
           <!-- Highlight List -->
           <div id="sv-hl-list" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
+
+          <!-- Features Panel (Expandable) -->
+          <details id="sv-features-panel" class="mb-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg hidden">
+              <summary class="cursor-pointer p-2 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-900/50 rounded-t-lg select-none">Detected Features</summary>
+              <div id="sv-features-list" class="p-2 text-xs grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  <!-- Dynamic Checkboxes -->
+              </div>
+          </details>
+
+          <!-- Selection Stats -->
+          <div id="sv-sel-stats" class="mb-2 hidden">
+              <div class="flex flex-wrap gap-3 items-center text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-200 p-2 rounded border border-indigo-100 dark:border-indigo-800">
+                  <span class="font-bold">Selection:</span>
+                  <span><span id="sv-sel-len">0</span> aa</span>
+                  <span>MW: <span id="sv-sel-mw" class="font-mono">0.00</span> Da</span>
+                  <span>ε: <span id="sv-sel-ext" class="font-mono">0</span></span>
+                  <span>Net Charge: <span id="sv-sel-chg" class="font-mono">0.00</span></span>
+              </div>
+          </div>
 
           <!-- Output -->
           <div id="sv-output" class="font-mono text-sm overflow-x-auto whitespace-pre p-4 border rounded-lg bg-white dark:bg-slate-950 border-gray-200 dark:border-gray-700 text-slate-800 dark:text-slate-200 relative">
@@ -2058,9 +2093,42 @@
         const svClearHl = document.getElementById('sv-clear-hl');
         const svShowFeats = document.getElementById('sv-show-feats');
         const svHlList = document.getElementById('sv-hl-list');
+        const svRowLen = document.getElementById('sv-row-len');
+        const svColorMode = document.getElementById('sv-color-mode');
+        const svFeatsPanel = document.getElementById('sv-features-panel');
+        const svFeatsList = document.getElementById('sv-features-list');
+        const svSelStats = document.getElementById('sv-sel-stats');
 
         let svUserHighlights = []; // {start, end, color}
-        let svFeatureHighlights = []; // {start, end, color, label}
+        let svFeatureHighlights = []; // {start, end, color, label, category, enabled}
+
+        // Color Helper (from React part)
+        const getResidueColor = (char, mode) => {
+            if (char === '-') return 'bg-gray-100 text-gray-400';
+            // Protein (Physicochemical properties)
+            // Hydrophobic (ILVAM) - Pink
+            if (['I','L','V','A','M'].includes(char)) {
+                if(mode==='hydro') return 'bg-pink-200 text-pink-900';
+                if(mode==='type') return 'bg-pink-100 text-pink-800';
+            }
+            // Aromatic (FWY) - Orange
+            if (['F','W','Y'].includes(char)) {
+                if(mode==='hydro') return 'bg-orange-200 text-orange-900';
+                if(mode==='type') return 'bg-orange-100 text-orange-800';
+            }
+            // Positive (KRH) - Blue
+            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800';
+            // Negative (DE) - Red
+            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800';
+            // Polar (STNQ) - Green
+            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800';
+            // Proline/Glycine (Special)
+            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800';
+            // Cysteine
+            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border border-yellow-300';
+
+            return ''; // Default
+        };
 
         function svRender() {
             const raw = svInput.value;
@@ -2072,9 +2140,9 @@
                 return;
             }
 
-            const charsPerLine = 60;
+            const charsPerLine = parseInt(svRowLen.value) || 60;
             const lines = Math.ceil(seq.length / charsPerLine);
-            const formatBlock = (s) => s.match(/.{1,10}/g).join(' ');
+            const colorMode = svColorMode.value;
 
             for(let i=0; i<lines; i++) {
                 const startIdx = i * charsPerLine;
@@ -2094,23 +2162,55 @@
                         const pos = k - startIdx - 1;
                          const insertAt = pos - s.length + 1;
                          if(insertAt >= 0) {
+                            // Add extra padding to align correctly if blocks used?
+                            // Ladder logic assumes 1 char = 1 space.
                             numLine = numLine.substring(0, insertAt) + s + numLine.substring(pos+1);
                          }
                     }
                 }
-                ladder.textContent = formatBlock(numLine);
+                // Add spaces for blocks of 10 if needed?
+                // The user asked for "without enters/spaces just sequence" copy.
+                // Current implementation of ladder adds spaces to `numLine` string.
+                // Current implementation of `formatBlock` adds spaces to sequence.
+                // We should separate visual spacing from content if we want 100% clean copy by default,
+                // BUT user highlights rely on character positions.
+                // Let's stick to adding spaces for readability but use `user-select: none` on spacers if possible,
+                // OR just handle the copy event interception which covers it.
+                // I will continue using `formatBlock` visual style but implemented via spans.
+
+                const formatBlockSpaced = (s) => s.match(/.{1,10}/g).join(' ');
+                ladder.textContent = formatBlockSpaced(numLine);
                 lineContainer.appendChild(ladder);
 
-                // Sequence Text
+                // Sequence Text Container
                 const textDiv = document.createElement('div');
                 textDiv.className = "relative z-10 break-all whitespace-pre";
-                textDiv.textContent = formatBlock(lineSeq);
+
+                // Render Residues
+                let renderedSeq = "";
+                for(let j=0; j<lineSeq.length; j++) {
+                    const char = lineSeq[j];
+                    if(j > 0 && j % 10 === 0) {
+                        const spacer = document.createElement('span');
+                        spacer.textContent = ' ';
+                        // spacer.className = 'select-none'; // Better for copy? No, copy handler handles it.
+                        textDiv.appendChild(spacer);
+                    }
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    if(colorMode !== 'none') {
+                        span.className = `inline-block border-y border-transparent ${getResidueColor(char, colorMode)}`;
+                    }
+                    textDiv.appendChild(span);
+                }
                 lineContainer.appendChild(textDiv);
 
                 // Highlights Layer
-                // Calculate position relative to lineContainer
                 const allHl = [...svUserHighlights];
-                if(svShowFeats.checked) allHl.push(...svFeatureHighlights);
+                if(svShowFeats.checked) {
+                    // Only include enabled features
+                    allHl.push(...svFeatureHighlights.filter(f => f.enabled !== false));
+                }
 
                 allHl.forEach(h => {
                     const hStart = Math.max(h.start, startIdx + 1);
@@ -2129,20 +2229,14 @@
                         const width = visualEnd - visualStart + 1;
 
                         const hlRect = document.createElement('div');
-                        hlRect.className = "absolute opacity-30 pointer-events-none z-0";
+                        hlRect.className = "absolute pointer-events-none z-0";
                         hlRect.style.backgroundColor = h.color || 'yellow';
+                        hlRect.style.opacity = '0.3';
                         hlRect.style.left = `${visualStart}ch`;
                         hlRect.style.width = `${width}ch`;
-                        // Top offset: Ladder is mb-1 + line-height.
-                        // We want to cover the sequence text.
-                        // Ladder is separate div.
-                        // Use bottom? Or fixed top?
-                        // Ladder (text-sm) ~ 20px height + 4px margin.
-                        // Let's rely on standard line height of text-sm (1.25rem = 20px).
-                        // Ladder height approx 20px. mb-1 = 4px.
-                        // So top ~ 24px.
                         hlRect.style.top = "1.25rem"; // Approx
                         hlRect.style.height = "1.1em";
+                        if(h.id) hlRect.dataset.featId = h.id; // For hover targeting
                         lineContainer.appendChild(hlRect);
                     }
                 });
@@ -2182,12 +2276,16 @@
 
         function svScanFeatures() {
             if(!svShowFeats.checked) {
-                svFeatureHighlights = [];
+                svFeatsPanel.classList.add('hidden');
                 svRender();
                 return;
             }
             const seq = svInput.value.replace(/[^A-Za-z*]/g, '').toUpperCase();
             if(!window.PROTEIN_DEFS || !window.PROTEIN_DEFS.TAGS) return;
+
+            // Preserve enabled state if re-scanning
+            const oldState = {};
+            svFeatureHighlights.forEach(f => { if(f.group) oldState[f.group] = f.enabled; });
 
             svFeatureHighlights = [];
             const TAGS = window.PROTEIN_DEFS.TAGS;
@@ -2199,10 +2297,13 @@
                     let idx = seq.indexOf(pattern);
                     while(idx !== -1) {
                          svFeatureHighlights.push({
+                             id: 'feat-' + Math.random().toString(36).substr(2,9),
                              start: idx + 1,
                              end: idx + pattern.length,
                              color: def.color,
-                             label: name
+                             label: name,
+                             group: name,
+                             enabled: oldState[name] !== false
                          });
                          idx = seq.indexOf(pattern, idx+1);
                     }
@@ -2214,20 +2315,135 @@
                 let match;
                 while((match = re.exec(seq)) !== null) {
                     svFeatureHighlights.push({
+                        id: 'feat-' + Math.random().toString(36).substr(2,9),
                         start: match.index + 1,
                         end: match.index + match[0].length,
                         color: m.color,
-                        label: m.name
+                        label: m.name,
+                        group: m.name,
+                        enabled: oldState[m.name] !== false
                     });
                 }
             });
+
+            // Update Panel
+            svFeatsPanel.classList.remove('hidden');
+            svFeatsList.innerHTML = '';
+
+            // Group by name
+            const groups = {};
+            svFeatureHighlights.forEach(f => {
+                if(!groups[f.label]) groups[f.label] = { count:0, color: f.color, enabled: f.enabled, ids: [] };
+                groups[f.label].count++;
+                groups[f.label].ids.push(f.id);
+            });
+
+            Object.keys(groups).sort().forEach(label => {
+                const g = groups[label];
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-2 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors";
+
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.checked = g.enabled;
+                chk.className = "rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 dark:border-gray-600";
+                chk.onchange = (e) => {
+                    svFeatureHighlights.forEach(f => { if(f.label === label) f.enabled = e.target.checked; });
+                    svRender();
+                };
+
+                const span = document.createElement('span');
+                span.className = "flex-1 cursor-pointer truncate";
+                span.innerHTML = `<span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${g.color}"></span> ${label} <span class="text-gray-400">(${g.count})</span>`;
+
+                // Hover effect
+                div.addEventListener('mouseenter', () => {
+                    g.ids.forEach(id => {
+                        const el = svOutput.querySelector(`div[data-feat-id="${id}"]`);
+                        if(el) {
+                            el.style.opacity = '0.6';
+                            el.style.border = '2px solid rgba(0,0,0,0.5)';
+                            el.style.zIndex = '5';
+                        }
+                    });
+                });
+                div.addEventListener('mouseleave', () => {
+                    g.ids.forEach(id => {
+                        const el = svOutput.querySelector(`div[data-feat-id="${id}"]`);
+                        if(el) {
+                            el.style.opacity = '0.3';
+                            el.style.border = 'none';
+                            el.style.zIndex = '0';
+                        }
+                    });
+                });
+
+                div.prepend(chk);
+                div.appendChild(span);
+                svFeatsList.appendChild(div);
+            });
+
             svRender();
         }
+
+        // Selection & Copy
+        document.addEventListener('selectionchange', () => {
+            const sel = window.getSelection();
+            if(!sel.rangeCount) return;
+            if(!svOutput.contains(sel.anchorNode)) {
+                // Check if we just left? Maybe keep stats visible?
+                // Better to hide if selection is elsewhere
+                // svSelStats.classList.add('hidden');
+                return;
+            }
+
+            const txt = sel.toString();
+            // Clean: remove non-AA (spaces, newlines, numbers from ladder if accidentally selected)
+            // Note: Since ladder is select-none, numbers shouldn't be here mostly.
+            const clean = txt.replace(/[^A-Za-z*]/g, '');
+
+            if(clean.length > 0) {
+                svSelStats.classList.remove('hidden');
+                document.getElementById('sv-sel-len').textContent = clean.length;
+
+                // Calc stats
+                if(PROT_UTILS.countAA && PROT_UTILS.molecularWeight) {
+                    const counts = PROT_UTILS.countAA(clean);
+                    const mw = PROT_UTILS.molecularWeight(counts);
+                    document.getElementById('sv-sel-mw').textContent = mw.toFixed(2);
+
+                    if(PROT_UTILS.extinctionCoefficients) {
+                        const ext = PROT_UTILS.extinctionCoefficients(counts, mw);
+                        document.getElementById('sv-sel-ext').textContent = ext.reduced;
+                    }
+
+                    if(PROT_UTILS.netCharge) {
+                        const chg = PROT_UTILS.netCharge(counts, 7.4); // pH 7.4 default
+                        document.getElementById('sv-sel-chg').textContent = chg.toFixed(2);
+                    }
+                }
+            } else {
+                svSelStats.classList.add('hidden');
+            }
+        });
+
+        svOutput.addEventListener('copy', (e) => {
+            const sel = window.getSelection();
+            if(svOutput.contains(sel.anchorNode)) {
+                e.preventDefault();
+                const clean = sel.toString().replace(/[^A-Za-z*]/g, '');
+                if(e.clipboardData) {
+                    e.clipboardData.setData('text/plain', clean);
+                }
+            }
+        });
 
         svInput.addEventListener('input', () => { svRender(); if(svShowFeats.checked) svScanFeatures(); });
         svAddHl.addEventListener('click', svAddUserHighlight);
         svClearHl.addEventListener('click', () => { svUserHighlights = []; svUpdateList(); svRender(); });
         svShowFeats.addEventListener('change', svScanFeatures);
+        svRowLen.addEventListener('input', svRender);
+        svColorMode.addEventListener('change', svRender);
 
     }
 })();
