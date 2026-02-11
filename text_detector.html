@@ -7,6 +7,22 @@
 
   <!-- Dev-only Tailwind CDN. For production, build Tailwind locally. -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#151e2e',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 
   <style>
@@ -24,7 +40,7 @@
   <!-- Compromise UMD (correct path) -->
   <script defer src="https://cdn.jsdelivr.net/npm/compromise@14.13.0/builds/compromise.min.js" crossorigin="anonymous"></script>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
   <div class="container mx-auto p-4 md:p-8 max-w-7xl">
     <header class="text-center mb-8">
       <h1 class="text-4xl font-bold text-slate-900 dark:text-slate-100">Text Quality & Forensics</h1>

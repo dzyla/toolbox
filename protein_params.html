@@ -1,22 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protein Feature Workbench</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#151e2e',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 <!-- Protein Feature Workbench — fullscreen map + zoom, reordered cards, dark-mode aware -->
-<!-- This file works standalone (auto-loads Tailwind + d3 if missing) and inside index.html (uses html.dark). -->
-
-<!-- Optional dependency loader for standalone use -->
-<script>
-(function ensureDeps(){
-  // Tailwind (for standalone)
-  if (!window.tailwind || !window.tailwind.configLoadedOnce) {
-    window.tailwind = window.tailwind || {};
-    window.tailwind.config = { darkMode: 'class' }; // Ensure this matches index.html
-    window.tailwind.configLoadedOnce = true;
-    var s = document.createElement('script'); s.src = "https://cdn.tailwindcss.com"; document.head.appendChild(s);
-  }
-  // d3 (for modal zoom)
-  if (!window.d3) {
-    var d = document.createElement('script'); d.src = "https://d3js.org/d3.v7.min.js"; document.head.appendChild(d);
-  }
-})();
-</script>
 
 <style>
   /* Base fonts */
@@ -1227,3 +1236,5 @@ window.initProteinWorkbench = function(){
   });
 })();
 </script>
+</body>
+</html>

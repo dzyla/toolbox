@@ -6,6 +6,22 @@
   <title>Gel Annotation Tool — v3.0 (Multi-Gel Update)</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#151e2e',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
     :root {
       --panel-bg: #f1f5f9;
@@ -41,8 +57,6 @@
       height: 100%;
       overflow: hidden;
       font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: var(--bg-0);
-      color: var(--text-1);
     }
     .app { height: 100%; display: grid; grid-template-columns: 360px 1fr 340px; }
     @media (max-width: 1280px) { .app { grid-template-columns: 360px 1fr; grid-template-rows: 1fr 360px; } .rightbar { grid-column: 1 / -1; grid-row: 2; } }
@@ -91,7 +105,7 @@
     .disabled-overlay { pointer-events: none; opacity: 0.4; }
   </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
   <div class="app">
     <aside class="panel p-4 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
