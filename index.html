@@ -172,37 +172,62 @@
 
       /* Content Loading */
       async function loadContent(src) {
-        // Simple fade out
         contentArea.style.opacity = '0.5';
 
         try {
-          // Add cache busting
           const response = await fetch(src + '?t=' + Date.now());
           if (!response.ok) throw new Error(`Status ${response.status}`);
-          const text = await response.text();
+          const htmlText = await response.text();
 
-          // Inject directly (Atomic update helps observers)
-          contentArea.innerHTML = text;
+          // Parse
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlText, 'text/html');
 
-          // Force Tailwind JIT/Observer refresh by toggling class
-          if (document.documentElement.classList.contains('dark')) {
-              document.documentElement.classList.remove('dark');
-              void document.documentElement.offsetWidth; // Force reflow
-              document.documentElement.classList.add('dark');
-          } else {
-              document.documentElement.classList.add('dark');
-              void document.documentElement.offsetWidth;
-              document.documentElement.classList.remove('dark');
-          }
+          // Clear
+          contentArea.innerHTML = '';
 
-          // Execute Scripts
-          const scripts = contentArea.querySelectorAll('script');
-          for (const script of scripts) {
-            const s = document.createElement('script');
-            Array.from(script.attributes).forEach(attr => s.setAttribute(attr.name, attr.value));
-            s.textContent = script.textContent;
-            script.replaceWith(s);
-          }
+          // Library Blacklist (prevent double loading)
+          const blacklistedLibs = ['tailwindcss', 'd3', 'chart.js'];
+
+          // Function to process a script
+          const processAndAppendScript = (originalScript) => {
+              const src = originalScript.getAttribute('src') || '';
+              const content = originalScript.textContent || '';
+
+              // Filter Libs
+              if (src && blacklistedLibs.some(lib => src.toLowerCase().includes(lib))) {
+                  console.log(`[BioShell] Skipping duplicate lib: ${src}`);
+                  return;
+              }
+
+              // Filter Config
+              if (!src && content.includes('tailwind.config')) {
+                  console.log(`[BioShell] Skipping tailwind config`);
+                  return;
+              }
+
+              const newScript = document.createElement('script');
+              Array.from(originalScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+              newScript.textContent = content;
+              contentArea.appendChild(newScript);
+          };
+
+          // 1. Handle Styles (from Head)
+          doc.head.querySelectorAll('style').forEach(style => {
+              contentArea.appendChild(document.importNode(style, true));
+          });
+
+          // 2. Handle Scripts (from Head)
+          doc.head.querySelectorAll('script').forEach(processAndAppendScript);
+
+          // 3. Handle Body Content
+          Array.from(doc.body.childNodes).forEach(node => {
+              if (node.tagName === 'SCRIPT') {
+                  processAndAppendScript(node);
+              } else {
+                  contentArea.appendChild(document.importNode(node, true));
+              }
+          });
 
         } catch (err) {
           contentArea.innerHTML = `<div class="text-center p-10 text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl m-4 border border-red-200 dark:border-red-800">
