@@ -143,7 +143,7 @@
           </details>
 
           <!-- Output -->
-          <div id="sv-output" class="font-mono text-sm overflow-x-auto whitespace-pre p-4 border rounded-lg bg-white dark:bg-slate-950 border-gray-200 dark:border-gray-700 text-slate-800 dark:text-slate-200 relative">
+          <div id="sv-output" tabindex="0" class="font-mono text-sm overflow-x-auto whitespace-pre p-4 border rounded-lg bg-white dark:bg-slate-950 border-gray-200 dark:border-gray-700 text-slate-800 dark:text-slate-200 relative outline-none focus:ring-2 focus:ring-indigo-500">
              <!-- Rendered sequence will go here -->
              <div class="text-gray-400 italic">Enter sequence above.</div>
           </div>
@@ -2125,31 +2125,92 @@
 
         let svUserHighlights = []; // {start, end, color}
         let svFeatureHighlights = []; // {start, end, color, label, category, enabled}
+        let svLastSeq = svInput.value;
+
+        function updateHighlightsOnEdit(oldSeq, newSeq) {
+            if (oldSeq === newSeq) return;
+
+            let start = 0;
+            while (start < oldSeq.length && start < newSeq.length && oldSeq[start] === newSeq[start]) {
+                start++;
+            }
+
+            let oldEnd = oldSeq.length - 1;
+            let newEnd = newSeq.length - 1;
+            while (oldEnd >= start && newEnd >= start && oldSeq[oldEnd] === newSeq[newEnd]) {
+                oldEnd--;
+                newEnd--;
+            }
+
+            const delCount = Math.max(0, oldEnd - start + 1);
+            const insCount = Math.max(0, newEnd - start + 1);
+            const editPos = start + 1; // 1-based
+
+            if (delCount === 0 && insCount === 0) return;
+
+            const survivors = [];
+            svUserHighlights.forEach(h => {
+                let s = h.start;
+                let e = h.end;
+
+                if (delCount > 0) {
+                     const delEndPos = editPos + delCount - 1;
+                     if (e < editPos) {
+                         // No change
+                     } else if (s > delEndPos) {
+                         s -= delCount;
+                         e -= delCount;
+                     } else {
+                         if (s >= editPos) s = editPos;
+                         if (e >= editPos && e <= delEndPos) e = editPos - 1;
+                         else if (e > delEndPos) e -= delCount;
+                     }
+                }
+
+                if (insCount > 0) {
+                     if (e < editPos) {
+                     } else if (s >= editPos) {
+                         s += insCount;
+                         e += insCount;
+                     } else {
+                         e += insCount;
+                     }
+                }
+
+                if (s <= e) {
+                    h.start = s;
+                    h.end = e;
+                    survivors.push(h);
+                }
+            });
+            svUserHighlights = survivors;
+            svUpdateList();
+        }
 
         // Color Helper (from React part)
         const getResidueColor = (char, mode) => {
-            if (char === '-') return 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500';
+            if (char === '-') return 'bg-gray-100 text-gray-400 dark:bg-slate-800 dark:text-slate-500';
             // Protein (Physicochemical properties)
             // Hydrophobic (ILVAM) - Pink
             if (['I','L','V','A','M'].includes(char)) {
-                if(mode==='hydro') return 'bg-pink-200 text-pink-900 dark:bg-pink-800 dark:text-pink-100';
-                if(mode==='type') return 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200';
+                if(mode==='hydro') return 'bg-pink-200 text-pink-900 dark:bg-pink-900/60 dark:text-pink-100 dark:border-pink-800';
+                if(mode==='type') return 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200';
             }
             // Aromatic (FWY) - Orange
             if (['F','W','Y'].includes(char)) {
-                if(mode==='hydro') return 'bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100';
-                if(mode==='type') return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+                if(mode==='hydro') return 'bg-orange-200 text-orange-900 dark:bg-orange-900/60 dark:text-orange-100 dark:border-orange-800';
+                if(mode==='type') return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200';
             }
             // Positive (KRH) - Blue
-            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+            if (['K','R','H'].includes(char)) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200';
             // Negative (DE) - Red
-            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+            if (['D','E'].includes(char)) return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200';
             // Polar (STNQ) - Green
-            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            if (['S','T','N','Q'].includes(char)) return 'bg-green-100 text-green-800 dark:bg-emerald-900/50 dark:text-emerald-200';
             // Proline/Glycine (Special)
-            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+            if (['P','G'].includes(char)) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200';
             // Cysteine
-            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border border-yellow-300 dark:bg-yellow-600 dark:text-yellow-100 dark:border-yellow-500';
+            if (char === 'C') return 'bg-yellow-200 text-yellow-900 border border-yellow-300 dark:bg-yellow-600/30 dark:text-yellow-100 dark:border-yellow-500';
 
             return ''; // Default
         };
@@ -2217,11 +2278,12 @@
                     if(j > 0 && j % 10 === 0) {
                         const spacer = document.createElement('span');
                         spacer.textContent = ' ';
-                        // spacer.className = 'select-none'; // Better for copy? No, copy handler handles it.
+                        spacer.className = 'select-none pointer-events-none';
                         textDiv.appendChild(spacer);
                     }
                     const span = document.createElement('span');
                     span.textContent = char;
+                    span.dataset.idx = startIdx + j + 1; // 1-based index
                     if(colorMode !== 'none') {
                         span.className = `inline-block border-y border-transparent ${getResidueColor(char, colorMode)}`;
                     }
@@ -2281,19 +2343,19 @@
             el.classList.remove('hidden');
             let html = '<span class="font-bold mr-2">Key:</span>';
             if(mode === 'type') {
-                html += '<span class="bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200 px-1 rounded mr-1">Hydrophobic</span>';
-                html += '<span class="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 px-1 rounded mr-1">Aromatic</span>';
-                html += '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-1 rounded mr-1">Positive</span>';
-                html += '<span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1 rounded mr-1">Negative</span>';
-                html += '<span class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1 rounded mr-1">Polar</span>';
-                html += '<span class="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-1 rounded mr-1">P/G</span>';
-                html += '<span class="bg-yellow-200 text-yellow-900 dark:bg-yellow-600 dark:text-yellow-100 px-1 rounded mr-1">Cys</span>';
+                html += '<span class="bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200 px-1 rounded mr-1">Hydrophobic</span>';
+                html += '<span class="bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200 px-1 rounded mr-1">Aromatic</span>';
+                html += '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 px-1 rounded mr-1">Positive</span>';
+                html += '<span class="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 px-1 rounded mr-1">Negative</span>';
+                html += '<span class="bg-green-100 text-green-800 dark:bg-emerald-900/50 dark:text-emerald-200 px-1 rounded mr-1">Polar</span>';
+                html += '<span class="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 px-1 rounded mr-1">P/G</span>';
+                html += '<span class="bg-yellow-200 text-yellow-900 dark:bg-yellow-600/30 dark:text-yellow-100 px-1 rounded mr-1">Cys</span>';
             } else if (mode === 'charge') {
-                html += '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-1 rounded mr-1">Positive (KRH)</span>';
-                html += '<span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1 rounded mr-1">Negative (DE)</span>';
+                html += '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 px-1 rounded mr-1">Positive (KRH)</span>';
+                html += '<span class="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 px-1 rounded mr-1">Negative (DE)</span>';
             } else if (mode === 'hydro') {
-                html += '<span class="bg-pink-200 text-pink-900 dark:bg-pink-800 dark:text-pink-100 px-1 rounded mr-1">Hydrophobic (ILVAM)</span>';
-                html += '<span class="bg-orange-200 text-orange-900 dark:bg-orange-800 dark:text-orange-100 px-1 rounded mr-1">Aromatic (FWY)</span>';
+                html += '<span class="bg-pink-200 text-pink-900 dark:bg-pink-900/60 dark:text-pink-100 px-1 rounded mr-1">Hydrophobic (ILVAM)</span>';
+                html += '<span class="bg-orange-200 text-orange-900 dark:bg-orange-900/60 dark:text-orange-100 px-1 rounded mr-1">Aromatic (FWY)</span>';
             }
             el.innerHTML = html;
         }
@@ -2492,13 +2554,166 @@
             }
         });
 
+        svOutput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+
+            const sel = window.getSelection();
+            if (!svOutput.contains(sel.anchorNode)) return;
+
+            const getSeqIdx = (node, offset) => {
+                let idx = -1;
+                let isAfter = false;
+                if (node.nodeType === 3) { // Text
+                     const span = node.parentNode;
+                     if(span.tagName === 'SPAN' && span.dataset.idx) {
+                         idx = parseInt(span.dataset.idx);
+                         if(offset >= 1) isAfter = true;
+                     }
+                } else if (node.tagName === 'SPAN' && node.dataset.idx) {
+                     idx = parseInt(node.dataset.idx);
+                }
+
+                if (idx !== -1) {
+                    return idx - 1 + (isAfter ? 1 : 0);
+                }
+                return -1;
+            };
+
+            let s = getSeqIdx(sel.anchorNode, sel.anchorOffset);
+            let eIdx = getSeqIdx(sel.focusNode, sel.focusOffset);
+
+            if (s === -1 || eIdx === -1) return;
+
+            const start = Math.min(s, eIdx);
+            const end = Math.max(s, eIdx);
+
+            const cleanSeq = svInput.value.replace(/[^A-Za-z*]/g, '');
+            let newVal = cleanSeq;
+            let cursor = start;
+            let changed = false;
+
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                if (start !== end) {
+                    newVal = cleanSeq.slice(0, start) + cleanSeq.slice(end);
+                    cursor = start;
+                    changed = true;
+                } else {
+                    if (start > 0) {
+                        newVal = cleanSeq.slice(0, start - 1) + cleanSeq.slice(start);
+                        cursor = start - 1;
+                        changed = true;
+                    }
+                }
+            } else if (e.key === 'Delete') {
+                e.preventDefault();
+                if (start !== end) {
+                    newVal = cleanSeq.slice(0, start) + cleanSeq.slice(end);
+                    cursor = start;
+                    changed = true;
+                } else {
+                    if (start < cleanSeq.length) {
+                        newVal = cleanSeq.slice(0, start) + cleanSeq.slice(start + 1);
+                        cursor = start;
+                        changed = true;
+                    }
+                }
+            } else if (e.key.length === 1) {
+                 e.preventDefault();
+                 const char = e.key.toUpperCase();
+                 if (/[A-Z*]/.test(char)) {
+                     newVal = cleanSeq.slice(0, start) + char + cleanSeq.slice(end);
+                     cursor = start + 1;
+                     changed = true;
+                 }
+            }
+
+            if (changed) {
+                svInput.value = newVal;
+                svInput.dispatchEvent(new Event('input'));
+
+                // Restore focus
+                const targetIdx = cursor + 1; // 1-based span idx
+                let targetSpan = svOutput.querySelector(`span[data-idx="${targetIdx}"]`);
+
+                if (targetSpan && targetSpan.firstChild) {
+                     const r = document.createRange();
+                     r.setStart(targetSpan.firstChild, 0);
+                     r.collapse(true);
+                     const sel = window.getSelection();
+                     sel.removeAllRanges();
+                     sel.addRange(r);
+                } else if (cursor >= newVal.length && newVal.length > 0) {
+                     // End of sequence
+                     const lastIdx = newVal.length;
+                     const lastSpan = svOutput.querySelector(`span[data-idx="${lastIdx}"]`);
+                     if(lastSpan && lastSpan.firstChild) {
+                         const r = document.createRange();
+                         r.setStart(lastSpan.firstChild, 1);
+                         r.collapse(true);
+                         const sel = window.getSelection();
+                         sel.removeAllRanges();
+                         sel.addRange(r);
+                     }
+                }
+            }
+        });
+
+        // Feature Tooltip
+        const svTooltip = document.createElement('div');
+        svTooltip.className = "fixed z-50 bg-slate-900 text-white text-xs p-2 rounded shadow-lg pointer-events-none hidden max-w-xs";
+        document.body.appendChild(svTooltip);
+
+        svOutput.addEventListener('mousemove', (e) => {
+             let target = e.target;
+             if (target.nodeType === 3) target = target.parentNode;
+
+             let idx = -1;
+             if (target.tagName === 'SPAN' && target.dataset.idx) {
+                 idx = parseInt(target.dataset.idx);
+             }
+
+             if (idx !== -1) {
+                 const active = svFeatureHighlights.filter(f => f.enabled !== false && idx >= f.start && idx <= f.end);
+
+                 if (active.length > 0) {
+                     svTooltip.innerHTML = active.map(f => `
+                         <div class="mb-1 last:mb-0">
+                             <div class="font-bold flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background:${f.color}"></span> ${f.label}</div>
+                             <div class="text-[10px] opacity-80">${f.category || 'Feature'} (${f.start}-${f.end})</div>
+                         </div>
+                     `).join('');
+
+                     // Keep tooltip within bounds
+                     const x = e.clientX + 10;
+                     const y = e.clientY + 10;
+                     svTooltip.style.left = x + 'px';
+                     svTooltip.style.top = y + 'px';
+                     svTooltip.classList.remove('hidden');
+                 } else {
+                     svTooltip.classList.add('hidden');
+                 }
+             } else {
+                 svTooltip.classList.add('hidden');
+             }
+        });
+
+        svOutput.addEventListener('mouseleave', () => svTooltip.classList.add('hidden'));
+
         document.getElementById('sv-uncheck-all').addEventListener('click', () => {
              svFeatureHighlights.forEach(f => f.enabled = false);
              svFeatsList.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
              svRender();
         });
 
-        svInput.addEventListener('input', () => { svRender(); if(svShowFeats.checked) svScanFeatures(); });
+        svInput.addEventListener('input', () => {
+             const newSeq = svInput.value;
+             updateHighlightsOnEdit(svLastSeq, newSeq);
+             svLastSeq = newSeq;
+             svRender();
+             if(svShowFeats.checked) svScanFeatures();
+        });
         svAddHl.addEventListener('click', svAddUserHighlight);
         svClearHl.addEventListener('click', () => { svUserHighlights = []; svUpdateList(); svRender(); });
         svShowFeats.addEventListener('change', svScanFeatures);
