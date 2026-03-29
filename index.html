@@ -48,14 +48,13 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
 
   <style>
-    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans"; scroll-behavior: smooth; }
-
     /* Navigation Button Styles */
     .nav-button {
       padding: .6rem 1.25rem;
-      font-size: .95rem;
+      font-size: .875rem;
       font-weight: 600;
       border-radius: 9999px;
       border: 1px solid transparent;
@@ -81,49 +80,29 @@
     html.dark .nav-button:hover { background-color: #1e293b; color: #e2e8f0; }
     html.dark .active-nav-button {
       color: #818cf8;
-      background-color: #1e1b4b; /* Indigo 950 approx */
+      background-color: #1e1b4b;
       border-color: #4338ca;
     }
 
     /* Main Content Area */
     main { min-height: calc(100vh - 80px); }
-
-    /* Scrollbars */
-    ::-webkit-scrollbar{ width:8px; height:8px;}
-    ::-webkit-scrollbar-track{ background:transparent;}
-    ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px;}
-    ::-webkit-scrollbar-thumb:hover{ background:#94a3b8;}
-
-    html.dark ::-webkit-scrollbar-thumb{ background:#475569;}
-    html.dark ::-webkit-scrollbar-thumb:hover{ background:#64748b;}
-
-    /* Utility */
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
 
-  <nav id="topnav" class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm sticky top-0 z-30 border-b border-gray-200 dark:border-slate-800 transition-colors duration-200">
+  <nav id="topnav" class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 transition-colors duration-200">
     <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
 
-      <!-- Scrollable Nav Container -->
+      <!-- Scrollable Nav Container — populated by TOOLS config below -->
       <div class="flex-1 overflow-hidden relative group">
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide mask-fade">
-            <button class="nav-button" data-src="protein_params.html">🧬 Protein Workbench</button>
-            <button class="nav-button" data-src="bio_bench.html">🧪 Bio-Bench</button>
-            <button class="nav-button" data-src="binding_calculator.html">📈 Binding Calc</button>
-            <button class="nav-button" data-src="color_generator.html">🎨 Colors</button>
-            <button class="nav-button" data-src="text_counter.html">📝 Text Tools</button>
-            <button class="nav-button" data-src="text_detector.html">🔎 Forensics</button>
-            <button class="nav-button" data-src="gel_annotator.html">📷 Gel Annotator</button>
+        <div id="nav-links" class="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+          <!-- Buttons injected by JS from the TOOLS array -->
         </div>
-        <!-- Fade masks for scroll indication could go here -->
       </div>
 
       <button id="theme-toggle"
-              class="nav-button shrink-0 flex items-center gap-2 px-4 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+              class="nav-button shrink-0 flex items-center gap-2 px-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               type="button"
               aria-label="Toggle dark mode">
         <span id="theme-icon">🌙</span> <span class="hidden sm:inline">Dark</span>
@@ -138,13 +117,41 @@
   </footer>
 
   <script>
+    /*
+     * ── TOOLS REGISTRY ──────────────────────────────────────────────────────
+     * Add a new tool by appending an entry here. No other HTML changes needed.
+     * Fields:
+     *   src   – HTML file to load (relative to index.html)
+     *   label – Nav button label
+     */
+    const TOOLS = [
+      { src: 'protein_params.html',    label: 'Protein Workbench' },
+      { src: 'bio_bench.html',         label: 'Bio-Bench'         },
+      { src: 'binding_calculator.html',label: 'Binding Calc'      },
+      { src: 'color_generator.html',   label: 'Colors'            },
+      { src: 'text_counter.html',      label: 'Text Tools'        },
+      { src: 'text_detector.html',     label: 'Forensics'         },
+      { src: 'gel_annotator.html',     label: 'Gel Annotator'     },
+    ];
+
     document.addEventListener('DOMContentLoaded', () => {
       const contentArea = document.getElementById('content-area');
-      const navButtons  = document.querySelectorAll('.nav-button[data-src]');
+      const navLinksEl  = document.getElementById('nav-links');
       const themeBtn    = document.getElementById('theme-toggle');
       const themeIcon   = document.getElementById('theme-icon');
       const themeText   = themeBtn.querySelector('span.hidden');
       const docEl       = document.documentElement;
+
+      /* Build nav buttons from config */
+      TOOLS.forEach(tool => {
+        const btn = document.createElement('button');
+        btn.className = 'nav-button';
+        btn.dataset.src = tool.src;
+        btn.textContent = tool.label;
+        navLinksEl.appendChild(btn);
+      });
+
+      const navButtons = navLinksEl.querySelectorAll('.nav-button[data-src]');
 
       /* Theme Logic */
       function updateThemeUI(isDark) {

@@ -30,21 +30,21 @@
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
   <div class="container mx-auto p-4 md:p-8">
 
-    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8 sticky top-4 z-10 border border-gray-100 dark:border-gray-700">
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8 sticky top-4 z-10 border border-slate-100 dark:border-slate-700">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label for="colormap-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colormap</label>
-          <select id="colormap-select" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100"></select>
+          <label for="colormap-select" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Colormap</label>
+          <select id="colormap-select" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100"></select>
         </div>
         <div>
-          <label for="color-count" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Number of Colors (2–256)</label>
-          <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+          <label for="color-count" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Number of Colors (2–256)</label>
+          <input type="number" id="color-count" value="16" min="2" max="256" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
         </div>
       </div>
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-700">
         <div>
-          <label for="sim-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Blindness Sim</label>
-          <select id="sim-select" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+          <label for="sim-select" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Color Blindness Sim</label>
+          <select id="sim-select" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
             <option value="normal">Normal Vision</option>
             <option value="protanopia">Protanopia (No Red)</option>
             <option value="deuteranopia">Deuteranopia (No Green)</option>
@@ -152,7 +152,7 @@
             </div>
             <div class="bg-white dark:bg-slate-800 p-3">
               <p class="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300 m-0">${label}</p>
-              ${simType !== 'normal' ? `<p class="text-[10px] text-gray-400">Orig: ${originalHex}</p>` : ''}
+              ${simType !== 'normal' ? `<p class="text-[10px] text-slate-400">Orig: ${originalHex}</p>` : ''}
             </div>
           `;
           card.addEventListener('click', (e) => {
@@ -198,27 +198,27 @@
         const v = vary(hex);
         const row = (label, arr) => `
           <div>
-            <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">${label}</h4>
+            <h4 class="font-semibold text-slate-800 dark:text-slate-200 mb-2">${label}</h4>
             <div class="flex gap-2">
               ${arr.map(c=>`
                 <div class="flex-1 group relative" title="Click to copy ${c}">
-                  <div data-color="${c}" class="shade-swatch h-16 w-full border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer hover:scale-105 transition-transform" style="background:${c}"></div>
-                  <p class="text-center text-xs text-gray-500 dark:text-gray-400 mt-2 mono">${c}</p>
+                  <div data-color="${c}" class="shade-swatch h-16 w-full border border-slate-200 dark:border-slate-700 rounded-md cursor-pointer hover:scale-105 transition-transform" style="background:${c}"></div>
+                  <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-2 mono">${c}</p>
                 </div>
               `).join('')}
             </div>
           </div>`;
 
         $panel.innerHTML = `
-          <div id="shade-panel" class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transition-all duration-300 animate-in fade-in slide-in-from-top-4">
-            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
+          <div id="shade-panel" class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700 transition-all duration-300 animate-in fade-in slide-in-from-top-4">
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
               <div>
-                <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Color Variations</h3>
-                <p class="text-gray-600 dark:text-gray-400">Tints, tones, and shades for your selected color.</p>
+                <h3 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Color Variations</h3>
+                <p class="text-slate-600 dark:text-slate-400">Tints, tones, and shades for your selected color.</p>
               </div>
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full shadow-inner" style="background:${hex}"></div>
-                <span class="text-lg font-semibold mono text-gray-900 dark:text-gray-100">${hex}</span>
+                <span class="text-lg font-semibold mono text-slate-900 dark:text-slate-100">${hex}</span>
               </div>
             </div>
             <div class="space-y-4">

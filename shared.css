@@ -1,0 +1,362 @@
+/*
+ * Bio-Bench Suite — Shared Stylesheet
+ * Loaded by index.html; cascades into all dynamically loaded tools.
+ * Individual tools may be opened standalone too, so they keep their own
+ * Tailwind config, but this file provides consistent base overrides.
+ */
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+.mono, code, pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Tool container ──────────────────────────────────────────────────────── */
+/* Wrap tool content so every page has consistent max-width + padding */
+.tool-page {
+  width: 100%;
+  max-width: 80rem; /* ~1280px, same as Tailwind max-w-7xl */
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2rem 1rem;
+}
+@media (min-width: 768px) { .tool-page { padding: 2.5rem 2rem; } }
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0,0,0,.06);
+}
+html.dark .card {
+  background: #1e293b;
+  border-color: #334155;
+}
+.card-inner {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+html.dark .card-inner {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+/* ── Tool page header ────────────────────────────────────────────────────── */
+.tool-header { text-align: center; margin-bottom: 2rem; }
+.tool-header h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+html.dark .tool-header h1 { color: #f1f5f9; }
+.tool-header p {
+  margin-top: 0.5rem;
+  font-size: 1.0625rem;
+  color: #64748b;
+}
+html.dark .tool-header p { color: #94a3b8; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+              box-shadow 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary {
+  background: #4f46e5;
+  color: #ffffff;
+}
+.btn-primary:hover:not(:disabled) { background: #4338ca; }
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.4);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border-color: #e2e8f0;
+}
+.btn-secondary:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
+html.dark .btn-secondary {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+html.dark .btn-secondary:hover:not(:disabled) { background: #273549; border-color: #475569; }
+
+.btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+}
+.btn-danger:hover:not(:disabled) { background: #dc2626; }
+
+.btn-success {
+  background: #16a34a;
+  color: #ffffff;
+}
+.btn-success:hover:not(:disabled) { background: #15803d; }
+
+/* ── Form elements ───────────────────────────────────────────────────────── */
+.form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.3rem;
+}
+html.dark .form-label { color: #94a3b8; }
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  line-height: 1.5;
+}
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.2);
+}
+html.dark .form-input,
+html.dark .form-select,
+html.dark .form-textarea {
+  background: #0f172a;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+html.dark .form-input:focus,
+html.dark .form-select:focus,
+html.dark .form-textarea:focus {
+  border-color: #818cf8;
+}
+
+/* ── Stat / metric card ──────────────────────────────────────────────────── */
+.stat-card {
+  text-align: center;
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+html.dark .stat-card { background: #0f172a; border-color: #334155; }
+.stat-label { font-size: 0.75rem; font-weight: 500; color: #64748b; }
+html.dark .stat-label { color: #94a3b8; }
+.stat-value { font-size: 1.875rem; font-weight: 700; color: #4f46e5; }
+html.dark .stat-value { color: #818cf8; }
+
+/* ── Callouts ────────────────────────────────────────────────────────────── */
+.callout {
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  border: 1px solid;
+}
+.callout-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+html.dark .callout-info {
+  background: rgba(30,58,138,.15);
+  border-color: rgba(147,197,253,.25);
+  color: #93c5fd;
+}
+.callout-warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+html.dark .callout-warn {
+  background: rgba(146,64,14,.12);
+  border-color: rgba(252,211,77,.3);
+  color: #fcd34d;
+}
+.callout-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+html.dark .callout-danger {
+  background: rgba(153,27,27,.12);
+  border-color: rgba(252,165,165,.25);
+  color: #fca5a5;
+}
+.callout-success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+html.dark .callout-success {
+  background: rgba(22,101,52,.12);
+  border-color: rgba(187,247,208,.25);
+  color: #86efac;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  font-size: 0.8125rem;
+  text-align: left;
+  border-collapse: collapse;
+}
+.data-table th,
+.data-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+html.dark .data-table th,
+html.dark .data-table td { border-color: #334155; }
+.data-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #334155;
+}
+html.dark .data-table th { background: #1e293b; color: #94a3b8; }
+.data-table tr:hover td { background: #f1f5f9; }
+html.dark .data-table tr:hover td { background: rgba(255,255,255,.04); }
+
+/* ── Section divider label ───────────────────────────────────────────────── */
+.section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+}
+html.dark .section-label { color: #64748b; }
+
+/* ── Tab bar ─────────────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  border-bottom: 2px solid #e2e8f0;
+  gap: 0;
+}
+html.dark .tab-bar { border-color: #334155; }
+.tab-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: #334155; }
+html.dark .tab-btn:hover { color: #e2e8f0; }
+.tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+html.dark .tab-btn.active { color: #818cf8; border-bottom-color: #818cf8; }
+
+/* ── Feature track (protein workbench) ──────────────────────────────────── */
+.feature-track-svg .seq-bar-bg { fill: #e5e7eb; }
+html.dark .feature-track-svg .seq-bar-bg { fill: #1f2937; }
+.feature-list-item:hover { background-color: #eef2ff; }
+.feature-list-item.active { background-color: #e0e7ff; outline: 2px solid #93c5fd; }
+html.dark .feature-list-item:hover { background-color: rgba(99,102,241,.12); }
+html.dark .feature-list-item.active { background-color: rgba(99,102,241,.18); outline-color: #a5b4fc; }
+
+/* ── Lab table ───────────────────────────────────────────────────────────── */
+.lab-table { width: 100%; font-size: 0.75rem; text-align: left; border-collapse: collapse; }
+.lab-table th,
+.lab-table td { padding: 4px 8px; border-bottom: 1px solid #e5e7eb; }
+html.dark .lab-table th,
+html.dark .lab-table td { border-color: #334155; }
+.lab-table th { background: #f9fafb; font-weight: 600; color: #374151; }
+html.dark .lab-table th { background: #1e293b; color: #94a3b8; }
+.lab-table tr:hover td { background: #f9fafb; }
+html.dark .lab-table tr:hover td { background: rgba(255,255,255,.04); }
+.lab-table tr.highlight-match td { background: #dcfce7; }
+html.dark .lab-table tr.highlight-match td { background: rgba(22,163,74,.12); }
+
+/* ── Fullscreen modal (protein workbench) ────────────────────────────────── */
+.map-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 50;
+}
+.map-modal-backdrop.open { display: flex; }
+.map-modal-content {
+  width: min(1400px, 96vw);
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+html.dark .map-modal-content { background: #0f172a; color: #e5e7eb; }
+.map-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.map-modal-body { overflow: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; background: #fff; }
+html.dark .map-modal-body { border-color: #334155; background: #0f172a; }
+.map-modal-body svg { display: block; width: 100%; height: auto; }
+.map-modal-kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
+  border: 1px solid #cbd5e1; border-bottom-width: 2px;
+  padding: 0 0.4rem; border-radius: 0.375rem; font-size: 0.75rem;
+}
+
+/* ── Chart.js dark-mode canvas ───────────────────────────────────────────── */
+html.dark canvas { filter: none; } /* prevent Tailwind invert hacks */
+
+/* ── Tooltip (SVG hover) ─────────────────────────────────────────────────── */
+#svg-tooltip {
+  position: absolute; visibility: hidden;
+  background: rgba(17,24,39,.95); color: #fff;
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 12px; pointer-events: none;
+  white-space: nowrap; z-index: 100; line-height: 1.5;
+  transition: opacity 0.1s;
+}

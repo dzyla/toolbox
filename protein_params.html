@@ -132,7 +132,7 @@
     <div class="flex items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Protein Feature Workbench</h1>
-        <p class="mt-1 text-gray-600 dark:text-gray-400 text-sm md:text-base">ProtParam-like core with graphical maps, per-residue plots, and lab helpers.</p>
+        <p class="mt-1 text-slate-600 dark:text-slate-400 text-sm md:text-base">ProtParam-like core with graphical maps, per-residue plots, and lab helpers.</p>
       </div>
       <div class="hidden md:flex items-center gap-2">
         <button id="export_all_csv" class="text-sm bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-black">Export summary CSV</button>
@@ -142,31 +142,31 @@
   </header>
 
   <!-- Input card -->
-  <section class="bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-gray-200 dark:border-gray-700 card-pad rounded-2xl shadow-sm transition-colors">
+  <section class="bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 card-pad rounded-2xl shadow-sm transition-colors">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
       <div>
-        <label for="fasta_input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paste FASTA sequences</label>
+        <label for="fasta_input" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Paste FASTA sequences</label>
         <textarea id="fasta_input" rows="8"
-          class="w-full p-3 border bg-white text-slate-900 border-gray-300 focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:border-gray-600 rounded-xl focus:ring-2 focus:border-indigo-500 transition mono"
+          class="w-full p-3 border bg-white text-slate-900 border-slate-300 focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-600 rounded-xl focus:ring-2 focus:border-indigo-500 transition mono"
           placeholder="Paste FASTA or a raw sequence. Comments starting with ';' are ignored."></textarea>
         <div class="flex items-center flex-wrap gap-3 mt-2">
           <button id="load_example" class="text-sm text-indigo-700 dark:text-indigo-400 hover:underline">Load example</button>
-          <span class="text-xs text-gray-500 dark:text-gray-400">Ambiguous B, Z, J, X and U (Sec), O (Pyl) supported.</span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">Ambiguous B, Z, J, X and U (Sec), O (Pyl) supported.</span>
         </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Or upload a FASTA file</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Or upload a FASTA file</label>
         <input type="file" id="file_input" accept=".fasta,.fa,.faa,.fna"
-          class="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/30 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/50"/>
+          class="w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/30 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/50"/>
 
         <div class="mt-4">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Defined Domains (CSV)</label>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">User Defined Domains (CSV)</label>
           <div class="flex items-center gap-2">
              <input type="file" id="user_domains_csv" accept=".csv"
-              class="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/30 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/50"/>
+              class="w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/30 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/50"/>
              <button id="show_csv_example" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline shrink-0">Show example</button>
           </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Upload a CSV with <code>Name,Sequence</code> to mark custom regions.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Upload a CSV with <code>Name,Sequence</code> to mark custom regions.</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
@@ -174,16 +174,16 @@
             <h3 class="text-sm font-semibold dark:text-slate-200">Analysis Settings</h3>
             <div class="space-y-2 mt-1">
               <div>
-                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">Reference pH (Charge)</label>
+                <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300">Reference pH (Charge)</label>
                 <div class="flex items-center gap-2">
                   <input id="ref_pH" type="number" min="0" max="14" step="0.1" value="7.4"
-                    class="w-16 p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                    class="w-16 p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
                   <input id="ref_pH_slider" type="range" min="0" max="14" step="0.1" value="7.4" class="w-full">
                 </div>
               </div>
               <div>
-                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">N-end rule Organism</label>
-                <select id="half_life_org" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm">
+                <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300">N-end rule Organism</label>
+                <select id="half_life_org" class="w-full p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm">
                   <option value="mammal" selected>Mammalian</option>
                   <option value="yeast">Yeast</option>
                   <option value="ecoli">E. coli</option>
@@ -194,27 +194,27 @@
           <div>
             <h3 class="text-sm font-semibold dark:text-slate-200">Domain Detection</h3>
             <div class="mt-1">
-              <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">Min. Identity %</label>
+              <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300">Min. Identity %</label>
               <div class="flex items-center gap-2">
                  <input id="domain_thr" type="number" min="50" max="100" step="1" value="95"
-                    class="w-16 p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                    class="w-16 p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
                  <input id="domain_thr_slider" type="range" min="50" max="100" step="1" value="95" class="w-full">
               </div>
-              <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">For Large Domains (e.g. GFP, GST).</p>
+              <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">For Large Domains (e.g. GFP, GST).</p>
             </div>
           </div>
           <div>
             <h3 class="text-sm font-semibold dark:text-slate-200">Transmembrane</h3>
             <div class="grid grid-cols-2 gap-2 mt-1">
               <div>
-                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">Window (11–35)</label>
+                <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300">Window (11–35)</label>
                 <input id="tm_window" type="number" min="11" max="35" step="1" value="19"
-                  class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                  class="w-full p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
               </div>
               <div>
-                <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300">KD threshold</label>
+                <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300">KD threshold</label>
                 <input id="tm_thr" type="number" step="0.1" value="1.6"
-                  class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
+                  class="w-full p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 transition text-sm"/>
               </div>
             </div>
           </div>
@@ -224,38 +224,38 @@
           <summary class="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">Plots & Analysis Settings</summary>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
             <div>
-              <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Plots Enabled</h4>
+              <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Plots Enabled</h4>
               <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 mt-1">
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Hydrophobicity</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Charge</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_disorder" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Disorder (FoldIndex)</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_moment" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Hydrophobic Moment</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_secstruct" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700">Sec. Struct (Chou-Fasman)</label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700" checked>Cysteine positions</label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="opt_hydro" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700" checked>Hydrophobicity</label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="opt_charge" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700" checked>Charge</label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="opt_disorder" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700">Disorder (FoldIndex)</label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="opt_moment" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700">Hydrophobic Moment</label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="opt_secstruct" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700">Sec. Struct (Chou-Fasman)</label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="opt_cys" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700" checked>Cysteine positions</label>
               </div>
             </div>
             <div>
-              <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Map Features</h4>
+              <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Map Features</h4>
               <div class="mb-2">
-                 <input type="text" id="feature_search" placeholder="Search features..." class="w-full p-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 transition"/>
+                 <input type="text" id="feature_search" placeholder="Search features..." class="w-full p-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 transition"/>
               </div>
-              <div id="feature-controls-container" class="max-h-60 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-lg p-2 bg-gray-50 dark:bg-slate-900/50 space-y-2">
+              <div id="feature-controls-container" class="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50 space-y-2">
                  <!-- Dynamic Content -->
-                 <div class="text-xs text-gray-500 text-center py-4">Loading features...</div>
+                 <div class="text-xs text-slate-500 text-center py-4">Loading features...</div>
               </div>
             </div>
             <div>
-              <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Smoothing Windows</h4>
+              <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Smoothing Windows</h4>
               <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 mt-1">
                 <div>
-                  <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300" for="hydro_window">Hydrophobicity</label>
-                  <select id="hydro_window" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
+                  <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300" for="hydro_window">Hydrophobicity</label>
+                  <select id="hydro_window" class="w-full p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
                     <option value="1">1</option><option value="3">3</option><option value="5" selected>5</option><option value="9">9</option><option value="13">13</option>
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs mb-1 text-gray-700 dark:text-slate-300" for="charge_window">Charge</label>
-                  <select id="charge_window" class="w-full p-1.5 border border-gray-300 dark:border-gray-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
+                  <label class="block text-xs mb-1 text-slate-700 dark:text-slate-300" for="charge_window">Charge</label>
+                  <select id="charge_window" class="w-full p-1.5 border border-slate-300 dark:border-slate-600 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm">
                     <option value="1">1</option><option value="5">5</option><option value="9" selected>9</option><option value="15">15</option>
                   </select>
                 </div>
@@ -268,12 +268,12 @@
 
     <div class="mt-5 flex items-center justify-center gap-3 flex-wrap">
       <button id="analyze_button" class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-full hover:bg-indigo-700 transition-colors shadow-sm">Analyze</button>
-      <button id="clear_button" class="bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white font-semibold py-2 px-6 rounded-full hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors shadow-sm">Clear</button>
+      <button id="clear_button" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white font-semibold py-2 px-6 rounded-full hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm">Clear</button>
       <button id="expand_all" class="text-sm text-indigo-700 dark:text-indigo-400 hover:underline">Expand all cards</button>
       <button id="collapse_all" class="text-sm text-indigo-700 dark:text-indigo-400 hover:underline">Collapse all cards</button>
     </div>
 
-    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
       Masses use monoisotopic residues (+H<sub>2</sub>O). Charge/pI use Henderson–Hasselbalch.
       Experimental predictions (Disorder, Half-life) are estimates.
     </p>
@@ -447,12 +447,12 @@ window.initProteinWorkbench = function(){
         if(searchTerm || ["Topology", "PTMs (Motifs)", "Domains & Degrons"].includes(group.label)) details.open = true;
 
         const summary = document.createElement('summary');
-        summary.className = "cursor-pointer text-xs font-semibold text-gray-700 dark:text-slate-300 select-none py-1 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-between";
+        summary.className = "cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300 select-none py-1 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-between";
         summary.innerHTML = `<span>${group.label} <span class="text-[10px] font-normal opacity-70">(${feats.length})</span></span>`;
         details.appendChild(summary);
 
         const list = document.createElement('div');
-        list.className = "pl-2 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-slate-700 ml-1";
+        list.className = "pl-2 mt-1 space-y-1 border-l-2 border-slate-100 dark:border-slate-700 ml-1";
 
         // Select All for this group
         if(!searchTerm) {
@@ -460,7 +460,7 @@ window.initProteinWorkbench = function(){
             allDiv.className = "flex items-center gap-2";
             const allCheck = document.createElement('input');
             allCheck.type = "checkbox";
-            allCheck.className = "h-3 w-3 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500";
+            allCheck.className = "h-3 w-3 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500";
             // Check if all features in this group are enabled
             const allEnabled = feats.every(f => enabledFeatures.has(f));
             allCheck.checked = allEnabled;
@@ -486,7 +486,7 @@ window.initProteinWorkbench = function(){
              div.className = "flex items-center gap-2";
              const chk = document.createElement('input');
              chk.type = "checkbox";
-             chk.className = "h-3 w-3 rounded border-gray-300 dark:border-gray-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500";
+             chk.className = "h-3 w-3 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-indigo-600 focus:ring-indigo-500";
              chk.checked = enabledFeatures.has(f);
              chk.addEventListener('change', (e) => {
                  if(e.target.checked) enabledFeatures.add(f);
@@ -499,7 +499,7 @@ window.initProteinWorkbench = function(){
              });
 
              const lbl = document.createElement('label');
-             lbl.className = "text-xs text-gray-700 dark:text-slate-300 cursor-pointer break-words";
+             lbl.className = "text-xs text-slate-700 dark:text-slate-300 cursor-pointer break-words";
              lbl.textContent = f;
              lbl.onclick = () => chk.click();
 
@@ -513,7 +513,7 @@ window.initProteinWorkbench = function(){
     });
 
     if(container.innerHTML === '') {
-        container.innerHTML = '<div class="text-xs text-gray-400 text-center py-2">No matching features found.</div>';
+        container.innerHTML = '<div class="text-xs text-slate-400 text-center py-2">No matching features found.</div>';
     }
   }
 
@@ -821,17 +821,17 @@ window.initProteinWorkbench = function(){
   function showErrorCard(title, msg){ els.results.insertAdjacentHTML('beforeend', `<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl"><h3 class="font-semibold">${escapeHTML(title)}</h3><div class="text-sm mt-1">${escapeHTML(msg)}</div></div>`); }
 
   function buildFeatureListHTML(byLane){
-    const keys = Object.keys(byLane); if(keys.length === 0) return '<p class="text-sm text-gray-500">No features found.</p>';
+    const keys = Object.keys(byLane); if(keys.length === 0) return '<p class="text-sm text-slate-500">No features found.</p>';
     return keys.sort().map(category => {
       const items = byLane[category].map(f => {
         const extra = f.match ? ` • <span class="mono text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">${f.match}</span>` : '';
-        const note = f.note ? ` <span class="text-xs text-gray-600 dark:text-gray-400">(${f.note})</span>` : '';
+        const note = f.note ? ` <span class="text-xs text-slate-600 dark:text-slate-400">(${f.note})</span>` : '';
         return `<li class="feature-list-item p-2 rounded-md cursor-pointer dark:text-slate-200" data-start="${f.start}" data-end="${f.end}" data-name="${f.name}" data-category="${category}" data-match="${f.match||''}" data-note="${f.note||''}">
           <span class="font-semibold text-sm">${f.name}</span>${note}
-          <span class="mono text-xs text-gray-600 dark:text-gray-400 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
+          <span class="mono text-xs text-slate-600 dark:text-slate-400 ml-2">[${f.start+1}..${f.end+1}]</span>${extra}
         </li>`;
       }).join('');
-      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-gray-800 dark:text-slate-100">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
+      return `<details open class="mb-2"><summary class="font-semibold cursor-pointer text-slate-800 dark:text-slate-100">${category} (${byLane[category].length})</summary><ul class="mt-1 pl-2 space-y-1">${items}</ul></details>`;
     }).join('');
   }
 
@@ -843,27 +843,27 @@ window.initProteinWorkbench = function(){
     const parsingNote = (obj.parseNotes || obj.parseIssues) ? `<div class="note mt-1">Parsing notes: ${[obj.parseNotes, obj.parseIssues].filter(Boolean).join('; ')}</div>` : '';
 
     const card = `
-      <div id="result-card-${obj.id}" class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm transition-colors">
+      <div id="result-card-${obj.id}" class="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm transition-colors">
         <div class="p-4 md:p-5">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div><h3 class="text-lg font-semibold dark:text-white">${escapeHTML(obj.header)}</h3><div class="text-xs text-gray-500 dark:text-gray-400 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>${parsingNote}</div>
+            <div><h3 class="text-lg font-semibold dark:text-white">${escapeHTML(obj.header)}</h3><div class="text-xs text-slate-500 dark:text-slate-400 mono">${obj.length} aa • MW ${(obj.molecularWeight/1000).toFixed(2)} kDa</div>${parsingNote}</div>
             <div class="flex items-center gap-2 flex-wrap">
               <button class="text-xs bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600" data-copy-fasta="${obj.id}">Copy FASTA</button>
               <button class="text-xs bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600" data-download-svg="${obj.id}">Save map (SVG)</button>
               <button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black" data-export-props="${obj.id}">Export props (CSV)</button>
             </div>
           </div>
-          <div class="mt-3"><h4 class="font-semibold text-sm mb-1 dark:text-slate-200">Graphical map (click to open fullscreen)</h4><div id="track-click-${obj.id}" class="group relative rounded-lg border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 p-2 hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-zoom-in"><div id="track-container-${obj.id}" class="w-full"></div><div class="absolute right-2 top-2 text-[11px] text-gray-500 opacity-80">Zoom in/out in fullscreen</div></div></div>
+          <div class="mt-3"><h4 class="font-semibold text-sm mb-1 dark:text-slate-200">Graphical map (click to open fullscreen)</h4><div id="track-click-${obj.id}" class="group relative rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-zoom-in"><div id="track-container-${obj.id}" class="w-full"></div><div class="absolute right-2 top-2 text-[11px] text-slate-500 opacity-80">Zoom in/out in fullscreen</div></div></div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
-            <div class="bg-gray-50 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-700 rounded-xl p-3"><details class="text-sm font-medium" open><summary class="cursor-pointer font-semibold text-sm dark:text-slate-200">Residue statistics (${stats.total} aa)</summary><div class="h-28 overflow-y-auto mt-1 border-t dark:border-slate-700 pt-1 text-slate-700 dark:text-slate-300"><table class="w-full text-xs"><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">AA</th><th class="dark:bg-slate-800 dark:text-slate-200">N</th><th class="dark:bg-slate-800 dark:text-slate-200">%</th></tr></thead><tbody>${statsRows}</tbody></table></div></details></div>
-            <div class="border border-gray-100 dark:border-slate-700 rounded-xl p-3 bg-white dark:bg-slate-800 h-56 overflow-y-auto" id="feature-list-${obj.id}">${buildFeatureListHTML(byLane)}</div>
+            <div class="bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700 rounded-xl p-3"><details class="text-sm font-medium" open><summary class="cursor-pointer font-semibold text-sm dark:text-slate-200">Residue statistics (${stats.total} aa)</summary><div class="h-28 overflow-y-auto mt-1 border-t dark:border-slate-700 pt-1 text-slate-700 dark:text-slate-300"><table class="w-full text-xs"><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">AA</th><th class="dark:bg-slate-800 dark:text-slate-200">N</th><th class="dark:bg-slate-800 dark:text-slate-200">%</th></tr></thead><tbody>${statsRows}</tbody></table></div></details></div>
+            <div class="border border-slate-100 dark:border-slate-700 rounded-xl p-3 bg-white dark:bg-slate-800 h-56 overflow-y-auto" id="feature-list-${obj.id}">${buildFeatureListHTML(byLane)}</div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
-            <div class="bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-gray-700 rounded-xl p-3">
+            <div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl p-3">
               <div class="grid grid-cols-2 gap-y-1 text-xs">
                 <div>
                     <strong class="dark:text-slate-200">Theoretical pI:</strong> <span class="mono dark:text-slate-300" id="pi-val-${obj.id}">${obj.pI.toFixed(2)}</span>
-                    <select class="text-[10px] border border-gray-300 dark:border-gray-600 rounded ml-1 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100" id="pi-algo-${obj.id}" data-id="${obj.id}">
+                    <select class="text-[10px] border border-slate-300 dark:border-slate-600 rounded ml-1 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100" id="pi-algo-${obj.id}" data-id="${obj.id}">
                         <option value="bjell">Bjellqvist (Expasy)</option>
                         <option value="emboss">EMBOSS</option>
                     </select>
@@ -875,30 +875,30 @@ window.initProteinWorkbench = function(){
                 <div class="col-span-2"><strong class="dark:text-slate-200">Formula:</strong> <span class="mono dark:text-slate-300 text-[10px] break-all">${obj.atomicFormula}</span></div>
                 <div class="col-span-2"><strong class="dark:text-slate-200">Est. Half-life (${els.halfLifeOrg.value}):</strong> <span class="mono dark:text-slate-300">${obj.halfLife}</span></div>
               </div>
-              <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs">
+              <div class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs">
                 <div class="grid grid-cols-[170px,1fr] gap-y-1 items-center">
-                  <div class="text-gray-500 dark:text-gray-400">State</div>
-                  <select id="ext-state-${obj.id}" class="text-xs border border-gray-300 dark:border-gray-600 rounded p-0.5 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100" data-id="${obj.id}">
+                  <div class="text-slate-500 dark:text-slate-400">State</div>
+                  <select id="ext-state-${obj.id}" class="text-xs border border-slate-300 dark:border-slate-600 rounded p-0.5 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100" data-id="${obj.id}">
                       <option value="unfolded">Unfolded (Edelhoch)</option>
                       <option value="folded">Folded (Guess +5%)</option>
                   </select>
-                  <div class="text-gray-500 dark:text-gray-400">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono dark:text-slate-300" id="ext-red-${obj.id}">${obj.extinction.reduced}</div>
-                  <div class="text-gray-500 dark:text-gray-400">ε<sub>280</sub> (+cystines)</div><div class="mono dark:text-slate-300" id="ext-cys-${obj.id}">${obj.extinction.cystines}</div>
+                  <div class="text-slate-500 dark:text-slate-400">ε<sub>280</sub> (Tyr/Trp)</div><div class="mono dark:text-slate-300" id="ext-red-${obj.id}">${obj.extinction.reduced}</div>
+                  <div class="text-slate-500 dark:text-slate-400">ε<sub>280</sub> (+cystines)</div><div class="mono dark:text-slate-300" id="ext-cys-${obj.id}">${obj.extinction.cystines}</div>
                 </div>
               </div>
             </div>
-            <div class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3">
+            <div class="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3">
               <h4 class="font-semibold text-sm mb-2 dark:text-slate-200">A<sub>280</sub> helper</h4>
               <div class="grid grid-cols-3 gap-2 items-end">
-                <div><label class="block text-xs dark:text-slate-300">Path length (cm)</label><input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="1.0" data-a280-path="${obj.id}"></div>
-                <div><label class="block text-xs dark:text-slate-300">ε<sub>280</sub> type</label><select class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" data-a280-eps-type="${obj.id}"><option value="red">Reduced (Y+W)</option><option value="cys" selected>+Cystines</option></select></div>
-                <div><label class="block text-xs dark:text-slate-300">A<sub>280</sub> (unitless)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="e.g. 0.7" data-a280-A="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">Path length (cm)</label><input type="number" value="1" min="0.01" step="0.01" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="1.0" data-a280-path="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">ε<sub>280</sub> type</label><select class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" data-a280-eps-type="${obj.id}"><option value="red">Reduced (Y+W)</option><option value="cys" selected>+Cystines</option></select></div>
+                <div><label class="block text-xs dark:text-slate-300">A<sub>280</sub> (unitless)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="e.g. 0.7" data-a280-A="${obj.id}"></div>
               </div>
               <div class="grid grid-cols-2 gap-2 mt-2">
-                <div><label class="block text-xs dark:text-slate-300">Conc. (mg/mL)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="0.0" data-a280-mgml="${obj.id}"></div>
-                <div><label class="block text-xs dark:text-slate-300">Conc. (μM)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="0.0" data-a280-um="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">Conc. (mg/mL)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="0.0" data-a280-mgml="${obj.id}"></div>
+                <div><label class="block text-xs dark:text-slate-300">Conc. (μM)</label><input type="number" value="0" min="0" step="0.0001" class="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" placeholder="0.0" data-a280-um="${obj.id}"></div>
               </div>
-              <div class="flex items-center gap-2 mt-2"><button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black border border-transparent" data-a280-calc="${obj.id}">Compute</button><div class="text-xs text-gray-700 dark:text-gray-300 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div></div>
+              <div class="flex items-center gap-2 mt-2"><button class="text-xs bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-black border border-transparent" data-a280-calc="${obj.id}">Compute</button><div class="text-xs text-slate-700 dark:text-slate-300 flex items-end ml-auto"><span data-a280-out="${obj.id}"></span></div></div>
             </div>
           </div>
           <div class="mt-4">
@@ -906,7 +906,7 @@ window.initProteinWorkbench = function(){
                 <summary class="cursor-pointer font-semibold text-indigo-900 dark:text-indigo-300">Lab Tools: Digestion & Mass Spec</summary>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
                    <div>
-                     <h5 class="font-bold text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">In Silico Digestion</h5>
+                     <h5 class="font-bold text-xs uppercase text-slate-500 dark:text-slate-400 mb-2">In Silico Digestion</h5>
                      <div class="flex flex-wrap gap-2 mb-2" id="digest-checks-${obj.id}"></div>
                      <div class="flex flex-wrap gap-2">
                        <button class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700" data-action="digest" data-id="${obj.id}">Digest</button>
@@ -914,18 +914,18 @@ window.initProteinWorkbench = function(){
                        <button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700" data-action="mass-match" data-id="${obj.id}">Mass Matcher</button>
                      </div>
                      <div class="mt-2 max-h-60 overflow-y-auto border dark:border-slate-600 rounded bg-white dark:bg-slate-800">
-                        <table class="lab-table" id="digest-table-${obj.id}"><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">Start</th><th class="dark:bg-slate-800 dark:text-slate-200">End</th><th class="dark:bg-slate-800 dark:text-slate-200">Seq</th><th class="dark:bg-slate-800 dark:text-slate-200">MW</th><th class="dark:bg-slate-800 dark:text-slate-200">pI</th></tr></thead><tbody class="dark:text-slate-300"><tr><td colspan="5" class="text-gray-400 text-center py-2">Select protease and click Digest</td></tr></tbody></table>
+                        <table class="lab-table" id="digest-table-${obj.id}"><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">Start</th><th class="dark:bg-slate-800 dark:text-slate-200">End</th><th class="dark:bg-slate-800 dark:text-slate-200">Seq</th><th class="dark:bg-slate-800 dark:text-slate-200">MW</th><th class="dark:bg-slate-800 dark:text-slate-200">pI</th></tr></thead><tbody class="dark:text-slate-300"><tr><td colspan="5" class="text-slate-400 text-center py-2">Select protease and click Digest</td></tr></tbody></table>
                      </div>
                    </div>
                    <div>
-                     <h5 class="font-bold text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">ESI Charge State Ladder</h5>
-                     <div class="max-h-60 overflow-y-auto border dark:border-slate-600 rounded bg-white dark:bg-slate-800"><table class="lab-table" id="charge-table-container-${obj.id}"><caption class="text-xs text-left p-1 text-gray-500 dark:text-gray-400" id="charge-caption-${obj.id}">Whole Protein</caption><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">z</th><th class="dark:bg-slate-800 dark:text-slate-200">m/z (M+zH)<sup>z+</sup></th></tr></thead><tbody id="charge-table-${obj.id}" class="dark:text-slate-300"></tbody></table></div>
-                     <div class="mt-2"><button class="text-xs bg-white dark:bg-slate-700 dark:text-slate-200 border border-gray-300 dark:border-slate-600 px-2 py-1 rounded hover:bg-gray-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button></div>
+                     <h5 class="font-bold text-xs uppercase text-slate-500 dark:text-slate-400 mb-2">ESI Charge State Ladder</h5>
+                     <div class="max-h-60 overflow-y-auto border dark:border-slate-600 rounded bg-white dark:bg-slate-800"><table class="lab-table" id="charge-table-container-${obj.id}"><caption class="text-xs text-left p-1 text-slate-500 dark:text-slate-400" id="charge-caption-${obj.id}">Whole Protein</caption><thead><tr><th class="dark:bg-slate-800 dark:text-slate-200">z</th><th class="dark:bg-slate-800 dark:text-slate-200">m/z (M+zH)<sup>z+</sup></th></tr></thead><tbody id="charge-table-${obj.id}" class="dark:text-slate-300"></tbody></table></div>
+                     <div class="mt-2"><button class="text-xs bg-white dark:bg-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 px-2 py-1 rounded hover:bg-slate-50 hidden" id="reset-charge-${obj.id}">Reset to Protein</button></div>
                    </div>
                 </div>
              </details>
           </div>
-          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}><summary class="cursor-pointer font-semibold text-gray-800 dark:text-slate-200 mb-2">Plots & Analysis</summary><div id="plots-${obj.id}"></div></details>
+          <details class="mt-4" id="plots-details-${obj.id}" ${plotsVisible ? 'open' : ''}><summary class="cursor-pointer font-semibold text-slate-800 dark:text-slate-200 mb-2">Plots & Analysis</summary><div id="plots-${obj.id}"></div></details>
         </div>
       </div>
     `;
@@ -964,8 +964,8 @@ window.initProteinWorkbench = function(){
     const checksContainer = document.getElementById(`digest-checks-${obj.id}`);
     DEFS.PROTEASES.forEach(p => {
        const lbl = document.createElement('label');
-       lbl.className = "flex items-center gap-1 text-xs bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800";
-       lbl.innerHTML = `<input type="checkbox" value="${p.name}" class="rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 dark:border-gray-600"> ${p.name}`;
+       lbl.className = "flex items-center gap-1 text-xs bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded px-2 py-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800";
+       lbl.innerHTML = `<input type="checkbox" value="${p.name}" class="rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800 dark:border-slate-600"> ${p.name}`;
        checksContainer.appendChild(lbl);
     });
 
@@ -1178,7 +1178,7 @@ window.initProteinWorkbench = function(){
       });
   }
   function getPlotArray(obj, type) { if(type === 'hydro') { const raw = Array.from(obj.seq, a => AA.kd[a] ?? 0); return slidingWindowAvg(raw, parseInt(els.hydroWindow.value, 10)); } if(type === 'charge') { const arr = perResidueChargeArray(obj.seq, Number(els.pH.value)); return slidingWindowAvg(arr, parseInt(els.chargeWindow.value, 10)); } if(type === 'disorder') { const win = 15; const hRaw = Array.from(obj.seq, a => ( (AA.kd[a]??0) + 4.5)/9.0 ); const qArr = perResidueChargeArray(obj.seq, 7.0); const score = []; const half = Math.floor(win/2); for(let i=0; i<obj.length; i++){ let sumH=0, sumQ=0, n=0; for(let k=i-half; k<=i+half; k++){ if(k>=0 && k<obj.length){ sumH += hRaw[k]; sumQ += qArr[k]; n++; } } if(n>0) score.push( 2.785*(sumH/n) - Math.abs(sumQ/n) - 1.151 ); else score.push(0); } return score; } if(type === 'moment') { const angle = 100 * (Math.PI/180); const win = 11; const moments = []; const hRaw = Array.from(obj.seq, a => AA.kd[a] ?? 0); for(let i=0; i<obj.length; i++){ if(i + win > obj.length){ moments.push(0); continue; } let sumC=0, sumS=0; for(let k=0; k<win; k++){ const h = hRaw[i+k]; sumC += h * Math.cos(k * angle); sumS += h * Math.sin(k * angle); } moments.push( Math.sqrt(sumC*sumC + sumS*sumS) / win ); } const shifted = new Array(obj.length).fill(0); const offset = Math.floor(win/2); for(let i=0; i<moments.length; i++){ if(i+offset < shifted.length) shifted[i+offset] = moments[i]; } return shifted; } if(type === 'helix') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pH = []; for(const aa of obj.seq) pH.push(def[aa] ? def[aa].H : 100); return slidingWindowAvg(pH, 6); } if(type === 'sheet') { const def = DEFS.CHOU_FASMAN; if(!def) return new Array(obj.length).fill(0); const pE = []; for(const aa of obj.seq) pE.push(def[aa] ? def[aa].E : 100); return slidingWindowAvg(pE, 5); } return new Array(obj.length).fill(0); }
-  function updatePlotsForCard(obj){ const contId = `plots-${obj.id}`; const cont = document.getElementById(contId); if(!cont) return; cont.innerHTML = ""; if(els.optHydro.checked){ const data = getPlotArray(obj, 'hydro'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD'); } if(els.optCharge.checked){ const data = getPlotArray(obj, 'charge'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge'); } if(els.optDisorder.checked){ const data = getPlotArray(obj, 'disorder'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score'); } if(els.optSecStruct.checked){ const sH = getPlotArray(obj, 'helix'); const sE = getPlotArray(obj, 'sheet'); const range = getExtremes([sH, sE]); const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder); drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity'); } if(els.optMoment.checked){ const data = getPlotArray(obj, 'moment'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH'); } if(els.optCys.checked){ const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder); drawCysTrack(holder.id, obj.seq); } const twoDContainer = document.createElement('div'); twoDContainer.className = "mt-6 border-t pt-4"; twoDContainer.innerHTML = `<h4 class="font-semibold text-sm mb-2 dark:text-slate-200">2D Analysis</h4><div class="flex flex-wrap items-center gap-3 mb-3"><select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro" selected>Hydrophobicity</option><option value="charge">Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><span class="text-gray-500 font-bold">vs</span><select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro">Hydrophobicity</option><option value="charge" selected>Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button></div><div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>`; cont.appendChild(twoDContainer); document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => { const xType = document.getElementById(`x-axis-${obj.id}`).value; const yType = document.getElementById(`y-axis-${obj.id}`).value; const xData = getPlotArray(obj, xType); const yData = getPlotArray(obj, yType); drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType); }); }
+  function updatePlotsForCard(obj){ const contId = `plots-${obj.id}`; const cont = document.getElementById(contId); if(!cont) return; cont.innerHTML = ""; if(els.optHydro.checked){ const data = getPlotArray(obj, 'hydro'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-hydro`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobicity (Kyte–Doolittle)', 'KD'); } if(els.optCharge.checked){ const data = getPlotArray(obj, 'charge'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-charge`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, `Charge per residue (pH ${Number(els.pH.value).toFixed(1)})`, 'charge'); } if(els.optDisorder.checked){ const data = getPlotArray(obj, 'disorder'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-disorder`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Folding Index (Pos=Folded, Neg=Disordered)', 'Score'); } if(els.optSecStruct.checked){ const sH = getPlotArray(obj, 'helix'); const sE = getPlotArray(obj, 'sheet'); const range = getExtremes([sH, sE]); const holder = document.createElement('div'); holder.id = `${contId}-secstruct`; cont.appendChild(holder); drawLinePlot(holder.id, [sH, sE], range.min, range.max, 'Sec. Struct Propensity (Blue=Helix, Red=Sheet)', 'Propensity'); } if(els.optMoment.checked){ const data = getPlotArray(obj, 'moment'); const range = getExtremes([data]); const holder = document.createElement('div'); holder.id = `${contId}-moment`; cont.appendChild(holder); drawLinePlot(holder.id, data, range.min, range.max, 'Hydrophobic Moment (α-helix, 100°)', 'µH'); } if(els.optCys.checked){ const holder = document.createElement('div'); holder.id = `${contId}-cys`; cont.appendChild(holder); drawCysTrack(holder.id, obj.seq); } const twoDContainer = document.createElement('div'); twoDContainer.className = "mt-6 border-t pt-4"; twoDContainer.innerHTML = `<h4 class="font-semibold text-sm mb-2 dark:text-slate-200">2D Analysis</h4><div class="flex flex-wrap items-center gap-3 mb-3"><select id="x-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro" selected>Hydrophobicity</option><option value="charge">Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><span class="text-slate-500 font-bold">vs</span><select id="y-axis-${obj.id}" class="p-2 border rounded text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"><option value="hydro">Hydrophobicity</option><option value="charge" selected>Charge</option><option value="disorder">Disorder</option><option value="moment">Hydrophobic Moment</option><option value="helix">Helix Propensity</option><option value="sheet">Sheet Propensity</option></select><button id="plot-2d-btn-${obj.id}" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded hover:bg-indigo-700">Plot 2D</button></div><div id="plot-2d-area-${obj.id}" class="w-full max-w-lg mx-auto"></div>`; cont.appendChild(twoDContainer); document.getElementById(`plot-2d-btn-${obj.id}`).addEventListener('click', () => { const xType = document.getElementById(`x-axis-${obj.id}`).value; const yType = document.getElementById(`y-axis-${obj.id}`).value; const xData = getPlotArray(obj, xType); const yData = getPlotArray(obj, yType); drawScatterPlot(`plot-2d-area-${obj.id}`, xData, yData, xType, yType); }); }
   function calcAFromMgml(eps, mw, mgml, path){ if(!(eps>0 && mw>0 && path>0 && mgml>=0)) return NaN; return (eps / mw) * mgml * path; }
   function calcAFromuM(eps, uM, path){ if(!(eps>0 && path>0 && uM>=0)) return NaN; return eps * (uM * 1e-6) * path; }
   function concFromA({ A=0, path=1.0, eps=0, mw=1 }){ if(!(eps>0 && path>0 && mw>0 && A>=0)) return { mgml: NaN, uM: NaN }; const mgml = A / ((eps / mw) * path); const uM = (A / (eps * path)) * 1e6; return { mgml, uM }; }

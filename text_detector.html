@@ -23,7 +23,7 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     :root { --highlight-bg:#fef08a; --highlight-color:#1f2937; --progress-bar-bg:#e5e7eb; }
@@ -49,7 +49,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div class="lg:col-span-2 space-y-8">
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Input Text</h2>
             <div class="flex flex-wrap gap-2">
@@ -58,13 +58,13 @@
               <button id="clear-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Clear</button>
             </div>
           </div>
-          <textarea id="inputText" class="w-full h-64 rounded-lg p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 border border-gray-300 dark:border-gray-600" placeholder="Paste your text here... Use at least 50 words for stronger AI analysis."></textarea>
+          <textarea id="inputText" class="w-full h-64 rounded-lg p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600" placeholder="Paste your text here... Use at least 50 words for stronger AI analysis."></textarea>
           <p id="char-count" class="text-right text-sm text-slate-500 dark:text-slate-400 mt-2">0/15000 characters</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Highlighted Text</h2>
-          <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 dark:bg-slate-900 border border-gray-300 dark:border-gray-600 rounded-lg p-4 text-slate-900 dark:text-slate-100 whitespace-pre-wrap break-words">
+          <div id="highlightedOutput" class="w-full min-h-[16rem] bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-4 text-slate-900 dark:text-slate-100 whitespace-pre-wrap break-words">
             <span class="text-slate-400 dark:text-slate-500">Your text with highlighted characters will appear here...</span>
           </div>
         </div>
@@ -72,8 +72,8 @@
 
       <div class="lg:col-span-1">
         <div class="sticky top-8 space-y-6">
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">Analysis Overview</h2>
+          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-700 pb-3">Analysis Overview</h2>
 
             <div class="grid grid-cols-3 gap-4 text-center mb-6">
               <div><p class="text-3xl font-bold text-green-500 stat-value" id="visible-count">0</p><p class="text-xs text-slate-500 dark:text-slate-400">Visible</p></div>
@@ -91,12 +91,12 @@
             </button>
           </div>
 
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">Text Quality Metrics</h2>
+          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-700 pb-3">Text Quality Metrics</h2>
             <div class="space-y-4">
               <div class="text-center">
                 <p class="text-lg font-medium text-slate-500 dark:text-slate-400" id="ai-verdict">Enter at least 50 words</p>
-                <div class="w-full progress-bar mt-2"><div id="ai-score-bar" class="progress-bar-inner bg-gray-400" style="width:0%"></div></div>
+                <div class="w-full progress-bar mt-2"><div id="ai-score-bar" class="progress-bar-inner bg-slate-400" style="width:0%"></div></div>
                 <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Statistical Anomaly Score</p>
               </div>
 
@@ -112,7 +112,7 @@
                 <metric-row label="Punctuation rhythm (std/100w)" valueid="ai-punct-score" help="Very steady punctuation rates can be AI-like."></metric-row>
               </div>
 
-              <div class="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700 mt-4">
+              <div class="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700 mt-4">
                 <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Linguistic/Structural Signals</h3>
                 <metric-row label="Entities per 100 words" valueid="entity-score" help="Very high or low entity density can be suspicious."></metric-row>
                 <metric-row label="Token entropy (norm)" valueid="entropy-score" help="Low entropy suggests repetitive, templated text."></metric-row>
@@ -309,7 +309,7 @@
       if (words.length < 50){
         aiVerdictEl.textContent='Enter at least 50 words';
         aiScoreBarEl.style.width='0%';
-        aiScoreBarEl.className='progress-bar-inner bg-gray-400';
+        aiScoreBarEl.className='progress-bar-inner bg-slate-400';
         for (var i=0;i<metricIds.length;i++) setMetricText(metricIds[i], '-');
         aiVerdictEl.removeAttribute('title');
         return;
