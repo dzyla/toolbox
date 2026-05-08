@@ -349,7 +349,6 @@ html.dark .map-modal-body { border-color: #334155; background: #0f172a; }
 }
 
 /* ── Chart.js dark-mode canvas ───────────────────────────────────────────── */
-html.dark canvas { filter: none; } /* prevent Tailwind invert hacks */
 
 /* ── Tooltip (SVG hover) ─────────────────────────────────────────────────── */
 #svg-tooltip {
