@@ -22,6 +22,7 @@
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="binding_engine.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 <style>
@@ -549,68 +550,8 @@
     return kd_val * Math.pow(FACTORS[kd_unit] || 1, n);
   }
 
-  function f_single_step(x, P1_tot, P2_tot, Kd_int, n) {
-    const P1_free = P1_tot - x;
-    const P2_free = P2_tot - n * x;
-    if (P1_free < 0 || P2_free < 0) return Number.POSITIVE_INFINITY;
-    return P1_free * Math.pow(P2_free, n) - Kd_int * x;
-  }
-
-  function solve_single_step(P1_tot, P2_tot, Kd_int, n) {
-    let low = 0;
-    let high = Math.min(P1_tot, P2_tot / n);
-    if (P1_tot <= 0 || P2_tot <= 0) return 0;
-    for (let i = 0; i < 200; i++) {
-      const mid = 0.5 * (low + high);
-      const fmid = f_single_step(mid, P1_tot, P2_tot, Kd_int, n);
-      if (Math.abs(fmid) < 1e-12) return mid;
-      const flow = f_single_step(low, P1_tot, P2_tot, Kd_int, n);
-      if (Math.sign(flow) === Math.sign(fmid)) { low = mid; } else { high = mid; }
-    }
-    return 0.5 * (low + high);
-  }
-
-  function solve_stepwise_general(P_tot, L_tot, Kd_intrinsic, n, alpha) {
-      if (P_tot <= 0) return { L: Math.max(L_tot, 0), theta: 0, probs: Array(n+1).fill(0), concs: Array(n+1).fill(0) };
-      const betas = [1];
-      for (let k = 1; k <= n; k++) {
-          const micro_Kd_k = Kd_intrinsic * Math.pow(alpha, k - 1);
-          if (micro_Kd_k <= 0) betas.push(Number.POSITIVE_INFINITY);
-          else betas.push(betas[k - 1] * (1 / micro_Kd_k) * (n - k + 1) / k);
-      }
-      const f = (L) => {
-          let Z = 0, sum_k_beta_Lk = 0;
-          for (let k = 0; k <= n; k++) {
-              const term = betas[k] * Math.pow(L, k);
-              Z += term;
-              sum_k_beta_Lk += k * term;
-          }
-          const v_bar = Z > 0 ? (sum_k_beta_Lk / Z) : 0;
-          return L + P_tot * v_bar - L_tot;
-      };
-      let low = 0, high = Math.max(L_tot, Kd_intrinsic * 1e3);
-      if (f(high) < 0) { while(f(high) < 0) { high *= 2; if (high > 1e18) break; } }
-      for (let i = 0; i < 100; i++) {
-          const mid = 0.5 * (low + high);
-          const val = f(mid);
-          if (Math.abs(val) < 1e-12 * (L_tot + 1e-9)) { low = high = mid; break; }
-          if (val > 0) high = mid; else low = mid;
-      }
-      const L = 0.5 * (low + high);
-      const species_rel = [];
-      let Z = 0;
-      for(let k=0; k<=n; k++){
-          const term = betas[k] * Math.pow(L, k);
-          species_rel.push(term);
-          Z += term;
-      }
-      const probs = species_rel.map(v => v/Z);
-      const concs = probs.map(p => p * P_tot);
-      let avg_bound = 0;
-      for(let k=0; k<=n; k++) avg_bound += k * probs[k];
-      const theta = avg_bound / n;
-      return { L, theta, probs, concs };
-  }
+  const solve_single_step = window.BindingEngine.solveSingleStep;
+  const solve_stepwise_general = window.BindingEngine.solveStepwise;
 
   function species_stepwise(P_tot, L_tot, Kd_site, n) {
       const alpha = parseFloat(els.coop.value) || 1.0;
@@ -915,8 +856,8 @@
     } else {
       const Kd_site = to_nM(kd_val, kd_unit);
       const { L, theta, probs, concs } = species_stepwise(P1_tot, P2_tot, Kd_site, n);
-      const prob0 = Math.pow(1 - theta, n);
-      const probN = Math.pow(theta, n);
+      const prob0 = probs[0];      // exact species fractions, include cooperativity
+      const probN = probs[n];
       const P1_any = P1_tot * (1 - prob0);
       const P1_full = P1_tot * probN;
       const bound_sites = n * theta;
@@ -1008,17 +949,14 @@
       required_P2_tot_nM = n * x + P2_free;
     } else if (model === 'stepwise_identical') {
       const Kd_site = to_nM(kd_val, kd_unit);
-      let theta = NaN;
-      if (els.targetMode.value === 'any_bound') {
-        theta = 1 - Math.pow(1 - target_pct, 1 / n);
-      } else if (els.targetMode.value === 'fully_bound') {
-        theta = Math.pow(target_pct, 1 / n);
-      } else {
+      const alpha = parseFloat(els.coop.value) || 1.0;
+      const mode = els.targetMode.value;
+      if (mode !== 'any_bound' && mode !== 'fully_bound') {
         els.targetOut.textContent = 'Switch to single-step target for that mode.';
         return;
       }
-      const L = (theta / (1 - theta)) * Kd_site;
-      required_P2_tot_nM = L + n * P1_tot * theta;
+      required_P2_tot_nM = window.BindingEngine.targetStepwise(P1_tot, Kd_site, n, alpha, mode, target_pct);
+      if (Number.isNaN(required_P2_tot_nM)) { els.targetOut.textContent = 'Target not reachable.'; return; }
     }
 
     if (!isNaN(required_P2_tot_nM)) {
