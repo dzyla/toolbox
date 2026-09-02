@@ -308,6 +308,7 @@ window.LAB_CONSTANTS = {
   constants: {
       'Avogadro': 6.022e23,
       'R_gas': 8.314,
-      'g_force_const': 1.118e-5 // for RPM to RCF
+      'g_force_const': 1.118e-5,      // RCF = c * r * rpm^2 with r in cm
+      'rcf_per_mm_rpm2': 1.118e-6     // same with r in mm
   }
 };

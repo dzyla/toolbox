@@ -1937,7 +1937,7 @@
             const r = parseFloat(cR.value);
             const rpm = parseFloat(cRpm.value);
             if(r && rpm){
-                const g = 1.118e-5 * r * rpm * rpm;
+                const g = 1.118e-6 * r * rpm * rpm; // r in mm (the cm form uses a 10x larger constant)
                 cRcf.value = Math.round(g);
                 calcK();
             }
@@ -1946,7 +1946,7 @@
             const r = parseFloat(cR.value);
             const g = parseFloat(cRcf.value);
             if(r && g){
-                 const rpm = Math.sqrt( g / (1.118e-5 * r) );
+                 const rpm = Math.sqrt( g / (1.118e-6 * r) ); // r in mm
                  cRpm.value = Math.round(rpm);
                  calcK();
             }
