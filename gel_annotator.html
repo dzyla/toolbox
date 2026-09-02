@@ -780,13 +780,13 @@
 
       // Transform to source image coords
       const scale = gel.scale;
-      const sx = (x - gr.x) / scale;
-      const sy = (y - gr.y) / scale;
+      const sx = gel.crop.x + (x - gr.x) / scale;   // crop offset: rotCtx holds the uncropped image
+      const sy = gel.crop.y + (y - gr.y) / scale;
       const sw = w / scale;
       const sh = h / scale;
 
       try {
-          const data = gel.rotCtx.getImageData(sx, sy, sw, sh).data;
+          const data = gel.rotCtx.getImageData(Math.round(sx), Math.round(sy), Math.max(1, Math.round(sw)), Math.max(1, Math.round(sh))).data;
           let sum = 0;
           for(let i=0; i<data.length; i+=4){
               // Invert: 255 - brightness
