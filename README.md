@@ -12,3 +12,10 @@ And then, there is a day you want to see a protein statistics table, or maybe yo
 
 Mostly vibe coded tools for stuff, using technology I am not familiar with, so it might not be the best code ever, but it works. Tested with other tools that do similar things. Coded using Gemini Pro and OpenAI o3.
 
+
+## Science status
+
+A full audit of every calculation (2026-09-02) is in `docs/science-audit-2026-09-02.md`.
+All confirmed errors are fixed and guarded by `npm test` (plain Node 22, no dependencies).
+The suite is being rebuilt as **Bio-Bench**, a free, offline-capable lab toolkit; see
+`docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`.
