@@ -5,6 +5,7 @@
     const AA_ORDER = "ARNDCQEGHILKMFPSTWYVBZX*";
 
     // Matrices Library
+    // Matrices verified symmetric against NCBI 2026-09-02 (tests/legacy/align.test.js).
     const MATRICES = {
         // DNA
         EDNAFULL: {
@@ -32,7 +33,7 @@
             [ 1,-1, 1, 0,-1, 0, 0, 0,-1,-2,-2, 0,-1,-2,-1, 4, 1,-3,-2,-2, 0, 0, 0,-4], // S
             [ 0,-1, 0,-1,-1,-1,-1,-2,-2,-1,-1,-1,-1,-2,-1, 1, 5,-2,-2, 0,-1,-1, 0,-4], // T
             [-3,-3,-4,-4,-2,-2,-3,-2,-2,-3,-2,-3,-1, 1,-4,-3,-2,11, 2,-3,-4,-3,-2,-4], // W
-            [-2,-2,-2,-3,-2,-1,-2,-3, 2,-1,-1,-2,-1, 3,-3,-2,-2, 2, 7,-1,-3,-3,-1,-4], // Y
+            [-2,-2,-2,-3,-2,-1,-2,-3, 2,-1,-1,-2,-1, 3,-3,-2,-2, 2, 7,-1,-3,-2,-1,-4], // Y
             [ 0,-3,-3,-3,-1,-2,-2,-3,-3, 3, 1,-2, 1,-1,-2,-2, 0,-3,-1, 4,-3,-2,-1,-4], // V
             [-2,-1, 3, 4,-3, 0, 1,-1, 0,-3,-4, 0,-3,-3,-2, 0,-1,-4,-3,-3, 4, 1,-1,-4], // B
             [-1, 0, 0, 1,-3, 3, 4,-2, 0,-3,-3, 1,-1,-3,-1, 0,-1,-3,-2,-2, 1, 4,-1,-4], // Z
@@ -87,7 +88,7 @@
             [-3,-4,-2,-4, 0,-4,-4,-5, 0,-1,-1,-4,-2, 7,-5,-3,-3, 0,10,-2,-3,-4,-2,-8],
             [ 0,-2,-2,-2,-2,-2,-2,-1,-2, 4, 2,-2, 2,-1,-1,-1, 0,-6,-2, 4,-2,-2,-1,-8],
             [ 0,-1, 2, 3,-4, 1, 3, 0, 1,-2,-3, 1,-2,-4,-1, 0, 0,-5,-3,-2, 3, 2,-1,-8],
-            [ 0, 0, 1, 3,-5, 3, 3, 0, 2,-2,-3, 0,-2,-5,-1, 0,-1,-6,-4,-2, 2, 3,-1,-8],
+            [ 0, 0, 1, 3,-5, 3, 3, 0, 2,-2,-3, 0,-2,-5, 0, 0,-1,-6,-4,-2, 2, 3,-1,-8],
             [ 0,-1, 0,-1,-3,-1,-1,-1,-1,-1,-1,-1,-1,-2,-1, 0, 0,-4,-2,-1,-1,-1,-1,-8],
             [-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8, 1]
         ]}
@@ -250,32 +251,36 @@
                 state = 0; // Local always starts from M (peak match)
             }
 
-            while ((isLocal && M[i][j] > 0) || (!isLocal && (i > 0 || j > 0))) {
-                if (state === 0) { // M state
-                    if (isLocal && M[i][j] === 0) break;
-
-                    // Current characters align
+            // Traceback invariant (tested): re-scoring the aligned strings with the same
+            // affine gap scheme reproduces `maxScore` exactly.
+            while (true) {
+                if (!isLocal) {
+                    if (i === 0 && j === 0) break;
+                    if (i === 0) state = 2;          // only a gap in s1 (consume s2) can remain
+                    else if (j === 0) state = 1;     // only a gap in s2 (consume s1) can remain
+                } else {
+                    if (state === 0 && M[i][j] <= 0) break;   // local alignment starts here
+                    if (state === 1 && i === 0) break;        // defensive: never valid
+                    if (state === 2 && j === 0) break;
+                }
+                if (state === 0) {
                     align1 = s1[i-1] + align1;
                     align2 = s2[j-1] + align2;
-
                     const src = BtM[i][j];
                     i--; j--;
-                    state = src;
-                } else if (state === 1) { // X state (Gap in S2, S1 consumes char)
+                    state = src < 0 ? 0 : src;
+                } else if (state === 1) {
                     align1 = s1[i-1] + align1;
                     align2 = '-' + align2;
-
                     const src = BtX[i][j];
                     i--;
-                    // If src is 0, we go to M, if 1 we stay in X
-                    state = src;
-                } else if (state === 2) { // Y state (Gap in S1, S2 consumes char)
+                    state = src;                      // 0 = came from M, 1 = extended X
+                } else {
                     align1 = '-' + align1;
                     align2 = s2[j-1] + align2;
-
                     const src = BtY[i][j];
                     j--;
-                    state = src;
+                    state = src;                      // 0 = came from M, 2 = extended Y
                 }
             }
 
