@@ -20,7 +20,7 @@ test('DIWV matches Guruprasad 1990 spot values and reproduces ProtParam II', () 
   assert.equal(D.A.P, 20.26);
   assert.equal(D.G.A, -7.49);
   assert.equal(D.Y.R, -15.91);
-  let n = 0; for (const a in D) for (const b in D[a]) n++;
+  let n = 0; for (const a in D) n += Object.keys(D[a]).length;
   assert.equal(n, 400);
   assert.ok(Math.abs(instability(LYSOZYME, D) - 16.09) < 0.05, 'lysozyme II (ProtParam 16.09)');
   assert.ok(Math.abs(instability(INSULIN_B, D) - 9.85) < 0.05, 'insulin B II');
