@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 
-export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'legacy');
 
 /** Evaluate a browser-global script (window.X = ...) and return the window object. */
 export function loadBrowserScript(relPath, win = {}) {
