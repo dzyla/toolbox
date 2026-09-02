@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- No npm dependencies in Phase 0; tests run with `node --test tests/legacy/`.
+- No npm dependencies in Phase 0; tests run with `node --test tests/legacy/*.test.js`.
 - Do not change tool layout or styling; only numbers, labels and the minimum code around them.
 - Every constant changed gets a source comment (name, year, URL or DOI).
 - Commit after every task with a message starting `fix(legacy):` or `test(legacy):`.
@@ -47,7 +47,7 @@ test('harness loads definitions.js and exposes PROTEIN_DEFS and PROTEIN_UTILS', 
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: FAIL, cannot find module `./load.js`
 
 - [ ] **Step 3: Write package.json and the loader**
@@ -57,7 +57,7 @@ Expected: FAIL, cannot find module `./load.js`
   "name": "bio-bench-legacy-tests",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test tests/legacy/" }
+  "scripts": { "test": "node --test tests/legacy/*.test.js" }
 }
 ```
 
@@ -85,7 +85,7 @@ Note: `definitions.js` assigns `window.PROTEIN_DEFS` and `window.PROTEIN_UTILS`;
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS (1 test)
 
 - [ ] **Step 5: Commit**
@@ -134,7 +134,7 @@ test('bio_bench uses the mm constant with the mm label', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `node --test tests/legacy/centrifuge.test.js`
+Run: `node --test tests/legacy/*.test.jscentrifuge.test.js`
 Expected: FAIL on `rcf_per_mm_rpm2` undefined and on the `1.118e-5` count.
 
 - [ ] **Step 3: Apply the fixes**
@@ -157,7 +157,7 @@ In `labConstants.js` replace the `g_force_const` line with:
 
 - [ ] **Step 4: Run tests**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -215,7 +215,7 @@ test('DIWV matches Guruprasad 1990 spot values and reproduces ProtParam II', () 
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `node --test tests/legacy/protein.test.js`
+Run: `node --test tests/legacy/*.test.jsprotein.test.js`
 Expected: FAIL, `D.A.C` is -0.7
 
 - [ ] **Step 3: Replace the DIWV block in definitions.js**
@@ -253,7 +253,7 @@ Replace the comment and object at `definitions.js:23-48` with:
 
 - [ ] **Step 4: Run tests**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -311,7 +311,7 @@ test('extinction coefficients: native (Pace) and denatured (6 M GdnHCl)', () => 
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `node --test tests/legacy/protein.test.js`
+Run: `node --test tests/legacy/*.test.jsprotein.test.js`
 Expected: FAIL (`isoelectricPoint` ignores the scheme name / `pKaSets` undefined)
 
 - [ ] **Step 3: Implement in definitions.js**
@@ -430,7 +430,7 @@ Check that any other field the old function returned (grep the old body) is pres
 
 - [ ] **Step 5: Run tests and a browser smoke check**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS
 
 Run: `python3 -m http.server 8123 >/dev/null 2>&1 &` then open `http://localhost:8123/protein_params.html`, paste the lysozyme sequence, confirm pI 9.32, ε 37470/37970, instability 16.09, and that switching the state selector changes ε to 37965/38465. Stop the server afterwards.
@@ -525,7 +525,7 @@ If `BC.align`'s parameter order differs, fix the test calls, not the engine.
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `node --test tests/legacy/align.test.js`
+Run: `node --test tests/legacy/*.test.jsalign.test.js`
 Expected: FAIL (symmetry Y/Z, and TypeError or "undefined" in traceback)
 
 - [ ] **Step 3: Fix the matrices**
@@ -581,7 +581,7 @@ Border cells: in global mode `BtX[i][0]` and `BtY[0][j]` are 0 (uninitialised), 
 
 - [ ] **Step 6: Run tests**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS. If a random pair fails the re-score check, print `s1`, `s2`, the aligned strings and the two scores, and fix the traceback until all 450 pairs pass; do not loosen the assertion.
 
 - [ ] **Step 7: Commit**
@@ -638,7 +638,7 @@ test('ammonium sulfate uses 533/0.30 at 25 °C and 515/0.27 at 0 °C', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `node --test tests/legacy/constants.test.js`
+Run: `node --test tests/legacy/*.test.jsconstants.test.js`
 Expected: FAIL on E-64
 
 - [ ] **Step 3: Edit labConstants.js**
@@ -677,7 +677,7 @@ AS calculation (replace the `factor`/`expansion` lines and add the guard):
 
 - [ ] **Step 5: Run tests**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -741,7 +741,7 @@ test('target solver hits the requested fraction through the exact model', () => 
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `node --test tests/legacy/binding.test.js`
+Run: `node --test tests/legacy/*.test.jsbinding.test.js`
 Expected: FAIL, cannot load `binding_engine.js`
 
 - [ ] **Step 3: Create binding_engine.js**
@@ -821,7 +821,7 @@ Target solver (`:1010-1021`): replace the whole `else if (model === 'stepwise_id
 
 - [ ] **Step 5: Run tests and browser check**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: PASS. Open `binding_calculator.html` via the local server, set stepwise model, n=2, α=0.1, P1=10 nM, P2=50 nM, Kd=100 nM, and confirm the "[P1 with n P2]" tile equals the species-table row for k=2.
 
 - [ ] **Step 6: Commit**
@@ -887,7 +887,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: node --test tests/legacy/
+      - run: node --test tests/legacy/*.test.js
 ```
 
 - [ ] **Step 2: README addition**
@@ -898,13 +898,13 @@ Append:
 ## Science status
 
 A full audit of every calculation (2026-09-02) is in `docs/science-audit-2026-09-02.md`.
-All confirmed errors are fixed and guarded by `node --test tests/legacy/`.
+All confirmed errors are fixed and guarded by `node --test tests/legacy/*.test.js`.
 The suite is being rebuilt as Bio-Bench; see `docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`.
 ```
 
 - [ ] **Step 3: Run the full suite one last time**
 
-Run: `node --test tests/legacy/`
+Run: `node --test tests/legacy/*.test.js`
 Expected: all PASS.
 
 - [ ] **Step 4: Commit**
