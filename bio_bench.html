@@ -2534,7 +2534,7 @@
                     }
 
                     if(PROT_UTILS.netCharge) {
-                        const chg = PROT_UTILS.netCharge(counts, 7.4); // pH 7.4 default
+                        const chg = PROT_UTILS.netCharge(counts, 7.4, 'bjellqvist', clean); // pH 7.4, Bjellqvist pKa
                         document.getElementById('sv-sel-chg').textContent = chg.toFixed(2);
                     }
                 }

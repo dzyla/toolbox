@@ -2,10 +2,10 @@ window.PROTEIN_DEFS = {
   /* ===== Scientific constants ===== */
   AA: {
     mw: { A:71.0788,R:156.1875,N:114.1038,D:115.0886,C:103.1388,Q:128.1307,E:129.1155,G:57.0519,H:137.1411,I:113.1594,L:113.1594,K:128.1741,M:131.1926,F:147.1766,P:97.1167,S:87.0782,T:101.1051,W:186.2132,Y:163.1760,V:99.1326,U:150.0388,O:237.3018,B:114.5962,Z:128.6231,J:113.1594,X:110.0 },
-    ext: { Y:1490, W:5500, CYS_DISULFIDE_PAIR:125 },
+    // Extinction coefficients at 280 nm, M^-1 cm^-1. Pace CN et al. (1995) Protein Sci 4:2411.
+    ext: { Y:1490, W:5500, CYS_DISULFIDE_PAIR:125 },                 // native (folded) protein in water
+    ext_denatured: { Y:1285, W:5685, CYS_DISULFIDE_PAIR:125 },       // 6 M guanidine HCl (Pace 1995; Edelhoch 1967)
     kd: { A:1.8,R:-4.5,N:-3.5,D:-3.5,C:2.5,Q:-3.5,E:-3.5,G:-0.4,H:-3.2,I:4.5,L:3.8,K:-3.9,M:1.9,F:2.8,P:-1.6,S:-0.8,T:-0.7,W:-0.9,Y:-1.3,V:4.2,U:0.0,O:0.0,B:-3.5,Z:-3.5,J:3.8,X:0.0 },
-    pKa_side: { C:8.5, D:3.9, E:4.07, H:6.5, K:10.4, R:12.5, Y:10.0 },
-    pKa_term: { N:8.6, C:3.55 },
     // Atomic composition of RESIDUES (C, H, N, O, S). Add H2O for free AA.
     atoms: {
       A: {C:3,H:5,N:1,O:1,S:0}, R: {C:6,H:12,N:4,O:1,S:0}, N: {C:4,H:6,N:2,O:2,S:0},
@@ -245,47 +245,59 @@ window.PROTEIN_UTILS = {
     return m;
   },
 
-  netCharge: function(counts, pH, scheme='bjell') {
-    const AA = window.PROTEIN_DEFS.AA;
-    const pKaSets = {
-      bjell: {
-          term: { N: AA.pKa_term.N, C: AA.pKa_term.C },
-          side: { ...AA.pKa_side }
-      }
-    };
-    const pK = pKaSets[scheme] || pKaSets.bjell;
-    let p = 1/(1+10**(pH - pK.term.N));
-    p += (counts.K||0)/(1+10**(pH - pK.side.K));
-    p += (counts.R||0)/(1+10**(pH - pK.side.R));
-    p += (counts.H||0)/(1+10**(pH - pK.side.H));
-    let n = 1/(1+10**(pK.term.C - pH));
-    n += (counts.D||0)/(1+10**(pK.side.D - pH));
-    n += (counts.E||0)/(1+10**(pK.side.E - pH));
-    n += (counts.C||0)/(1+10**(pK.side.C - pH));
-    n += (counts.Y||0)/(1+10**(pK.side.Y - pH));
-    return p - n;
+  /* pKa sets.
+     bjellqvist: Bjellqvist B et al. (1993) Electrophoresis 14:1023; as implemented by ExPASy Compute pI/MW
+                 (values tabulated in Kozlowski LP (2016) Biol Direct 11:55, Table 1).
+                 N-terminal pKa depends on the first residue; a C-terminal D/E has its own pKa.
+     emboss:     EMBOSS Epk.dat (Rice P et al. 2000). */
+  pKaSets: {
+    bjellqvist: {
+      nTerm: { default: 7.5, A: 7.59, M: 7.0, S: 6.93, P: 8.36, T: 6.82, V: 7.44, E: 7.7 },
+      cTerm: { default: 3.55, D: 4.55, E: 4.75 },
+      side:  { K: 10.0, R: 12.0, H: 5.98, D: 4.05, E: 4.45, C: 9.0, Y: 10.0 }
+    },
+    emboss: {
+      nTerm: { default: 8.6 },
+      cTerm: { default: 3.6 },
+      side:  { K: 10.8, R: 12.5, H: 6.5, D: 3.9, E: 4.1, C: 8.5, Y: 10.1 }
+    }
   },
 
-  // Calculate Extinction Coefficients (Reduced and Oxidized)
-  // Returns: { reduced, cystines }
-  extinctionCoefficients: function(counts, mw) {
-    const AA_EXT = window.PROTEIN_DEFS.AA.ext;
-    const nY = counts.Y || 0;
-    const nW = counts.W || 0;
-    const nC = counts.C || 0;
+  netCharge: function(counts, pH, scheme = 'bjellqvist', seq = '') {
+    const pK = this.pKaSets[scheme] || this.pKaSets.bjellqvist;
+    const first = seq ? seq[0] : '';
+    const last  = seq ? seq[seq.length - 1] : '';
+    const pKn = pK.nTerm[first] ?? pK.nTerm.default;
+    const pKc = pK.cTerm[last]  ?? pK.cTerm.default;
+    const pos = (n, pKa) => n / (1 + 10 ** (pH - pKa));
+    const neg = (n, pKa) => n / (1 + 10 ** (pKa - pH));
+    let nD = counts.D || 0, nE = counts.E || 0;
+    let q = pos(1, pKn) - neg(1, pKc);
+    // A C-terminal D/E side chain uses the C-terminal-specific pKa (ExPASy convention).
+    if (last === 'D' && pK.cTerm.D !== undefined && nD > 0) { nD -= 1; q -= neg(1, pK.cTerm.D); }
+    if (last === 'E' && pK.cTerm.E !== undefined && nE > 0) { nE -= 1; q -= neg(1, pK.cTerm.E); }
+    q += pos(counts.K || 0, pK.side.K) + pos(counts.R || 0, pK.side.R) + pos(counts.H || 0, pK.side.H);
+    q -= neg(nD, pK.side.D) + neg(nE, pK.side.E) + neg(counts.C || 0, pK.side.C) + neg(counts.Y || 0, pK.side.Y);
+    return q;
+  },
 
-    // Reduced: No Disulfides
-    const reduced = (nY * AA_EXT.Y) + (nW * AA_EXT.W);
+  isoelectricPoint: function(counts, scheme = 'bjellqvist', seq = '') {
+    let lo = 0, hi = 14;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      if (this.netCharge(counts, mid, scheme, seq) > 0) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  },
 
-    // Oxidized: All pairs form disulfides
-    // Each bond adds ~125 M-1 cm-1 (actually ranges, but 60-125 is common per bond).
-    // Some sources say +60 per bond. Edelhoch method usually just counts W and Y.
-    // Expasy ProtParam uses: Ext(Cystine) = 125.
-    // Note: It's 125 per bond.
-    const nCystine = Math.floor(nC / 2);
-    const cystines = reduced + (nCystine * AA_EXT.CYS_DISULFIDE_PAIR);
-
-    return { reduced, cystines };
+  // Extinction coefficients at 280 nm (M^-1 cm^-1) and Abs 0.1% (= 1 g/L).
+  // state: 'native' (Pace 1995) or 'denatured' (6 M GdnHCl). All Cys pairs assumed to form cystines.
+  extinctionCoefficients: function(counts, mw, state = 'native') {
+    const E = state === 'denatured' ? window.PROTEIN_DEFS.AA.ext_denatured : window.PROTEIN_DEFS.AA.ext;
+    const nY = counts.Y || 0, nW = counts.W || 0, nC = counts.C || 0;
+    const reduced  = nY * E.Y + nW * E.W;
+    const cystines = reduced + Math.floor(nC / 2) * E.CYS_DISULFIDE_PAIR;
+    return { reduced, cystines, absRed: mw ? reduced / mw : 0, absCys: mw ? cystines / mw : 0 };
   },
 
   // Unified Protein Parameter Calculation
