@@ -648,8 +648,8 @@
                         <div>
                             <label class="block text-xs text-slate-500 dark:text-slate-400">Temp</label>
                             <select id="as-temp" class="w-full p-2 border rounded bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100">
-                                <option value="20">20°C (Standard)</option>
-                                <option value="4">4°C (Cold Room)</option>
+                                <option value="25">25 °C (room temperature)</option>
+                                <option value="0">0–4 °C (cold room)</option>
                             </select>
                         </div>
                     </div>
@@ -1530,7 +1530,7 @@
             ]},
             "TAE_1x": { volume: 1, volUnit: 'L', components: [
                  { name: "Tris-base", mw: 121.14, conc: 40, unit: "mM" },
-                 { name: "Acetic Acid", mw: 60.05, isLiquid: true, conc: 20, unit: "mM", stockUnit: "M" },
+                 { name: "Acetic Acid (glacial, 17.4 M)", mw: 17.4, isLiquid: true, conc: 20, unit: "mM", stockUnit: "M" },
                  { name: "EDTA", mw: 372.24, conc: 1, unit: "mM" }
             ]}
         };
@@ -2038,9 +2038,11 @@
             const temp = document.getElementById('as-temp').value;
 
             if(v && !isNaN(s1) && s2){
-                const factor = temp === "20" ? 533 : 516;
-                const expansion = temp === "20" ? 0.3 : 0.27;
-                if(s2 >= 100) { document.getElementById('as-result').textContent = "ERR"; return; }
+                // Grams of solid (NH4)2SO4 to add per litre (EMBL table / Green & Hughes 1955):
+                // 25 °C: 533 (S2-S1) / (100 - 0.30 S2); 0 °C: 515 (S2-S1) / (100 - 0.27 S2)
+                const factor = temp === "25" ? 533 : 515;
+                const expansion = temp === "25" ? 0.3 : 0.27;
+                if(s2 >= 100 || s2 <= s1) { document.getElementById('as-result').textContent = s2 <= s1 ? "Target must exceed current saturation" : "ERR"; return; }
                 const numerator = factor * (s2 - s1);
                 const denominator = 100 - (expansion * s2);
                 const gPerL = numerator / denominator;

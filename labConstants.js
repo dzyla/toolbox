@@ -21,9 +21,9 @@ window.LAB_CONSTANTS = {
     { name: "BES", mw: 213.25, type: "buffer" },
     { name: "Bis-Tris", mw: 209.24, type: "buffer" },
     { name: "Bis-Tris Propane", mw: 282.34, type: "buffer" },
-    { name: "ADA", mw: 190.22, type: "buffer" },
+    { name: "ADA", mw: 190.16, type: "buffer" },                       // C6H10N2O5, Sigma A9883
     { name: "ACES", mw: 182.20, type: "buffer" },
-    { name: "Cholamine chloride", mw: 139.63, type: "buffer" },
+    { name: "Cholamine chloride hydrochloride", mw: 175.10, type: "buffer" }, // C5H15ClN2·HCl, Sigma C6660
     { name: "Sodium Acetate (trihydrate)", mw: 136.08, type: "buffer", synonyms: ["Sodium Acetate"] },
     { name: "Sodium Acetate (anhydrous)", mw: 82.03, type: "buffer", synonyms: ["Sodium Acetate"] },
     { name: "Ammonium Acetate", mw: 77.08, type: "buffer" },
@@ -141,7 +141,6 @@ window.LAB_CONSTANTS = {
     { name: "EDTA (disodium, dihydrate)", mw: 372.24, type: "chelator", synonyms: ["EDTA"] },
     { name: "EDTA (tetrasodium, dihydrate)", mw: 416.20, type: "chelator", synonyms: ["EDTA"] },
     { name: "EDTA (anhydrous)", mw: 292.24, type: "chelator", synonyms: ["EDTA"] },
-    { name: "EDTA (0.5M soln, pH 8.0 approx)", mw: 372.24, type: "chelator", synonyms: ["EDTA"] },
     { name: "EGTA", mw: 380.35, type: "chelator", synonyms: ["EGTA"] },
     { name: "DTPA", mw: 393.35, type: "chelator", synonyms: ["DTPA"] },
     { name: "NTA (Nitrilotriacetic acid)", mw: 191.14, type: "chelator", synonyms: ["NTA"] },
@@ -175,7 +174,7 @@ window.LAB_CONSTANTS = {
     { name: "UTP (Trisodium)", mw: 550.09, type: "nucleotide", synonyms: ["UTP"] },
     // dNTPs (PCR)
     { name: "dATP (Disodium)", mw: 535.10, type: "nucleotide", synonyms: ["dATP"] },
-    { name: "dTTP (Disodium)", mw: 524.10, type: "nucleotide", synonyms: ["dTTP"] },
+    { name: "dTTP (Disodium)", mw: 526.13, type: "nucleotide", synonyms: ["dTTP"] }, // C10H14N2Na2O14P3, Thermo R0171
     { name: "dCTP (Disodium)", mw: 511.10, type: "nucleotide", synonyms: ["dCTP"] },
     { name: "dGTP (Disodium)", mw: 551.10, type: "nucleotide", synonyms: ["dGTP"] },
     // Cofactors
@@ -204,7 +203,7 @@ window.LAB_CONSTANTS = {
     { name: "Guanidine Thiocyanate", mw: 118.16, type: "denaturant" },
     { name: "L-Arginine (Free base)", mw: 174.20, type: "additive" },
     { name: "L-Arginine HCl", mw: 210.66, type: "additive" },
-    { name: "L-Glutamate", mw: 147.13, type: "additive" },
+    { name: "L-Glutamic acid", mw: 147.13, type: "additive" },
     { name: "Spermine (Free base)", mw: 202.34, type: "additive" },
     { name: "Spermidine (Free base)", mw: 145.25, type: "additive" },
     { name: "MPD (2-Methyl-2,4-pentanediol)", mw: 118.17, type: "precipitant" },
@@ -250,13 +249,11 @@ window.LAB_CONSTANTS = {
     { name: "Leupeptin", mw: 426.64, type: "inhibitor" },
     { name: "Pepstatin A", mw: 685.89, type: "inhibitor" },
     { name: "Bestatin", mw: 308.38, type: "inhibitor" },
-    { name: "E-64", mw: 342.41, type: "inhibitor" },
-    { name: "Agarose", mw: 306.12, type: "matrix" },
+    { name: "E-64", mw: 357.41, type: "inhibitor" },                    // C15H27N5O5, Sigma E3132
     { name: "Acrylamide", mw: 71.08, type: "monomer" },
     { name: "Bis-acrylamide", mw: 154.17, type: "crosslinker" },
     { name: "Ammonium Persulfate (APS)", mw: 228.20, type: "catalyst", synonyms: ["APS"] },
     { name: "TEMED", mw: 116.21, type: "catalyst", synonyms: ["TEMED"] },
-    { name: "Glycogen", mw: 176.13, type: "carrier" },
 
     // --- DYES & STAINS ---
     { name: "Bromophenol Blue", mw: 669.96, type: "dye" },
