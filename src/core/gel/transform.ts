@@ -87,3 +87,20 @@ export function sampleNearest(p: Plane, x: number, y: number): number {
   if (xi < 0 || yi < 0 || xi >= p.width || yi >= p.height) return NaN;
   return p.data[yi * p.width + xi]!;
 }
+
+/** Resample a plane under a geometry (rotation, flips, and crop) into a new Plane. */
+export function transformPlane(raw: Plane, g: Geometry): Plane {
+  const size = frameSize(raw.width, raw.height, g);
+  const w = size.w, h = size.h;
+  const out = new Float32Array(w * h);
+  const w2r = workingToRaw(raw.width, raw.height, g);
+  for (let y = 0; y < h; y++) {
+    const rowOffset = y * w;
+    for (let x = 0; x < w; x++) {
+      const [rx, ry] = apply(w2r, x, y);
+      const val = sampleBilinear(raw, rx, ry);
+      out[rowOffset + x] = Number.isNaN(val) ? 1 : val;
+    }
+  }
+  return { width: w, height: h, data: out };
+}

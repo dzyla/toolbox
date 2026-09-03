@@ -1,12 +1,14 @@
-import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
+import { useEffect, useRef, useState, useMemo } from 'preact/hooks';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText, downloadBlob, toCsv } from '@/lib/export';
 import { decodeImageFile } from '@/lib/image';
 import { demoGel } from '@/core/gel/synthetic';
 import { autoLanes, equalLanes } from '@/core/gel/lanes';
-import { sampleLane, laneProfile, detectBands, type LaneSamples, type BandPeak } from '@/core/gel/profile';
+import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
 import { rollingBaseline, valleyBaseline } from '@/core/gel/background';
-import { quantifyBands, percentOfLane, detectPolarity, SATURATION_WARN, type BandMetrics } from '@/core/gel/quant';
-import { fitCalibration, formatSize, type Calibration, type CalibrationModel } from '@/core/gel/calibration';
+import { quantifyBands, detectPolarity, type BandMetrics } from '@/core/gel/quant';
+import { fitCalibration, formatSize, type Calibration } from '@/core/gel/calibration';
+import { transformPlane, type Geometry } from '@/core/gel/transform';
 import type { Plane, Polarity, Lane, Band } from '@/core/gel/types';
 import laddersData from '@/data/ladders.json';
 import { ToolLayout } from '@/app/components/ToolLayout';
@@ -14,296 +16,115 @@ import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SCIENCE } from './science';
 
-interface LadderPreset {
+interface StandardLadder {
   id: string;
   name: string;
-  supplier: string;
-  catalog: string;
   kind: 'protein' | 'dna';
-  unit: 'kDa' | 'bp';
   sizes: number[];
-  notes?: string;
 }
+
+const LADDERS = laddersData.ladders as unknown as StandardLadder[];
 
 interface State {
   polarity: Polarity;
-  bgMethod: 'rolling' | 'valley' | 'none';
-  rollingRadius: number;
-  prominence: number;
-  ladderId: string;
-  ladderLaneId: string;
-  calModel: CalibrationModel;
-  refBandId: string;
   brightness: number;
   contrast: number;
   invertDisplay: boolean;
-  activeView: 'gel' | 'calibration' | 'quantification';
+  bgMethod: 'rolling' | 'valley' | 'none';
+  rollingRadius: number;
+  prominence: number;
+  ladderLaneId: string;
+  ladderId: string;
+  calibMethod: 'linear' | 'piecewise' | 'spline';
+  refBandId: string;
+  viewTab: 'gel' | 'calib' | 'quant';
   tableMode: 'all' | 'selected';
 }
 
 const DEFAULTS: State = {
   polarity: 'dark',
+  brightness: 1.0,
+  contrast: 1.0,
+  invertDisplay: false,
   bgMethod: 'rolling',
   rollingRadius: 30,
   prominence: 0.05,
-  ladderId: 'biorad-precision-plus',
   ladderLaneId: '',
-  calModel: 'linear',
+  ladderId: 'biorad-precision-plus-all-blue',
+  calibMethod: 'piecewise',
   refBandId: '',
-  brightness: 1,
-  contrast: 1,
-  invertDisplay: false,
-  activeView: 'gel',
+  viewTab: 'gel',
   tableMode: 'all',
 };
 
-const LADDERS = laddersData.ladders as LadderPreset[];
+const SATURATION_WARN = 0.05;
 
 interface LaneAnalysisItem {
   lane: Lane;
   laneIdx: number;
-  isLadder: boolean;
-  samples: LaneSamples;
   profile: Float32Array;
   baseline: Float32Array;
-  bands: Band[];
   metrics: (BandMetrics & { number: number; share: number; ratio: number; sizeEst: number | null })[];
   totalNet: number;
 }
 
-function CalibrationPlot({
-  calibration,
-  activeLadder,
-  allLanes,
-  selectedLaneId,
-}: {
-  calibration: Calibration | null;
-  activeLadder: LadderPreset;
-  allLanes: LaneAnalysisItem[];
-  selectedLaneId: string;
-}) {
-  if (!calibration || calibration.points.length < 2) {
-    return (
-      <div class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">
-        <p class="font-medium">No Molecular Weight Calibration Active</p>
-        <p class="mt-1 text-xs text-slate-400">
-          Designate a ladder lane in the sidebar to fit standard bands and generate the calibration curve.
-        </p>
-      </div>
-    );
-  }
-
-  const width = 640;
-  const height = 340;
-  const margin = { top: 25, right: 35, bottom: 45, left: 65 };
-  const plotW = width - margin.left - margin.right;
-  const plotH = height - margin.top - margin.bottom;
-
-  const points = calibration.points;
-  const minY = Math.min(...points.map(p => p.y));
-  const maxY = Math.max(...points.map(p => p.y));
-  const padY = Math.max(15, (maxY - minY) * 0.1);
-  const domainY0 = Math.max(0, minY - padY);
-  const domainY1 = maxY + padY;
-
-  const minLog = Math.min(...points.map(p => Math.log10(p.size)));
-  const maxLog = Math.max(...points.map(p => Math.log10(p.size)));
-  const padLog = (maxLog - minLog) * 0.12;
-  const domainLog0 = minLog - padLog;
-  const domainLog1 = maxLog + padLog;
-
-  const sx = (y: number) => margin.left + ((y - domainY0) / (domainY1 - domainY0)) * plotW;
-  const sy = (logVal: number) => margin.top + (1 - (logVal - domainLog0) / (domainLog1 - domainLog0)) * plotH;
-
-  // Sample fitted curve
-  let curvePath = '';
-  const numSteps = 70;
-  for (let i = 0; i <= numSteps; i++) {
-    const curY = domainY0 + (i / numSteps) * (domainY1 - domainY0);
-    try {
-      const sz = calibration.sizeAt(curY);
-      if (Number.isFinite(sz) && sz > 0) {
-        const curLog = Math.log10(sz);
-        const px = sx(curY);
-        const py = sy(curLog);
-        curvePath += (curvePath === '' ? `M ${px.toFixed(1)} ${py.toFixed(1)}` : ` L ${px.toFixed(1)} ${py.toFixed(1)}`);
-      }
-    } catch {
-      // extrapolate boundary
-    }
-  }
-
-  // Sample bands from non-ladder lanes
-  const sampleBands: { laneIdx: number; peakY: number; sizeEst: number; isSelected: boolean }[] = [];
-  allLanes.forEach(item => {
-    if (!item.isLadder) {
-      item.metrics.forEach(m => {
-        if (m.peakY !== undefined && m.sizeEst) {
-          sampleBands.push({
-            laneIdx: item.laneIdx,
-            peakY: m.peakY,
-            sizeEst: m.sizeEst,
-            isSelected: item.lane.id === selectedLaneId,
-          });
-        }
-      });
-    }
-  });
-
-  return (
-    <div class="space-y-4">
-      <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-          <div>
-            <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-              Molecular Weight Calibration Curve (Semi-Log Plot)
-            </h4>
-            <p class="text-xs text-slate-500">
-              Migration distance Y (px) vs log₁₀(Size {activeLadder.unit}) · Model: {calibration.model} (R² = {calibration.r2.toFixed(4)})
-            </p>
-          </div>
-          <div class="flex items-center gap-4 text-xs">
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-3 h-3 rounded-full bg-amber-500" />
-              Ladder Standards
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-3 h-3 rotate-45 bg-blue-500" />
-              Unknown Bands
-            </span>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto rounded-lg bg-slate-50/50 p-2 dark:bg-slate-800/40">
-          <svg viewBox={`0 0 ${width} ${height}`} class="w-full h-auto min-w-[500px]">
-            {/* Grid lines */}
-            {[0.25, 0.5, 0.75].map(frac => (
-              <g key={frac}>
-                <line
-                  x1={margin.left}
-                  y1={margin.top + frac * plotH}
-                  x2={margin.left + plotW}
-                  y2={margin.top + frac * plotH}
-                  stroke="currentColor"
-                  stroke-opacity="0.08"
-                />
-                <line
-                  x1={margin.left + frac * plotW}
-                  y1={margin.top}
-                  x2={margin.left + frac * plotW}
-                  y2={margin.top + plotH}
-                  stroke="currentColor"
-                  stroke-opacity="0.08"
-                />
-              </g>
-            ))}
-
-            {/* Axes */}
-            <line x1={margin.left} y1={margin.top + plotH} x2={margin.left + plotW} y2={margin.top + plotH} stroke="currentColor" stroke-width="1.5" />
-            <line x1={margin.left} y1={margin.top} x2={margin.left} y2={margin.top + plotH} stroke="currentColor" stroke-width="1.5" />
-
-            {/* X-axis labels */}
-            <text x={margin.left + plotW / 2} y={height - 8} text-anchor="middle" font-size="11" fill="currentColor" font-weight="500">
-              Migration Distance Y along Lane (px)
-            </text>
-            <text x={margin.left} y={margin.top + plotH + 16} font-size="10" fill="currentColor" opacity="0.7">
-              {Math.round(domainY0)} px
-            </text>
-            <text x={margin.left + plotW} y={margin.top + plotH + 16} text-anchor="end" font-size="10" fill="currentColor" opacity="0.7">
-              {Math.round(domainY1)} px
-            </text>
-
-            {/* Y-axis labels */}
-            <text x={-(margin.top + plotH / 2)} y="18" transform="rotate(-90)" text-anchor="middle" font-size="11" fill="currentColor" font-weight="500">
-              log₁₀(Size / {activeLadder.unit})
-            </text>
-            <text x={margin.left - 8} y={margin.top + 10} text-anchor="end" font-size="10" fill="currentColor" opacity="0.7">
-              {Math.round(Math.pow(10, domainLog1))} {activeLadder.unit}
-            </text>
-            <text x={margin.left - 8} y={margin.top + plotH} text-anchor="end" font-size="10" fill="currentColor" opacity="0.7">
-              {Math.round(Math.pow(10, domainLog0))} {activeLadder.unit}
-            </text>
-
-            {/* Fitted Curve Path */}
-            {curvePath && <path d={curvePath} fill="none" stroke="#2563eb" stroke-width="2.5" />}
-
-            {/* Unknown Sample Bands Projected onto Curve */}
-            {sampleBands.map((sb, idx) => {
-              const px = sx(sb.peakY);
-              const py = sy(Math.log10(sb.sizeEst));
-              return (
-                <g key={`sample-${idx}`}>
-                  <rect
-                    x={px - 4}
-                    y={py - 4}
-                    width="8"
-                    height="8"
-                    transform={`rotate(45 ${px} ${py})`}
-                    fill={sb.isSelected ? '#3b82f6' : '#94a3b8'}
-                    stroke="#ffffff"
-                    stroke-width="1"
-                  >
-                    <title>{`Lane ${sb.laneIdx + 1} Band: ${sb.peakY.toFixed(1)} px → ${formatSize(sb.sizeEst, activeLadder.kind)}`}</title>
-                  </rect>
-                </g>
-              );
-            })}
-
-            {/* Ladder Calibration Points */}
-            {points.map((p, idx) => {
-              const px = sx(p.y);
-              const py = sy(Math.log10(p.size));
-              return (
-                <g key={`ladder-${idx}`}>
-                  <circle cx={px} cy={py} r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5">
-                    <title>{`Ladder: ${p.y.toFixed(1)} px → ${p.size} ${activeLadder.unit}`}</title>
-                  </circle>
-                  <text x={px + 7} y={py + 3} font-size="9.5" fill="currentColor" font-weight="600" opacity="0.9">
-                    {p.size}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-
-        {/* Calibration Stats & Equation */}
-        <div class="mt-3 grid gap-3 sm:grid-cols-3 text-xs">
-          <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800">
-            <span class="text-slate-500 block">Model & Fit R²</span>
-            <strong class="text-slate-900 dark:text-slate-100">
-              {calibration.model.toUpperCase()} (R² = {calibration.r2.toFixed(4)})
-            </strong>
-          </div>
-          <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800 sm:col-span-2">
-            <span class="text-slate-500 block">Regression Equation</span>
-            <code class="mono font-semibold text-accent-600 dark:text-accent-400">
-              {calibration.slope !== undefined
-                ? `log₁₀(Size) = ${calibration.slope.toFixed(5)} · y + ${(calibration.intercept ?? 0).toFixed(4)}`
-                : `${calibration.points.length} standard reference bands interpolated`}
-            </code>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function toBands(peaks: ReturnType<typeof detectBands>): Band[] {
+  return peaks.map((p, i) => ({
+    id: `b-${Math.round(p.index)}-${i}`,
+    y0: p.y0,
+    y1: p.y1,
+    peakY: p.index,
+  }));
 }
 
 export default function GelView() {
   const [stateSig, shareUrl] = useUrlState<State>('gel', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
+
+  // Base raw plane untouched by user crop/rotation
+  const [originalPlane, setOriginalPlane] = useState<Plane | null>(null);
+  // Un-deskewed base plane before fine rotation
+  const [basePlane, setBasePlane] = useState<Plane | null>(null);
+  // Current active working plane
   const [plane, setPlane] = useState<Plane | null>(null);
+
   const [imageName, setImageName] = useState<string>('');
   const [lanes, setLanes] = useState<Lane[]>([]);
   const [selectedLaneId, setSelectedLaneId] = useState<string>('');
   const [bandMap, setBandMap] = useState<Record<string, Band[]>>({});
   const [numLanesInput, setNumLanesInput] = useState<number>(5);
 
+  // Annotations
+  const [gelTitle, setGelTitle] = useState<string>('Gel & Blot Analysis');
+  const [laneLabels, setLaneLabels] = useState<Record<string, string>>({});
+  const [showMwLabels, setShowMwLabels] = useState<boolean>(true);
+  const [showLaneHeaders, setShowLaneHeaders] = useState<boolean>(true);
+
+  // Geometry / deskew angle
+  const [deskewAngle, setDeskewAngle] = useState<number>(0);
+
+  // Interactive Cropping
+  const [isCropping, setIsCropping] = useState<boolean>(false);
+  const [cropBox, setCropBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const cropStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Canvas Drag State
+  const [dragState, setDragState] = useState<{
+    type: 'move' | 'resize';
+    laneId: string;
+    edge?: 'left' | 'right';
+    startX: number;
+    origX: number;
+    origWidth: number;
+  } | null>(null);
+  const hasDraggedRef = useRef<boolean>(false);
+  const [canvasCursor, setCanvasCursor] = useState<string>('default');
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load demo gel on initial mount if none loaded
+  // Load demo gel on initial mount
   useEffect(() => {
     if (!plane) {
       loadDemo();
@@ -312,12 +133,16 @@ export default function GelView() {
 
   function loadDemo() {
     const demo = demoGel();
+    setOriginalPlane(demo.plane);
+    setBasePlane(demo.plane);
     setPlane(demo.plane);
     setImageName('demo_gel.png');
+    setDeskewAngle(0);
+    setIsCropping(false);
+    setCropBox(null);
     const detectedPolarity = detectPolarity(demo.plane);
     set({ polarity: detectedPolarity });
 
-    // Initial lanes across image
     const initialLanes = autoLanes(demo.plane, { x: 0, y: 0, w: demo.plane.width, h: demo.plane.height }, detectedPolarity);
     setLanes(initialLanes);
     if (initialLanes.length > 0) {
@@ -329,12 +154,18 @@ export default function GelView() {
   async function handleFileUpload(file: File) {
     try {
       const decoded = await decodeImageFile(file);
-      setPlane({ width: decoded.width, height: decoded.height, data: decoded.data });
+      const newPlane = { width: decoded.width, height: decoded.height, data: decoded.data };
+      setOriginalPlane(newPlane);
+      setBasePlane(newPlane);
+      setPlane(newPlane);
       setImageName(file.name);
-      const pol = detectPolarity({ width: decoded.width, height: decoded.height, data: decoded.data });
+      setDeskewAngle(0);
+      setIsCropping(false);
+      setCropBox(null);
+      const pol = detectPolarity(newPlane);
       set({ polarity: pol });
 
-      const detected = autoLanes({ width: decoded.width, height: decoded.height, data: decoded.data }, { x: 0, y: 0, w: decoded.width, h: decoded.height }, pol);
+      const detected = autoLanes(newPlane, { x: 0, y: 0, w: newPlane.width, h: newPlane.height }, pol);
       setLanes(detected);
       setBandMap({});
       if (detected.length > 0) {
@@ -344,6 +175,70 @@ export default function GelView() {
     } catch (err) {
       alert(`Error loading image: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  // Transformations
+  function applyRotation(deltaDeg: number) {
+    if (!plane) return;
+    const g: Geometry = { rotation: deltaDeg, flipH: false, flipV: false };
+    const rotated = transformPlane(plane, g);
+    setBasePlane(rotated);
+    setPlane(rotated);
+    setDeskewAngle(0);
+    setBandMap({});
+    const newLanes = autoLanes(rotated, { x: 0, y: 0, w: rotated.width, h: rotated.height }, s.polarity);
+    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: rotated.width, h: rotated.height }));
+    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+  }
+
+  function applyFlip(horizontal: boolean) {
+    if (!plane) return;
+    const g: Geometry = { rotation: 0, flipH: horizontal, flipV: !horizontal };
+    const flipped = transformPlane(plane, g);
+    setBasePlane(flipped);
+    setPlane(flipped);
+    setDeskewAngle(0);
+    setBandMap({});
+    const newLanes = autoLanes(flipped, { x: 0, y: 0, w: flipped.width, h: flipped.height }, s.polarity);
+    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: flipped.width, h: flipped.height }));
+    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+  }
+
+  function handleDeskewChange(angle: number) {
+    if (!basePlane) return;
+    setDeskewAngle(angle);
+    const g: Geometry = { rotation: angle, flipH: false, flipV: false };
+    const transformed = transformPlane(basePlane, g);
+    setPlane(transformed);
+    const newLanes = autoLanes(transformed, { x: 0, y: 0, w: transformed.width, h: transformed.height }, s.polarity);
+    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: transformed.width, h: transformed.height }));
+  }
+
+  function handleApplyCrop() {
+    if (!plane || !cropBox || cropBox.w < 10 || cropBox.h < 10) return;
+    const cropped = transformPlane(plane, { rotation: 0, flipH: false, flipV: false, crop: cropBox });
+    setBasePlane(cropped);
+    setPlane(cropped);
+    setDeskewAngle(0);
+    setIsCropping(false);
+    setCropBox(null);
+    setBandMap({});
+    const newLanes = autoLanes(cropped, { x: 0, y: 0, w: cropped.width, h: cropped.height }, s.polarity);
+    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: cropped.width, h: cropped.height }));
+    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+  }
+
+  function handleResetAllTransforms() {
+    if (!originalPlane) return;
+    setBasePlane(originalPlane);
+    setPlane(originalPlane);
+    setDeskewAngle(0);
+    setIsCropping(false);
+    setCropBox(null);
+    setBandMap({});
+    const newLanes = autoLanes(originalPlane, { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height }, s.polarity);
+    setLanes(newLanes.length > 0 ? newLanes : equalLanes(5, { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height }));
+    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
   }
 
   // Active ladder preset
@@ -358,40 +253,34 @@ export default function GelView() {
     if (!ladderLane) return null;
 
     try {
-      const ladderSamples = sampleLane(plane, ladderLane, s.polarity);
-      const prof = laneProfile(ladderSamples);
-      const peaks: BandPeak[] = detectBands(prof, { minProminence: s.prominence });
-      if (peaks.length < (s.calModel === 'spline' ? 3 : 2)) return null;
+      const dens = sampleLane(plane, ladderLane, s.polarity);
+      const prof = laneProfile(dens);
+      const bands = bandMap[ladderLane.id] || toBands(detectBands(prof, { minProminence: s.prominence }));
+      if (bands.length < 2) return null;
 
+      const sortedBands = [...bands].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
       const sortedSizes = [...activeLadder.sizes].sort((a, b) => b - a);
-      let chosenPeaks = [...peaks].sort((a, b) => b.prominence - a.prominence).slice(0, sortedSizes.length);
-      chosenPeaks = chosenPeaks.sort((a, b) => a.index - b.index);
 
-      const points = chosenPeaks.map((p, i) => ({ y: p.index, size: sortedSizes[i]! }));
-      return fitCalibration(points, s.calModel);
+      const pairs = sortedBands.slice(0, sortedSizes.length).map((b, i) => ({
+        y: b.peakY ?? (b.y0 + b.y1) / 2,
+        size: sortedSizes[i]!,
+      }));
+
+      return fitCalibration(pairs, s.calibMethod);
     } catch {
       return null;
     }
-  }, [plane, lanes, s.ladderLaneId, s.polarity, s.prominence, activeLadder, s.calModel]);
-
-  // Selected lane calculations
-  const selectedLane = useMemo(() => {
-    return lanes.find(l => l.id === selectedLaneId) || lanes[0] || null;
-  }, [lanes, selectedLaneId]);
+  }, [plane, lanes, s.ladderLaneId, bandMap, s.prominence, s.polarity, activeLadder, s.calibMethod]);
 
   // Comprehensive analysis across ALL lanes
   const allLanesAnalysis: LaneAnalysisItem[] = useMemo(() => {
     if (!plane) return [];
-    return lanes.map((lane, idx) => {
+    return lanes.map((lane, laneIdx) => {
       try {
-        const samples = sampleLane(plane, lane, s.polarity);
-        const prof = laneProfile(samples);
-        const bands: Band[] = bandMap[lane.id] || detectBands(prof, { minProminence: s.prominence }).map((p, i) => ({
-          id: `${lane.id}-b-${i + 1}`,
-          y0: p.y0,
-          y1: p.y1,
-          peakY: p.index,
-        }));
+        const dens = sampleLane(plane, lane, s.polarity);
+        const prof = laneProfile(dens);
+        const bands = bandMap[lane.id] || toBands(detectBands(prof, { minProminence: s.prominence }));
+
         let baseline: Float32Array;
         if (s.bgMethod === 'rolling') {
           baseline = rollingBaseline(prof, s.rollingRadius);
@@ -400,49 +289,46 @@ export default function GelView() {
         } else {
           baseline = new Float32Array(prof.length);
         }
-        const rawMetrics = quantifyBands(samples, bands, baseline);
-        const shares = percentOfLane(rawMetrics);
 
-        const refMetric = rawMetrics.find(m => m.bandId === s.refBandId);
-        const refNet = refMetric ? refMetric.net : (rawMetrics[0]?.net ?? 1);
+        const metrics = quantifyBands(dens, bands, baseline);
 
-        const table = rawMetrics.map((m, bIdx) => {
-          const share = shares[bIdx]?.percentOfLane ?? 0;
-          const ratio = refNet > 0 ? m.net / refNet : NaN;
-          const sizeEst = calibration && m.peakY !== undefined ? calibration.sizeAt(m.peakY) : null;
-          return {
-            ...m,
-            number: bIdx + 1,
-            share,
-            ratio,
-            sizeEst,
-          };
+        const totalNet = metrics.reduce((acc, m) => acc + Math.max(0, m.net), 0);
+        const refBand = metrics.find(m => m.bandId === s.refBandId);
+        const refNet = refBand && refBand.net > 0 ? refBand.net : (metrics[0]?.net ?? 1);
+
+        const enriched = metrics.map((m, i) => {
+          const share = totalNet > 0 ? (Math.max(0, m.net) / totalNet) * 100 : 0;
+          const ratio = refNet > 0 ? Math.max(0, m.net) / refNet : 1;
+          const peakY = m.peakY ?? 0;
+          const sizeEst = calibration ? calibration.sizeAt(peakY) : null;
+          return { ...m, number: i + 1, share, ratio, sizeEst };
         });
 
-        const totalNet = table.reduce((acc, m) => acc + m.net, 0);
-
-        return {
-          lane,
-          laneIdx: idx,
-          isLadder: lane.id === s.ladderLaneId,
-          samples,
-          profile: prof,
-          baseline,
-          bands,
-          metrics: table,
-          totalNet,
-        };
+        return { lane, laneIdx, profile: prof, baseline, metrics: enriched, totalNet };
       } catch {
-        return null;
+        return { lane, laneIdx, profile: new Float32Array(0), baseline: new Float32Array(0), metrics: [], totalNet: 0 };
       }
-    }).filter(Boolean) as LaneAnalysisItem[];
-  }, [plane, lanes, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, bandMap, s.refBandId, s.ladderLaneId, calibration]);
+    });
+  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, calibration]);
 
-  const laneAnalysis = useMemo(() => {
-    return allLanesAnalysis.find(item => item.lane.id === selectedLane?.id) || null;
-  }, [allLanesAnalysis, selectedLane]);
+  const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
+  const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);
+  const laneAnalysis = useMemo(() => allLanesAnalysis.find(a => a.lane.id === selectedLane?.id) || null, [allLanesAnalysis, selectedLane]);
 
-  // Canvas rendering
+  // Canvas helper: get gel pixel coordinates from mouse event
+  function getCanvasCoords(e: MouseEvent): { x: number; y: number } {
+    const canvas = canvasRef.current;
+    if (!canvas || !plane) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }
+
+  // Draw on Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !plane) return;
@@ -453,105 +339,372 @@ export default function GelView() {
     canvas.height = plane.height;
 
     const imgData = ctx.createImageData(plane.width, plane.height);
-    const d = imgData.data;
-
+    const data = imgData.data;
+    const raw = plane.data;
     const b = s.brightness;
     const c = s.contrast;
     const inv = s.invertDisplay;
 
-    for (let i = 0; i < plane.data.length; i++) {
-      let val = plane.data[i]!;
-      if (inv) val = 1 - val;
+    for (let i = 0; i < raw.length; i++) {
+      let val = raw[i]!;
       val = (val - 0.5) * c + 0.5;
       val = val * b;
-      const byte = Math.max(0, Math.min(255, Math.round(val * 255)));
+      val = Math.max(0, Math.min(1, val));
+      if (inv) val = 1 - val;
+      const byteVal = Math.round(val * 255);
       const pIdx = i * 4;
-      d[pIdx] = byte;
-      d[pIdx + 1] = byte;
-      d[pIdx + 2] = byte;
-      d[pIdx + 3] = 255;
+      data[pIdx] = byteVal;
+      data[pIdx + 1] = byteVal;
+      data[pIdx + 2] = byteVal;
+      data[pIdx + 3] = 255;
     }
     ctx.putImageData(imgData, 0, 0);
 
-    // Draw lanes
+    // Draw Lanes
     lanes.forEach((l, idx) => {
       const isSelected = l.id === selectedLane?.id;
       const isLadder = l.id === s.ladderLaneId;
+      const half = l.width / 2;
 
       ctx.save();
-      ctx.strokeStyle = isSelected ? '#3b82f6' : isLadder ? '#eab308' : '#64748b';
-      ctx.lineWidth = isSelected ? 2.5 : 1;
-      ctx.setLineDash(isSelected ? [] : [4, 4]);
+      // Lane box fill
+      ctx.fillStyle = isSelected
+        ? 'rgba(37, 99, 235, 0.18)'
+        : isLadder
+          ? 'rgba(234, 179, 8, 0.12)'
+          : 'rgba(255, 255, 255, 0.05)';
+      ctx.fillRect(l.x - half, l.y0, l.width, l.y1 - l.y0);
 
-      const half = l.width / 2;
+      // Lane boundaries
+      ctx.strokeStyle = isSelected ? '#2563eb' : isLadder ? '#eab308' : 'rgba(148, 163, 184, 0.6)';
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.setLineDash(isSelected ? [] : [4, 4]);
       ctx.strokeRect(l.x - half, l.y0, l.width, l.y1 - l.y0);
 
-      // Label badge
-      ctx.fillStyle = isSelected ? '#3b82f6' : isLadder ? '#eab308' : '#94a3b8';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(`L${idx + 1}${isLadder ? ' (Ladder)' : ''}`, l.x - half + 4, l.y0 + 16);
+      // Lane Center Guide Line
+      ctx.strokeStyle = isSelected ? 'rgba(37, 99, 235, 0.4)' : 'rgba(148, 163, 184, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(l.x, l.y0);
+      ctx.lineTo(l.x, l.y1);
+      ctx.stroke();
 
-      // Draw bands for this lane
-      const analysisItem = allLanesAnalysis.find(item => item.lane.id === l.id);
-      const bands = analysisItem ? analysisItem.bands : (bandMap[l.id] || []);
-      bands.forEach(band => {
-        ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.35)' : 'rgba(148, 163, 184, 0.25)';
-        ctx.fillRect(l.x - half, band.y0, l.width, Math.max(1, band.y1 - band.y0));
+      // Lane Header Badge
+      if (showLaneHeaders) {
+        const customName = laneLabels[l.id];
+        const labelText = customName ? `L${idx + 1}: ${customName}` : isLadder ? `L${idx + 1} (Ladder)` : `L${idx + 1}`;
+        ctx.font = 'bold 11px sans-serif';
+        const tw = ctx.measureText(labelText).width;
+        ctx.fillStyle = isSelected ? '#2563eb' : isLadder ? '#d97706' : '#475569';
+        ctx.fillRect(l.x - tw / 2 - 4, Math.max(2, l.y0 - 18), tw + 8, 16);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(labelText, l.x - tw / 2, Math.max(14, l.y0 - 6));
+      }
 
+      // Bands for this lane
+      const analysisItem = allLanesAnalysis.find(a => a.lane.id === l.id);
+      const bList = analysisItem?.metrics || [];
+
+      bList.forEach((band) => {
         if (band.peakY !== undefined) {
-          ctx.strokeStyle = isSelected ? '#2563eb' : '#94a3b8';
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = isSelected ? '#2563eb' : isLadder ? '#d97706' : '#94a3b8';
+          ctx.lineWidth = isSelected ? 2 : 1.5;
           ctx.setLineDash([]);
           ctx.beginPath();
           ctx.moveTo(l.x - half, band.peakY);
           ctx.lineTo(l.x + half, band.peakY);
           ctx.stroke();
 
-          // Size text if calibrated
-          if (calibration) {
-            const sz = calibration.sizeAt(band.peakY);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '10px sans-serif';
-            ctx.fillText(formatSize(sz, activeLadder.kind), l.x + half + 4, band.peakY + 3);
+          // Band peak handle dot
+          ctx.fillStyle = isSelected ? '#2563eb' : '#64748b';
+          ctx.beginPath();
+          ctx.arc(l.x, band.peakY, isSelected ? 3 : 2, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // MW annotation text if calibrated
+          if (showMwLabels && calibration) {
+            const sz = band.sizeEst;
+            if (sz !== null) {
+              const text = formatSize(sz, activeLadder.kind);
+              ctx.font = 'bold 10px sans-serif';
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+              const txtW = ctx.measureText(text).width;
+              ctx.fillRect(l.x + half + 2, band.peakY - 7, txtW + 4, 14);
+              ctx.fillStyle = '#ffffff';
+              ctx.fillText(text, l.x + half + 4, band.peakY + 4);
+            }
           }
         }
       });
 
       ctx.restore();
     });
-  }, [plane, lanes, selectedLane, allLanesAnalysis, bandMap, s.brightness, s.contrast, s.invertDisplay, s.ladderLaneId, calibration, activeLadder]);
 
-  // Click on canvas to select lane
-  function handleCanvasClick(e: MouseEvent) {
-    const canvas = canvasRef.current;
-    if (!canvas || !plane || lanes.length === 0) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
+    // Draw Crop Box Overlay if Cropping
+    if (isCropping && cropBox) {
+      ctx.save();
+      // Dim outside area
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fillRect(0, 0, plane.width, cropBox.y);
+      ctx.fillRect(0, cropBox.y + cropBox.h, plane.width, plane.height - (cropBox.y + cropBox.h));
+      ctx.fillRect(0, cropBox.y, cropBox.x, cropBox.h);
+      ctx.fillRect(cropBox.x + cropBox.w, cropBox.y, plane.width - (cropBox.x + cropBox.w), cropBox.h);
 
-    let closestLane: Lane | null = null;
-    let minDistance = Infinity;
+      // Crop rectangle border
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(cropBox.x, cropBox.y, cropBox.w, cropBox.h);
 
+      // Corner handles
+      ctx.fillStyle = '#38bdf8';
+      const corners = [
+        [cropBox.x, cropBox.y],
+        [cropBox.x + cropBox.w, cropBox.y],
+        [cropBox.x, cropBox.y + cropBox.h],
+        [cropBox.x + cropBox.w, cropBox.y + cropBox.h],
+      ];
+      for (const [cx, cy] of corners) {
+        ctx.fillRect(cx! - 4, cy! - 4, 8, 8);
+      }
+      ctx.restore();
+    }
+  }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders]);
+
+  // Mouse Interaction: Grab to move lines, resize lanes, band addition/removal, crop drag
+  function handleMouseDown(e: MouseEvent) {
+    const coords = getCanvasCoords(e);
+    hasDraggedRef.current = false;
+
+    if (isCropping) {
+      cropStartRef.current = coords;
+      setCropBox({ x: coords.x, y: coords.y, w: 0, h: 0 });
+      return;
+    }
+
+    // Check if mouse is on a lane border (resize) or lane center/body (move)
     for (const lane of lanes) {
       const half = lane.width / 2;
-      const inLaneX = clickX >= lane.x - half && clickX <= lane.x + half;
-      const inLaneY = clickY >= Math.min(lane.y0, lane.y1) && clickY <= Math.max(lane.y0, lane.y1);
-      if (inLaneX && inLaneY) {
-        closestLane = lane;
-        break;
+      const leftBorder = lane.x - half;
+      const rightBorder = lane.x + half;
+      const inY = coords.y >= Math.min(lane.y0, lane.y1) && coords.y <= Math.max(lane.y0, lane.y1);
+
+      if (inY) {
+        if (Math.abs(coords.x - leftBorder) <= 8) {
+          setSelectedLaneId(lane.id);
+          setDragState({ type: 'resize', laneId: lane.id, edge: 'left', startX: coords.x, origX: lane.x, origWidth: lane.width });
+          return;
+        }
+        if (Math.abs(coords.x - rightBorder) <= 8) {
+          setSelectedLaneId(lane.id);
+          setDragState({ type: 'resize', laneId: lane.id, edge: 'right', startX: coords.x, origX: lane.x, origWidth: lane.width });
+          return;
+        }
+        if (coords.x >= leftBorder && coords.x <= rightBorder) {
+          setSelectedLaneId(lane.id);
+          setDragState({ type: 'move', laneId: lane.id, startX: coords.x, origX: lane.x, origWidth: lane.width });
+          return;
+        }
       }
-      const dist = Math.abs(clickX - lane.x);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestLane = lane;
+    }
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    const coords = getCanvasCoords(e);
+
+    // Cropping drag
+    if (isCropping && cropStartRef.current && plane) {
+      const x0 = Math.max(0, Math.min(cropStartRef.current.x, coords.x));
+      const y0 = Math.max(0, Math.min(cropStartRef.current.y, coords.y));
+      const w = Math.min(plane.width - x0, Math.abs(coords.x - cropStartRef.current.x));
+      const h = Math.min(plane.height - y0, Math.abs(coords.y - cropStartRef.current.y));
+      setCropBox({ x: Math.round(x0), y: Math.round(y0), w: Math.round(w), h: Math.round(h) });
+      return;
+    }
+
+    // Lane dragging (move or resize)
+    if (dragState && plane) {
+      hasDraggedRef.current = true;
+      const dx = coords.x - dragState.startX;
+
+      if (dragState.type === 'move') {
+        const lane = lanes.find(l => l.id === dragState.laneId);
+        if (lane) {
+          const half = lane.width / 2;
+          const newX = Math.max(half, Math.min(plane.width - half, dragState.origX + dx));
+          setLanes(prev => prev.map(l => l.id === dragState.laneId ? { ...l, x: Math.round(newX) } : l));
+        }
+      } else if (dragState.type === 'resize') {
+        let newWidth = dragState.origWidth;
+        if (dragState.edge === 'right') {
+          newWidth = dragState.origWidth + dx * 2;
+        } else {
+          newWidth = dragState.origWidth - dx * 2;
+        }
+        newWidth = Math.max(12, Math.min(plane.width, newWidth));
+        setLanes(prev => prev.map(l => l.id === dragState.laneId ? { ...l, width: Math.round(newWidth) } : l));
+      }
+      return;
+    }
+
+    // Hover cursor updates
+    if (isCropping) {
+      setCanvasCursor('crosshair');
+      return;
+    }
+
+    let nextCursor = 'default';
+    for (const lane of lanes) {
+      const half = lane.width / 2;
+      const inY = coords.y >= Math.min(lane.y0, lane.y1) && coords.y <= Math.max(lane.y0, lane.y1);
+      if (inY) {
+        if (Math.abs(coords.x - (lane.x - half)) <= 8 || Math.abs(coords.x - (lane.x + half)) <= 8) {
+          nextCursor = 'ew-resize';
+          break;
+        }
+        if (coords.x >= lane.x - half && coords.x <= lane.x + half) {
+          nextCursor = 'grab';
+          break;
+        }
+      }
+    }
+    setCanvasCursor(nextCursor);
+  }
+
+  function handleMouseUp(e: MouseEvent) {
+    if (isCropping) {
+      cropStartRef.current = null;
+      return;
+    }
+
+    if (dragState) {
+      setDragState(null);
+      if (hasDraggedRef.current) {
+        hasDraggedRef.current = false;
+        return; // Don't trigger click action after drag
       }
     }
 
-    if (closestLane) {
-      setSelectedLaneId(closestLane.id);
+    // User clicked without dragging: Band Addition & Removal or Lane Selection
+    handleCanvasClick(e);
+  }
+
+  // Click on canvas: Band addition by clicking and Ctrl+click to remove
+  function handleCanvasClick(e: MouseEvent) {
+    if (!plane || lanes.length === 0) return;
+    const coords = getCanvasCoords(e);
+    const clickX = coords.x;
+    const clickY = coords.y;
+
+    // Find clicked lane
+    let clickedLane: Lane | null = null;
+    for (const lane of lanes) {
+      const half = lane.width / 2;
+      if (clickX >= lane.x - half && clickX <= lane.x + half && clickY >= lane.y0 && clickY <= lane.y1) {
+        clickedLane = lane;
+        break;
+      }
     }
+
+    if (!clickedLane) {
+      // Find closest lane horizontally
+      let minD = Infinity;
+      for (const lane of lanes) {
+        const d = Math.abs(clickX - lane.x);
+        if (d < minD) { minD = d; clickedLane = lane; }
+      }
+      if (clickedLane) setSelectedLaneId(clickedLane.id);
+      return;
+    }
+
+    setSelectedLaneId(clickedLane.id);
+
+    // Current bands for this lane
+    const currentBands = bandMap[clickedLane.id] || (() => {
+      const analysisItem = allLanesAnalysis.find(a => a.lane.id === clickedLane!.id);
+      return analysisItem?.metrics.map(m => ({
+        id: m.bandId,
+        y0: (m.peakY ?? clickY) - 8,
+        y1: (m.peakY ?? clickY) + 8,
+        peakY: m.peakY ?? clickY,
+      })) || [];
+    })();
+
+    // Check if clicked near an existing band peak
+    const existingBandIdx = currentBands.findIndex(b => Math.abs((b.peakY ?? (b.y0 + b.y1) / 2) - clickY) <= 8);
+
+    if (existingBandIdx !== -1) {
+      const existingBand = currentBands[existingBandIdx]!;
+      // Ctrl+click or Alt+click removes band
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        const updated = currentBands.filter((_, idx) => idx !== existingBandIdx);
+        setBandMap(prev => ({ ...prev, [clickedLane!.id]: updated }));
+      } else {
+        // Normal click sets reference band
+        set({ refBandId: existingBand.id });
+      }
+    } else {
+      // Click on empty lane adds a new band at this position!
+      const newBand: Band = {
+        id: `band-${Date.now()}`,
+        y0: Math.max(0, clickY - 8),
+        y1: Math.min(plane.height, clickY + 8),
+        peakY: Math.round(clickY),
+      };
+      const updated = [...currentBands, newBand].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
+      setBandMap(prev => ({ ...prev, [clickedLane!.id]: updated }));
+    }
+  }
+
+  // Export Annotated Gel Image
+  function handleExportAnnotatedGel() {
+    if (!plane) return;
+    const exportCanvas = document.createElement('canvas');
+    const headerHeight = 50;
+    exportCanvas.width = plane.width;
+    exportCanvas.height = plane.height + headerHeight;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Background banner
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, exportCanvas.width, headerHeight);
+
+    // Title text
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(gelTitle, 16, 26);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(`${plane.width} × ${plane.height} px · Bio-Bench Annotated Gel Export`, 16, 42);
+
+    // Draw gel image below header
+    if (canvasRef.current) {
+      ctx.drawImage(canvasRef.current, 0, headerHeight);
+    }
+
+    exportCanvas.toBlob((blob) => {
+      if (blob) {
+        downloadBlob(blob, `${imageName.replace(/\.[^/.]+$/, '')}_annotated.png`);
+      }
+    }, 'image/png');
+  }
+
+  // Lane Management
+  function handleAddLane() {
+    if (!plane) return;
+    const lastLane = lanes[lanes.length - 1];
+    const newX = lastLane ? Math.min(plane.width - 25, lastLane.x + 50) : 50;
+    const newLane: Lane = {
+      id: `lane-${Date.now()}`,
+      x: newX,
+      width: lastLane ? lastLane.width : 50,
+      y0: 0,
+      y1: plane.height,
+      tilt: 0,
+    };
+    setLanes([...lanes, newLane]);
+    setSelectedLaneId(newLane.id);
   }
 
   function handleAutoLanes() {
@@ -568,106 +721,83 @@ export default function GelView() {
     if (eq.length > 0) setSelectedLaneId(eq[0]!.id);
   }
 
-  function handleAddLane() {
-    if (!plane) return;
-    const newX = lanes.length > 0 ? Math.min(plane.width - 20, (lanes[lanes.length - 1]?.x ?? 50) + 50) : 50;
-    const newLane: Lane = {
-      id: `lane-${Date.now()}`,
-      x: newX,
-      y0: 0,
-      y1: plane.height,
-      width: 40,
-      tilt: 0,
-    };
-    const updated = [...lanes, newLane];
-    setLanes(updated);
-    setSelectedLaneId(newLane.id);
-  }
-
   function handleDeleteSelectedLane() {
-    if (!selectedLane) return;
+    if (!selectedLane || lanes.length <= 1) return;
     const updated = lanes.filter(l => l.id !== selectedLane.id);
     setLanes(updated);
     if (updated.length > 0) setSelectedLaneId(updated[0]!.id);
   }
 
-  function updateSelectedLane(delta: Partial<Lane>) {
+  function updateSelectedLane(patch: Partial<Lane>) {
     if (!selectedLane) return;
-    setLanes(lanes.map(l => l.id === selectedLane.id ? { ...l, ...delta } : l));
+    setLanes(lanes.map(l => l.id === selectedLane.id ? { ...l, ...patch } : l));
   }
 
-  function exportCsv() {
-    const headers = ['Lane', 'Band', 'Peak Y (px)', `Size (${activeLadder.unit})`, 'Raw Area', 'Background', 'Net Intensity', 'Percent of Lane (%)', 'Ratio to Ref'];
-    const rows: (string | number)[][] = [];
-
-    allLanesAnalysis.forEach(item => {
-      item.metrics.forEach(m => {
-        rows.push([
-          `L${item.laneIdx + 1}${item.isLadder ? ' (Ladder)' : ''}`,
-          `Band ${m.number}`,
-          m.peakY !== undefined ? m.peakY.toFixed(1) : '',
-          m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '',
-          m.raw.toFixed(1),
-          m.background.toFixed(1),
-          m.net.toFixed(1),
-          m.share.toFixed(2),
-          Number.isFinite(m.ratio) ? m.ratio.toFixed(3) : '',
-        ]);
-      });
-    });
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${imageName || 'gel'}_all_lanes_quantification.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Export CSV
+  function handleExportCsv() {
+    const rows = [
+      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
+      ...allLanesAnalysis.flatMap(item =>
+        item.metrics.map(m => [
+          item.laneIdx + 1,
+          item.lane.id,
+          laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`,
+          m.number,
+          m.peakY ? Number(m.peakY.toFixed(2)) : '',
+          m.sizeEst ? Number(m.sizeEst.toFixed(1)) : '',
+          Number(m.raw.toFixed(1)),
+          Number(m.background.toFixed(1)),
+          Number(m.net.toFixed(1)),
+          Number(m.share.toFixed(2)),
+          Number(m.ratio.toFixed(2)),
+          m.saturation >= SATURATION_WARN ? 'YES' : 'NO',
+        ])
+      ),
+    ];
+    downloadText(toCsv(rows), `${imageName.replace(/\.[^/.]+$/, '')}_all_lanes_quantification.csv`, 'text/csv;charset=utf-8');
   }
-
-  const selectedLaneIdx = lanes.findIndex(l => l.id === selectedLane?.id);
 
   return (
     <ToolLayout
       icon="🧬"
       title="Gel & Blot Analysis"
-      blurb="Densitometry, relative quantification and molecular-weight calibration for SDS-PAGE, Western blots and agarose gels"
+      blurb="Densitometry, relative quantification, interactive line grabbing, orientation transforms, and molecular-weight calibration."
       wide={true}
       inputs={
-        <div class="space-y-5 text-sm">
+        <div class="space-y-4">
           {/* Image Source Card */}
           <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <h3 class="font-semibold text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between">
-              <span>Image Source</span>
-              <span class="text-xs font-normal text-slate-500 truncate max-w-[130px]">{imageName}</span>
-            </h3>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Image Source</span>
+              <span class="text-xs text-slate-400 truncate max-w-[140px] mono">{imageName || 'None'}</span>
+            </div>
             <div class="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                class="px-3 py-2 text-xs font-semibold bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition"
+                class="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
-                Upload Gel / TIFF
+                Upload File / TIFF
               </button>
               <button
                 type="button"
                 onClick={loadDemo}
-                class="px-3 py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition"
+                class="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 Load Demo Gel
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.tif,.tiff"
-                class="hidden"
-                onChange={(e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) handleFileUpload(file);
-                }}
-              />
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/tiff,image/bmp,.tif,.tiff"
+              class="hidden"
+              onChange={(e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) handleFileUpload(file);
+              }}
+            />
+
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Signal Polarity</label>
               <select
@@ -675,17 +805,134 @@ export default function GelView() {
                 onChange={(e) => set({ polarity: (e.target as HTMLSelectElement).value as Polarity })}
                 class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
               >
-                <option value="dark">Dark bands on light (Coomassie, Silver, UV)</option>
-                <option value="light">Light bands on dark (ECL, Fluorescence)</option>
+                <option value="dark">Dark bands on light (Coomassie, Silver, UV ethidium)</option>
+                <option value="light">Light bands on dark (Chemiluminescence, Fluorescence)</option>
               </select>
             </div>
           </div>
 
-          {/* Molecular Weight Calibration Section */}
+          {/* Image Orientation, Crop & Deskew Card */}
           <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <h3 class="font-semibold text-sm text-slate-900 dark:text-slate-100">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Orientation & Crop</span>
+              <button
+                type="button"
+                onClick={handleResetAllTransforms}
+                class="text-[11px] text-slate-400 hover:text-accent-600 transition underline"
+              >
+                Reset Image
+              </button>
+            </div>
+
+            {/* Quick Rotate & Flip buttons */}
+            <div class="grid grid-cols-4 gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyRotation(-90)}
+                class="p-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-center transition"
+                title="Rotate 90° Counter-Clockwise"
+              >
+                ↺ -90°
+              </button>
+              <button
+                type="button"
+                onClick={() => applyRotation(90)}
+                class="p-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-center transition"
+                title="Rotate 90° Clockwise"
+              >
+                ↻ +90°
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFlip(true)}
+                class="p-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-center transition"
+                title="Flip Horizontally (Mirror)"
+              >
+                ⇄ Flip H
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFlip(false)}
+                class="p-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-center transition"
+                title="Flip Vertically"
+              >
+                ⇅ Flip V
+              </button>
+            </div>
+
+            {/* Deskew Angle Slider */}
+            <div>
+              <div class="flex justify-between text-xs text-slate-500 mb-1">
+                <span>Deskew / Straighten</span>
+                <span class="mono font-semibold">{deskewAngle.toFixed(1)}°</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="-30"
+                  max="30"
+                  step="0.5"
+                  value={deskewAngle}
+                  onInput={(e) => handleDeskewChange(parseFloat((e.target as HTMLInputElement).value))}
+                  class="w-full accent-accent-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDeskewChange(0)}
+                  class="text-[11px] px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-500"
+                >
+                  0°
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Crop Button & Controls */}
+            <div class="pt-1">
+              {!isCropping ? (
+                <button
+                  type="button"
+                  onClick={() => { setIsCropping(true); setCropBox(null); }}
+                  class="w-full py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 transition"
+                >
+                  ✂️ Select Crop Area
+                </button>
+              ) : (
+                <div class="space-y-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 p-2.5 border border-sky-200 dark:border-sky-800">
+                  <span class="text-xs text-sky-800 dark:text-sky-200 block font-medium">
+                    Drag a bounding box across the gel to crop:
+                  </span>
+                  {cropBox && cropBox.w > 0 && (
+                    <span class="text-[11px] mono text-sky-600 dark:text-sky-300 block">
+                      Box: {cropBox.w} × {cropBox.h} px
+                    </span>
+                  )}
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleApplyCrop}
+                      disabled={!cropBox || cropBox.w < 10}
+                      class="flex-1 py-1 text-xs font-semibold rounded-md bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 transition"
+                    >
+                      Apply Crop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsCropping(false); setCropBox(null); }}
+                      class="py-1 px-2.5 text-xs font-medium rounded-md border border-slate-300 dark:border-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Molecular Weight Calibration Presets */}
+          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
               Molecular Weight Calibration
-            </h3>
+            </span>
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Ladder Lane</label>
               <select
@@ -693,24 +940,24 @@ export default function GelView() {
                 onChange={(e) => set({ ladderLaneId: (e.target as HTMLSelectElement).value })}
                 class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
               >
-                <option value="">None (no calibration)</option>
+                <option value="">Select standard ladder lane…</option>
                 {lanes.map((l, i) => (
-                  <option key={l.id} value={l.id}>Lane {i + 1}</option>
+                  <option key={l.id} value={l.id}>
+                    Lane {i + 1}{laneLabels[l.id] ? ` (${laneLabels[l.id]})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label class="text-xs font-medium text-slate-500 block mb-1">Ladder Preset</label>
+              <label class="text-xs font-medium text-slate-500 block mb-1">Standard Ladder Preset</label>
               <select
                 value={s.ladderId}
                 onChange={(e) => set({ ladderId: (e.target as HTMLSelectElement).value })}
                 class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
               >
-                {LADDERS.map(ladder => (
-                  <option key={ladder.id} value={ladder.id}>
-                    {ladder.name} ({ladder.supplier})
-                  </option>
+                {LADDERS.map(l => (
+                  <option key={l.id} value={l.id}>{l.name} [{l.kind.toUpperCase()}]</option>
                 ))}
               </select>
             </div>
@@ -718,37 +965,28 @@ export default function GelView() {
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Fitting Model</label>
               <select
-                value={s.calModel}
-                onChange={(e) => set({ calModel: (e.target as HTMLSelectElement).value as CalibrationModel })}
+                value={s.calibMethod}
+                onChange={(e) => set({ calibMethod: (e.target as HTMLSelectElement).value as 'linear' | 'piecewise' | 'spline' })}
                 class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
               >
-                <option value="linear">Log-Linear (Weber & Osborn, R²)</option>
-                <option value="piecewise">Piecewise Linear</option>
-                <option value="spline">Natural Cubic Spline</option>
+                <option value="piecewise">Piecewise Linear (Recommended)</option>
+                <option value="linear">Global Linear Semi-Log</option>
+                <option value="spline">Monotone Cubic Spline</option>
               </select>
             </div>
 
             {calibration && (
-              <div class="rounded-lg bg-slate-50 p-2 text-xs space-y-1 dark:bg-slate-800">
-                <div class="flex justify-between">
-                  <span class="text-slate-500">Fit R²:</span>
-                  <strong class="mono">{calibration.r2.toFixed(4)}</strong>
-                </div>
-                {calibration.slope !== undefined && (
-                  <div class="flex justify-between">
-                    <span class="text-slate-500">Slope:</span>
-                    <span class="mono">{calibration.slope.toFixed(5)}</span>
-                  </div>
-                )}
+              <div class="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                ✓ Calibrated ({calibration.points.length} ladder bands matched).
               </div>
             )}
           </div>
 
-          {/* Densitometry & Background */}
+          {/* Densitometry & Background Parameters */}
           <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <h3 class="font-semibold text-sm text-slate-900 dark:text-slate-100">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
               Densitometry & Background
-            </h3>
+            </span>
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Baseline Method</label>
               <select
@@ -793,6 +1031,23 @@ export default function GelView() {
                 value={s.prominence}
                 onInput={(e) => set({ prominence: parseFloat((e.target as HTMLInputElement).value) })}
                 class="w-full accent-accent-600"
+              />
+            </div>
+          </div>
+
+          {/* Annotations & Titles Card */}
+          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+              Gel Annotations
+            </span>
+            <div>
+              <label class="text-xs font-medium text-slate-500 block mb-1">Gel Export Title</label>
+              <input
+                type="text"
+                value={gelTitle}
+                onInput={(e) => setGelTitle((e.target as HTMLInputElement).value)}
+                class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
+                placeholder="e.g. SDS-PAGE 12% Tris-Glycine"
               />
             </div>
           </div>
@@ -846,7 +1101,7 @@ export default function GelView() {
       }
       results={
         <div class="space-y-4">
-          {/* Quick Lanes Navigation & Toolbar Bar */}
+          {/* Quick Lanes Toolbar & Navigation */}
           <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <div class="flex items-center gap-1.5 flex-wrap">
@@ -854,6 +1109,7 @@ export default function GelView() {
                 {lanes.map((l, i) => {
                   const isSel = l.id === selectedLane?.id;
                   const isLadder = l.id === s.ladderLaneId;
+                  const customName = laneLabels[l.id];
                   return (
                     <button
                       key={l.id}
@@ -867,13 +1123,13 @@ export default function GelView() {
                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                       }`}
                     >
-                      L{i + 1}{isLadder ? ' 🏷️' : ''}
+                      {customName ? `L${i + 1}: ${customName}` : `L${i + 1}`}{isLadder ? ' 🏷️' : ''}
                     </button>
                   );
                 })}
               </div>
 
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={handleAddLane}
@@ -920,11 +1176,24 @@ export default function GelView() {
               </div>
             </div>
 
-            {/* Selected Lane Inline Geometry Sliders */}
+            {/* Selected Lane Custom Label & Sliders */}
             {selectedLane && (
-              <div class="grid gap-3 sm:grid-cols-2 text-xs bg-slate-50 p-2.5 rounded-xl dark:bg-slate-800/50 items-center">
-                <div class="flex items-center gap-3">
-                  <span class="text-slate-500 shrink-0 font-medium">L{selectedLaneIdx + 1} Center X:</span>
+              <div class="grid gap-3 sm:grid-cols-3 text-xs bg-slate-50 p-2.5 rounded-xl dark:bg-slate-800/50 items-center">
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 shrink-0 font-medium">L{selectedLaneIdx + 1} Label:</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Wild-Type 0h"
+                    value={laneLabels[selectedLane.id] || ''}
+                    onInput={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      setLaneLabels(prev => ({ ...prev, [selectedLane.id]: val }));
+                    }}
+                    class="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-xs"
+                  />
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 shrink-0 font-medium">Center X:</span>
                   <input
                     type="range"
                     min="10"
@@ -933,10 +1202,10 @@ export default function GelView() {
                     onInput={(e) => updateSelectedLane({ x: parseInt((e.target as HTMLInputElement).value) })}
                     class="w-full accent-accent-600"
                   />
-                  <span class="mono font-semibold w-12 text-right">{Math.round(selectedLane.x)} px</span>
+                  <span class="mono font-semibold w-10 text-right">{Math.round(selectedLane.x)}</span>
                 </div>
-                <div class="flex items-center gap-3">
-                  <span class="text-slate-500 shrink-0 font-medium">Lane Width:</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 shrink-0 font-medium">Width:</span>
                   <input
                     type="range"
                     min="10"
@@ -945,274 +1214,497 @@ export default function GelView() {
                     onInput={(e) => updateSelectedLane({ width: parseInt((e.target as HTMLInputElement).value) })}
                     class="w-full accent-accent-600"
                   />
-                  <span class="mono font-semibold w-12 text-right">{selectedLane.width} px</span>
+                  <span class="mono font-semibold w-10 text-right">{selectedLane.width}</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Workflow View Tabs */}
-          <div class="flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-800 pb-2">
+          {/* Workflow Tabs: Gel Image & Profile, MW Calibration Curve, Band Quantification */}
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+            <div class="flex gap-2">
+              <button
+                type="button"
+                onClick={() => set({ viewTab: 'gel' })}
+                class={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  s.viewTab === 'gel'
+                    ? 'bg-accent-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                🖼️ Gel Image & Lane Profile
+              </button>
+              <button
+                type="button"
+                onClick={() => set({ viewTab: 'calib' })}
+                class={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  s.viewTab === 'calib'
+                    ? 'bg-accent-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                📈 MW Calibration Curve
+              </button>
+              <button
+                type="button"
+                onClick={() => set({ viewTab: 'quant' })}
+                class={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  s.viewTab === 'quant'
+                    ? 'bg-accent-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                📊 Band Quantification & Amounts
+              </button>
+            </div>
+
+            {/* Quick Export Annotated Gel Button */}
             <button
               type="button"
-              onClick={() => set({ activeView: 'gel' })}
-              class={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-                s.activeView === 'gel'
-                  ? 'bg-accent-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
+              onClick={handleExportAnnotatedGel}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition flex items-center gap-1.5"
             >
-              🖼️ Gel Image & Lane Profile
-            </button>
-            <button
-              type="button"
-              onClick={() => set({ activeView: 'calibration' })}
-              class={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-                s.activeView === 'calibration'
-                  ? 'bg-accent-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              📈 MW Calibration Curve
-            </button>
-            <button
-              type="button"
-              onClick={() => set({ activeView: 'quantification' })}
-              class={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-                s.activeView === 'quantification'
-                  ? 'bg-accent-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              📊 Band Quantification & Amounts ({allLanesAnalysis.reduce((acc, l) => acc + l.metrics.length, 0)} bands)
+              📥 Export Annotated Gel (PNG)
             </button>
           </div>
 
-          {/* VIEW 1: GEL IMAGE & LANE PROFILE */}
-          {s.activeView === 'gel' && (
-            <div class="space-y-4">
+          {/* TAB 1: Gel Image & Interactive Lane Profile */}
+          {s.viewTab === 'gel' && (
+            <div class="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
               {/* Gel Canvas Card */}
-              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <span>Gel Image & Annotations</span>
-                    <span class="text-xs font-normal text-slate-400">
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">Gel Image & Annotations</h3>
+                    <span class="text-xs text-slate-400 mono">
                       {plane ? `${plane.width} × ${plane.height} px` : ''}
                     </span>
-                  </h3>
-                  <div class="text-xs text-accent-600 dark:text-accent-400 font-medium">
-                    💡 Click on any lane on the gel to select it
+                  </div>
+                  <div class="flex items-center gap-3 text-xs text-slate-500">
+                    <label class="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showLaneHeaders}
+                        onChange={(e) => setShowLaneHeaders((e.target as HTMLInputElement).checked)}
+                        class="rounded"
+                      />
+                      Headers
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showMwLabels}
+                        onChange={(e) => setShowMwLabels((e.target as HTMLInputElement).checked)}
+                        class="rounded"
+                      />
+                      MW Tags
+                    </label>
                   </div>
                 </div>
 
-                <div class="w-full overflow-auto bg-slate-950/90 rounded-xl p-3 flex justify-center items-center min-h-[300px]">
+                {/* Gesture hint banner */}
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
+                  <span>💡 <strong>Grab lane lines</strong> to move or resize width. <strong>Click</strong> in lane to add band line; <strong>Ctrl+Click</strong> on band to remove it.</span>
+                  {selectedLane && (
+                    <span class="text-accent-600 dark:text-accent-400 font-semibold">Active: L{selectedLaneIdx + 1}</span>
+                  )}
+                </div>
+
+                <div class="overflow-auto max-h-[700px] border border-slate-200 rounded-xl dark:border-slate-800 flex justify-center bg-slate-950/5">
                   <canvas
                     ref={canvasRef}
-                    onClick={handleCanvasClick}
-                    class="max-w-full h-auto object-contain shadow-md rounded cursor-pointer transition hover:opacity-95"
-                    title="Click directly on any lane to select it"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    style={{ cursor: canvasCursor }}
+                    class="max-w-full h-auto block select-none"
+                    title="Click or drag lanes. Click to add band, Ctrl+click to remove."
                   />
                 </div>
               </div>
 
-              {/* Densitometry Profile Chart */}
-              {laneAnalysis && (
-                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                  <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {/* Densitometry Profile Card for Active Lane */}
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
+                  <div>
+                    <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                       Densitometry Profile — Lane {selectedLaneIdx + 1}
                     </h3>
-                    <div class="text-xs text-slate-500 flex gap-4">
-                      <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-blue-500 inline-block" /> Signal</span>
-                      <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" /> Baseline</span>
-                      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 inline-block" /> Peaks ({laneAnalysis.bands.length})</span>
-                    </div>
+                    <p class="text-xs text-slate-500">
+                      Migration distance $Y$ (top → bottom) vs band optical density
+                    </p>
                   </div>
+                  <div class="flex items-center gap-3 text-xs">
+                    <span class="flex items-center gap-1.5 font-medium text-accent-600">
+                      <span class="w-3 h-0.5 bg-accent-600 rounded"></span> Signal
+                    </span>
+                    <span class="flex items-center gap-1.5 font-medium text-amber-500">
+                      <span class="w-3 h-0.5 bg-amber-500 rounded border-t border-dashed"></span> Baseline
+                    </span>
+                  </div>
+                </div>
 
-                  <div class="h-44 w-full bg-slate-50/60 rounded-xl p-2 relative overflow-hidden dark:bg-slate-800/40">
-                    <svg class="w-full h-full" viewBox={`0 0 ${laneAnalysis.profile.length} 100`} preserveAspectRatio="none">
-                      {(() => {
-                        let maxVal = 0.001;
-                        for (let i = 0; i < laneAnalysis.profile.length; i++) {
-                          if (laneAnalysis.profile[i]! > maxVal) maxVal = laneAnalysis.profile[i]!;
-                        }
-                        maxVal *= 1.1;
+                {laneAnalysis && laneAnalysis.profile.length > 0 ? (
+                  <div class="space-y-3">
+                    <svg viewBox="0 0 500 240" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                      {/* Grid Lines */}
+                      <line x1="40" y1="20" x2="40" y2="200" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
+                      <line x1="40" y1="200" x2="480" y2="200" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
 
-                        let sigPath = `M 0 ${100 - (laneAnalysis.profile[0]! / maxVal) * 100}`;
-                        for (let i = 1; i < laneAnalysis.profile.length; i++) {
-                          sigPath += ` L ${i} ${100 - (laneAnalysis.profile[i]! / maxVal) * 100}`;
-                        }
+                      {/* Signal Curve */}
+                      <path
+                        d={laneAnalysis.profile.reduce((acc, val, i) => {
+                          const x = 40 + (i / laneAnalysis.profile.length) * 440;
+                          const y = 200 - Math.min(1, Math.max(0, val)) * 170;
+                          return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+                        }, '')}
+                        fill="none"
+                        stroke="#2563eb"
+                        stroke-width="1.8"
+                      />
 
-                        let basePath = `M 0 ${100 - (laneAnalysis.baseline[0]! / maxVal) * 100}`;
-                        for (let i = 1; i < laneAnalysis.baseline.length; i++) {
-                          basePath += ` L ${i} ${100 - (laneAnalysis.baseline[i]! / maxVal) * 100}`;
-                        }
+                      {/* Baseline Curve */}
+                      <path
+                        d={laneAnalysis.baseline.reduce((acc, val, i) => {
+                          const x = 40 + (i / laneAnalysis.baseline.length) * 440;
+                          const y = 200 - Math.min(1, Math.max(0, val)) * 170;
+                          return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+                        }, '')}
+                        fill="none"
+                        stroke="#f59e0b"
+                        stroke-dasharray="3 3"
+                        stroke-width="1.5"
+                      />
+
+                      {/* Peak Markers */}
+                      {laneAnalysis.metrics.map((m) => {
+                        if (m.peakY === undefined) return null;
+                        const frac = m.peakY / (laneAnalysis.lane.y1 - laneAnalysis.lane.y0 || 1);
+                        const px = 40 + frac * 440;
+                        const val = laneAnalysis.profile[Math.min(laneAnalysis.profile.length - 1, Math.round(frac * laneAnalysis.profile.length))] ?? 0;
+                        const py = 200 - Math.min(1, Math.max(0, val)) * 170;
+                        const isRef = m.bandId === s.refBandId;
 
                         return (
-                          <g>
-                            <line x1="0" y1="25" x2={laneAnalysis.profile.length} y2="25" stroke="currentColor" stroke-opacity="0.05" />
-                            <line x1="0" y1="50" x2={laneAnalysis.profile.length} y2="50" stroke="currentColor" stroke-opacity="0.05" />
-                            <line x1="0" y1="75" x2={laneAnalysis.profile.length} y2="75" stroke="currentColor" stroke-opacity="0.05" />
-
-                            {laneAnalysis.bands.map(b => (
-                              <rect
-                                key={b.id}
-                                x={b.y0}
-                                y="0"
-                                width={Math.max(1, b.y1 - b.y0)}
-                                height="100"
-                                fill="rgba(59, 130, 246, 0.12)"
-                              />
-                            ))}
-
-                            <path d={basePath} fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3" />
-                            <path d={sigPath} fill="none" stroke="#3b82f6" stroke-width="1.5" />
-
-                            {laneAnalysis.bands.map(b => {
-                              if (b.peakY === undefined) return null;
-                              const yVal = laneAnalysis.profile[Math.round(b.peakY)] ?? 0;
-                              return (
-                                <circle
-                                  key={b.id}
-                                  cx={b.peakY}
-                                  cy={100 - (yVal / maxVal) * 100}
-                                  r="3"
-                                  fill="#ef4444"
-                                />
-                              );
-                            })}
+                          <g
+                            key={m.bandId}
+                            class="cursor-pointer"
+                            onClick={(e) => {
+                              if (e.ctrlKey || e.metaKey) {
+                                // remove
+                                const updated = (bandMap[selectedLane?.id || ''] || []).filter(b => b.id !== m.bandId);
+                                setBandMap(prev => ({ ...prev, [selectedLane!.id]: updated }));
+                              } else {
+                                set({ refBandId: m.bandId });
+                              }
+                            }}
+                          >
+                            <circle cx={px} cy={py} r={isRef ? 5 : 4} fill={isRef ? '#10b981' : '#ef4444'} stroke="#ffffff" stroke-width="1.5" />
+                            <text x={px} y={py - 8} font-size="9" text-anchor="middle" fill="#64748b" font-weight="bold">
+                              #{m.number}
+                            </text>
                           </g>
                         );
-                      })()}
+                      })}
                     </svg>
+
+                    {/* Peak quick chips */}
+                    <div class="space-y-1.5">
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                        Detected Peaks in Lane {selectedLaneIdx + 1} ({laneAnalysis.metrics.length})
+                      </span>
+                      <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                        {laneAnalysis.metrics.map(m => (
+                          <div
+                            key={m.bandId}
+                            class={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border ${
+                              m.bandId === s.refBandId
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200'
+                                : 'bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span>#{m.number}: {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : `${Math.round(m.peakY ?? 0)}px`}</span>
+                            <span class="text-slate-400">({m.share.toFixed(1)}%)</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (bandMap[selectedLane?.id || ''] || []).filter(b => b.id !== m.bandId);
+                                setBandMap(prev => ({ ...prev, [selectedLane!.id]: updated }));
+                              }}
+                              class="text-slate-400 hover:text-red-600 ml-1"
+                              title="Delete band"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  <p class="text-xs text-slate-400 py-8 text-center">No densitometry profile data available for this lane.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Molecular Weight Calibration Curve Plot */}
+          {s.viewTab === 'calib' && (
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
+              <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+                <div>
+                  <h3 class="font-bold text-base text-slate-900 dark:text-slate-100">
+                    Molecular Weight Calibration Curve
+                  </h3>
+                  <p class="text-xs text-slate-500">
+                    Semi-log regression: Migration distance $Y$ (pixels) vs Log₁₀(Molecular Weight / Size)
+                  </p>
+                </div>
+                {calibration && (
+                  <div class="flex items-center gap-3 text-xs">
+                    <span class="font-medium text-slate-500">Model: <strong class="text-slate-800 dark:text-slate-200">{s.calibMethod}</strong></span>
+                    {calibration.r2 !== undefined && (
+                      <span class="font-medium text-slate-500">R²: <strong class="text-emerald-600 dark:text-emerald-400">{calibration.r2.toFixed(4)}</strong></span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {calibration && calibration.points.length >= 2 ? (
+                <div class="space-y-4">
+                  <svg viewBox="0 0 600 320" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                    {/* Axes */}
+                    <line x1="60" y1="20" x2="60" y2="270" stroke="#94a3b8" stroke-width="1.5" />
+                    <line x1="60" y1="270" x2="570" y2="270" stroke="#94a3b8" stroke-width="1.5" />
+
+                    {/* Axis Labels */}
+                    <text x="315" y="305" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
+                      Migration Distance Y along Lane (px)
+                    </text>
+                    <text transform="rotate(-90 20 145)" x="20" y="145" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
+                      Log₁₀(Size / MW)
+                    </text>
+
+                    {/* Compute min/max for scale */}
+                    {(() => {
+                      const pts = calibration.points;
+                      const minY = Math.min(...pts.map(p => p.y));
+                      const maxY = Math.max(...pts.map(p => p.y));
+                      const rangeY = Math.max(20, maxY - minY);
+
+                      const minLog = Math.min(...pts.map(p => Math.log10(p.size)));
+                      const maxLog = Math.max(...pts.map(p => Math.log10(p.size)));
+                      const rangeLog = Math.max(0.5, maxLog - minLog);
+
+                      // Curve points
+                      const curveSteps = 50;
+                      const curvePts: [number, number][] = [];
+                      for (let step = 0; step <= curveSteps; step++) {
+                        const yVal = minY + (step / curveSteps) * rangeY;
+                        const sz = calibration.sizeAt(yVal);
+                        if (sz > 0) {
+                          const xSvg = 60 + ((yVal - minY) / rangeY) * 500;
+                          const ySvg = 270 - ((Math.log10(sz) - minLog) / rangeLog) * 240;
+                          curvePts.push([xSvg, ySvg]);
+                        }
+                      }
+
+                      return (
+                        <>
+                          {/* Regression Fitted Curve */}
+                          {curvePts.length > 1 && (
+                            <path
+                              d={curvePts.reduce((acc, [cx, cy], i) => i === 0 ? `M ${cx} ${cy}` : `${acc} L ${cx} ${cy}`, '')}
+                              fill="none"
+                              stroke="#2563eb"
+                              stroke-width="2.5"
+                            />
+                          )}
+
+                          {/* Standard Ladder Markers */}
+                          {pts.map((pt, i) => {
+                            const sx = 60 + ((pt.y - minY) / rangeY) * 500;
+                            const sy = 270 - ((Math.log10(pt.size) - minLog) / rangeLog) * 240;
+                            return (
+                              <g key={i}>
+                                <circle cx={sx} cy={sy} r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
+                                <text x={sx} y={sy - 9} font-size="9" text-anchor="middle" fill="#d97706" font-weight="bold">
+                                  {formatSize(pt.size, activeLadder.kind)}
+                                </text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Unknown sample bands projected onto curve */}
+                          {selectedLane && laneAnalysis && laneAnalysis.metrics.map((m) => {
+                            if (m.peakY === undefined || m.sizeEst === null) return null;
+                            const sx = 60 + ((m.peakY - minY) / rangeY) * 500;
+                            const sy = 270 - ((Math.log10(m.sizeEst) - minLog) / rangeLog) * 240;
+                            return (
+                              <g key={m.bandId}>
+                                <polygon
+                                  points={`${sx},${sy - 5} ${sx + 5},${sy} ${sx},${sy + 5} ${sx - 5},${sy}`}
+                                  fill="#10b981"
+                                  stroke="#ffffff"
+                                  stroke-width="1.2"
+                                />
+                              </g>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </svg>
+
+                  <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                    <div class="flex items-center gap-4">
+                      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Standard Ladder Points</span>
+                      <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 bg-accent-600 inline-block"></span> Fitted Standard Curve</span>
+                      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rotate-45 bg-emerald-500 inline-block"></span> Sample Bands (Interpolated)</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div class="py-12 text-center text-slate-400 text-xs">
+                  Please select a standard ladder lane with at least 2 detected bands in the left sidebar to plot the molecular weight calibration curve.
                 </div>
               )}
             </div>
           )}
 
-          {/* VIEW 2: MOLECULAR WEIGHT CALIBRATION PLOT */}
-          {s.activeView === 'calibration' && (
-            <CalibrationPlot
-              calibration={calibration}
-              activeLadder={activeLadder}
-              allLanes={allLanesAnalysis}
-              selectedLaneId={selectedLane?.id || ''}
-            />
-          )}
+          {/* TAB 3: Comprehensive Quantification & Amounts Across All Lanes */}
+          {s.viewTab === 'quant' && (
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+                <div>
+                  <h3 class="font-bold text-base text-slate-900 dark:text-slate-100">
+                    Band Quantification & Relative Amounts
+                  </h3>
+                  <p class="text-xs text-slate-500">
+                    Background-subtracted optical densities, relative percentage shares, and calibrated molecular weights
+                  </p>
+                </div>
 
-          {/* VIEW 3: QUANTIFICATION & AMOUNTS (ALL LANES AND MARKERS) */}
-          {s.activeView === 'quantification' && (
-            <div class="space-y-4">
-              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
-                  <div>
-                    <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                      Band Quantification & Sizes / Amounts
-                    </h3>
-                    <p class="text-xs text-slate-500">
-                      Showing calibrated sizes, background-subtracted integrated areas, and relative shares
-                    </p>
-                  </div>
-
-                  <div class="flex items-center gap-2">
-                    <div class="flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => set({ tableMode: 'all' })}
-                        class={`px-2.5 py-1 rounded-md font-medium transition ${s.tableMode === 'all' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
-                      >
-                        All Lanes ({allLanesAnalysis.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => set({ tableMode: 'selected' })}
-                        class={`px-2.5 py-1 rounded-md font-medium transition ${s.tableMode === 'selected' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
-                      >
-                        Lane {selectedLaneIdx + 1} Only
-                      </button>
-                    </div>
-
+                <div class="flex items-center gap-2">
+                  <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs">
                     <button
                       type="button"
-                      onClick={exportCsv}
-                      class="px-3 py-1.5 text-xs font-semibold bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition flex items-center gap-1.5"
+                      onClick={() => set({ tableMode: 'all' })}
+                      class={`px-3 py-1 rounded-md font-medium transition ${
+                        s.tableMode === 'all' ? 'bg-accent-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                      }`}
                     >
-                      Export All Lanes CSV
+                      All Lanes ({lanes.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set({ tableMode: 'selected' })}
+                      class={`px-3 py-1 rounded-md font-medium transition ${
+                        s.tableMode === 'selected' ? 'bg-accent-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                      }`}
+                    >
+                      Lane {selectedLaneIdx + 1} Only
                     </button>
                   </div>
-                </div>
 
-                {/* Table */}
-                <div class="overflow-x-auto max-h-96 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <table class="w-full min-w-[48rem] text-left text-xs">
-                    <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500">
-                      <tr>
-                        <th class="py-2 px-3 font-medium">Lane</th>
-                        <th class="py-2 px-3 font-medium">Band</th>
-                        <th class="py-2 px-3 text-right font-medium">Peak Y (px)</th>
-                        <th class="py-2 px-3 text-right font-medium">Estimated Size</th>
-                        <th class="py-2 px-3 text-right font-medium">Net Intensity (Amount)</th>
-                        <th class="py-2 px-3 text-right font-medium">% of Lane</th>
-                        <th class="py-2 px-3 text-right font-medium">Ratio to Ref</th>
-                        <th class="py-2 px-3 text-center font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                      {(s.tableMode === 'all' ? allLanesAnalysis : [laneAnalysis].filter(Boolean) as LaneAnalysisItem[]).flatMap((item) =>
-                        item.metrics.map(m => {
-                          const isRef = m.bandId === s.refBandId;
-                          const isSaturated = m.saturation >= SATURATION_WARN;
-                          return (
-                            <tr
-                              key={`${item.lane.id}-${m.bandId}`}
-                              class={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${item.lane.id === selectedLane?.id ? 'bg-blue-50/20' : ''}`}
-                            >
-                              <td class="py-1.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
-                                L{item.laneIdx + 1}
-                                {item.isLadder && <span class="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-normal">(Ladder)</span>}
-                              </td>
-                              <td class="py-1.5 px-3 mono">Band {m.number}</td>
-                              <td class="py-1.5 px-3 text-right mono">{m.peakY !== undefined ? m.peakY.toFixed(1) : '—'}</td>
-                              <td class="py-1.5 px-3 text-right mono font-semibold text-accent-600 dark:text-accent-400">
-                                {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '—'}
-                              </td>
-                              <td class="py-1.5 px-3 text-right mono font-medium">{m.net.toFixed(1)}</td>
-                              <td class="py-1.5 px-3 text-right mono">{m.share.toFixed(1)}%</td>
-                              <td class="py-1.5 px-3 text-right mono">{Number.isFinite(m.ratio) ? m.ratio.toFixed(2) : '—'}</td>
-                              <td class="py-1.5 px-3 text-center">
-                                {isSaturated ? (
-                                  <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200">
-                                    Saturated
-                                  </span>
-                                ) : isRef ? (
-                                  <span class="px-1.5 py-0.5 rounded text-[10px] bg-accent-100 text-accent-800 dark:bg-accent-950 dark:text-accent-200">
-                                    Reference
-                                  </span>
-                                ) : (
-                                  <span class="text-slate-400 text-[10px]">Linear</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    Export All Lanes CSV
+                  </button>
                 </div>
+              </div>
+
+              {/* Table */}
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left">
+                  <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider">
+                      {s.tableMode === 'all' && <th class="pb-2 font-semibold">Lane</th>}
+                      <th class="pb-2 font-semibold">Band #</th>
+                      <th class="pb-2 font-semibold">Migration Y</th>
+                      <th class="pb-2 font-semibold">Est. Size</th>
+                      <th class="pb-2 font-semibold text-right">Raw Area</th>
+                      <th class="pb-2 font-semibold text-right">Baseline</th>
+                      <th class="pb-2 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity (Amount)</th>
+                      <th class="pb-2 font-semibold text-right">% of Lane</th>
+                      <th class="pb-2 font-semibold text-right">Ratio to Ref</th>
+                      <th class="pb-2 font-semibold text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    {(s.tableMode === 'all' ? allLanesAnalysis : [laneAnalysis].filter(Boolean) as LaneAnalysisItem[]).flatMap((item) =>
+                      item.metrics.map(m => {
+                        const isRef = m.bandId === s.refBandId;
+                        const isSaturated = m.saturation >= SATURATION_WARN;
+                        const customName = laneLabels[item.lane.id];
+                        return (
+                          <tr
+                            key={`${item.lane.id}-${m.bandId}`}
+                            class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
+                              isRef ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''
+                            }`}
+                          >
+                            {s.tableMode === 'all' && (
+                              <td class="py-2.5 font-bold">
+                                <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">
+                                  {customName ? `L${item.laneIdx + 1}: ${customName}` : `L${item.laneIdx + 1}`}
+                                </span>
+                              </td>
+                            )}
+                            <td class="py-2.5 font-medium">Band {m.number}</td>
+                            <td class="py-2.5 mono">{m.peakY ? m.peakY.toFixed(1) : '-'} px</td>
+                            <td class="py-2.5 font-bold text-accent-600 dark:text-accent-400">
+                              {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
+                            </td>
+                            <td class="py-2.5 mono text-right text-slate-500">{m.raw.toFixed(1)}</td>
+                            <td class="py-2.5 mono text-right text-slate-500">{m.background.toFixed(1)}</td>
+                            <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">
+                              {m.net.toFixed(1)}
+                            </td>
+                            <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
+                            <td class="py-2.5 mono text-right">
+                              {isRef ? <span class="text-emerald-600 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
+                            </td>
+                            <td class="py-2.5 text-center">
+                              {isSaturated ? (
+                                <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-0.5 text-[10px] font-bold">
+                                  Saturated
+                                </span>
+                              ) : (
+                                <span class="text-slate-400 text-[10px]">Linear</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
         </div>
       }
       actions={
-        <ActionBar
-          onCopy={() => {
-            const summary = allLanesAnalysis.map(item => `Lane ${item.laneIdx + 1}: ${item.metrics.length} bands, Total Net: ${item.totalNet.toFixed(1)}`).join('\n');
-            return `${summary}\n\n${scienceText(SCIENCE)}`;
-          }}
-          shareUrl={shareUrl}
-        />
+        <div class="space-y-2">
+          <ActionBar
+            onCopy={() => {
+              const summary = `Gel & Blot Analysis Summary\nImage: ${imageName}\nLanes: ${lanes.length}`;
+              return `${summary}\n\n${scienceText(SCIENCE)}`;
+            }}
+            shareUrl={shareUrl}
+          />
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 transition"
+          >
+            Export All Lanes CSV
+          </button>
+        </div>
       }
       science={<SciencePanel science={SCIENCE} />}
     />

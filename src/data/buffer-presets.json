@@ -126,6 +126,119 @@
         { "name": "Magnesium Chloride (MgCl2) anhydrous", "kind": "solid", "mw": 95.21, "target": { "value": 10, "unit": "mM" } },
         { "name": "Glucose", "kind": "solid", "mw": 180.16, "target": { "value": 20, "unit": "mM" } }
       ]
+    },
+    {
+      "id": "RIPA_1x",
+      "name": "RIPA Lysis Buffer (1×)",
+      "finalVolume_L": 1,
+      "source": "Cold Spring Harbor Protocols doi:10.1101/pdb.rec10874",
+      "components": [
+        { "name": "Tris-HCl", "kind": "solid", "mw": 157.6, "target": { "value": 50, "unit": "mM" } },
+        { "name": "Sodium Chloride (NaCl)", "kind": "solid", "mw": 58.44, "target": { "value": 150, "unit": "mM" } },
+        { "name": "Triton X-100", "kind": "stock", "stockConc": 100, "stockUnit": "%", "target": { "value": 1, "unit": "%" } },
+        { "name": "Sodium Deoxycholate", "kind": "solid", "mw": 414.55, "target": { "value": 0.5, "unit": "%" } },
+        { "name": "SDS (Sodium Dodecyl Sulfate)", "kind": "solid", "mw": 288.38, "target": { "value": 0.1, "unit": "%" } }
+      ]
+    },
+    {
+      "id": "TG_SDS_1x",
+      "name": "SDS-PAGE Running Buffer (Tris-Glycine-SDS 1×)",
+      "finalVolume_L": 1,
+      "source": "Laemmli UK (1970) Nature 227:680",
+      "components": [
+        { "name": "Tris-base", "kind": "solid", "mw": 121.14, "target": { "value": 25, "unit": "mM" } },
+        { "name": "Glycine", "kind": "solid", "mw": 75.07, "target": { "value": 192, "unit": "mM" } },
+        { "name": "SDS (Sodium Dodecyl Sulfate)", "kind": "solid", "mw": 288.38, "target": { "value": 0.1, "unit": "%" } }
+      ]
+    },
+    {
+      "id": "Towbin_1x",
+      "name": "Western Blot Transfer Buffer (Towbin 1×)",
+      "finalVolume_L": 1,
+      "source": "Towbin H et al. (1979) PNAS 76:4350",
+      "components": [
+        { "name": "Tris-base", "kind": "solid", "mw": 121.14, "target": { "value": 25, "unit": "mM" } },
+        { "name": "Glycine", "kind": "solid", "mw": 75.07, "target": { "value": 192, "unit": "mM" } },
+        { "name": "Methanol", "kind": "stock", "stockConc": 100, "stockUnit": "%", "target": { "value": 20, "unit": "%" }, "density": 0.792 }
+      ]
+    },
+    {
+      "id": "Laemmli_2x",
+      "name": "2× Laemmli SDS-PAGE Sample Loading Buffer",
+      "finalVolume_L": 0.1,
+      "source": "Laemmli UK (1970) Nature 227:680",
+      "components": [
+        { "name": "Tris-HCl", "kind": "solid", "mw": 157.6, "target": { "value": 125, "unit": "mM" } },
+        { "name": "SDS (Sodium Dodecyl Sulfate)", "kind": "solid", "mw": 288.38, "target": { "value": 4, "unit": "%" } },
+        { "name": "Glycerol", "kind": "stock", "stockConc": 100, "stockUnit": "%", "target": { "value": 20, "unit": "%" }, "density": 1.26 }
+      ]
+    },
+    {
+      "id": "YT_2x",
+      "name": "2× YT Medium (Liquid)",
+      "finalVolume_L": 1,
+      "source": "Sambrook & Russell, Molecular Cloning",
+      "components": [
+        { "name": "Tryptone", "kind": "solid", "target": { "value": 1.6, "unit": "%" } },
+        { "name": "Yeast extract", "kind": "solid", "target": { "value": 1.0, "unit": "%" } },
+        { "name": "Sodium Chloride (NaCl)", "kind": "solid", "target": { "value": 0.5, "unit": "%" } }
+      ]
+    },
+    {
+      "id": "TB",
+      "name": "Terrific Broth (TB Medium)",
+      "finalVolume_L": 1,
+      "source": "Tartof KD, Hobbs CA (1987) Bethesda Res Lab Focus 9:12",
+      "components": [
+        { "name": "Tryptone", "kind": "solid", "target": { "value": 1.2, "unit": "%" } },
+        { "name": "Yeast extract", "kind": "solid", "target": { "value": 2.4, "unit": "%" } },
+        { "name": "Glycerol", "kind": "stock", "stockConc": 100, "stockUnit": "%", "target": { "value": 0.4, "unit": "%" }, "density": 1.26 },
+        { "name": "Potassium Phosphate Monobasic (KH2PO4) anhydrous", "kind": "solid", "mw": 136.09, "target": { "value": 17, "unit": "mM" } },
+        { "name": "Potassium Phosphate Dibasic (K2HPO4) anhydrous", "kind": "solid", "mw": 174.18, "target": { "value": 72, "unit": "mM" } }
+      ]
+    },
+    {
+      "id": "IMAC_Binding",
+      "name": "IMAC His-Tag Binding / Lysis Buffer (1×)",
+      "finalVolume_L": 1,
+      "source": "Qiagen Ni-NTA Handbook",
+      "components": [
+        { "name": "Tris-base", "kind": "solid", "mw": 121.14, "target": { "value": 50, "unit": "mM" } },
+        { "name": "Sodium Chloride (NaCl)", "kind": "solid", "mw": 58.44, "target": { "value": 300, "unit": "mM" } },
+        { "name": "Imidazole", "kind": "solid", "mw": 68.08, "target": { "value": 10, "unit": "mM" } }
+      ]
+    },
+    {
+      "id": "IMAC_Elution",
+      "name": "IMAC His-Tag Elution Buffer (1×)",
+      "finalVolume_L": 1,
+      "source": "Qiagen Ni-NTA Handbook",
+      "components": [
+        { "name": "Tris-base", "kind": "solid", "mw": 121.14, "target": { "value": 50, "unit": "mM" } },
+        { "name": "Sodium Chloride (NaCl)", "kind": "solid", "mw": 58.44, "target": { "value": 300, "unit": "mM" } },
+        { "name": "Imidazole", "kind": "solid", "mw": 68.08, "target": { "value": 250, "unit": "mM" } }
+      ]
+    },
+    {
+      "id": "STE_1x",
+      "name": "STE Buffer (DNA / Cell Lysis 1×)",
+      "finalVolume_L": 1,
+      "source": "Sambrook & Russell, Molecular Cloning",
+      "components": [
+        { "name": "Tris-base", "kind": "solid", "mw": 121.14, "target": { "value": 10, "unit": "mM" } },
+        { "name": "Sodium Chloride (NaCl)", "kind": "solid", "mw": 58.44, "target": { "value": 100, "unit": "mM" } },
+        { "name": "EDTA (disodium, dihydrate)", "kind": "solid", "mw": 372.24, "target": { "value": 1, "unit": "mM" } }
+      ]
+    },
+    {
+      "id": "SSC_20x",
+      "name": "SSC Buffer (20× Stock)",
+      "finalVolume_L": 1,
+      "source": "Cold Spring Harbor Protocols doi:10.1101/pdb.rec8173",
+      "components": [
+        { "name": "Sodium Chloride (NaCl)", "kind": "solid", "mw": 58.44, "target": { "value": 3, "unit": "M" } },
+        { "name": "Sodium Citrate (dihydrate)", "kind": "solid", "mw": 294.1, "target": { "value": 300, "unit": "mM" } }
+      ]
     }
   ]
 }

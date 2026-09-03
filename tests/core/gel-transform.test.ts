@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { apply, compose, invert, rotate, translate, rawToWorking, workingToRaw, frameSize, rotationFromLine, sampleBilinear, IDENTITY, type Geometry } from '@/core/gel/transform';
+import { apply, compose, invert, rotate, translate, rawToWorking, workingToRaw, frameSize, rotationFromLine, sampleBilinear, transformPlane, IDENTITY, type Geometry } from '@/core/gel/transform';
 
 describe('gel transforms', () => {
   it('composes and inverts affine maps', () => {
@@ -42,5 +42,12 @@ describe('gel transforms', () => {
     expect(sampleBilinear(p, 0.5, 0.5)).toBeCloseTo(0.5, 9);
     expect(sampleBilinear(p, 0, 0)).toBe(0);
     expect(sampleBilinear(p, -1, 0)).toBeNaN();
+  });
+  it('resamples a plane with transformPlane (rotation and crop)', () => {
+    const p = { width: 4, height: 4, data: new Float32Array(16).fill(0.5) };
+    const cropped = transformPlane(p, { rotation: 0, flipH: false, flipV: false, crop: { x: 1, y: 1, w: 2, h: 2 } });
+    expect(cropped.width).toBe(2);
+    expect(cropped.height).toBe(2);
+    expect(cropped.data[0]).toBeCloseTo(0.5, 4);
   });
 });

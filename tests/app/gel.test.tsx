@@ -42,14 +42,14 @@ describe('Gel and Blot analysis tool view', () => {
     const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/ });
     fireEvent.click(quantTab);
     expect(screen.getByText(/Net Intensity \(Amount\)/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Export All Lanes CSV/ })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Export All Lanes CSV/ }).length).toBeGreaterThan(0);
   });
 
-  it('selects lane when canvas is clicked', async () => {
+  it('selects lane and adds/removes bands when canvas is clicked', async () => {
     route.value = { name: 'tool', toolId: 'gel' };
     render(<GelView />);
 
-    const canvas = screen.getByTitle(/Click directly on any lane to select it/);
+    const canvas = screen.getByTitle(/Click or drag lanes/);
     expect(canvas).toBeTruthy();
 
     // Mock getBoundingClientRect
@@ -65,8 +65,34 @@ describe('Gel and Blot analysis tool view', () => {
       toJSON: () => {},
     });
 
-    // Click near center
-    fireEvent.click(canvas, { clientX: 200, clientY: 250 });
+    // Click to select lane or add band
+    fireEvent.mouseDown(canvas, { clientX: 200, clientY: 250 });
+    fireEvent.mouseUp(canvas, { clientX: 200, clientY: 250 });
     expect(await screen.findByText(/Densitometry Profile/)).toBeTruthy();
+
+    // Ctrl+click to test remove band
+    fireEvent.mouseDown(canvas, { clientX: 200, clientY: 250, ctrlKey: true });
+    fireEvent.mouseUp(canvas, { clientX: 200, clientY: 250, ctrlKey: true });
+    expect(screen.getByText(/Densitometry Profile/)).toBeTruthy();
+  });
+
+  it('supports rotating, flipping, and exporting annotated gel', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    // Rotate 90
+    const rotBtn = screen.getByTitle('Rotate 90° Clockwise');
+    fireEvent.click(rotBtn);
+    expect(screen.getByText(/demo_gel\.png/)).toBeTruthy();
+
+    // Flip H
+    const flipBtn = screen.getByTitle('Flip Horizontally (Mirror)');
+    fireEvent.click(flipBtn);
+    expect(screen.getByText(/demo_gel\.png/)).toBeTruthy();
+
+    // Export annotated gel
+    const exportBtn = screen.getByRole('button', { name: /Export Annotated Gel/ });
+    expect(exportBtn).toBeTruthy();
+    fireEvent.click(exportBtn);
   });
 });
