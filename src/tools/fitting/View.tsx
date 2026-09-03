@@ -39,7 +39,11 @@ export default function CurveFittingView() {
   function handleSelectPreset(key: string) {
     const preset = SAMPLE_DATASETS[key];
     if (preset) {
-      set({ presetKey: key, modelType: preset.model, xLogScale: preset.model === '4pl' });
+      set({
+        presetKey: key,
+        modelType: preset.model,
+        xLogScale: preset.model === '4pl' || preset.model === '5pl' || preset.model === 'two_site_binding',
+      });
       setRawText(preset.text);
     }
   }
@@ -158,18 +162,29 @@ export default function CurveFittingView() {
       ['# Model', fitResult.modelName],
       ['# Equation', `"${fitResult.equationStr}"`],
       ['# R^2', fitResult.r2.toFixed(6)],
+      ['# Adj R^2', fitResult.adjR2.toFixed(6)],
       ['# RMSE', fitResult.rmse.toFixed(6)],
+      ['# SSE', fitResult.sse.toFixed(6)],
+      ['# DF', fitResult.df],
       [],
-      ['Parameter', 'Symbol', 'Value', 'Std_Error'],
-      ...fitResult.parameters.map(p => [p.name, p.symbol, p.value, p.standardError ?? '']),
+      ['Parameter', 'Symbol', 'Value', 'Std_Error', 'CI_95_Low', 'CI_95_High'],
+      ...fitResult.parameters.map(p => [
+        p.name,
+        p.symbol,
+        p.value,
+        p.standardError ?? '',
+        p.ci95Low ?? '',
+        p.ci95High ?? '',
+      ]),
       [],
-      ['X', 'Observed_Y', 'Fitted_Y', 'Residual', 'SD', 'SEM'],
+      ['X', 'Observed_Y', 'Fitted_Y', 'SE_Fit', 'Residual', 'SD', 'SEM'],
       ...parsedData.map((d, i) => {
         const fp = fitResult.fittedPoints[i];
         return [
           d.x,
           d.y,
           fp ? fp.yFit.toFixed(4) : '',
+          fp && fp.seFit !== undefined ? fp.seFit.toFixed(4) : '',
           fp ? fp.residual.toFixed(4) : '',
           d.sd !== undefined ? d.sd.toFixed(4) : '',
           d.sem !== undefined ? d.sem.toFixed(4) : '',
@@ -205,7 +220,7 @@ export default function CurveFittingView() {
     `R²: ${fitResult.r2.toFixed(4)} (Adj R²: ${fitResult.adjR2.toFixed(4)})`,
     `RMSE: ${fitResult.rmse.toFixed(4)} | SSE: ${fitResult.sse.toFixed(4)} (DF: ${fitResult.df})`,
     'Parameters:',
-    ...fitResult.parameters.map(p => `  - ${p.name} (${p.symbol}): ${p.value.toPrecision(5)}${p.standardError ? ` ± ${p.standardError.toPrecision(3)}` : ''}`),
+    ...fitResult.parameters.map(p => `  - ${p.name} (${p.symbol}): ${p.value.toPrecision(5)}${p.standardError !== undefined ? ` ± ${p.standardError.toPrecision(3)}` : ''}${p.ci95Low !== undefined && p.ci95High !== undefined ? ` [95% CI: ${p.ci95Low.toPrecision(3)} to ${p.ci95High.toPrecision(3)}]` : ''}`),
     '',
     scienceText(SCIENCE),
   ].join('\n');
@@ -228,14 +243,19 @@ export default function CurveFittingView() {
               value={s.modelType}
               onChange={(e) => {
                 const m = (e.target as HTMLSelectElement).value as FitModelType;
-                set({ modelType: m, xLogScale: m === '4pl' });
+                set({ modelType: m, xLogScale: m === '4pl' || m === '5pl' || m === 'two_site_binding' });
               }}
               class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 font-medium"
             >
               <option value="4pl">4-Parameter Logistic (4PL / EC50 / IC50)</option>
+              <option value="5pl">5-Parameter Logistic (5PL / Asymmetric EC50)</option>
               <option value="linear">Linear Regression (y = m·x + b)</option>
+              <option value="linear_origin">Linear through Origin (y = m·x)</option>
               <option value="michaelis_menten">Michaelis-Menten Kinetics (Vmax, Km)</option>
+              <option value="two_site_binding">Two-Site Specific Binding (Bmax1, Kd1, Bmax2, Kd2)</option>
               <option value="exp_decay">Exponential Decay (Half-Life t1/2)</option>
+              <option value="exp_growth">Exponential Growth (y = y₀ · e^(k·x))</option>
+              <option value="gaussian">Gaussian Peak Fit (Amplitude, Center, Width)</option>
             </select>
           </div>
 
@@ -583,6 +603,48 @@ export default function CurveFittingView() {
                       );
                     })}
                   </svg>
+                </div>
+              </div>
+
+              {/* Fitted Points Table with Standard Errors */}
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Fitted Values &amp; Prediction Errors (SE)
+                  </h3>
+                  <span class="text-[11px] text-slate-400">
+                    {fitResult.fittedPoints.length} observations
+                  </span>
+                </div>
+                <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                  <table class="w-full text-xs text-left">
+                    <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                      <tr>
+                        <th class="py-1.5 font-semibold">#</th>
+                        <th class="py-1.5 font-semibold text-right">X</th>
+                        <th class="py-1.5 font-semibold text-right">Observed Y</th>
+                        <th class="py-1.5 font-semibold text-right">Fitted Ŷ</th>
+                        <th class="py-1.5 font-semibold text-right">SE(Fit)</th>
+                        <th class="py-1.5 font-semibold text-right">Residual (Y - Ŷ)</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                      {fitResult.fittedPoints.map((fp, i) => (
+                        <tr key={i} class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <td class="py-1 text-slate-400 font-sans">{i + 1}</td>
+                          <td class="py-1 text-right text-slate-700 dark:text-slate-300">{fp.x}</td>
+                          <td class="py-1 text-right text-slate-900 dark:text-slate-100 font-semibold">{fp.y.toFixed(4)}</td>
+                          <td class="py-1 text-right text-accent-600 dark:text-accent-400">{fp.yFit.toFixed(4)}</td>
+                          <td class="py-1 text-right text-slate-500">
+                            {fp.seFit !== undefined ? `± ${fp.seFit.toFixed(4)}` : '—'}
+                          </td>
+                          <td class={`py-1 text-right ${fp.residual >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {fp.residual >= 0 ? `+${fp.residual.toFixed(4)}` : fp.residual.toFixed(4)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </>

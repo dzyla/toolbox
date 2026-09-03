@@ -424,3 +424,64 @@ export function parseFastaPlasmid(text: string): Plasmid {
     features: [],
   };
 }
+
+/** Flip plasmid orientation (reverse complement DNA and invert feature strands and positions) */
+export function flipPlasmid(plasmid: Plasmid): Plasmid {
+  const len = plasmid.length;
+  if (len === 0) return plasmid;
+  const newSeq = reverseComplement(plasmid.seq);
+  const newFeatures: PlasmidFeature[] = plasmid.features.map(f => {
+    const s = len - f.end + 1;
+    const e = len - f.start + 1;
+    const newStart = ((s - 1 + len) % len) + 1;
+    const newEnd = ((e - 1 + len) % len) + 1;
+    return {
+      ...f,
+      start: newStart,
+      end: newEnd,
+      strand: (f.strand === 1 ? -1 : 1) as 1 | -1,
+      notes: f.notes ? `${f.notes} (flipped)` : undefined,
+    };
+  });
+
+  return {
+    ...plasmid,
+    seq: newSeq,
+    features: newFeatures,
+  };
+}
+
+/** Set new origin (re-index circular plasmid starting at newOriginBp) */
+export function setPlasmidOrigin(plasmid: Plasmid, newOriginBp: number): Plasmid {
+  const len = plasmid.length;
+  if (len === 0) return plasmid;
+  const origin = Math.max(1, Math.min(len, Math.floor(newOriginBp)));
+  const offset = origin - 1;
+
+  const newSeq = plasmid.seq.slice(offset) + plasmid.seq.slice(0, offset);
+  const newFeatures: PlasmidFeature[] = plasmid.features.map(f => {
+    const shift = (pos: number) => ((pos - origin + len) % len) + 1;
+    return {
+      ...f,
+      start: shift(f.start),
+      end: shift(f.end),
+    };
+  });
+
+  return {
+    ...plasmid,
+    seq: newSeq,
+    features: newFeatures,
+  };
+}
+
+/** Linearize circular plasmid by cutting at cutBp (1-based) */
+export function linearizePlasmid(plasmid: Plasmid, cutBp: number): Plasmid {
+  const rotated = setPlasmidOrigin(plasmid, cutBp);
+  return {
+    ...rotated,
+    isCircular: false,
+    description: `${rotated.description || rotated.name} (Linearized at bp ${cutBp})`,
+  };
+}
+

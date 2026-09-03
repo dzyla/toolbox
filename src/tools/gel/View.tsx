@@ -90,8 +90,17 @@ function BandQuantChart({
   selectedLaneId?: string;
   onSelectLane?: (laneId: string) => void;
 }) {
-  const [metric, setMetric] = useState<'net' | 'share'>('net');
-  const [hoveredBar, setHoveredBar] = useState<{ laneIdx: number; bandNum: number; val: number; size: string; share: number } | null>(null);
+  const [chartMode, setChartMode] = useState<'lane' | 'mass'>('lane');
+  const [targetBandIdx, setTargetBandIdx] = useState<number>(0);
+  const [metric, setMetric] = useState<'net' | 'raw' | 'share'>('net');
+  const [hoveredBar, setHoveredBar] = useState<{
+    laneIdx: number;
+    bandNum: number;
+    val: number;
+    size: string;
+    share: number;
+    fold?: string;
+  } | null>(null);
 
   if (analysis.length === 0) return null;
 
@@ -100,27 +109,87 @@ function BandQuantChart({
     '#06b6d4', '#f97316', '#14b8a6', '#6366f1', '#e11d48',
   ];
 
-  const maxVal = Math.max(1, ...analysis.flatMap(a => a.metrics.map(m => metric === 'net' ? Math.max(0, m.net) : m.share)));
+  const maxBands = Math.max(1, ...analysis.map(a => a.metrics.length));
+
+  // Build target band list with average MW
+  const targetBandOptions = Array.from({ length: maxBands }, (_, bIdx) => {
+    const sizes = analysis
+      .map(a => a.metrics[bIdx]?.sizeEst)
+      .filter((s): s is number => typeof s === 'number' && s > 0);
+    const avgSize = sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) / sizes.length : null;
+    return {
+      idx: bIdx,
+      label: `Band #${bIdx + 1}${avgSize ? ` (~${formatSize(avgSize, ladderKind)})` : ''}`,
+      avgSize,
+    };
+  });
 
   const chartW = 750;
-  const chartH = 250;
+  const chartH = 260;
   const padLeft = 65;
   const padRight = 30;
-  const padTop = 25;
-  const padBottom = 45;
+  const padTop = 30;
+  const padBottom = 50;
   const innerW = chartW - padLeft - padRight;
   const innerH = chartH - padTop - padBottom;
+
+  const getMetricVal = (m?: { net: number; raw: number; share: number }) => {
+    if (!m) return 0;
+    if (metric === 'net') return Math.max(0, m.net);
+    if (metric === 'raw') return Math.max(0, m.raw);
+    return Math.max(0, m.share);
+  };
+
+  // Compute maxVal
+  const maxVal = Math.max(
+    1,
+    chartMode === 'mass'
+      ? Math.max(...analysis.map(a => getMetricVal(a.metrics[targetBandIdx])))
+      : Math.max(...analysis.flatMap(a => a.metrics.map(getMetricVal)))
+  );
+
+  // Reference for fold-change in mass mode
+  const refMetric = analysis[0]?.metrics[targetBandIdx];
+  const refVal = refMetric ? getMetricVal(refMetric) : 0;
 
   return (
     <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
-            📊 Band Intensity & Amount Distribution
+            📊 Band Quantification &amp; Densitometry
           </span>
-          <span class="text-[11px] text-slate-400">
-            ({analysis.reduce((sum, a) => sum + a.metrics.length, 0)} total bands detected across {analysis.length} lanes)
-          </span>
+          {/* Mode toggle */}
+          <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900 text-xs">
+            <button
+              type="button"
+              onClick={() => setChartMode('lane')}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'lane' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Per Lane (All Bands)
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode('mass')}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'mass' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Per Target Mass (WB Mode)
+            </button>
+          </div>
+
+          {chartMode === 'mass' && (
+            <select
+              value={targetBandIdx}
+              onChange={(e) => setTargetBandIdx(parseInt((e.target as HTMLSelectElement).value) || 0)}
+              class="text-xs px-2 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
+            >
+              {targetBandOptions.map(opt => (
+                <option key={opt.idx} value={opt.idx}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div class="flex items-center gap-2 text-xs">
@@ -131,14 +200,21 @@ function BandQuantChart({
               onClick={() => setMetric('net')}
               class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'net' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              Net Intensity (OD)
+              Net OD
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetric('raw')}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'raw' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Raw Volume
             </button>
             <button
               type="button"
               onClick={() => setMetric('share')}
               class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'share' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              % Share of Lane
+              % Share
             </button>
           </div>
         </div>
@@ -149,13 +225,13 @@ function BandQuantChart({
           <span>Lane: <strong>L{hoveredBar.laneIdx + 1}</strong></span>
           <span>Band: <strong>#{hoveredBar.bandNum}</strong></span>
           {hoveredBar.size && <span>Est. MW: <strong class="text-accent-600 dark:text-accent-400">{hoveredBar.size}</strong></span>}
-          <span>Net: <strong>{Math.round(hoveredBar.val).toLocaleString()} OD</strong></span>
-          <span>Share: <strong>{hoveredBar.share.toFixed(1)}%</strong></span>
+          <span>Value: <strong>{Math.round(hoveredBar.val).toLocaleString()} {metric === 'share' ? '%' : 'OD'}</strong></span>
+          {hoveredBar.fold && <span>Relative Fold: <strong class="text-emerald-600 dark:text-emerald-400">{hoveredBar.fold}</strong></span>}
         </div>
       )}
 
       <div class="overflow-x-auto">
-        <svg viewBox={`0 0 ${chartW} ${chartH}`} class="w-full h-auto min-w-[500px]">
+        <svg viewBox={`0 0 ${chartW} ${chartH}`} class="w-full h-auto min-w-[500px] select-none">
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map(frac => {
             const y = padTop + innerH * (1 - frac);
@@ -164,82 +240,152 @@ function BandQuantChart({
               <g key={frac}>
                 <line x1={padLeft} x2={chartW - padRight} y1={y} y2={y} stroke="#e2e8f0" stroke-dasharray="3,3" />
                 <text x={padLeft - 6} y={y + 4} font-size="9" text-anchor="end" fill="#94a3b8" font-family="monospace">
-                  {metric === 'net' ? Math.round(labelVal).toLocaleString() : `${Math.round(labelVal)}%`}
+                  {metric === 'share' ? `${Math.round(labelVal)}%` : Math.round(labelVal).toLocaleString()}
                 </text>
               </g>
             );
           })}
 
-          {/* Grouped Columns */}
-          {analysis.map((item, lIdx) => {
-            const groupW = innerW / Math.max(1, analysis.length);
-            const groupX = padLeft + lIdx * groupW;
-            const bCount = Math.max(1, item.metrics.length);
-            const colW = Math.min(26, Math.max(4, (groupW - 12) / bCount));
-            const isSelectedLane = item.lane.id === selectedLaneId;
-            const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
+          {chartMode === 'lane' ? (
+            /* Multi-band columns per lane */
+            analysis.map((item, lIdx) => {
+              const groupW = innerW / Math.max(1, analysis.length);
+              const groupX = padLeft + lIdx * groupW;
+              const bCount = Math.max(1, item.metrics.length);
+              const colW = Math.min(26, Math.max(4, (groupW - 12) / bCount));
+              const isSelectedLane = item.lane.id === selectedLaneId;
+              const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
 
-            return (
-              <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
-                {/* Lane Column Background if selected */}
-                {isSelectedLane && (
-                  <rect x={groupX + 2} y={padTop} width={groupW - 4} height={innerH} fill="rgba(37, 99, 235, 0.08)" rx="4" />
-                )}
+              return (
+                <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
+                  {isSelectedLane && (
+                    <rect x={groupX + 2} y={padTop} width={groupW - 4} height={innerH} fill="rgba(37, 99, 235, 0.08)" rx="4" />
+                  )}
+                  {item.metrics.map((m, bIdx) => {
+                    const val = getMetricVal(m);
+                    const barH = (val / maxVal) * innerH;
+                    const barX = groupX + (groupW - bCount * colW) / 2 + bIdx * colW;
+                    const barY = padTop + innerH - barH;
+                    const color = bandColors[bIdx % bandColors.length]!;
+                    const szText = m.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
 
-                {/* Bars for each band in this lane */}
-                {item.metrics.map((m, bIdx) => {
-                  const val = metric === 'net' ? Math.max(0, m.net) : m.share;
-                  const barH = (val / maxVal) * innerH;
-                  const barX = groupX + (groupW - bCount * colW) / 2 + bIdx * colW;
-                  const barY = padTop + innerH - barH;
-                  const color = bandColors[bIdx % bandColors.length]!;
-                  const szText = m.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
+                    return (
+                      <g
+                        key={m.bandId}
+                        onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, bandNum: bIdx + 1, val, size: szText, share: m.share })}
+                        onMouseLeave={() => setHoveredBar(null)}
+                      >
+                        <rect
+                          x={barX + 1}
+                          y={barY}
+                          width={Math.max(2, colW - 2)}
+                          height={Math.max(2, barH)}
+                          fill={color}
+                          rx="2"
+                          opacity={hoveredBar && hoveredBar.laneIdx === lIdx && hoveredBar.bandNum === bIdx + 1 ? 1 : 0.85}
+                        />
+                        {barH > 22 && colW >= 12 && (
+                          <text
+                            x={barX + colW / 2}
+                            y={barY + 11}
+                            font-size="8"
+                            font-weight="bold"
+                            text-anchor="middle"
+                            fill="#ffffff"
+                          >
+                            {bIdx + 1}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                  <text
+                    x={groupX + groupW / 2}
+                    y={chartH - padBottom + 16}
+                    font-size="10"
+                    font-weight={isSelectedLane ? 'bold' : 'normal'}
+                    text-anchor="middle"
+                    fill={isSelectedLane ? '#2563eb' : '#64748b'}
+                  >
+                    {customLabel.length > 10 ? `${customLabel.slice(0, 9)}…` : customLabel}
+                  </text>
+                </g>
+              );
+            })
+          ) : (
+            /* Target Mass mode (Western Blot cross-lane comparison) */
+            analysis.map((item, lIdx) => {
+              const groupW = innerW / Math.max(1, analysis.length);
+              const groupX = padLeft + lIdx * groupW;
+              const m = item.metrics[targetBandIdx];
+              const val = getMetricVal(m);
+              const barH = (val / maxVal) * innerH;
+              const colW = Math.min(45, Math.max(14, groupW - 16));
+              const barX = groupX + (groupW - colW) / 2;
+              const barY = padTop + innerH - barH;
+              const isSelectedLane = item.lane.id === selectedLaneId;
+              const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
+              const foldStr = refVal > 0 && m ? `${(val / refVal).toFixed(2)}×` : '—';
+              const szText = m?.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
 
-                  return (
+              return (
+                <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
+                  {isSelectedLane && (
+                    <rect x={groupX + 2} y={padTop} width={groupW - 4} height={innerH} fill="rgba(37, 99, 235, 0.08)" rx="4" />
+                  )}
+                  {m ? (
                     <g
-                      key={m.bandId}
-                      onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, bandNum: bIdx + 1, val: m.net, size: szText, share: m.share })}
+                      onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, bandNum: targetBandIdx + 1, val, size: szText, share: m.share, fold: foldStr })}
                       onMouseLeave={() => setHoveredBar(null)}
                     >
                       <rect
-                        x={barX + 1}
+                        x={barX}
                         y={barY}
-                        width={Math.max(2, colW - 2)}
+                        width={colW}
                         height={Math.max(2, barH)}
-                        fill={color}
-                        rx="2"
-                        opacity={hoveredBar && hoveredBar.laneIdx === lIdx && hoveredBar.bandNum === bIdx + 1 ? 1 : 0.85}
+                        fill="#0284c7"
+                        rx="3"
+                        opacity={hoveredBar && hoveredBar.laneIdx === lIdx ? 1 : 0.85}
                       />
-                      {barH > 22 && colW >= 12 && (
-                        <text
-                          x={barX + colW / 2}
-                          y={barY + 11}
-                          font-size="8"
-                          font-weight="bold"
-                          text-anchor="middle"
-                          fill="#ffffff"
-                        >
-                          {bIdx + 1}
-                        </text>
-                      )}
+                      {/* Fold change label on top of bar */}
+                      <text
+                        x={barX + colW / 2}
+                        y={Math.max(padTop + 10, barY - 4)}
+                        font-size="9"
+                        font-weight="bold"
+                        text-anchor="middle"
+                        fill="#0369a1"
+                        font-family="monospace"
+                      >
+                        {foldStr}
+                      </text>
                     </g>
-                  );
-                })}
-
-                {/* X axis Lane label */}
-                <text
-                  x={groupX + groupW / 2}
-                  y={chartH - padBottom + 16}
-                  font-size="10"
-                  font-weight={isSelectedLane ? 'bold' : 'normal'}
-                  text-anchor="middle"
-                  fill={isSelectedLane ? '#2563eb' : '#64748b'}
-                >
-                  {customLabel.length > 10 ? `${customLabel.slice(0, 9)}…` : customLabel}
-                </text>
-              </g>
-            );
-          })}
+                  ) : (
+                    <text
+                      x={groupX + groupW / 2}
+                      y={padTop + innerH - 8}
+                      font-size="9"
+                      font-style="italic"
+                      fill="#94a3b8"
+                      text-anchor="middle"
+                    >
+                      n/d
+                    </text>
+                  )}
+                  <text
+                    x={groupX + groupW / 2}
+                    y={chartH - padBottom + 16}
+                    font-size="10"
+                    font-weight={isSelectedLane ? 'bold' : 'normal'}
+                    text-anchor="middle"
+                    fill={isSelectedLane ? '#2563eb' : '#64748b'}
+                  >
+                    {customLabel.length > 10 ? `${customLabel.slice(0, 9)}…` : customLabel}
+                  </text>
+                </g>
+              );
+            })
+          )}
         </svg>
       </div>
     </div>
@@ -269,6 +415,7 @@ export default function GelView() {
   const [laneLabels, setLaneLabels] = useState<Record<string, string>>({});
   const [showMwLabels, setShowMwLabels] = useState<boolean>(true);
   const [showLaneHeaders, setShowLaneHeaders] = useState<boolean>(true);
+  const [stripLanePrefix, setStripLanePrefix] = useState<boolean>(false);
 
   // Geometry / deskew angle
   const [deskewAngle, setDeskewAngle] = useState<number>(0);
@@ -920,20 +1067,26 @@ export default function GelView() {
     const rows = [
       ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
       ...allLanesAnalysis.flatMap(item =>
-        item.metrics.map(m => [
-          item.laneIdx + 1,
-          item.lane.id,
-          laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`,
-          m.number,
-          m.peakY ? Number(m.peakY.toFixed(2)) : '',
-          m.sizeEst ? Number(m.sizeEst.toFixed(1)) : '',
-          Number(m.raw.toFixed(1)),
-          Number(m.background.toFixed(1)),
-          Number(m.net.toFixed(1)),
-          Number(m.share.toFixed(2)),
-          Number(m.ratio.toFixed(2)),
-          m.saturation >= SATURATION_WARN ? 'YES' : 'NO',
-        ])
+        item.metrics.map(m => {
+          let label = laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`;
+          if (stripLanePrefix) {
+            label = label.replace(/^(?:L\d+|Lane\s*\d+)[\s:\-_]*/i, '').trim() || label;
+          }
+          return [
+            item.laneIdx + 1,
+            stripLanePrefix ? item.lane.id.replace(/^l/i, '') : item.lane.id,
+            label,
+            m.number,
+            m.peakY ? Number(m.peakY.toFixed(2)) : '',
+            m.sizeEst ? Number(m.sizeEst.toFixed(1)) : '',
+            Number(m.raw.toFixed(1)),
+            Number(m.background.toFixed(1)),
+            Number(m.net.toFixed(1)),
+            Number(m.share.toFixed(2)),
+            Number(m.ratio.toFixed(2)),
+            m.saturation >= SATURATION_WARN ? 'YES' : 'NO',
+          ];
+        })
       ),
     ];
     downloadText(toCsv(rows), `${imageName.replace(/\.[^/.]+$/, '')}_all_lanes_quantification.csv`, 'text/csv;charset=utf-8');
@@ -1794,13 +1947,25 @@ export default function GelView() {
                     </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleExportCsv}
-                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    Export All Lanes CSV
-                  </button>
+                  <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={stripLanePrefix}
+                        onChange={(e) => setStripLanePrefix((e.target as HTMLInputElement).checked)}
+                        class="rounded border-slate-300 dark:border-slate-700 text-accent-600 focus:ring-accent-500"
+                      />
+                      <span>Omit L1/L2 prefix</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleExportCsv}
+                      class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      Export All Lanes CSV
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1893,13 +2058,24 @@ export default function GelView() {
             }}
             shareUrl={shareUrl}
           />
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 transition"
-          >
-            Export All Lanes CSV
-          </button>
+          <div class="flex flex-col gap-1.5">
+            <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={stripLanePrefix}
+                onChange={(e) => setStripLanePrefix((e.target as HTMLInputElement).checked)}
+                class="rounded border-slate-300 dark:border-slate-700 text-accent-600 focus:ring-accent-500"
+              />
+              <span>Omit L1/L2 prefix</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 transition text-center"
+            >
+              Export All Lanes CSV
+            </button>
+          </div>
         </div>
       }
       science={<SciencePanel science={SCIENCE} />}

@@ -244,12 +244,14 @@ function FeatureMap({
   zoom = 1,
   hoveredFeature,
   onHoverFeature,
+  onClickFeature,
 }: {
   features: ProteinFeature[];
   length: number;
   zoom?: number;
   hoveredFeature?: ProteinFeature | null;
   onHoverFeature?: (f: ProteinFeature | null) => void;
+  onClickFeature?: (f: ProteinFeature) => void;
 }) {
   if (!features.length) return <p class="text-sm text-slate-500 py-3">No matching features found with current filters.</p>;
   const baseWidth = 800;
@@ -297,7 +299,8 @@ function FeatureMap({
           return (
             <g
               key={`${feature.kind}-${feature.name}-${feature.start}-${index}`}
-              class="cursor-pointer transition-all"
+              class="cursor-pointer transition-all hover:opacity-90"
+              onClick={() => onClickFeature?.(feature)}
               onMouseEnter={() => onHoverFeature?.(feature)}
               onMouseLeave={() => onHoverFeature?.(null)}
             >
@@ -311,7 +314,7 @@ function FeatureMap({
                 stroke={isHovered ? '#38bdf8' : 'rgba(0,0,0,0.15)'}
                 stroke-width={isHovered ? 2 : 0.8}
               >
-                <title>{feature.name} ({feature.kind}): {feature.start}–{feature.end} ({feature.end - feature.start + 1} aa)</title>
+                <title>{feature.name} ({feature.kind}): {feature.start}–{feature.end} ({feature.end - feature.start + 1} aa) — Click to copy sequence</title>
               </rect>
               {fw > 30 && (
                 <text
@@ -363,6 +366,16 @@ function ProteinCard({
   const [featureZoom, setFeatureZoom] = useState<number>(1);
   const [hoveredFeature, setHoveredFeature] = useState<ProteinFeature | null>(null);
   const [peptideSearch, setPeptideSearch] = useState('');
+  const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
+
+  function handleCopyFeatureSequence(f: ProteinFeature) {
+    const subSeq = analysis.seq.slice(f.start - 1, f.end);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(subSeq);
+    }
+    setCopiedNotice(`Copied "${f.name}" sequence (${subSeq.length} aa): ${subSeq}`);
+    setTimeout(() => setCopiedNotice(null), 4000);
+  }
 
   const positions = Array.from({ length: analysis.seq.length }, (_, index) => index + 1);
   const secondary = secondaryStructureProfiles(analysis.seq, state.helixWindow, state.sheetWindow);
@@ -652,12 +665,20 @@ function ProteinCard({
             </div>
           </div>
 
+          {copiedNotice && (
+            <div class="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 text-xs font-mono text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-2xs">
+              <span class="truncate">📋 {copiedNotice}</span>
+              <button type="button" onClick={() => setCopiedNotice(null)} class="ml-2 text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+          )}
+
           <FeatureMap
             features={shownFeatures}
             length={analysis.seq.length}
             zoom={featureZoom}
             hoveredFeature={hoveredFeature}
             onHoverFeature={setHoveredFeature}
+            onClickFeature={handleCopyFeatureSequence}
           />
 
           <div class="flex items-center justify-between gap-3 pt-2">
@@ -680,8 +701,10 @@ function ProteinCard({
                 return (
                   <div
                     key={`${f.name}-${f.start}-${i}`}
+                    onClick={() => handleCopyFeatureSequence(f)}
                     onMouseEnter={() => setHoveredFeature(f)}
                     onMouseLeave={() => setHoveredFeature(null)}
+                    title="Click to copy amino acid sequence"
                     class={`p-2.5 flex items-center justify-between transition cursor-pointer ${
                       isHovered
                         ? 'bg-sky-50 dark:bg-sky-950/50 border-l-2 border-sky-500'

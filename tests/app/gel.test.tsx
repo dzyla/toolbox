@@ -95,4 +95,24 @@ describe('Gel and Blot analysis tool view', () => {
     expect(exportBtn).toBeTruthy();
     fireEvent.click(exportBtn);
   });
+
+  it('supports WB quantification mode and omitting lane prefix on CSV export', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    // Switch to All-Lanes Band Quantification
+    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/ });
+    fireEvent.click(quantTab);
+
+    // Switch to Target Mass WB Mode
+    const wbModeBtn = screen.getByRole('button', { name: /Per Target Mass \(WB Mode\)/ });
+    fireEvent.click(wbModeBtn);
+    expect(wbModeBtn.classList.contains('bg-accent-600')).toBe(true);
+
+    // Check omit prefix checkbox
+    const omitCheckbox = screen.getAllByLabelText(/Omit L1\/L2 prefix/)[0] as HTMLInputElement;
+    expect(omitCheckbox.checked).toBe(false);
+    fireEvent.click(omitCheckbox);
+    expect(omitCheckbox.checked).toBe(true);
+  });
 });

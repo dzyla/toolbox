@@ -100,7 +100,7 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
   const minR = Math.min(...radii);
   const maxR = Math.max(...radii);
   const numBins = Math.min(6, Math.max(3, Math.ceil(Math.sqrt(n))));
-  const binStep = Math.max(1, (maxR - minR) / numBins);
+  const binStep = Math.max(0.5, (maxR - minR) / numBins);
 
   const bins: SizeDistributionBin[] = [];
   for (let i = 0; i < numBins; i++) {
@@ -126,24 +126,32 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
   };
 }
 
+export interface ColonyDetectionOptions {
+  minRadius?: number;
+  maxRadius?: number;
+  minCertainty?: number;
+  minDistance?: number;    // minimum distance between colony centers in pixels
+  dishRadiusFrac?: number; // rim exclusion fraction (e.g. 0.84 to exclude plastic rim glare)
+}
+
 /**
  * Automated computer-vision colony detection on ImageData.
- * Uses local contrast thresholding, peak detection, and radial profiling.
+ * Features:
+ * - True centroid refinement (local intensity-weighted centroid, not edge)
+ * - Touching / doublet colony separation via saddle thresholding
+ * - Configurable minimum separation distance
+ * - Petri dish plastic rim glare exclusion
  */
 export function autoDetectColonies(
   imageData: ImageData,
-  options: {
-    minRadius?: number;
-    maxRadius?: number;
-    minCertainty?: number;
-    dishRadiusFrac?: number; // ignore outside dish rim (e.g. 0.88)
-  } = {},
+  options: ColonyDetectionOptions = {},
 ): ColonySpot[] {
   const {
     minRadius = 2,
-    maxRadius = 28,
-    minCertainty = 0.45,
-    dishRadiusFrac = 0.90,
+    maxRadius = 32,
+    minCertainty = 0.40,
+    minDistance = 5,
+    dishRadiusFrac = 0.85,
   } = options;
 
   const width = imageData.width;
@@ -151,24 +159,21 @@ export function autoDetectColonies(
   const data = imageData.data;
   const cx = width / 2;
   const cy = height / 2;
-  const dishRadius = (Math.min(width, height) / 2) * dishRadiusFrac;
+  const maxDishRadius = (Math.min(width, height) / 2) * dishRadiusFrac;
 
   // Convert to grayscale luminance
   const gray = new Float32Array(width * height);
   for (let i = 0; i < width * height; i++) {
     const idx = i * 4;
-    const r = data[idx]!;
-    const g = data[idx + 1]!;
-    const b = data[idx + 2]!;
-    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+    gray[i] = 0.299 * data[idx]! + 0.587 * data[idx + 1]! + 0.114 * data[idx + 2]!;
   }
 
-  // Calculate local mean across dish interior
+  // Calculate local mean across dish interior (excluding plastic rim)
   let totalLuma = 0;
   let countLuma = 0;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (Math.hypot(x - cx, y - cy) < dishRadius * 0.8) {
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      if (Math.hypot(x - cx, y - cy) < maxDishRadius * 0.75) {
         totalLuma += gray[y * width + x]!;
         countLuma++;
       }
@@ -176,88 +181,181 @@ export function autoDetectColonies(
   }
   const avgBg = countLuma > 0 ? totalLuma / countLuma : 128;
 
-  // Determine whether colonies are darker than agar or lighter than agar
+  // Determine whether colonies are darker or lighter than agar
   let darkContrastSum = 0;
   let lightContrastSum = 0;
   for (let y = 0; y < height; y += 4) {
     for (let x = 0; x < width; x += 4) {
-      if (Math.hypot(x - cx, y - cy) < dishRadius * 0.8) {
+      if (Math.hypot(x - cx, y - cy) < maxDishRadius * 0.75) {
         const val = gray[y * width + x]!;
-        if (val < avgBg - 15) darkContrastSum += (avgBg - val);
-        else if (val > avgBg + 15) lightContrastSum += (val - avgBg);
+        if (val < avgBg - 12) darkContrastSum += (avgBg - val);
+        else if (val > avgBg + 12) lightContrastSum += (val - avgBg);
       }
     }
   }
   const coloniesAreDark = darkContrastSum >= lightContrastSum;
 
-  const candidates: Array<{ x: number; y: number; radius: number; certainty: number }> = [];
-  const step = 3;
+  const getContrast = (x: number, y: number) => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return 0;
+    const val = gray[Math.floor(y) * width + Math.floor(x)]!;
+    return coloniesAreDark ? (avgBg - val) : (val - avgBg);
+  };
 
-  for (let y = Math.floor(cy - dishRadius); y < cy + dishRadius; y += step) {
-    if (y < maxRadius || y >= height - maxRadius) continue;
-    for (let x = Math.floor(cx - dishRadius); x < cx + dishRadius; x += step) {
-      if (x < maxRadius || x >= width - maxRadius) continue;
+  const candidatePeaks: Array<{ x: number; y: number; contrast: number }> = [];
+  const searchStep = 2;
+
+  // Scan inside the safe dish interior
+  for (let y = Math.floor(cy - maxDishRadius); y < cy + maxDishRadius; y += searchStep) {
+    if (y < 4 || y >= height - 4) continue;
+    for (let x = Math.floor(cx - maxDishRadius); x < cx + maxDishRadius; x += searchStep) {
+      if (x < 4 || x >= width - 4) continue;
       const distFromCenter = Math.hypot(x - cx, y - cy);
-      if (distFromCenter > dishRadius) continue;
+      if (distFromCenter > maxDishRadius) continue;
 
-      const centerVal = gray[y * width + x]!;
-      const contrast = coloniesAreDark ? (avgBg - centerVal) : (centerVal - avgBg);
+      const cVal = getContrast(x, y);
+      if (cVal <= 12) continue;
 
-      if (contrast > 16) {
-        // Measure local peak: check if center is extreme compared to neighboring ring
-        let ringSum = 0;
-        let ringCount = 0;
-        for (let rad = 4; rad <= 7; rad += 2) {
-          for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-            const rx = Math.round(x + rad * Math.cos(angle));
-            const ry = Math.round(y + rad * Math.sin(angle));
-            ringSum += gray[ry * width + rx]!;
-            ringCount++;
+      // Check if it is a local maximum compared to immediate neighbors
+      let isLocalMax = true;
+      for (let dy = -2; dy <= 2; dy += 2) {
+        for (let dx = -2; dx <= 2; dx += 2) {
+          if (dx === 0 && dy === 0) continue;
+          if (getContrast(x + dx, y + dy) > cVal) {
+            isLocalMax = false;
+            break;
           }
         }
-        const ringAvg = ringSum / ringCount;
-        const localPeak = coloniesAreDark ? (ringAvg - centerVal) : (centerVal - ringAvg);
+        if (!isLocalMax) break;
+      }
 
-        if (localPeak > 8) {
-          // Estimate colony radius by finding where gradient drops to baseline
-          let estRadius = minRadius;
-          for (let r = minRadius + 1; r <= maxRadius; r++) {
-            let sampleDiff = 0;
-            for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
-              const sx = Math.round(x + r * Math.cos(a));
-              const sy = Math.round(y + r * Math.sin(a));
-              const sVal = gray[sy * width + sx]!;
-              sampleDiff += Math.abs(sVal - avgBg);
-            }
-            if (sampleDiff / 4 < 12) {
-              estRadius = r;
-              break;
-            }
-            estRadius = r;
-          }
-
-          // Certainty score based on contrast and edge steepness
-          const certainty = Math.min(0.99, Math.max(0.1, (contrast / 80) * 0.6 + (localPeak / 35) * 0.4));
-
-          if (certainty >= minCertainty && estRadius >= minRadius && estRadius <= maxRadius) {
-            candidates.push({ x, y, radius: estRadius, certainty });
-          }
-        }
+      if (isLocalMax) {
+        candidatePeaks.push({ x, y, contrast: cVal });
       }
     }
   }
 
-  // Non-maximum suppression: merge candidates within distance
+  // Refine each peak to its true intensity-weighted centroid and measure radius
+  const refinedCandidates: Array<{ x: number; y: number; radius: number; certainty: number }> = [];
+
+  for (const peak of candidatePeaks) {
+    // 1. Centroid refinement in a local window (e.g. 5x5 to 9x9)
+    const win = 4;
+    let sumW = 0;
+    let sumX = 0;
+    let sumY = 0;
+    const bgThreshold = peak.contrast * 0.35;
+
+    for (let dy = -win; dy <= win; dy++) {
+      for (let dx = -win; dx <= win; dx++) {
+        const px = peak.x + dx;
+        const py = peak.y + dy;
+        const cont = getContrast(px, py);
+        if (cont > bgThreshold) {
+          const w = cont - bgThreshold;
+          sumW += w;
+          sumX += px * w;
+          sumY += py * w;
+        }
+      }
+    }
+
+    const trueX = sumW > 0 ? sumX / sumW : peak.x;
+    const trueY = sumW > 0 ? sumY / sumW : peak.y;
+
+    if (Math.hypot(trueX - cx, trueY - cy) > maxDishRadius) continue;
+
+    // 2. Measure radius from the true centroid outward across 8 radials
+    let radialDistSum = 0;
+    let validRadials = 0;
+    const centerContrast = getContrast(trueX, trueY);
+
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+      const cosA = Math.cos(a);
+      const sinA = Math.sin(a);
+      let rFound = maxRadius;
+
+      for (let r = minRadius; r <= maxRadius; r++) {
+        const rx = trueX + r * cosA;
+        const ry = trueY + r * sinA;
+        const sampleCont = getContrast(rx, ry);
+
+        // Edge boundary is when contrast drops below 30% of peak or to baseline
+        if (sampleCont <= centerContrast * 0.30 || sampleCont <= 8) {
+          rFound = r;
+          break;
+        }
+      }
+
+      radialDistSum += rFound;
+      validRadials++;
+    }
+
+    const estRadius = Math.max(minRadius, Math.min(maxRadius, radialDistSum / validRadials));
+
+    // 3. Contrast & Certainty Score
+    // Calculate circularity / contrast ratio between center core and surrounding ring
+    let ringSum = 0;
+    let ringCount = 0;
+    const ringR = estRadius + 3;
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+      const rx = trueX + ringR * Math.cos(a);
+      const ry = trueY + ringR * Math.sin(a);
+      ringSum += getContrast(rx, ry);
+      ringCount++;
+    }
+    const outerBg = ringSum / ringCount;
+    const coreContrast = Math.max(0, centerContrast - outerBg);
+
+    const certainty = Math.min(0.99, Math.max(0.15, (coreContrast / 60) * 0.65 + (centerContrast / 100) * 0.35));
+
+    if (certainty >= minCertainty && estRadius >= minRadius && estRadius <= maxRadius) {
+      refinedCandidates.push({
+        x: Math.round(trueX * 10) / 10,
+        y: Math.round(trueY * 10) / 10,
+        radius: Math.round(estRadius * 10) / 10,
+        certainty,
+      });
+    }
+  }
+
+  // Non-maximum suppression with doublet support and minDistance
+  refinedCandidates.sort((a, b) => b.certainty - a.certainty);
   const results: ColonySpot[] = [];
-  candidates.sort((a, b) => b.certainty - a.certainty);
 
-  for (const c of candidates) {
-    const isOverlapping = results.some(existing => {
+  for (const c of refinedCandidates) {
+    let keep = true;
+
+    for (const existing of results) {
       const d = Math.hypot(existing.x - c.x, existing.y - c.y);
-      return d < Math.max(existing.radius || 4, c.radius) * 1.2;
-    });
 
-    if (!isOverlapping) {
+      // If closer than minDistance, definitely merge/suppress duplicate peak
+      if (d < minDistance) {
+        keep = false;
+        break;
+      }
+
+      // If touching / close colonies: check if there is a distinct valley (saddle) between their centers
+      if (d < Math.max(existing.radius || 4, c.radius) * 1.3) {
+        const midX = (existing.x + c.x) / 2;
+        const midY = (existing.y + c.y) / 2;
+        const midContrast = getContrast(midX, midY);
+        const c1Cont = getContrast(existing.x, existing.y);
+        const c2Cont = getContrast(c.x, c.y);
+        const minPeakCont = Math.min(c1Cont, c2Cont);
+
+        // If the midpoint between them is noticeably lower than both peaks, they are two distinct touching colonies!
+        if (midContrast < minPeakCont * 0.78 && d >= minDistance) {
+          // Keep as doublet!
+          continue;
+        } else {
+          // Midpoint is flat/high -> part of the same single colony
+          keep = false;
+          break;
+        }
+      }
+    }
+
+    if (keep) {
       const catId = c.certainty >= 0.75 ? 'cat-1' : c.certainty >= 0.5 ? 'cat-2' : 'cat-3';
       results.push({
         id: `auto-${results.length + 1}`,

@@ -10,6 +10,11 @@ import {
   findORFs,
   detectPlasmidElements,
   parseFastaPlasmid,
+  flipPlasmid,
+  setPlasmidOrigin,
+  linearizePlasmid,
+  translateDNA,
+  reverseComplement,
 } from '@/core/plasmid';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
@@ -27,6 +32,7 @@ interface State {
   selectedFeatureId: string;
   selectedRange?: { start: number; end: number; name: string };
   seqZoomBp: number; // 20, 40, 60 bp per line
+  translationMode: 'selected' | 'frame1' | 'frame2' | 'frame3' | 'none';
 }
 
 const DEFAULTS: State = {
@@ -38,6 +44,7 @@ const DEFAULTS: State = {
   showLabels: true,
   selectedFeatureId: '',
   seqZoomBp: 60,
+  translationMode: 'selected',
 };
 
 const FRAME_COLORS: Record<number, string> = {
@@ -57,6 +64,9 @@ export default function PlasmidView() {
   const [plasmid, setPlasmid] = useState<Plasmid>(() => PRESET_PLASMIDS[0]!);
   const [customFastaInput, setCustomFastaInput] = useState<string>('');
   const [detectionNotice, setDetectionNotice] = useState<string | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [newOriginInput, setNewOriginInput] = useState<number>(1);
+  const [cutBpInput, setCutBpInput] = useState<number>(1);
   const [hoveredItem, setHoveredItem] = useState<{
     name: string;
     type: string;
@@ -67,6 +77,88 @@ export default function PlasmidView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const seqContainerRef = useRef<HTMLDivElement>(null);
+
+  function handleCopyDna(start: number, end: number, strand: 1 | -1 = 1, label = 'Feature') {
+    let dna = '';
+    if (start <= end) {
+      dna = plasmid.seq.slice(start - 1, end);
+    } else {
+      dna = plasmid.seq.slice(start - 1) + plasmid.seq.slice(0, end);
+    }
+    if (strand === -1) {
+      dna = reverseComplement(dna);
+    }
+    navigator.clipboard.writeText(dna);
+    setCopyNotice(`✓ Copied DNA (${dna.length} bp) for ${label}`);
+    setTimeout(() => setCopyNotice(null), 3000);
+  }
+
+  function handleCopyProtein(start: number, end: number, strand: 1 | -1 = 1, label = 'Feature') {
+    let dna = '';
+    if (start <= end) {
+      dna = plasmid.seq.slice(start - 1, end);
+    } else {
+      dna = plasmid.seq.slice(start - 1) + plasmid.seq.slice(0, end);
+    }
+    if (strand === -1) {
+      dna = reverseComplement(dna);
+    }
+    const protein = translateDNA(dna);
+    navigator.clipboard.writeText(protein);
+    setCopyNotice(`✓ Copied Protein (${protein.length} aa) for ${label}`);
+    setTimeout(() => setCopyNotice(null), 3000);
+  }
+
+  function handleFlipPlasmid() {
+    const flipped = flipPlasmid(plasmid);
+    setPlasmid(flipped);
+    setDetectionNotice('Flipped plasmid orientation (reverse complement).');
+  }
+
+  function handleSetOrigin() {
+    const reindexed = setPlasmidOrigin(plasmid, newOriginInput);
+    setPlasmid(reindexed);
+    setDetectionNotice(`Re-indexed plasmid: New origin at bp ${newOriginInput}.`);
+  }
+
+  function handleLinearize() {
+    const lin = linearizePlasmid(plasmid, cutBpInput);
+    setPlasmid(lin);
+    set({ viewMode: 'linear' });
+    setDetectionNotice(`Linearized plasmid at bp ${cutBpInput}.`);
+  }
+
+  // Zoom level: 1 = circular, 2 = linear, 3 = sequence
+  const zoomLevel = s.viewMode === 'circular' ? 1 : s.viewMode === 'linear' ? 2 : 3;
+
+  function handleZoomSlider(val: number) {
+    if (val === 1) set({ viewMode: 'circular' });
+    else if (val === 2) set({ viewMode: 'linear' });
+    else if (val === 3) set({ viewMode: 'sequence' });
+  }
+
+  function handleWheelZoom(e: WheelEvent) {
+    if (Math.abs(e.deltaY) < 20) return;
+    if (e.deltaY < 0) {
+      // Wheel up -> zoom in: circular -> linear -> sequence
+      if (s.viewMode === 'circular') {
+        e.preventDefault();
+        set({ viewMode: 'linear' });
+      } else if (s.viewMode === 'linear') {
+        e.preventDefault();
+        set({ viewMode: 'sequence' });
+      }
+    } else {
+      // Wheel down -> zoom out: sequence -> linear -> circular
+      if (s.viewMode === 'sequence' && (seqContainerRef.current?.scrollTop || 0) <= 0) {
+        e.preventDefault();
+        set({ viewMode: 'linear' });
+      } else if (s.viewMode === 'linear') {
+        e.preventDefault();
+        set({ viewMode: 'circular' });
+      }
+    }
+  }
 
   // Restriction sites
   const allRestrictionSites = useMemo(() => {
@@ -495,10 +587,91 @@ export default function PlasmidView() {
               </button>
             </div>
           </div>
+
+          {/* Plasmid Operations (Flip, Set Origin, Linearize) */}
+          <details class="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 text-xs space-y-3">
+            <summary class="cursor-pointer font-semibold text-slate-800 dark:text-slate-200 select-none flex items-center justify-between">
+              <span>⚡ Plasmid Operations</span>
+              <span class="text-slate-400 text-[11px]">Flip, Origin, Cut</span>
+            </summary>
+
+            <div class="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Flip Orientation */}
+              <div>
+                <span class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Reverse Complement (Flip)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleFlipPlasmid}
+                  class="w-full py-1.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold transition flex items-center justify-center gap-1.5"
+                >
+                  <span>🔄</span>
+                  <span>Flip Plasmid (Rev-Comp)</span>
+                </button>
+              </div>
+
+              {/* Set Origin */}
+              <div class="space-y-1.5">
+                <span class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Set New Origin (Re-index)
+                </span>
+                <div class="flex gap-1.5">
+                  <input
+                    type="number"
+                    min="1"
+                    max={plasmid.length}
+                    value={newOriginInput}
+                    onInput={(e) => setNewOriginInput(parseInt((e.target as HTMLInputElement).value) || 1)}
+                    class="w-24 rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSetOrigin}
+                    class="flex-1 py-1 px-2 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 font-semibold transition"
+                  >
+                    📍 Set Origin
+                  </button>
+                </div>
+              </div>
+
+              {/* Linearize */}
+              <div class="space-y-1.5">
+                <span class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Linearize Plasmid (Cut)
+                </span>
+                <div class="flex gap-1.5">
+                  <input
+                    type="number"
+                    min="1"
+                    max={plasmid.length}
+                    value={cutBpInput}
+                    onInput={(e) => setCutBpInput(parseInt((e.target as HTMLInputElement).value) || 1)}
+                    class="w-24 rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleLinearize}
+                    class="flex-1 py-1 px-2 rounded-lg border border-rose-300 dark:border-rose-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-semibold transition"
+                  >
+                    ✂️ Linearize
+                  </button>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
       }
       results={
-        <div class="space-y-4">
+        <div class="space-y-4" onWheel={handleWheelZoom}>
+          {/* Copy Toast Banner */}
+          {copyNotice && (
+            <div class="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold flex items-center justify-between">
+              <span>{copyNotice}</span>
+              <button type="button" onClick={() => setCopyNotice(null)} class="opacity-70 hover:opacity-100">✕</button>
+            </div>
+          )}
+
           {/* Synchronized Zoom Breadcrumb & Selected Feature Banner */}
           {s.selectedRange && (
             <div class="p-3 rounded-2xl bg-accent-50 dark:bg-accent-950/40 border border-accent-200 dark:border-accent-800 flex flex-wrap items-center justify-between gap-2">
@@ -514,7 +687,23 @@ export default function PlasmidView() {
                 </div>
               </div>
 
-              <div class="flex items-center gap-1.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyDna(s.selectedRange!.start, s.selectedRange!.end, 1, s.selectedRange!.name)}
+                  class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-accent-300 dark:border-accent-700 text-accent-700 dark:text-accent-300 rounded-lg text-xs font-semibold hover:bg-accent-100 transition shadow-2xs"
+                  title="Copy DNA sequence"
+                >
+                  📋 Copy DNA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopyProtein(s.selectedRange!.start, s.selectedRange!.end, 1, s.selectedRange!.name)}
+                  class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-accent-300 dark:border-accent-700 text-accent-700 dark:text-accent-300 rounded-lg text-xs font-semibold hover:bg-accent-100 transition shadow-2xs"
+                  title="Copy Protein translation"
+                >
+                  🧬 Copy Protein
+                </button>
                 {s.viewMode !== 'sequence' && (
                   <button
                     type="button"
@@ -545,6 +734,34 @@ export default function PlasmidView() {
               </div>
             </div>
           )}
+
+          {/* Continuous Zoom Slider Control */}
+          <div class="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Hierarchy Zoom:</span>
+              <span class="text-slate-400 text-[11px]">(Wheel or Slider)</span>
+            </div>
+            <div class="flex items-center gap-2 flex-1 max-w-xs">
+              <span class={`text-[11px] font-semibold cursor-pointer ${zoomLevel === 1 ? 'text-accent-600 dark:text-accent-400' : 'text-slate-400'}`} onClick={() => handleZoomSlider(1)}>
+                🪐 Circular
+              </span>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="1"
+                value={zoomLevel}
+                onInput={(e) => handleZoomSlider(parseInt((e.target as HTMLInputElement).value))}
+                class="w-full accent-accent-600 cursor-pointer"
+              />
+              <span class={`text-[11px] font-semibold cursor-pointer ${zoomLevel === 3 ? 'text-accent-600 dark:text-accent-400' : 'text-slate-400'}`} onClick={() => handleZoomSlider(3)}>
+                🔬 Sequence
+              </span>
+            </div>
+            <span class="font-semibold text-accent-600 dark:text-accent-400 text-xs bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 shadow-2xs">
+              {zoomLevel === 1 ? 'Circular Map' : zoomLevel === 2 ? 'Linear Track' : 'Sequence & ORFs'}
+            </span>
+          </div>
 
           {/* VIEW 1: Circular Plasmid Map */}
           {s.viewMode === 'circular' && (
@@ -768,7 +985,10 @@ export default function PlasmidView() {
                       <g
                         key={feat.id}
                         class="cursor-pointer"
-                        onClick={() => handleSelectFeatureRange(feat.start, feat.end, feat.name, feat.id)}
+                        onClick={() => {
+                          handleSelectFeatureRange(feat.start, feat.end, feat.name, feat.id);
+                          handleCopyDna(feat.start, feat.end, feat.strand, feat.name);
+                        }}
                       >
                         <rect
                           x={x1}
@@ -801,7 +1021,10 @@ export default function PlasmidView() {
                       <g
                         key={orf.id}
                         class="cursor-pointer"
-                        onClick={() => handleSelectFeatureRange(orf.start, orf.end, `ORF (${orf.frame > 0 ? `+${orf.frame}` : orf.frame})`)}
+                        onClick={() => {
+                          handleSelectFeatureRange(orf.start, orf.end, `ORF (${orf.frame > 0 ? `+${orf.frame}` : orf.frame})`);
+                          handleCopyProtein(orf.start, orf.end, orf.strand, `ORF (${orf.frame > 0 ? `+${orf.frame}` : orf.frame})`);
+                        }}
                       >
                         <rect
                           x={Math.min(x1, x2)}
@@ -893,22 +1116,71 @@ export default function PlasmidView() {
                 </div>
               </div>
 
-              {/* Nucleotide Sequence Viewer */}
-              <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Nucleotide Sequence
-                </h4>
+              {/* Nucleotide Sequence & Aligned Translation Header */}
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div>
+                  <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Nucleotide Sequence &amp; Aligned Translation
+                  </h4>
+                  <p class="text-[11px] text-slate-500">
+                    SnapGene-style codon-aligned amino acid translation track and complement strand.
+                  </p>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="text-slate-500 font-medium">Translation Track:</span>
+                  <select
+                    value={s.translationMode}
+                    onChange={(e) => set({ translationMode: (e.target as HTMLSelectElement).value as State['translationMode'] })}
+                    class="text-xs px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-medium"
+                  >
+                    <option value="selected">Selected Feature / ORF</option>
+                    <option value="frame1">Frame +1 (0 bp shift)</option>
+                    <option value="frame2">Frame +2 (+1 bp shift)</option>
+                    <option value="frame3">Frame +3 (+2 bp shift)</option>
+                    <option value="none">DNA Only (None)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Sequence Blocks */}
               <div
                 ref={seqContainerRef}
-                class="max-h-[380px] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 mono text-xs leading-relaxed space-y-2"
+                class="max-h-[380px] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 mono text-xs leading-relaxed space-y-3"
               >
                 {Array.from({ length: Math.ceil(plasmid.seq.length / s.seqZoomBp) }, (_, idx) => {
                   const start = idx * s.seqZoomBp;
                   const end = Math.min(plasmid.seq.length, start + s.seqZoomBp);
                   const chunk = plasmid.seq.slice(start, end);
+                  const len = chunk.length;
+
+                  // Complement strand
+                  const compMap: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' };
+                  const compChunk = chunk.split('').map(b => compMap[b] || b).join('');
+
+                  // Translation alignment
+                  let transLine: string | null = null;
+                  if (s.translationMode !== 'none') {
+                    let frame = 0;
+                    if (s.translationMode === 'frame1') frame = 0;
+                    else if (s.translationMode === 'frame2') frame = 1;
+                    else if (s.translationMode === 'frame3') frame = 2;
+                    else if (s.translationMode === 'selected') {
+                      frame = s.selectedRange ? ((s.selectedRange.start - 1) % 3) : 0;
+                    }
+
+                    const chars = new Array(len).fill(' ');
+                    for (let i = 0; i < len; i++) {
+                      const absPos = start + i;
+                      if (((absPos - frame) % 3 === 0) && (absPos - frame >= 0) && (i + 3 <= len)) {
+                        const codon = chunk.slice(i, i + 3);
+                        if (codon.length === 3) {
+                          const aa = translateDNA(codon);
+                          chars[i + 1] = aa;
+                        }
+                      }
+                    }
+                    transLine = chars.join('');
+                  }
 
                   const isHighlighted = s.selectedRange && (
                     (start + 1 <= s.selectedRange.end && end >= s.selectedRange.start)
@@ -918,14 +1190,27 @@ export default function PlasmidView() {
                     <div
                       key={idx}
                       id={`seq-line-${idx}`}
-                      class={`p-1.5 rounded transition flex items-start gap-4 ${isHighlighted ? 'bg-amber-100/70 dark:bg-amber-950/60 ring-1 ring-amber-400' : 'hover:bg-slate-100 dark:hover:bg-slate-900'}`}
+                      class={`p-2 rounded-xl transition flex items-start gap-4 font-mono ${isHighlighted ? 'bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-400' : 'hover:bg-slate-100 dark:hover:bg-slate-900/60'}`}
                     >
-                      <span class="text-slate-400 select-none w-16 text-right shrink-0">
+                      <span class="text-slate-400 select-none w-14 text-right shrink-0 text-[11px] pt-4">
                         {(start + 1).toString().padStart(5, '0')}
                       </span>
-                      <span class="font-mono tracking-wider font-semibold text-slate-800 dark:text-slate-200 break-all">
-                        {chunk}
-                      </span>
+                      <div class="flex-1 overflow-x-auto space-y-0.5 text-xs font-mono select-text">
+                        {/* Translation Amino Acid Track */}
+                        {transLine && (
+                          <div class="text-emerald-600 dark:text-emerald-400 font-bold tracking-widest text-[11px] whitespace-pre select-all">
+                            {transLine}
+                          </div>
+                        )}
+                        {/* Forward 5' -> 3' DNA */}
+                        <div class="font-bold text-slate-900 dark:text-slate-100 tracking-widest whitespace-pre select-all">
+                          {chunk}
+                        </div>
+                        {/* Complement 3' <- 5' DNA */}
+                        <div class="text-slate-400 dark:text-slate-500 tracking-widest whitespace-pre select-all text-[11px]">
+                          {compChunk}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}

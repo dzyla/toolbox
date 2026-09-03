@@ -302,3 +302,51 @@ export function plateToListCsv(wells: Record<string, WellData>, groups: SampleGr
 
   return rows.join('\n');
 }
+
+/** Serialize plate layout to Markdown format */
+export function plateToMarkdown(
+  format: PlateFormat,
+  wells: Record<string, WellData>,
+  groups: SampleGroup[]
+): string {
+  const dim = PLATE_DIMENSIONS[format];
+
+  const lines: string[] = [];
+  lines.push(`# ${format}-Well Microplate Layout\n`);
+
+  // Matrix table
+  const colHeaders = ['Row', ...Array.from({ length: dim.cols }, (_, i) => `${i + 1}`)];
+  lines.push(`| ${colHeaders.join(' | ')} |`);
+  lines.push(`| ${colHeaders.map(() => '---').join(' | ')} |`);
+
+  for (let r = 0; r < dim.rows; r++) {
+    const rowChar = dim.rowLabels[r]!;
+    const cells = [rowChar];
+    for (let c = 1; c <= dim.cols; c++) {
+      const well = wells[`${rowChar}${c}`];
+      if (!well || (!well.sampleGroupId && !well.sampleName)) {
+        cells.push('—');
+      } else {
+        const valStr = well.value !== undefined ? ` (${well.value} ${well.unit || ''})` : '';
+        cells.push(`${well.sampleName || well.sampleGroupId}${valStr}`);
+      }
+    }
+    lines.push(`| ${cells.join(' | ')} |`);
+  }
+
+  // Summary of sample groups
+  lines.push('\n## Sample Legend\n');
+  lines.push('| Group / Sample | Color | Assigned Wells |');
+  lines.push('| --- | --- | --- |');
+  for (const g of groups) {
+    const wellList = Object.values(wells)
+      .filter(w => w.sampleGroupId === g.id)
+      .map(w => w.id);
+    if (wellList.length > 0) {
+      lines.push(`| **${g.name}** | \`${g.color}\` | ${wellList.join(', ')} (${wellList.length}) |`);
+    }
+  }
+
+  return lines.join('\n');
+}
+

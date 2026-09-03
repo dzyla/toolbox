@@ -19,6 +19,8 @@ interface State {
   minCertainty: number; // 0.1 to 0.95
   minDiameter: number;  // px
   maxDiameter: number;  // px
+  minDistance: number;  // min separation in px
+  dishMarginPct: number; // rim margin exclusion %
   showSizeHistogram: boolean;
   showOverlayLabels: boolean;
 }
@@ -29,6 +31,8 @@ const DEFAULTS: State = {
   minCertainty: 0.50,
   minDiameter: 4,
   maxDiameter: 50,
+  minDistance: 5,
+  dishMarginPct: 15,
   showSizeHistogram: true,
   showOverlayLabels: false,
 };
@@ -94,7 +98,7 @@ export default function ColoniesView() {
       drawSyntheticPlate(ctx, canvas.width, canvas.height);
       runAutoDetection(ctx, canvas.width, canvas.height);
     }
-  }, [imageSrc]);
+  }, [imageSrc, s.minDistance, s.dishMarginPct]);
 
   function drawSyntheticPlate(ctx: CanvasRenderingContext2D, width: number, height: number) {
     const cx = width / 2;
@@ -167,11 +171,13 @@ export default function ColoniesView() {
   function runAutoDetection(ctx: CanvasRenderingContext2D, width: number, height: number) {
     try {
       const imgData = ctx.getImageData(0, 0, width, height);
+      const dishRadiusFrac = 1 - (s.dishMarginPct || 15) / 100;
       const detected = autoDetectColonies(imgData, {
-        minRadius: 2,
-        maxRadius: 30,
-        minCertainty: 0.35,
-        dishRadiusFrac: 0.90,
+        minRadius: 1,
+        maxRadius: 50,
+        minCertainty: 0.20,
+        minDistance: s.minDistance || 5,
+        dishRadiusFrac,
       });
       setAllDetected(detected);
     } catch {
@@ -401,6 +407,52 @@ export default function ColoniesView() {
               </div>
             </div>
 
+            {/* Minimum Colony Separation Distance */}
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
+                <span>Min Separation (Distance)</span>
+                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
+                  {s.minDistance} px
+                </span>
+              </div>
+              <input
+                type="range"
+                min="2"
+                max="25"
+                step="1"
+                aria-label="Min Separation"
+                value={s.minDistance}
+                onInput={(e) => set({ minDistance: parseInt((e.target as HTMLInputElement).value) || 2 })}
+                class="w-full accent-accent-600"
+              />
+              <span class="text-[10px] text-slate-400 block mt-0.5">
+                Lower separation allows detecting touching doublets / colonies close to each other.
+              </span>
+            </div>
+
+            {/* Petri Dish Rim Glare Exclusion */}
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
+                <span>Rim Glare Margin</span>
+                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
+                  {s.dishMarginPct}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="25"
+                step="1"
+                aria-label="Rim Glare Margin"
+                value={s.dishMarginPct}
+                onInput={(e) => set({ dishMarginPct: parseInt((e.target as HTMLInputElement).value) || 15 })}
+                class="w-full accent-accent-600"
+              />
+              <span class="text-[10px] text-slate-400 block mt-0.5">
+                Excludes edge glare reflections from plastic petri dish borders.
+              </span>
+            </div>
+
             <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 pt-1 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -566,20 +618,26 @@ export default function ColoniesView() {
                   Hover to inspect colony diameter and confidence score. Click any colony to dismiss; click open agar to add a manual pin.
                 </p>
               </div>
-              <div class="flex items-center gap-2">
-                {hoveredColony && (
-                  <span class="text-xs mono bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                    Dia: {((hoveredColony.radius || 4) * 2).toFixed(1)} px · Cert: {Math.round((hoveredColony.certainty ?? 1.0) * 100)}%
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                >
-                  Export CSV
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
+              >
+                Export CSV
+              </button>
+            </div>
+
+            {/* Fixed-height inspection bar: never causes canvas layout shift */}
+            <div class="h-6 flex items-center justify-between text-xs mono">
+              {hoveredColony ? (
+                <span class="bg-accent-50 dark:bg-accent-950/40 text-accent-800 dark:text-accent-300 px-2.5 py-0.5 rounded-md border border-accent-200 dark:border-accent-800 font-semibold">
+                  Colony {hoveredColony.id}: Diameter {((hoveredColony.radius || 4) * 2).toFixed(1)} px · Certainty {Math.round((hoveredColony.certainty ?? 1.0) * 100)}% · Position ({Math.round(hoveredColony.x)}, {Math.round(hoveredColony.y)})
+                </span>
+              ) : (
+                <span class="text-slate-400 text-[11px]">
+                  Hover any colony to inspect diameter, confidence, and position without shifting layout.
+                </span>
+              )}
             </div>
 
             <div class="flex justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden">

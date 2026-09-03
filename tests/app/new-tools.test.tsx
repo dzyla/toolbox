@@ -79,11 +79,12 @@ describe('Newly Introduced Laboratory Tools Views', () => {
     expect(screen.getByRole('button', { name: /Start/ })).toBeTruthy();
   });
 
-  it('renders Protocols SOP checklist with bundled protocols', () => {
+  it('renders Protocols SOP checklist with bundled protocols and AI prompt helper', () => {
     route.value = { name: 'tool', toolId: 'protocols' };
     render(<ProtocolsView />);
     expect(screen.getByText(/Lab Protocols & SOPs/)).toBeTruthy();
     expect(screen.getByTestId('progress-text')).toBeTruthy();
     expect(screen.getAllByText(/Plasmid DNA Miniprep/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Convert Protocol with AI/)).toBeTruthy();
   });
 });

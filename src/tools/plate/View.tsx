@@ -4,12 +4,12 @@ import {
   type WellData,
   type SampleGroup,
   PLATE_DIMENSIONS,
-  DEFAULT_SAMPLE_GROUPS,
   generateEmptyPlate,
   applyDilutionSeries,
   generatePipettingScheme,
   plateToMatrixCsv,
   plateToListCsv,
+  plateToMarkdown,
 } from '@/core/plates/layout';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
@@ -21,6 +21,7 @@ interface State {
   format: PlateFormat;
   activeGroupId: string;
   viewTab: 'map' | 'pipetting';
+  displayMode: 'shading' | 'labels';
   // Dilution Series
   dilutionStartRow: string;
   dilutionStartCol: number;
@@ -40,6 +41,7 @@ const DEFAULTS: State = {
   format: 96,
   activeGroupId: 'sample-1',
   viewTab: 'map',
+  displayMode: 'shading',
   dilutionStartRow: 'B',
   dilutionStartCol: 1,
   dilutionLength: 8,
@@ -80,10 +82,79 @@ export default function PlateView() {
     }, dim, 'Std');
   });
 
-  const [groups] = useState<SampleGroup[]>(DEFAULT_SAMPLE_GROUPS);
+  const [groups, setGroups] = useState<SampleGroup[]>(() => [
+    { id: 'blank', name: 'Blank / Media', color: '#94a3b8', type: 'blank' },
+    { id: 'neg-ctrl', name: 'Negative Control', color: '#64748b', type: 'neg-ctrl' },
+    { id: 'pos-ctrl', name: 'Positive Control', color: '#10b981', type: 'pos-ctrl' },
+    { id: 'std', name: 'Standard Curve', color: '#8b5cf6', type: 'standard' },
+    { id: 'sample-1', name: 'Sample 1', color: '#3b82f6', type: 'sample' },
+  ]);
   const [hoveredWell, setHoveredWell] = useState<WellData | null>(null);
   const [dragStart, setDragStart] = useState<{ rowIdx: number; col: number } | null>(null);
   const [dragCurrent, setDragCurrent] = useState<{ rowIdx: number; col: number } | null>(null);
+
+  function handleRenameGroup(id: string, newName: string) {
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, name: newName } : g));
+    setWells(prev => {
+      const updated = { ...prev };
+      let changed = false;
+      for (const key of Object.keys(updated)) {
+        if (updated[key]?.sampleGroupId === id) {
+          updated[key] = { ...updated[key]!, sampleName: newName };
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
+  }
+
+  function handleAddSample() {
+    const existingNums = groups
+      .map(g => {
+        const m = g.name.match(/Sample\s+(\d+)/i);
+        return m ? parseInt(m[1]!, 10) : 0;
+      })
+      .filter(n => !isNaN(n));
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : groups.length + 1;
+    const newId = `sample-${Date.now()}`;
+    const paletteColors = [
+      '#ec4899', '#f59e0b', '#06b6d4', '#8b5cf6', '#ef4444',
+      '#10b981', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
+    ];
+    const color = paletteColors[groups.length % paletteColors.length]!;
+    const newGroup: SampleGroup = {
+      id: newId,
+      name: `Sample ${nextNum}`,
+      color,
+      type: 'sample',
+    };
+    setGroups(prev => [...prev, newGroup]);
+    set({ activeGroupId: newId });
+  }
+
+  function handleDeleteGroup(id: string) {
+    if (groups.length <= 1) return;
+    setGroups(prev => prev.filter(g => g.id !== id));
+    setWells(prev => {
+      const updated = { ...prev };
+      for (const key of Object.keys(updated)) {
+        if (updated[key]?.sampleGroupId === id) {
+          updated[key] = {
+            ...updated[key]!,
+            sampleGroupId: '',
+            sampleName: '',
+            value: undefined,
+            unit: undefined,
+          };
+        }
+      }
+      return updated;
+    });
+    if (s.activeGroupId === id) {
+      const remaining = groups.filter(g => g.id !== id);
+      set({ activeGroupId: remaining[0]?.id || '' });
+    }
+  }
 
   const dim = useMemo(() => PLATE_DIMENSIONS[s.format], [s.format]);
 
@@ -249,6 +320,21 @@ export default function PlateView() {
     URL.revokeObjectURL(url);
   }
 
+  function handleExportMarkdown() {
+    const md = plateToMarkdown(s.format, wells, groups);
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plate_${s.format}well_layout.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handlePrintPdf() {
+    window.print();
+  }
+
   const assignedCount = Object.values(wells).filter(w => !!w.sampleGroupId).length;
   const totalWells = dim.rows * dim.cols;
 
@@ -294,29 +380,60 @@ export default function PlateView() {
 
           {/* Sample Groups Palette */}
           <div class="space-y-2 rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-            <span class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Sample Palette (Active Paint)
-            </span>
+            <div class="flex items-center justify-between">
+              <span class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Sample Palette (Active Paint)
+              </span>
+              <span class="text-[11px] text-slate-400">Click to select</span>
+            </div>
             <div class="space-y-1.5">
               {groups.map(g => {
                 const count = Object.values(wells).filter(w => w.sampleGroupId === g.id).length;
                 const isSelected = s.activeGroupId === g.id;
                 return (
-                  <button
+                  <div
                     key={g.id}
-                    type="button"
                     onClick={() => set({ activeGroupId: g.id })}
-                    class={`w-full p-2 rounded-lg text-xs font-semibold flex items-center justify-between border transition ${isSelected ? 'border-accent-500 bg-accent-50/30 dark:border-accent-600 dark:bg-accent-950/30' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    class={`w-full p-1.5 rounded-lg text-xs font-semibold flex items-center justify-between border cursor-pointer transition ${isSelected ? 'border-accent-500 bg-accent-50/40 dark:border-accent-600 dark:bg-accent-950/40 ring-1 ring-accent-500/20' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                   >
-                    <div class="flex items-center gap-2">
-                      <span class="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
-                      <span class="text-slate-800 dark:text-slate-200">{g.name}</span>
+                    <div class="flex items-center gap-2 flex-1 min-w-0 mr-1">
+                      <span class="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs" style={{ backgroundColor: g.color }} />
+                      <input
+                        type="text"
+                        value={g.name}
+                        onInput={(e) => handleRenameGroup(g.id, (e.target as HTMLInputElement).value)}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Click to rename sample group"
+                        class="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-accent-500 focus:bg-white dark:focus:bg-slate-800 px-1 py-0.5 rounded text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none w-full min-w-0"
+                      />
                     </div>
-                    <span class="mono text-[11px] text-slate-400">{count} wells</span>
-                  </button>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <span class="mono text-[10px] text-slate-400">{count}w</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteGroup(g.id);
+                        }}
+                        disabled={groups.length <= 1}
+                        title="Delete sample group"
+                        class="text-slate-400 hover:text-rose-500 disabled:opacity-30 disabled:hover:text-slate-400 transition text-[12px] px-1"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
+
+            <button
+              type="button"
+              onClick={handleAddSample}
+              class="w-full py-1.5 px-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-accent-500 hover:text-accent-600 text-xs font-semibold flex items-center justify-center gap-1 text-slate-600 dark:text-slate-400 transition"
+            >
+              <span>+ Add Sample</span>
+            </button>
           </div>
 
           {/* Serial Dilution Generator Accordion */}
@@ -418,20 +535,34 @@ export default function PlateView() {
             </div>
           </details>
 
-          <div class="flex gap-2">
+          <div class="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={handleExportMatrix}
-              class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white transition"
+              class="py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white transition"
             >
               Matrix CSV
             </button>
             <button
               type="button"
               onClick={handleExportList}
-              class="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              class="py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
               List CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleExportMarkdown}
+              class="py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Markdown (.md)
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintPdf}
+              class="py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1"
+            >
+              Print / Save PDF
             </button>
           </div>
 
@@ -447,22 +578,43 @@ export default function PlateView() {
       results={
         <div class="space-y-4" onMouseUp={handleMouseUp}>
           {/* Header Tabs */}
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
-            <div class="flex gap-2">
-              <button
-                type="button"
-                onClick={() => set({ viewTab: 'map' })}
-                class={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${s.viewTab === 'map' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
-              >
-                {s.format}-Well Plate Grid
-              </button>
-              <button
-                type="button"
-                onClick={() => set({ viewTab: 'pipetting' })}
-                class={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${s.viewTab === 'pipetting' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
-              >
-                Pipetting Scheme & Volumes
-              </button>
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => set({ viewTab: 'map' })}
+                  class={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${s.viewTab === 'map' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
+                >
+                  {s.format}-Well Plate Grid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set({ viewTab: 'pipetting' })}
+                  class={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${s.viewTab === 'pipetting' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
+                >
+                  Pipetting Scheme &amp; Volumes
+                </button>
+              </div>
+
+              {s.viewTab === 'map' && (
+                <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+                  <button
+                    type="button"
+                    onClick={() => set({ displayMode: 'shading' })}
+                    class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode !== 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                  >
+                    Color Shading
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set({ displayMode: 'labels' })}
+                    class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                  >
+                    Labels &amp; Values
+                  </button>
+                </div>
+              )}
             </div>
 
             {hoveredWell && s.viewTab === 'map' && (
@@ -476,6 +628,13 @@ export default function PlateView() {
           {s.viewTab === 'map' ? (
             /* Interactive Well Grid */
             <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 select-none">
+              <style>{`
+                @media print {
+                  body { background: white !important; color: black !important; }
+                  nav, aside, header, footer, .no-print { display: none !important; }
+                  .print\\:block { display: block !important; }
+                }
+              `}</style>
               <div class="inline-block min-w-full">
                 {/* Column Headers */}
                 <div class="flex items-center mb-1">
@@ -486,7 +645,7 @@ export default function PlateView() {
                       type="button"
                       onClick={() => handlePaintCol(c)}
                       title={`Fill column ${c}`}
-                      class="w-7 sm:w-8 h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0"
+                      class={`${s.displayMode === 'labels' && dim.format <= 96 ? 'w-14 sm:w-16' : 'w-7 sm:w-8'} h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
                     >
                       {c}
                     </button>
@@ -503,7 +662,7 @@ export default function PlateView() {
                         type="button"
                         onClick={() => handlePaintRow(rowChar)}
                         title={`Fill row ${rowChar}`}
-                        class="w-8 h-7 sm:h-8 mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0"
+                        class={`w-8 ${s.displayMode === 'labels' && dim.format <= 96 ? 'h-12 sm:h-14' : 'h-7 sm:h-8'} mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
                       >
                         {rowChar}
                       </button>
@@ -539,6 +698,8 @@ export default function PlateView() {
                           }
                         }
 
+                        const isLabelsMode = s.displayMode === 'labels' && dim.format <= 96;
+
                         return (
                           <button
                             key={wellId}
@@ -552,9 +713,23 @@ export default function PlateView() {
                               backgroundColor: isOccupied ? group.color : 'transparent',
                               opacity: isOccupied ? opacity : 1,
                             }}
-                            class={`w-7 sm:w-8 h-7 sm:h-8 mx-0.5 rounded-full border transition flex items-center justify-center shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? 'border-black/30 text-white shadow-2xs font-bold text-[9px]' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950'}`}
+                            class={`${isLabelsMode ? 'w-14 sm:w-16 h-12 sm:h-14 rounded-lg flex flex-col justify-between p-1' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? 'border-black/30 text-white shadow-2xs font-bold' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950'}`}
                           >
-                            {isOccupied ? (dim.format <= 96 ? wellId : '') : ''}
+                            {isLabelsMode ? (
+                              <>
+                                <div class="w-full flex justify-between items-start text-[8px] font-mono leading-none opacity-80">
+                                  <span>{wellId}</span>
+                                </div>
+                                <div class="w-full text-center font-bold text-[9px] sm:text-[10px] leading-tight truncate px-0.5">
+                                  {well?.sampleName || (isOccupied ? group.name : '—')}
+                                </div>
+                                <div class="w-full text-center text-[8px] font-mono leading-none opacity-90 truncate">
+                                  {well?.value !== undefined ? `${well.value >= 0.01 ? well.value : well.value.toExponential(1)} ${well.unit || ''}` : ''}
+                                </div>
+                              </>
+                            ) : (
+                              isOccupied ? (dim.format <= 96 ? <span class="text-[9px]">{wellId}</span> : '') : ''
+                            )}
                           </button>
                         );
                       })}

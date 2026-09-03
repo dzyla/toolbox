@@ -18,6 +18,25 @@ const DEFAULTS: State = {
   protocolId: 'miniprep',
 };
 
+const AI_PROMPT_TEMPLATE = `Please convert the attached experimental protocol, SOP, or methods text into the following structured Markdown format:
+
+# [Protocol Title]
+
+## Materials
+- [Reagent or equipment item 1]
+- [Reagent or equipment item 2]
+
+## Procedure
+- [ ] 1. Resuspend pellet in 250 µL Buffer P1 [timer: 2 min]
+- [ ] 2. Add 250 µL Buffer P2 and invert 4-6 times to mix. CRITICAL: Do not vortex
+- [ ] 3. Centrifuge at 13,000 rpm at room temperature [timer: 10 min]
+
+Rules:
+1. Every procedural step MUST begin with "- [ ]" and describe a single atomic action starting with a verb.
+2. If a step involves incubation, centrifugation, shaking, or waiting, append "[timer: X min]" (e.g. [timer: 15 min]).
+3. Use "CRITICAL:" for steps requiring special care, temperature limits, or warnings.
+4. Output ONLY the markdown text, with no extra conversational commentary.`;
+
 export default function ProtocolsView() {
   const [stateSig, shareUrl] = useUrlState<State>('protocols', DEFAULTS);
   const s = stateSig.value;
@@ -27,6 +46,13 @@ export default function ProtocolsView() {
   const [customMdInput, setCustomMdInput] = useState('');
   const [activeTimerStepId, setActiveTimerStepId] = useState<string | null>(null);
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<number>(0);
+  const [promptCopied, setPromptCopied] = useState(false);
+
+  function handleCopyAiPrompt() {
+    navigator.clipboard?.writeText?.(AI_PROMPT_TEMPLATE);
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 2000);
+  }
 
   function handleSelectProtocol(id: string) {
     set({ protocolId: id });
@@ -125,6 +151,31 @@ export default function ProtocolsView() {
               class="w-full py-1.5 bg-accent-600 hover:bg-accent-700 text-white font-semibold rounded-lg transition"
             >
               Parse & Load Protocol
+            </button>
+          </details>
+
+          {/* AI Prompt Helper Card */}
+          <details class="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900/60 dark:bg-indigo-950/30 text-xs space-y-2">
+            <summary class="cursor-pointer font-semibold text-indigo-900 dark:text-indigo-200 select-none flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span>🤖</span>
+                <span>Convert Protocol with AI (LLM Prompt)</span>
+              </span>
+              <span class="text-[10px] uppercase font-bold text-indigo-500">ChatGPT / Claude</span>
+            </summary>
+            <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300">
+              Paste this prompt into ChatGPT, Claude, or Gemini alongside any PDF, SOP, or paper method section to generate compatible checklist markdown:
+            </p>
+            <pre class="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 font-mono text-[10px] leading-relaxed overflow-x-auto text-slate-700 dark:text-slate-300 whitespace-pre-wrap select-all">
+              {AI_PROMPT_TEMPLATE}
+            </pre>
+            <button
+              type="button"
+              onClick={handleCopyAiPrompt}
+              class="w-full py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <span>{promptCopied ? '✓' : '📋'}</span>
+              <span>{promptCopied ? 'Copied Prompt to Clipboard!' : 'Copy AI Prompt Template'}</span>
             </button>
           </details>
 

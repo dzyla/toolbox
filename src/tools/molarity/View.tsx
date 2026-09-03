@@ -87,12 +87,14 @@ export default function View() {
           <Quantity id="serial-volume" label="Final volume per well" value={s.serialVolume} units={VOL} onChange={serialVolume => set({ serialVolume })} />
         </>}
       </>}
-      results={error ? <p role="alert" class="text-red-600">{error}</p> : s.tab === 'serial' ? <div data-testid="serial-results" class="overflow-x-auto">
-        <p class="mb-3 text-sm">Transfer <strong>{rows![0]!.transferVolume} {s.serialVolume.unit}</strong> into <strong>{rows![1]?.diluentVolume ?? s.serialVolume.value} {s.serialVolume.unit}</strong> diluent per receiving well. Prepare well 1 to <strong>{rows![0]!.preparationVolume} {s.serialVolume.unit}</strong>.</p>
+      results={error ? <p role="alert" class="text-red-600 dark:text-red-400 font-medium">{error}</p> : s.tab === 'serial' ? <div data-testid="serial-results" class="overflow-x-auto space-y-3">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-sm leading-relaxed text-slate-800 dark:text-slate-200">Transfer <strong class="font-bold text-accent-600 dark:text-accent-400">{rows![0]!.transferVolume} {s.serialVolume.unit}</strong> into <strong class="font-bold text-accent-600 dark:text-accent-400">{rows![1]?.diluentVolume ?? s.serialVolume.value} {s.serialVolume.unit}</strong> diluent per receiving well. Prepare well 1 to <strong class="font-bold text-accent-600 dark:text-accent-400">{rows![0]!.preparationVolume} {s.serialVolume.unit}</strong>.</p>
+        </div>
         <table class="w-full text-left text-sm"><thead><tr><th class="pb-2">Well</th><th class="pb-2 text-right">Concentration</th><th class="pb-2 text-right">Diluent</th></tr></thead>
-          <tbody>{rows!.map(row => <tr key={row.well} class="border-t border-slate-200 dark:border-slate-700"><td class="py-2">Well {row.well}</td><td class="py-2 text-right font-mono">{Number(row.concentration.toPrecision(5))} {s.serialConc.unit}</td><td class="py-2 text-right font-mono">{row.diluentVolume} {s.serialVolume.unit}</td></tr>)}</tbody></table>
+          <tbody>{rows!.map(row => <tr key={row.well} class="border-t border-slate-200 dark:border-slate-700"><td class="py-2">Well {row.well}</td><td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{Number(row.concentration.toPrecision(5))} {s.serialConc.unit}</td><td class="py-2 text-right font-mono">{row.diluentVolume} {s.serialVolume.unit}</td></tr>)}</tbody></table>
         <p class="mt-3 text-xs text-slate-500">After mixing, transfer onward from each well; remove the same transfer volume from the final well so every well retains {s.serialVolume.value} {s.serialVolume.unit}.</p>
-      </div> : <p class="text-lg" data-testid="result">{result}</p>}
+      </div> : <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p class="text-xl font-bold leading-snug text-slate-900 dark:text-slate-100" data-testid="result">{result}</p></div>}
       actions={<ActionBar onCopy={() => `${result}\n\n${scienceText(SCIENCE)}`} shareUrl={shareUrl} />}
       science={<SciencePanel science={SCIENCE} />}
     />
