@@ -8,6 +8,7 @@ import {
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { ToolLayout } from '@/app/components/ToolLayout';
+import { DecimalInput } from '@/app/components/DecimalInput';
 import { SCIENCE } from './science';
 
 interface State {
@@ -107,17 +108,13 @@ export default function View() {
         {p.removed && `Ignored characters: ${p.removed}. `}{p.records > 1 && `${p.records} FASTA records found; only the first is used.`}</span>}
     </label>
   );
-  const num = (k: 'gapOpen' | 'gapExtend' | 'match' | 'mismatch', label: string, min?: number, step: string = 'any') => (
+  const num = (k: 'gapOpen' | 'gapExtend' | 'match' | 'mismatch', label: string, min?: number, step: string | number = 'any') => (
     <label class="block"><span class="mb-1 block text-sm font-medium">{label}</span>
-      <input
-        type="number"
+      <DecimalInput
         step={step}
         min={min}
         value={s[k]}
-        onInput={e => {
-          const val = parseFloat((e.target as HTMLInputElement).value);
-          if (Number.isFinite(val)) set({ [k]: val });
-        }}
+        onChange={val => set({ [k]: val })}
         class={inputCls}
       />
     </label>

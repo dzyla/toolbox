@@ -43,6 +43,27 @@ describe('Cryo-EM tool', () => {
 
     expect(screen.getByText(/Total Dose/)).toBeTruthy();
   });
+
+  it('allows keystroke entry of float exposure 2.3 s without resetting decimal point', async () => {
+    route.value = { name: 'tool', toolId: 'cryoem' };
+    render(<CryoEmView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dose Calculator' }));
+
+    const timeInput = screen.getByLabelText(/Total Exposure/) as HTMLInputElement;
+
+    // Simulate typing "2", then "2.", then "2.3"
+    fireEvent.input(timeInput, { target: { value: '2' } });
+    expect(timeInput.value).toBe('2');
+
+    fireEvent.input(timeInput, { target: { value: '2.' } });
+    expect(timeInput.value).toBe('2.');
+
+    fireEvent.input(timeInput, { target: { value: '2.3' } });
+    expect(timeInput.value).toBe('2.3');
+
+    // 15 * 2.3 / (0.83^2) ≈ 50.1 e⁻/Å²
+    expect(screen.getByText('50.1')).toBeTruthy();
+  });
 });
 
 describe('Nucleic Acids tool', () => {

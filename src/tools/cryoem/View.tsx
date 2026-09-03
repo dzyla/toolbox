@@ -3,6 +3,7 @@ import { useUrlState } from '@/lib/url-state';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
+import { DecimalInput } from '@/app/components/DecimalInput';
 import { SCIENCE } from './science';
 import {
   compareBoxes, nextGoodBox, isGoodBox, dosePlan, exposureForDose,
@@ -40,7 +41,7 @@ const DEFAULTS: State = {
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
 
 export default function CryoEmView() {
-  const [state] = useUrlState('bb.cryoem', DEFAULTS);
+  const [state, shareUrl] = useUrlState<State>('cryoem', DEFAULTS);
   const s = state.value;
   const set = (patch: Partial<State>) => { state.value = { ...state.value, ...patch }; };
 
@@ -123,13 +124,12 @@ export default function CryoEmView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Pixel Size (Å/px)</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.001"
+                <DecimalInput
                   class={FIELD}
                   value={s.pixelSize}
-                  onInput={e => set({ pixelSize: Number((e.target as HTMLInputElement).value) })}
+                  onChange={pixelSize => set({ pixelSize })}
+                  min={0.001}
+                  step={0.01}
                 />
               </div>
 
@@ -181,38 +181,35 @@ export default function CryoEmView() {
             <div class="space-y-3">
               <label class="block">
                 <span class="block text-sm font-medium mb-1">Pixel Size (Å/px)</span>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.001"
+                <DecimalInput
                   class={FIELD}
                   value={s.pixelSize}
-                  onInput={e => set({ pixelSize: Number((e.target as HTMLInputElement).value) })}
+                  onChange={pixelSize => set({ pixelSize })}
+                  min={0.001}
+                  step={0.01}
                 />
               </label>
 
               <label class="block">
                 <span class="block text-sm font-medium mb-1">Dose Rate (e⁻/px/s on detector)</span>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.001"
+                <DecimalInput
                   class={FIELD}
                   value={s.doseRate}
-                  onInput={e => set({ doseRate: Number((e.target as HTMLInputElement).value) })}
+                  onChange={doseRate => set({ doseRate })}
+                  min={0.001}
+                  step={0.5}
                 />
               </label>
 
               <div class="grid grid-cols-2 gap-3">
                 <label class="block">
                   <span class="block text-sm font-medium mb-1">Total Exposure (s)</span>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0.001"
+                  <DecimalInput
                     class={FIELD}
                     value={s.exposureTime}
-                    onInput={e => set({ exposureTime: Number((e.target as HTMLInputElement).value) })}
+                    onChange={exposureTime => set({ exposureTime })}
+                    min={0.001}
+                    step={0.1}
                   />
                 </label>
                 <label class="block">
@@ -230,13 +227,12 @@ export default function CryoEmView() {
 
               <label class="block pt-2">
                 <span class="block text-xs text-slate-500 mb-1">Target Desired Dose (e⁻/Å²)</span>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.01"
+                <DecimalInput
                   class={FIELD}
                   value={s.targetDose}
-                  onInput={e => set({ targetDose: Number((e.target as HTMLInputElement).value) })}
+                  onChange={targetDose => set({ targetDose })}
+                  min={0.01}
+                  step={1}
                 />
               </label>
             </div>
@@ -247,13 +243,12 @@ export default function CryoEmView() {
               <div>
                 <label class="block text-sm font-medium mb-1">Detector Physical Pixel (µm)</label>
                 <div class="flex gap-2">
-                  <input
-                    type="number"
-                    step="any"
-                    min="0.1"
+                  <DecimalInput
                     class={`${FIELD} flex-1`}
                     value={s.detectorUm}
-                    onInput={e => set({ detectorUm: Number((e.target as HTMLInputElement).value) })}
+                    onChange={detectorUm => set({ detectorUm })}
+                    min={0.1}
+                    step={0.5}
                   />
                   <button
                     type="button"
@@ -274,28 +269,26 @@ export default function CryoEmView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Magnification</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="1"
+                <DecimalInput
                   class={FIELD}
                   value={s.mag}
-                  onInput={e => set({ mag: Number((e.target as HTMLInputElement).value) })}
+                  onChange={mag => set({ mag })}
+                  min={1}
+                  step={1000}
                 />
               </div>
 
               <div>
                 <label class="block text-sm font-medium mb-1">Target Pixel Size (Å/px) → Calculate Mag</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.001"
+                <DecimalInput
                   class={FIELD}
+                  value={s.pixelSize}
                   placeholder="Type a pixel size to update magnification"
-                  onChange={e => {
-                    const px = Number((e.target as HTMLInputElement).value);
-                    if (px > 0 && s.detectorUm > 0) set({ mag: Math.round(magFromPixelSize(s.detectorUm, px)) });
+                  onChange={px => {
+                    if (px > 0 && s.detectorUm > 0) set({ pixelSize: px, mag: Math.round(magFromPixelSize(s.detectorUm, px)) });
                   }}
+                  min={0.001}
+                  step={0.01}
                 />
               </div>
             </div>
@@ -448,7 +441,7 @@ export default function CryoEmView() {
           )}
         </div>
       }
-      actions={<ActionBar onCopy={copyText} />}
+      actions={<ActionBar onCopy={copyText} shareUrl={shareUrl} />}
       science={<SciencePanel science={SCIENCE} />}
     />
   );
