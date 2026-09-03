@@ -54,7 +54,7 @@ export const TOOLS: ToolMeta[] = [
     status: 'ready', load: () => import('./align/View') },
   { id: 'binding', name: 'Binding Calculator', category: 'sequences', icon: '🧲',
     blurb: 'Kd, complex fractions, cooperativity, Ki', keywords: ['kd', 'binding', 'affinity', 'cheng-prusoff', 'hill', 'ki'],
-    status: 'porting' },
+    status: 'ready', load: () => import('./binding/View') },
   { id: 'gel', name: 'Gel / Blot', category: 'gels', icon: '🩻',
     blurb: 'Annotate lanes, ladders and bands; quantify', keywords: ['gel', 'blot', 'western', 'ladder', 'densitometry', 'band'],
     status: 'porting', hasProjects: true },
