@@ -57,7 +57,7 @@ export const TOOLS: ToolMeta[] = [
     status: 'ready', load: () => import('./binding/View') },
   { id: 'gel', name: 'Gel / Blot', category: 'gels', icon: '🩻',
     blurb: 'Annotate lanes, ladders and bands; quantify', keywords: ['gel', 'blot', 'western', 'ladder', 'densitometry', 'band'],
-    status: 'porting', hasProjects: true },
+    status: 'ready', hasProjects: true, load: () => import('./gel/View') },
   { id: 'measure', name: 'Image Measurer', category: 'gels', icon: '📐',
     blurb: 'Calibrate and measure distances and areas', keywords: ['measure', 'scale bar', 'distance', 'area', 'ruler'],
     status: 'planned' },

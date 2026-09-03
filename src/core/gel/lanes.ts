@@ -1,0 +1,68 @@
+/* Lane finding: vertical projection of the signal, smoothing, peaks = lane centres, valleys = boundaries. */
+import type { Affine, Lane, Plane, Polarity } from './types';
+import { IDENTITY, apply, sampleBilinear } from './transform';
+import { findPeaks, gaussianSmooth } from './filters';
+import { toSignal } from './profile';
+
+export interface Region { x: number; y: number; w: number; h: number }
+
+/** Mean signal per column of a working-frame region (bands positive). Columns outside the image are NaN. */
+export function verticalProjection(plane: Plane, region: Region, polarity: Polarity, toRaw: Affine = IDENTITY, rowStep = 1): Float32Array {
+  const w = Math.max(1, Math.round(region.w)), h = Math.max(1, Math.round(region.h));
+  const out = new Float32Array(w);
+  for (let c = 0; c < w; c++) {
+    let sum = 0, k = 0;
+    for (let r = 0; r < h; r += rowStep) {
+      const [rx, ry] = apply(toRaw, region.x + c + 0.5, region.y + r + 0.5);
+      const v = sampleBilinear(plane, rx - 0.5, ry - 0.5);
+      if (!Number.isNaN(v)) { sum += toSignal(v, polarity); k++; }
+    }
+    out[c] = k ? sum / k : NaN;
+  }
+  return out;
+}
+
+export interface AutoLaneOptions {
+  /** Gaussian sigma for the projection, px. Default: region width / 150, at least 1.5. */
+  smoothing?: number;
+  /** Minimum lane prominence as a fraction of the strongest lane. Default 0.15. */
+  minProminence?: number;
+  /** Minimum lane width, px. Default 4. */
+  minWidth?: number;
+  /** Shrink each detected lane to this fraction of its half-prominence width to avoid neighbours. Default 0.9. */
+  widthFraction?: number;
+}
+
+let laneCounter = 0;
+export const laneId = () => `lane${++laneCounter}-${Date.now().toString(36)}`;
+
+/** Auto-detect lanes inside a region of the working frame. Returns lanes sorted left to right. */
+export function autoLanes(plane: Plane, region: Region, polarity: Polarity, toRaw: Affine = IDENTITY, opts: AutoLaneOptions = {}): Lane[] {
+  const proj = verticalProjection(plane, region, polarity, toRaw, region.h > 400 ? 2 : 1);
+  const clean = Float32Array.from(proj, v => Number.isNaN(v) ? 0 : v);
+  const sigma = opts.smoothing ?? Math.max(1.5, region.w / 150);
+  const sm = gaussianSmooth(clean, sigma);
+  // Prominence in findPeaks already judges each peak against its local valleys.
+  const peaks = findPeaks(sm, { minProminence: opts.minProminence ?? 0.15, relative: true, minWidth: opts.minWidth ?? 4 });
+  const frac = opts.widthFraction ?? 0.9;
+  return peaks.map(p => {
+    const width = Math.max(opts.minWidth ?? 4, Math.round(p.width * frac));
+    const cx = p.halfCenter ?? (p.left + p.right) / 2;
+    return { id: laneId(), x: region.x + cx + 0.5, y0: region.y, y1: region.y + region.h, width, tilt: 0 };
+  });
+}
+
+/** N equally spaced lanes across a region; each lane is `widthFraction` of the pitch wide. */
+export function equalLanes(n: number, region: Region, widthFraction = 0.7): Lane[] {
+  if (!(n >= 1)) return [];
+  const pitch = region.w / n;
+  return Array.from({ length: n }, (_, i) => ({
+    id: laneId(), x: region.x + pitch * (i + 0.5), y0: region.y, y1: region.y + region.h, width: Math.max(1, Math.round(pitch * widthFraction)), tilt: 0,
+  }));
+}
+
+/** Centre x of a lane at a given working-frame y (clamped to the lane's extent). */
+export function laneCentreAt(lane: Lane, y: number): number {
+  const t = lane.y1 === lane.y0 ? 0 : Math.min(1, Math.max(0, (y - lane.y0) / (lane.y1 - lane.y0)));
+  return lane.x + lane.tilt * t;
+}
