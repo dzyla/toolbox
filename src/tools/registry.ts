@@ -51,7 +51,7 @@ export const TOOLS: ToolMeta[] = [
     status: 'porting' },
   { id: 'align', name: 'Alignment', category: 'sequences', icon: '🔗',
     blurb: 'Pairwise global and local alignment', keywords: ['alignment', 'blosum', 'needleman', 'smith-waterman', 'align'],
-    status: 'porting' },
+    status: 'ready', load: () => import('./align/View') },
   { id: 'binding', name: 'Binding Calculator', category: 'sequences', icon: '🧲',
     blurb: 'Kd, complex fractions, cooperativity, Ki', keywords: ['kd', 'binding', 'affinity', 'cheng-prusoff', 'hill', 'ki'],
     status: 'porting' },
