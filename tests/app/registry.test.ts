@@ -25,7 +25,7 @@ describe('registry', () => {
     expect(porting).toEqual([]);
     const readyTools = [
       'molarity', 'buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate',
-      'cryoem', 'protein', 'protein-conc', 'nucleic', 'sequence', 'plasmid',
+      'cryoem', 'fitting', 'protein', 'protein-conc', 'nucleic', 'sequence', 'plasmid',
       'align', 'binding', 'gel', 'colors',
       'measure', 'colonies', 'hemocytometer', 'tally', 'plate', 'culture', 'timers', 'protocols',
     ];
