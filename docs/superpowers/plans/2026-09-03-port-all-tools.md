@@ -23,7 +23,7 @@
 
 ---
 
-## Slice A — Calculators: Buffers, Centrifuge, Master Mix, Ammonium Sulfate, Serial Dilution
+## Task 1: Calculators — Buffers, Centrifuge, Master Mix, Ammonium Sulfate, Serial Dilution
 
 **Owns:** `src/core/buffers/`, `src/core/centrifuge/`, `src/core/reactions/{mastermix,ammonium-sulfate,serial-dilution}.ts`, `src/data/chemicals.json`, `src/data/buffer-presets.json`, `src/tools/{buffers,centrifuge,master-mix,ammonium-sulfate}/`, and a new "Serial dilution" tab in `src/tools/molarity/`.
 **Port from:** `legacy/bio_bench.html` (tabs buffer, utils, reactions, purify) and `legacy/labConstants.js` (chemical table, already audited).
@@ -39,7 +39,7 @@
 - [ ] `core/reactions/serial-dilution.ts`: `plan({ startConc, factor, steps, wellVolume, }) → rows` with transfer = V/(f−1), diluent = V, and well-1 preparation volume = V + V/(f−1); tests f=2, V=100 µL. Add a "Serial dilution" tab to the Molarity tool.
 - [ ] Registry: buffers, centrifuge, master-mix, ammonium-sulfate → ready.
 
-## Slice B — Protein Workbench and Protein Concentration
+## Task 2: Protein Workbench and Protein Concentration
 
 **Owns:** `src/core/protein/{profiles,features,mass}.ts` (new files; you may add exports to `src/core/protein/index.ts` but do not change existing signatures), `src/core/spectro/`, `src/tools/{protein,protein-conc}/`, `src/data/protein/modifications.json`.
 **Port from:** `legacy/protein_params.html` (all features), `legacy/bio_bench.html` "Protein Concentration & Mods" tab.
@@ -53,7 +53,7 @@
 - [ ] Protein Concentration view: A280 → concentration with ε (typed or from a sequence via core/protein), path length, dilution factor; standard-curve tab (paste concentration/absorbance pairs, fit, read unknowns).
 - [ ] Registry: protein, protein-conc → ready.
 
-## Slice C — Nucleic Acids, Sequence Viewer & Tools, Cryo-EM
+## Task 3: Nucleic Acids, Sequence Viewer & Tools, Cryo-EM
 
 **Owns:** `src/core/nucleic/`, `src/core/cryoem/`, `src/data/{codon-tables,restriction-enzymes,nn-santalucia}.json`, `src/tools/{nucleic,sequence,cryoem}/`.
 **Port from:** `legacy/bio_bench.html` (Nucleic Acids, Sequence Viewer React component, Cryo-EM tab), `legacy/text_counter.html` (revcomp/GC/Tm bits).
@@ -67,7 +67,7 @@
 - [ ] Cryo-EM view: port the parameters tab with the new dose and magnification calculators.
 - [ ] Registry: nucleic, sequence, cryoem → ready.
 
-## Slice D — Alignment
+## Task 4: Alignment
 
 **Owns:** `src/core/align/`, `src/data/matrices.json`, `src/tools/align/`.
 **Port from:** `legacy/bio_align_engine.js` (traceback already fixed; port the fixed version) and the alignment UI in `legacy/bio_bench.html` (tab-align).
@@ -77,7 +77,7 @@
 - [ ] View: two sequence inputs (FASTA or raw; auto DNA/protein), matrix and gap parameters, mode selector, result rendered as wrapped aligned blocks with a midline and colour by score class (plus shape/letter cues), statistics, copy as CLUSTAL/FASTA, export.
 - [ ] Registry: align → ready.
 
-## Slice E — Binding Calculator
+## Task 5: Binding Calculator
 
 **Owns:** `src/core/binding/`, `src/tools/binding/`.
 **Port from:** `legacy/binding_engine.js` (fixed solvers) and `legacy/binding_calculator.html`.
@@ -86,7 +86,7 @@
 - [ ] View: port all panels (inputs with mass/molar mode and MW validation, model choice, results tiles from exact species, species table, saturation curve with freeze-reference that stores raw nM values and re-renders in current units, species landscape, Hill plot on free ligand disabled in threshold mode with an explanation, target occupancy solver, Ki calculator, mixing helper, serial dilution planner using the chosen factor, kinetics panel). Charts via `LineChart` with log-x option.
 - [ ] Registry: binding → ready.
 
-## Slice F — Gel / Blot (overhaul, spec section 6)
+## Task 6: Gel / Blot (overhaul, spec section 6)
 
 **Owns:** `src/core/gel/`, `src/data/ladders.json`, `src/lib/image.ts`, `src/tools/gel/`. Add dependency `utif` (TIFF decode) via `npm install utif` and `@types/utif` if available.
 **Port from:** `legacy/gel_annotator.html` only for ideas; this is a rewrite per the spec.
@@ -98,7 +98,7 @@
 - [ ] Science panel per spec: relative quantification, linear range, saturation, compare within a gel.
 - [ ] Registry: gel → ready (hasProjects stays true). Commit after each stage; if you must stop early, the tool must still be usable at its current stage and the report must say what is missing.
 
-## Slice G — Figure Colours
+## Task 7: Figure Colours
 
 **Owns:** `src/core/colors/`, `src/tools/colors/`. Add `d3-scale-chromatic` and `d3-color` (+ types).
 **Port from:** `legacy/color_generator.html`.
@@ -107,6 +107,6 @@
 - [ ] View: scheme groups, count, swatches with hex copy, simulation toggles side by side, variations panel, exports.
 - [ ] Registry: colors → ready.
 
-## Integration (orchestrator)
+## Task 8: Integration
 
 - [ ] Merge each slice branch into `port-all-tools`, resolve `registry.ts` and `package.json` conflicts, run the full suite and e2e, fix cross-slice issues, update `tests/e2e/smoke.spec.ts` to open every ready tool and check for page errors, then merge to main.
