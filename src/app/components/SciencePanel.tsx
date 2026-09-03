@@ -22,22 +22,22 @@ function parseFormula(raw: string): { expr: string; note?: string } {
 function EquationItem({ formula, index }: { formula: string; index: number }) {
   const { expr, note } = parseFormula(formula);
   return (
-    <div class="group relative rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-slate-700">
-      <div class="flex items-baseline justify-between gap-3">
+    <div class="group relative rounded-lg border border-slate-200/60 bg-slate-50/40 px-4 py-2.5 transition-colors hover:border-slate-300/80 dark:border-slate-800/60 dark:bg-slate-900/30 dark:hover:border-slate-700/80">
+      <div class="flex items-baseline justify-between gap-4">
         <div class="overflow-x-auto py-0.5">
-          <code class="font-mono text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 tracking-tight select-all">
+          <span class="font-serif italic text-base sm:text-[17px] text-slate-800 dark:text-slate-200 tracking-wide select-all">
             {expr}
-          </code>
+          </span>
         </div>
-        <span class="shrink-0 text-xs font-medium text-slate-400 dark:text-slate-500 select-none">
+        <span class="shrink-0 font-serif italic text-xs text-slate-400 dark:text-slate-500 select-none">
           ({index + 1})
         </span>
       </div>
       {note && (
-        <div class="mt-1.5 flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-          <span class="select-none text-accent-600 dark:text-accent-400 font-medium">↳</span>
-          <span>{note}</span>
-        </div>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
+          <span class="text-slate-400 select-none mr-1">—</span>
+          {note}
+        </p>
       )}
     </div>
   );
@@ -45,18 +45,18 @@ function EquationItem({ formula, index }: { formula: string; index: number }) {
 
 export function SciencePanel({ science, open }: { science: Science; open?: boolean }) {
   return (
-    <details open={open} class="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-900">
-      <summary class="cursor-pointer font-semibold text-base select-none text-slate-900 dark:text-slate-100 flex items-center justify-between">
+    <details open={open} class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <summary class="cursor-pointer font-medium text-sm select-none text-slate-700 dark:text-slate-300 flex items-center justify-between">
         <span class="flex items-center gap-2">
-          <span class="text-accent-600 dark:text-accent-400">📐</span>
-          Science: {science.title}
+          <span class="text-slate-400">📐</span>
+          <span class="font-semibold text-slate-900 dark:text-slate-100">Science: {science.title}</span>
         </span>
-        <span class="text-xs font-normal text-slate-400">Expand for methods & references</span>
+        <span class="text-xs font-normal text-slate-400">Expand for derivations & literature</span>
       </summary>
       <div class="mt-4 space-y-4 text-sm">
         <div>
-          <h4 class="font-semibold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-            Mathematical Equations & Definitions
+          <h4 class="font-medium text-xs text-slate-500 dark:text-slate-400 mb-2 tracking-wider uppercase">
+            Formulation
           </h4>
           <div class="space-y-2">
             {science.formulas.map((f, i) => (

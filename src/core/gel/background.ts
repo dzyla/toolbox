@@ -2,7 +2,33 @@
 import type { Band } from './types';
 import { opening, mean } from './filters';
 
-export type BackgroundMethod = 'none' | 'rolling' | 'valley' | 'roi';
+export type BackgroundMethod = 'none' | 'rolling' | 'valley' | 'roi' | 'shared';
+
+/**
+ * Cross-lane shared baseline: computes the uniform background matrix level across all lanes,
+ * ensuring that baseline subtraction is strictly comparable between lanes without per-lane distortion.
+ * Recommended for quantitative comparative Western blots and multi-lane densitometry.
+ */
+export function sharedCrossLaneBaseline(profiles: Float32Array[], radius = 50): Float32Array {
+  if (profiles.length === 0) return new Float32Array(0);
+  const len = profiles[0]!.length;
+  const baselineValues = new Float32Array(len);
+  for (let y = 0; y < len; y++) {
+    const col: number[] = [];
+    for (let l = 0; l < profiles.length; l++) {
+      const v = profiles[l]![y] ?? 0;
+      if (!Number.isNaN(v)) col.push(v);
+    }
+    if (col.length === 0) {
+      baselineValues[y] = 0;
+    } else {
+      col.sort((a, b) => a - b);
+      const qIdx = Math.floor(col.length * 0.25);
+      baselineValues[y] = col[qIdx]!;
+    }
+  }
+  return opening(baselineValues, Math.max(1, Math.round(radius)));
+}
 
 /**
  * Rolling-ball style baseline along a profile: the morphological opening with a window of 2·radius+1 samples

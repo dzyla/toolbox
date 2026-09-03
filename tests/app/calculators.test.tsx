@@ -37,6 +37,16 @@ describe('calculator tools', () => {
     expect(screen.getByText(/0\.95\d* h/)).toBeTruthy();
   });
 
+  it('loads Beckman ultracentrifuge rotor presets and updates radii and max speeds', () => {
+    route.value = { name: 'tool', toolId: 'centrifuge' };
+    render(<CentrifugeView />);
+    const rotorSelect = screen.getByRole('combobox', { name: /Rotor Profile/i });
+    expect(rotorSelect).toBeTruthy();
+    fireEvent.change(rotorSelect, { target: { value: 'beckman-type-70-ti' } });
+    expect(screen.getAllByText(/Type 70 Ti/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/504,000 × g max/)).toBeTruthy();
+  });
+
   it('renders a scalable master mix with CSV export', () => {
     route.value = { name: 'tool', toolId: 'master-mix' };
     render(<MasterMixView />);

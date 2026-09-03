@@ -26,7 +26,7 @@ export function ToolLayout({
         <p class="text-slate-600 dark:text-slate-300">{blurb}</p>
       </header>
       <div class={`grid gap-6 ${wide ? 'lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'}`}>
-        <div class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 self-start">
+        <div class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 self-start lg:sticky lg:top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
           {inputs}
         </div>
         <div class="space-y-4 min-w-0">

@@ -238,40 +238,97 @@ function FeatureControls({ state, set }: { state: State; set: (patch: Partial<St
   );
 }
 
-function FeatureMap({ features, length }: { features: ProteinFeature[]; length: number }) {
+function FeatureMap({
+  features,
+  length,
+  zoom = 1,
+  hoveredFeature,
+  onHoverFeature,
+}: {
+  features: ProteinFeature[];
+  length: number;
+  zoom?: number;
+  hoveredFeature?: ProteinFeature | null;
+  onHoverFeature?: (f: ProteinFeature | null) => void;
+}) {
   if (!features.length) return <p class="text-sm text-slate-500 py-3">No matching features found with current filters.</p>;
-  const width = 800;
-  const trackStart = 24;
-  const trackWidth = width - 48;
+  const baseWidth = 800;
+  const width = Math.round(baseWidth * zoom);
+  const trackStart = 32;
+  const trackWidth = width - 64;
   const x = (position: number) => trackStart + ((position - 1) / Math.max(1, length - 1)) * trackWidth;
+
+  // Stagger overlapping features across tracks
+  const tracks: { end: number }[] = [];
+  const featureTracks = features.map(feature => {
+    for (let i = 0; i < tracks.length; i++) {
+      if (feature.start > tracks[i]!.end + 2) {
+        tracks[i]!.end = feature.end;
+        return i;
+      }
+    }
+    const assignedTrack = tracks.length;
+    tracks.push({ end: feature.end });
+    return assignedTrack;
+  });
+
+  const numTracks = Math.max(1, Math.min(10, tracks.length));
+  const svgHeight = 55 + numTracks * 22;
 
   return (
     <div class="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900/50">
       <svg
-        viewBox={`0 0 ${width} ${50 + Math.min(6, features.length) * 14}`}
-        class="h-auto min-w-[36rem] w-full"
+        viewBox={`0 0 ${width} ${svgHeight}`}
+        style={{ minWidth: `${Math.max(36, 36 * zoom)}rem` }}
+        class="h-auto w-full select-none"
         role="img"
         aria-label="Protein feature map"
       >
-        <line x1={trackStart} x2={trackStart + trackWidth} y1="20" y2="20" stroke="currentColor" stroke-width="4" />
-        <text x={trackStart} y="12" font-size="10" fill="currentColor">1</text>
-        <text x={trackStart + trackWidth} y="12" text-anchor="end" font-size="10" fill="currentColor">{length}</text>
-        {features.map((feature, index) => (
-          <g key={`${feature.kind}-${feature.name}-${feature.start}-${index}`}>
-            <rect
-              x={x(feature.start)}
-              y={30 + (index % 6) * 14}
-              width={Math.max(4, x(feature.end) - x(feature.start) + 2)}
-              height="10"
-              rx="2"
-              fill={feature.color}
-              stroke="currentColor"
-              stroke-width="0.5"
+        <line x1={trackStart} x2={trackStart + trackWidth} y1="20" y2="20" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" />
+        <text x={trackStart} y="12" font-size="10" font-family="monospace" fill="#64748b" font-weight="600">1</text>
+        <text x={trackStart + trackWidth} y="12" text-anchor="end" font-size="10" font-family="monospace" fill="#64748b" font-weight="600">{length} aa</text>
+        {features.map((feature, index) => {
+          const trackIdx = featureTracks[index]! % 10;
+          const y = 32 + trackIdx * 20;
+          const fx = x(feature.start);
+          const fw = Math.max(6, x(feature.end) - fx + 2);
+          const isHovered = hoveredFeature?.name === feature.name && hoveredFeature?.start === feature.start;
+
+          return (
+            <g
+              key={`${feature.kind}-${feature.name}-${feature.start}-${index}`}
+              class="cursor-pointer transition-all"
+              onMouseEnter={() => onHoverFeature?.(feature)}
+              onMouseLeave={() => onHoverFeature?.(null)}
             >
-              <title>{feature.name}: {feature.start}–{feature.end}</title>
-            </rect>
-          </g>
-        ))}
+              <rect
+                x={fx}
+                y={y}
+                width={fw}
+                height="14"
+                rx="3"
+                fill={feature.color}
+                stroke={isHovered ? '#38bdf8' : 'rgba(0,0,0,0.15)'}
+                stroke-width={isHovered ? 2 : 0.8}
+              >
+                <title>{feature.name} ({feature.kind}): {feature.start}–{feature.end} ({feature.end - feature.start + 1} aa)</title>
+              </rect>
+              {fw > 30 && (
+                <text
+                  x={fx + fw / 2}
+                  y={y + 10}
+                  font-size="9"
+                  font-weight="bold"
+                  text-anchor="middle"
+                  fill="#ffffff"
+                  pointer-events="none"
+                >
+                  {feature.name.length * 6 > fw ? `${feature.name.slice(0, Math.floor(fw / 6))}…` : feature.name}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
@@ -298,13 +355,13 @@ function methodCsv(rows: (string | number)[][]): string {
 function ProteinCard({
   analysis,
   state,
-  set,
 }: {
   analysis: Analysis;
   state: State;
-  set: (patch: Partial<State>) => void;
 }) {
   const [featureSearch, setFeatureSearch] = useState('');
+  const [featureZoom, setFeatureZoom] = useState<number>(1);
+  const [hoveredFeature, setHoveredFeature] = useState<ProteinFeature | null>(null);
   const [peptideSearch, setPeptideSearch] = useState('');
 
   const positions = Array.from({ length: analysis.seq.length }, (_, index) => index + 1);
@@ -355,40 +412,17 @@ function ProteinCard({
         </div>
         <p class="mono mt-1 break-all text-xs text-slate-500 max-h-16 overflow-y-auto">{analysis.seq}</p>
 
-        {/* Live Interactive pH & Charge Titration Bar */}
-        <div class="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-center rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
-          <div class="flex items-center gap-3">
-            <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Live pH:</span>
-            <input
-              type="range"
-              min="0"
-              max="14"
-              step="0.1"
-              value={state.pH}
-              onInput={e => set({ pH: Number((e.target as HTMLInputElement).value) })}
-              class="w-32 sm:w-44 accent-accent-600"
-            />
-            <input
-              type="number"
-              min="0"
-              max="14"
-              step="0.1"
-              value={state.pH}
-              onInput={e => set({ pH: Number((e.target as HTMLInputElement).value) })}
-              class="w-16 rounded border border-slate-300 bg-white px-2 py-1 text-xs mono dark:border-slate-700 dark:bg-slate-900"
-            />
+        {/* Net Charge & pI Quick Display */}
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-2.5 dark:bg-slate-800/60 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">Net charge at pH {state.pH.toFixed(1)}:</span>{' '}
+            <strong class={`mono text-sm ${analysis.charge > 0 ? 'text-blue-600 dark:text-blue-400' : analysis.charge < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {analysis.charge > 0 ? '+' : ''}{analysis.charge.toFixed(3)} e
+            </strong>
           </div>
-          <div class="flex flex-wrap items-center gap-4 text-xs sm:justify-end">
-            <div>
-              <span class="text-slate-500">Net charge at pH {state.pH.toFixed(1)}:</span>{' '}
-              <strong class={`mono text-sm ${analysis.charge > 0 ? 'text-blue-600 dark:text-blue-400' : analysis.charge < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                {analysis.charge > 0 ? '+' : ''}{analysis.charge.toFixed(3)} e
-              </strong>
-            </div>
-            <div>
-              <span class="text-slate-500">pI:</span>{' '}
-              <strong class="mono text-sm text-slate-900 dark:text-slate-100">{analysis.summary.pI.toFixed(2)}</strong>
-            </div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">pI:</span>{' '}
+            <strong class="mono text-sm text-slate-900 dark:text-slate-100">{analysis.summary.pI.toFixed(2)}</strong>
           </div>
         </div>
 
@@ -514,23 +548,6 @@ function ProteinCard({
             <span class="text-xs font-normal text-slate-400">Click to collapse</span>
           </summary>
           <div class="space-y-4">
-            {state.showCharge && (
-              <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-lg dark:bg-slate-800/60 text-xs">
-                <span class="font-semibold text-slate-700 dark:text-slate-300">Live pH Titration for Charge Curve:</span>
-                <div class="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="14"
-                    step="0.1"
-                    value={state.pH}
-                    onInput={e => set({ pH: Number((e.target as HTMLInputElement).value) })}
-                    class="w-36 accent-accent-600"
-                  />
-                  <span class="mono font-bold w-10">{state.pH.toFixed(1)}</span>
-                </div>
-              </div>
-            )}
             <div class="grid gap-4 lg:grid-cols-2">
               {state.showHydro && (
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -605,7 +622,43 @@ function ProteinCard({
           <span class="text-xs font-normal text-slate-400">Click to collapse</span>
         </summary>
         <div class="space-y-3">
-          <FeatureMap features={shownFeatures} length={analysis.seq.length} />
+          {/* Zoom & Active Feature Banner */}
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="text-slate-500">
+              {hoveredFeature ? (
+                <span class="font-medium text-sky-600 dark:text-sky-400">
+                  Active: <strong>{hoveredFeature.name}</strong> ({hoveredFeature.kind}) · Residues {hoveredFeature.start}–{hoveredFeature.end} ({hoveredFeature.end - hoveredFeature.start + 1} aa)
+                </span>
+              ) : (
+                <span>Hover a feature or table row to inspect</span>
+              )}
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400 text-[11px] mr-1">Scale:</span>
+              {[1, 1.5, 2, 3].map(z => (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => setFeatureZoom(z)}
+                  class={`px-2 py-0.5 rounded text-[11px] font-semibold transition ${
+                    featureZoom === z
+                      ? 'bg-accent-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  {z}×
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <FeatureMap
+            features={shownFeatures}
+            length={analysis.seq.length}
+            zoom={featureZoom}
+            hoveredFeature={hoveredFeature}
+            onHoverFeature={setHoveredFeature}
+          />
 
           <div class="flex items-center justify-between gap-3 pt-2">
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Features Details</span>
@@ -622,23 +675,35 @@ function ProteinCard({
             {searchedFeatures.length === 0 ? (
               <p class="p-3 text-slate-500 text-center">No features match current filter or search.</p>
             ) : (
-              searchedFeatures.map((f, i) => (
-                <div key={`${f.name}-${f.start}-${i}`} class="p-2.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                  <div class="flex items-center gap-2">
-                    <span class="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: f.color }} />
-                    <strong class="text-slate-900 dark:text-slate-100">{f.name}</strong>
-                    <span class="text-slate-400 capitalize">({f.kind})</span>
-                    {f.identity !== undefined && (
-                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        {(f.identity * 100).toFixed(1)}% id
-                      </span>
-                    )}
+              searchedFeatures.map((f, i) => {
+                const isHovered = hoveredFeature?.name === f.name && hoveredFeature?.start === f.start;
+                return (
+                  <div
+                    key={`${f.name}-${f.start}-${i}`}
+                    onMouseEnter={() => setHoveredFeature(f)}
+                    onMouseLeave={() => setHoveredFeature(null)}
+                    class={`p-2.5 flex items-center justify-between transition cursor-pointer ${
+                      isHovered
+                        ? 'bg-sky-50 dark:bg-sky-950/50 border-l-2 border-sky-500'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: f.color }} />
+                      <strong class="text-slate-900 dark:text-slate-100">{f.name}</strong>
+                      <span class="text-slate-400 capitalize">({f.kind})</span>
+                      {f.identity !== undefined && (
+                        <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
+                          {(f.identity * 100).toFixed(1)}% id
+                        </span>
+                      )}
+                    </div>
+                    <div class="mono text-slate-500">
+                      Residues {f.start}–{f.end} ({f.end - f.start + 1} aa)
+                    </div>
                   </div>
-                  <div class="mono text-slate-500">
-                    Residues {f.start}–{f.end} ({f.end - f.start + 1} aa)
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -1021,7 +1086,6 @@ export default function View() {
               key={`${analysis.header}-${analysis.seq}`}
               analysis={analysis}
               state={current}
-              set={set}
             />
           ))}
         </div>

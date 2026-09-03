@@ -5,7 +5,7 @@ import { decodeImageFile } from '@/lib/image';
 import { demoGel } from '@/core/gel/synthetic';
 import { autoLanes, equalLanes } from '@/core/gel/lanes';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
-import { rollingBaseline, valleyBaseline } from '@/core/gel/background';
+import { rollingBaseline, valleyBaseline, sharedCrossLaneBaseline } from '@/core/gel/background';
 import { quantifyBands, detectPolarity, type BandMetrics } from '@/core/gel/quant';
 import { fitCalibration, formatSize, type Calibration } from '@/core/gel/calibration';
 import { transformPlane, type Geometry } from '@/core/gel/transform';
@@ -30,7 +30,7 @@ interface State {
   brightness: number;
   contrast: number;
   invertDisplay: boolean;
-  bgMethod: 'rolling' | 'valley' | 'none';
+  bgMethod: 'shared' | 'rolling' | 'valley' | 'none';
   rollingRadius: number;
   prominence: number;
   ladderLaneId: string;
@@ -43,14 +43,14 @@ interface State {
 
 const DEFAULTS: State = {
   polarity: 'dark',
-  brightness: 1.0,
-  contrast: 1.0,
+  brightness: 1,
+  contrast: 1,
   invertDisplay: false,
-  bgMethod: 'rolling',
-  rollingRadius: 30,
+  bgMethod: 'shared',
+  rollingRadius: 40,
   prominence: 0.05,
   ladderLaneId: '',
-  ladderId: 'biorad-precision-plus-all-blue',
+  ladderId: 'broad-protein',
   calibMethod: 'piecewise',
   refBandId: '',
   viewTab: 'gel',
@@ -75,6 +75,175 @@ function toBands(peaks: ReturnType<typeof detectBands>): Band[] {
     y1: p.y1,
     peakY: p.index,
   }));
+}
+
+function BandQuantChart({
+  analysis,
+  ladderKind,
+  laneLabels,
+  selectedLaneId,
+  onSelectLane,
+}: {
+  analysis: LaneAnalysisItem[];
+  ladderKind: 'protein' | 'dna';
+  laneLabels: Record<string, string>;
+  selectedLaneId?: string;
+  onSelectLane?: (laneId: string) => void;
+}) {
+  const [metric, setMetric] = useState<'net' | 'share'>('net');
+  const [hoveredBar, setHoveredBar] = useState<{ laneIdx: number; bandNum: number; val: number; size: string; share: number } | null>(null);
+
+  if (analysis.length === 0) return null;
+
+  const bandColors = [
+    '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6',
+    '#06b6d4', '#f97316', '#14b8a6', '#6366f1', '#e11d48',
+  ];
+
+  const maxVal = Math.max(1, ...analysis.flatMap(a => a.metrics.map(m => metric === 'net' ? Math.max(0, m.net) : m.share)));
+
+  const chartW = 750;
+  const chartH = 250;
+  const padLeft = 65;
+  const padRight = 30;
+  const padTop = 25;
+  const padBottom = 45;
+  const innerW = chartW - padLeft - padRight;
+  const innerH = chartH - padTop - padBottom;
+
+  return (
+    <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+            📊 Band Intensity & Amount Distribution
+          </span>
+          <span class="text-[11px] text-slate-400">
+            ({analysis.reduce((sum, a) => sum + a.metrics.length, 0)} total bands detected across {analysis.length} lanes)
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-500">Metric:</span>
+          <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900">
+            <button
+              type="button"
+              onClick={() => setMetric('net')}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'net' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Net Intensity (OD)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetric('share')}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'share' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              % Share of Lane
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {hoveredBar && (
+        <div class="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4">
+          <span>Lane: <strong>L{hoveredBar.laneIdx + 1}</strong></span>
+          <span>Band: <strong>#{hoveredBar.bandNum}</strong></span>
+          {hoveredBar.size && <span>Est. MW: <strong class="text-accent-600 dark:text-accent-400">{hoveredBar.size}</strong></span>}
+          <span>Net: <strong>{Math.round(hoveredBar.val).toLocaleString()} OD</strong></span>
+          <span>Share: <strong>{hoveredBar.share.toFixed(1)}%</strong></span>
+        </div>
+      )}
+
+      <div class="overflow-x-auto">
+        <svg viewBox={`0 0 ${chartW} ${chartH}`} class="w-full h-auto min-w-[500px]">
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map(frac => {
+            const y = padTop + innerH * (1 - frac);
+            const labelVal = frac * maxVal;
+            return (
+              <g key={frac}>
+                <line x1={padLeft} x2={chartW - padRight} y1={y} y2={y} stroke="#e2e8f0" stroke-dasharray="3,3" />
+                <text x={padLeft - 6} y={y + 4} font-size="9" text-anchor="end" fill="#94a3b8" font-family="monospace">
+                  {metric === 'net' ? Math.round(labelVal).toLocaleString() : `${Math.round(labelVal)}%`}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Grouped Columns */}
+          {analysis.map((item, lIdx) => {
+            const groupW = innerW / Math.max(1, analysis.length);
+            const groupX = padLeft + lIdx * groupW;
+            const bCount = Math.max(1, item.metrics.length);
+            const colW = Math.min(26, Math.max(4, (groupW - 12) / bCount));
+            const isSelectedLane = item.lane.id === selectedLaneId;
+            const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
+
+            return (
+              <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
+                {/* Lane Column Background if selected */}
+                {isSelectedLane && (
+                  <rect x={groupX + 2} y={padTop} width={groupW - 4} height={innerH} fill="rgba(37, 99, 235, 0.08)" rx="4" />
+                )}
+
+                {/* Bars for each band in this lane */}
+                {item.metrics.map((m, bIdx) => {
+                  const val = metric === 'net' ? Math.max(0, m.net) : m.share;
+                  const barH = (val / maxVal) * innerH;
+                  const barX = groupX + (groupW - bCount * colW) / 2 + bIdx * colW;
+                  const barY = padTop + innerH - barH;
+                  const color = bandColors[bIdx % bandColors.length]!;
+                  const szText = m.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
+
+                  return (
+                    <g
+                      key={m.bandId}
+                      onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, bandNum: bIdx + 1, val: m.net, size: szText, share: m.share })}
+                      onMouseLeave={() => setHoveredBar(null)}
+                    >
+                      <rect
+                        x={barX + 1}
+                        y={barY}
+                        width={Math.max(2, colW - 2)}
+                        height={Math.max(2, barH)}
+                        fill={color}
+                        rx="2"
+                        opacity={hoveredBar && hoveredBar.laneIdx === lIdx && hoveredBar.bandNum === bIdx + 1 ? 1 : 0.85}
+                      />
+                      {barH > 22 && colW >= 12 && (
+                        <text
+                          x={barX + colW / 2}
+                          y={barY + 11}
+                          font-size="8"
+                          font-weight="bold"
+                          text-anchor="middle"
+                          fill="#ffffff"
+                        >
+                          {bIdx + 1}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {/* X axis Lane label */}
+                <text
+                  x={groupX + groupW / 2}
+                  y={chartH - padBottom + 16}
+                  font-size="10"
+                  font-weight={isSelectedLane ? 'bold' : 'normal'}
+                  text-anchor="middle"
+                  fill={isSelectedLane ? '#2563eb' : '#64748b'}
+                >
+                  {customLabel.length > 10 ? `${customLabel.slice(0, 9)}…` : customLabel}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
 }
 
 export default function GelView() {
@@ -275,6 +444,17 @@ export default function GelView() {
   // Comprehensive analysis across ALL lanes
   const allLanesAnalysis: LaneAnalysisItem[] = useMemo(() => {
     if (!plane) return [];
+
+    let sharedBase: Float32Array | null = null;
+    if (s.bgMethod === 'shared' && lanes.length > 0) {
+      try {
+        const allProfs = lanes.map(lane => laneProfile(sampleLane(plane, lane, s.polarity)));
+        sharedBase = sharedCrossLaneBaseline(allProfs, s.rollingRadius);
+      } catch {
+        sharedBase = null;
+      }
+    }
+
     return lanes.map((lane, laneIdx) => {
       try {
         const dens = sampleLane(plane, lane, s.polarity);
@@ -282,7 +462,9 @@ export default function GelView() {
         const bands = bandMap[lane.id] || toBands(detectBands(prof, { minProminence: s.prominence }));
 
         let baseline: Float32Array;
-        if (s.bgMethod === 'rolling') {
+        if (s.bgMethod === 'shared' && sharedBase) {
+          baseline = sharedBase;
+        } else if (s.bgMethod === 'rolling') {
           baseline = rollingBaseline(prof, s.rollingRadius);
         } else if (s.bgMethod === 'valley') {
           baseline = valleyBaseline(prof, bands);
@@ -469,7 +651,7 @@ export default function GelView() {
       }
       ctx.restore();
     }
-  }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders]);
+  }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders, s.viewTab]);
 
   // Mouse Interaction: Grab to move lines, resize lanes, band addition/removal, crop drag
   function handleMouseDown(e: MouseEvent) {
@@ -991,19 +1173,26 @@ export default function GelView() {
               <label class="text-xs font-medium text-slate-500 block mb-1">Baseline Method</label>
               <select
                 value={s.bgMethod}
-                onChange={(e) => set({ bgMethod: (e.target as HTMLSelectElement).value as 'rolling' | 'valley' | 'none' })}
+                onChange={(e) => set({ bgMethod: (e.target as HTMLSelectElement).value as 'shared' | 'rolling' | 'valley' | 'none' })}
                 class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
               >
-                <option value="rolling">Rolling Ball</option>
-                <option value="valley">Valley-to-Valley Baseline</option>
+                <option value="shared">Shared Cross-Lane Baseline (Recommended for Multi-Lane Comparison)</option>
+                <option value="rolling">Rolling Ball (Per-Lane)</option>
+                <option value="valley">Valley-to-Valley (Per-Lane)</option>
                 <option value="none">None (No Subtraction)</option>
               </select>
             </div>
 
-            {s.bgMethod === 'rolling' && (
+            {s.bgMethod === 'shared' && (
+              <p class="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg leading-relaxed">
+                💡 <strong>Shared Baseline</strong> applies uniform background subtraction across all lanes, eliminating individual baseline distortion for accurate quantitative Western blots and lane comparisons.
+              </p>
+            )}
+
+            {(s.bgMethod === 'rolling' || s.bgMethod === 'shared') && (
               <div>
                 <div class="flex justify-between text-xs text-slate-500 mb-1">
-                  <span>Rolling Radius</span>
+                  <span>Smoothing Radius</span>
                   <span>{s.rollingRadius} px</span>
                 </div>
                 <input
@@ -1269,8 +1458,7 @@ export default function GelView() {
           </div>
 
           {/* TAB 1: Gel Image & Interactive Lane Profile */}
-          {s.viewTab === 'gel' && (
-            <div class="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <div class={s.viewTab === 'gel' ? 'grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]' : 'hidden'}>
               {/* Gel Canvas Card */}
               <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
                 <div class="flex items-center justify-between">
@@ -1446,7 +1634,6 @@ export default function GelView() {
                 )}
               </div>
             </div>
-          )}
 
           {/* TAB 2: Molecular Weight Calibration Curve Plot */}
           {s.viewTab === 'calib' && (
@@ -1616,6 +1803,15 @@ export default function GelView() {
                   </button>
                 </div>
               </div>
+
+              {/* Band Quantification Chart */}
+              <BandQuantChart
+                analysis={allLanesAnalysis}
+                ladderKind={activeLadder.kind}
+                laneLabels={laneLabels}
+                selectedLaneId={selectedLane?.id}
+                onSelectLane={setSelectedLaneId}
+              />
 
               {/* Table */}
               <div class="overflow-x-auto">
