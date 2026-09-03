@@ -20,4 +20,9 @@ describe('registry', () => {
     expect(orders).toEqual([...orders].sort((a, b) => a - b));
     for (const g of groups) expect(g.tools.length).toBeGreaterThan(0);
   });
+  it('registers the calculator slice as ready and loadable', () => {
+    for (const id of ['buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate']) {
+      expect(findTool(id)).toMatchObject({ status: 'ready', load: expect.any(Function) });
+    }
+  });
 });

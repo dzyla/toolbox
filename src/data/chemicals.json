@@ -1,0 +1,1615 @@
+{
+  "_source": "Bio-Bench LAB_CONSTANTS.chemicals, audited against supplier molecular-weight records in docs/science-audit-2026-09-02.md; audit corrections retained (2026-09-03).",
+  "chemicals": [
+    {
+      "name": "Tris-base",
+      "mw": 121.14,
+      "type": "buffer"
+    },
+    {
+      "name": "Tris-HCl",
+      "mw": 157.6,
+      "type": "buffer"
+    },
+    {
+      "name": "HEPES (Free Acid)",
+      "mw": 238.3,
+      "type": "buffer"
+    },
+    {
+      "name": "HEPES Sodium Salt",
+      "mw": 260.29,
+      "type": "buffer"
+    },
+    {
+      "name": "HEPES Hemisodium Salt",
+      "mw": 249.3,
+      "type": "buffer"
+    },
+    {
+      "name": "MOPS (Free Acid)",
+      "mw": 209.26,
+      "type": "buffer"
+    },
+    {
+      "name": "MOPS Sodium Salt",
+      "mw": 231.25,
+      "type": "buffer"
+    },
+    {
+      "name": "MES (monohydrate)",
+      "mw": 213.25,
+      "type": "buffer",
+      "hydrateOf": "MES",
+      "waters": 1
+    },
+    {
+      "name": "MES (anhydrous)",
+      "mw": 195.24,
+      "type": "buffer",
+      "hydrateOf": "MES",
+      "waters": 0
+    },
+    {
+      "name": "MES Sodium Salt",
+      "mw": 217.22,
+      "type": "buffer"
+    },
+    {
+      "name": "PIPES (Free Acid)",
+      "mw": 302.37,
+      "type": "buffer"
+    },
+    {
+      "name": "PIPES Disodium Salt",
+      "mw": 346.33,
+      "type": "buffer"
+    },
+    {
+      "name": "TES",
+      "mw": 229.25,
+      "type": "buffer"
+    },
+    {
+      "name": "Tricine",
+      "mw": 179.17,
+      "type": "buffer"
+    },
+    {
+      "name": "Bicine",
+      "mw": 163.17,
+      "type": "buffer"
+    },
+    {
+      "name": "TAPS",
+      "mw": 243.28,
+      "type": "buffer"
+    },
+    {
+      "name": "CAPS",
+      "mw": 221.32,
+      "type": "buffer"
+    },
+    {
+      "name": "BES",
+      "mw": 213.25,
+      "type": "buffer"
+    },
+    {
+      "name": "Bis-Tris",
+      "mw": 209.24,
+      "type": "buffer"
+    },
+    {
+      "name": "Bis-Tris Propane",
+      "mw": 282.34,
+      "type": "buffer"
+    },
+    {
+      "name": "ADA",
+      "mw": 190.16,
+      "type": "buffer"
+    },
+    {
+      "name": "ACES",
+      "mw": 182.2,
+      "type": "buffer"
+    },
+    {
+      "name": "Cholamine chloride hydrochloride",
+      "mw": 175.1,
+      "type": "buffer"
+    },
+    {
+      "name": "Sodium Acetate (trihydrate)",
+      "mw": 136.08,
+      "type": "buffer",
+      "synonyms": [
+        "Sodium Acetate"
+      ],
+      "hydrateOf": "Sodium Acetate",
+      "waters": 3
+    },
+    {
+      "name": "Sodium Acetate (anhydrous)",
+      "mw": 82.03,
+      "type": "buffer",
+      "synonyms": [
+        "Sodium Acetate"
+      ],
+      "hydrateOf": "Sodium Acetate",
+      "waters": 0
+    },
+    {
+      "name": "Ammonium Acetate",
+      "mw": 77.08,
+      "type": "buffer"
+    },
+    {
+      "name": "Sodium Citrate (dihydrate)",
+      "mw": 294.1,
+      "type": "buffer",
+      "hydrateOf": "Sodium Citrate",
+      "waters": 2
+    },
+    {
+      "name": "Citric Acid (anhydrous)",
+      "mw": 192.12,
+      "type": "buffer",
+      "hydrateOf": "Citric Acid",
+      "waters": 0
+    },
+    {
+      "name": "Citric Acid (monohydrate)",
+      "mw": 210.14,
+      "type": "buffer",
+      "hydrateOf": "Citric Acid",
+      "waters": 1
+    },
+    {
+      "name": "Boric Acid",
+      "mw": 61.83,
+      "type": "buffer"
+    },
+    {
+      "name": "Sodium Bicarbonate (NaHCO3)",
+      "mw": 84.01,
+      "type": "buffer",
+      "synonyms": [
+        "Sodium Bicarbonate",
+        "NaHCO3"
+      ]
+    },
+    {
+      "name": "Sodium Carbonate (Na2CO3) anhydrous",
+      "mw": 105.99,
+      "type": "buffer",
+      "synonyms": [
+        "Sodium Carbonate",
+        "Na2CO3"
+      ],
+      "hydrateOf": "Sodium Carbonate (Na2CO3)",
+      "waters": 0
+    },
+    {
+      "name": "Sodium Carbonate (Na2CO3) monohydrate",
+      "mw": 124,
+      "type": "buffer",
+      "synonyms": [
+        "Sodium Carbonate",
+        "Na2CO3"
+      ],
+      "hydrateOf": "Sodium Carbonate (Na2CO3)",
+      "waters": 1
+    },
+    {
+      "name": "Imidazole",
+      "mw": 68.08,
+      "type": "buffer component"
+    },
+    {
+      "name": "Glycine",
+      "mw": 75.07,
+      "type": "buffer component"
+    },
+    {
+      "name": "Sodium Cacodylate (trihydrate)",
+      "mw": 214.03,
+      "type": "buffer",
+      "hydrateOf": "Sodium Cacodylate",
+      "waters": 3
+    },
+    {
+      "name": "Hydrochloric Acid (HCl)",
+      "mw": 36.46,
+      "type": "acid",
+      "synonyms": [
+        "HCl"
+      ]
+    },
+    {
+      "name": "Sodium Hydroxide (NaOH)",
+      "mw": 40,
+      "type": "base",
+      "synonyms": [
+        "NaOH"
+      ]
+    },
+    {
+      "name": "Potassium Hydroxide (KOH)",
+      "mw": 56.11,
+      "type": "base",
+      "synonyms": [
+        "KOH"
+      ]
+    },
+    {
+      "name": "Sulfuric Acid (H2SO4)",
+      "mw": 98.08,
+      "type": "acid",
+      "synonyms": [
+        "H2SO4"
+      ]
+    },
+    {
+      "name": "Acetic Acid (Glacial)",
+      "mw": 60.05,
+      "type": "acid"
+    },
+    {
+      "name": "Formic Acid",
+      "mw": 46.03,
+      "type": "acid"
+    },
+    {
+      "name": "Phosphoric Acid (H3PO4)",
+      "mw": 98,
+      "type": "acid",
+      "synonyms": [
+        "H3PO4"
+      ]
+    },
+    {
+      "name": "Trifluoroacetic Acid (TFA)",
+      "mw": 114.02,
+      "type": "acid",
+      "synonyms": [
+        "TFA"
+      ]
+    },
+    {
+      "name": "Sodium Phosphate Monobasic (NaH2PO4) monohydrate",
+      "mw": 137.99,
+      "type": "buffer",
+      "synonyms": [
+        "NaH2PO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Monobasic (NaH2PO4)",
+      "waters": 1
+    },
+    {
+      "name": "Sodium Phosphate Monobasic (NaH2PO4) dihydrate",
+      "mw": 156.01,
+      "type": "buffer",
+      "synonyms": [
+        "NaH2PO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Monobasic (NaH2PO4)",
+      "waters": 2
+    },
+    {
+      "name": "Sodium Phosphate Monobasic (NaH2PO4) anhydrous",
+      "mw": 119.98,
+      "type": "buffer",
+      "synonyms": [
+        "NaH2PO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Monobasic (NaH2PO4)",
+      "waters": 0
+    },
+    {
+      "name": "Sodium Phosphate Dibasic (Na2HPO4) anhydrous",
+      "mw": 141.96,
+      "type": "buffer",
+      "synonyms": [
+        "Na2HPO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Dibasic (Na2HPO4)",
+      "waters": 0
+    },
+    {
+      "name": "Sodium Phosphate Dibasic (Na2HPO4) dihydrate",
+      "mw": 177.99,
+      "type": "buffer",
+      "synonyms": [
+        "Na2HPO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Dibasic (Na2HPO4)",
+      "waters": 2
+    },
+    {
+      "name": "Sodium Phosphate Dibasic (Na2HPO4) heptahydrate",
+      "mw": 268.07,
+      "type": "buffer",
+      "synonyms": [
+        "Na2HPO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Dibasic (Na2HPO4)",
+      "waters": 7
+    },
+    {
+      "name": "Sodium Phosphate Dibasic (Na2HPO4) dodecahydrate",
+      "mw": 358.14,
+      "type": "buffer",
+      "synonyms": [
+        "Na2HPO4"
+      ],
+      "hydrateOf": "Sodium Phosphate Dibasic (Na2HPO4)",
+      "waters": 12
+    },
+    {
+      "name": "Potassium Phosphate Monobasic (KH2PO4) anhydrous",
+      "mw": 136.09,
+      "type": "buffer",
+      "synonyms": [
+        "KH2PO4"
+      ],
+      "hydrateOf": "Potassium Phosphate Monobasic (KH2PO4)",
+      "waters": 0
+    },
+    {
+      "name": "Potassium Phosphate Dibasic (K2HPO4) anhydrous",
+      "mw": 174.18,
+      "type": "buffer",
+      "synonyms": [
+        "K2HPO4"
+      ],
+      "hydrateOf": "Potassium Phosphate Dibasic (K2HPO4)",
+      "waters": 0
+    },
+    {
+      "name": "Potassium Phosphate Dibasic (K2HPO4) trihydrate",
+      "mw": 228.22,
+      "type": "buffer",
+      "synonyms": [
+        "K2HPO4"
+      ],
+      "hydrateOf": "Potassium Phosphate Dibasic (K2HPO4)",
+      "waters": 3
+    },
+    {
+      "name": "Ammonium Phosphate Monobasic",
+      "mw": 115.03,
+      "type": "buffer"
+    },
+    {
+      "name": "Ammonium Phosphate Dibasic",
+      "mw": 132.06,
+      "type": "buffer"
+    },
+    {
+      "name": "Sodium Chloride (NaCl)",
+      "mw": 58.44,
+      "type": "salt",
+      "synonyms": [
+        "NaCl",
+        "Sodium Chloride"
+      ]
+    },
+    {
+      "name": "Potassium Chloride (KCl)",
+      "mw": 74.55,
+      "type": "salt",
+      "synonyms": [
+        "KCl",
+        "Potassium Chloride"
+      ]
+    },
+    {
+      "name": "Lithium Chloride (LiCl)",
+      "mw": 42.39,
+      "type": "salt",
+      "synonyms": [
+        "LiCl"
+      ]
+    },
+    {
+      "name": "Magnesium Chloride (MgCl2) hexahydrate",
+      "mw": 203.3,
+      "type": "salt",
+      "synonyms": [
+        "MgCl2",
+        "Magnesium Chloride"
+      ],
+      "hydrateOf": "Magnesium Chloride (MgCl2)",
+      "waters": 6
+    },
+    {
+      "name": "Magnesium Chloride (MgCl2) anhydrous",
+      "mw": 95.21,
+      "type": "salt",
+      "synonyms": [
+        "MgCl2",
+        "Magnesium Chloride"
+      ],
+      "hydrateOf": "Magnesium Chloride (MgCl2)",
+      "waters": 0
+    },
+    {
+      "name": "Magnesium Sulfate (MgSO4) heptahydrate",
+      "mw": 246.47,
+      "type": "salt",
+      "synonyms": [
+        "MgSO4",
+        "Magnesium Sulfate"
+      ],
+      "hydrateOf": "Magnesium Sulfate (MgSO4)",
+      "waters": 7
+    },
+    {
+      "name": "Magnesium Sulfate (MgSO4) anhydrous",
+      "mw": 120.37,
+      "type": "salt",
+      "synonyms": [
+        "MgSO4",
+        "Magnesium Sulfate"
+      ],
+      "hydrateOf": "Magnesium Sulfate (MgSO4)",
+      "waters": 0
+    },
+    {
+      "name": "Calcium Chloride (CaCl2) dihydrate",
+      "mw": 147.02,
+      "type": "salt",
+      "synonyms": [
+        "CaCl2"
+      ],
+      "hydrateOf": "Calcium Chloride (CaCl2)",
+      "waters": 2
+    },
+    {
+      "name": "Calcium Chloride (CaCl2) anhydrous",
+      "mw": 110.98,
+      "type": "salt",
+      "synonyms": [
+        "CaCl2"
+      ],
+      "hydrateOf": "Calcium Chloride (CaCl2)",
+      "waters": 0
+    },
+    {
+      "name": "Manganese(II) Chloride (MnCl2) tetrahydrate",
+      "mw": 197.91,
+      "type": "salt",
+      "synonyms": [
+        "MnCl2"
+      ],
+      "hydrateOf": "Manganese(II) Chloride (MnCl2)",
+      "waters": 4
+    },
+    {
+      "name": "Zinc Chloride (ZnCl2)",
+      "mw": 136.29,
+      "type": "salt",
+      "synonyms": [
+        "ZnCl2"
+      ]
+    },
+    {
+      "name": "Zinc Acetate (dihydrate)",
+      "mw": 219.5,
+      "type": "salt",
+      "hydrateOf": "Zinc Acetate",
+      "waters": 2
+    },
+    {
+      "name": "Zinc Sulfate (heptahydrate)",
+      "mw": 287.56,
+      "type": "salt",
+      "hydrateOf": "Zinc Sulfate",
+      "waters": 7
+    },
+    {
+      "name": "Copper(II) Sulfate (CuSO4) pentahydrate",
+      "mw": 249.68,
+      "type": "salt",
+      "synonyms": [
+        "CuSO4"
+      ],
+      "hydrateOf": "Copper(II) Sulfate (CuSO4)",
+      "waters": 5
+    },
+    {
+      "name": "Cobalt(II) Chloride (CoCl2) hexahydrate",
+      "mw": 237.93,
+      "type": "salt",
+      "synonyms": [
+        "CoCl2"
+      ],
+      "hydrateOf": "Cobalt(II) Chloride (CoCl2)",
+      "waters": 6
+    },
+    {
+      "name": "Iron(III) Chloride (FeCl3) hexahydrate",
+      "mw": 270.3,
+      "type": "salt",
+      "synonyms": [
+        "FeCl3"
+      ],
+      "hydrateOf": "Iron(III) Chloride (FeCl3)",
+      "waters": 6
+    },
+    {
+      "name": "Iron(II) Sulfate (FeSO4) heptahydrate",
+      "mw": 278.01,
+      "type": "salt",
+      "synonyms": [
+        "FeSO4"
+      ],
+      "hydrateOf": "Iron(II) Sulfate (FeSO4)",
+      "waters": 7
+    },
+    {
+      "name": "Nickel(II) Sulfate (NiSO4) hexahydrate",
+      "mw": 262.85,
+      "type": "salt",
+      "synonyms": [
+        "NiSO4"
+      ],
+      "hydrateOf": "Nickel(II) Sulfate (NiSO4)",
+      "waters": 6
+    },
+    {
+      "name": "Nickel(II) Chloride (NiCl2) hexahydrate",
+      "mw": 237.69,
+      "type": "salt",
+      "synonyms": [
+        "NiCl2"
+      ],
+      "hydrateOf": "Nickel(II) Chloride (NiCl2)",
+      "waters": 6
+    },
+    {
+      "name": "Ammonium Sulfate ((NH4)2SO4)",
+      "mw": 132.14,
+      "type": "salt",
+      "synonyms": [
+        "(NH4)2SO4",
+        "Ammonium Sulfate"
+      ]
+    },
+    {
+      "name": "Ammonium Chloride (NH4Cl)",
+      "mw": 53.49,
+      "type": "salt",
+      "synonyms": [
+        "NH4Cl"
+      ]
+    },
+    {
+      "name": "Sodium Sulfate (Na2SO4)",
+      "mw": 142.04,
+      "type": "salt",
+      "synonyms": [
+        "Na2SO4"
+      ]
+    },
+    {
+      "name": "Potassium Sulfate (K2SO4)",
+      "mw": 174.26,
+      "type": "salt",
+      "synonyms": [
+        "K2SO4"
+      ]
+    },
+    {
+      "name": "Sodium Nitrate (NaNO3)",
+      "mw": 84.99,
+      "type": "salt",
+      "synonyms": [
+        "NaNO3"
+      ]
+    },
+    {
+      "name": "Potassium Nitrate (KNO3)",
+      "mw": 101.1,
+      "type": "salt",
+      "synonyms": [
+        "KNO3"
+      ]
+    },
+    {
+      "name": "Sodium Tartrate (dihydrate)",
+      "mw": 230.08,
+      "type": "salt",
+      "hydrateOf": "Sodium Tartrate",
+      "waters": 2
+    },
+    {
+      "name": "Potassium Sodium Tartrate (Rochelle Salt)",
+      "mw": 282.22,
+      "type": "salt"
+    },
+    {
+      "name": "Sodium Iodide (NaI)",
+      "mw": 149.89,
+      "type": "salt",
+      "synonyms": [
+        "NaI"
+      ]
+    },
+    {
+      "name": "Potassium Iodide (KI)",
+      "mw": 166,
+      "type": "salt",
+      "synonyms": [
+        "KI"
+      ]
+    },
+    {
+      "name": "Ethanol",
+      "mw": 46.07,
+      "type": "solvent",
+      "synonyms": [
+        "EtOH"
+      ]
+    },
+    {
+      "name": "Methanol",
+      "mw": 32.04,
+      "type": "solvent",
+      "synonyms": [
+        "MeOH"
+      ]
+    },
+    {
+      "name": "DMSO (Dimethyl Sulfoxide)",
+      "mw": 78.13,
+      "type": "solvent",
+      "synonyms": [
+        "DMSO"
+      ]
+    },
+    {
+      "name": "Acetone",
+      "mw": 58.08,
+      "type": "solvent"
+    },
+    {
+      "name": "Isopropanol",
+      "mw": 60.1,
+      "type": "solvent",
+      "synonyms": [
+        "IPA"
+      ]
+    },
+    {
+      "name": "Chloroform",
+      "mw": 119.38,
+      "type": "solvent"
+    },
+    {
+      "name": "Phenol",
+      "mw": 94.11,
+      "type": "solvent"
+    },
+    {
+      "name": "SDS (Sodium Dodecyl Sulfate)",
+      "mw": 288.38,
+      "type": "detergent",
+      "synonyms": [
+        "SDS"
+      ]
+    },
+    {
+      "name": "Triton X-100",
+      "mw": 647,
+      "type": "detergent"
+    },
+    {
+      "name": "Tween 20",
+      "mw": 1228,
+      "type": "detergent"
+    },
+    {
+      "name": "Tween 80",
+      "mw": 1310,
+      "type": "detergent"
+    },
+    {
+      "name": "DDM (n-Dodecyl-β-D-maltoside)",
+      "mw": 510.6,
+      "type": "detergent",
+      "synonyms": [
+        "DDM"
+      ]
+    },
+    {
+      "name": "DM (n-Decyl-β-D-maltoside)",
+      "mw": 482.56,
+      "type": "detergent",
+      "synonyms": [
+        "DM"
+      ]
+    },
+    {
+      "name": "OG (n-Octyl-β-D-glucoside)",
+      "mw": 292.37,
+      "type": "detergent",
+      "synonyms": [
+        "OG"
+      ]
+    },
+    {
+      "name": "NG (n-Nonyl-β-D-glucoside)",
+      "mw": 306.4,
+      "type": "detergent",
+      "synonyms": [
+        "NG"
+      ]
+    },
+    {
+      "name": "LDAO",
+      "mw": 229.4,
+      "type": "detergent"
+    },
+    {
+      "name": "C12E8",
+      "mw": 538.8,
+      "type": "detergent"
+    },
+    {
+      "name": "CHAPS",
+      "mw": 614.88,
+      "type": "detergent"
+    },
+    {
+      "name": "CHAPSO",
+      "mw": 630.88,
+      "type": "detergent"
+    },
+    {
+      "name": "Digitonin",
+      "mw": 1229.3,
+      "type": "detergent"
+    },
+    {
+      "name": "LMNG (Lauryl Maltose Neopentyl Glycol)",
+      "mw": 1005.2,
+      "type": "detergent",
+      "synonyms": [
+        "LMNG"
+      ]
+    },
+    {
+      "name": "Sodium Cholate",
+      "mw": 430.55,
+      "type": "detergent"
+    },
+    {
+      "name": "Sodium Deoxycholate",
+      "mw": 414.55,
+      "type": "detergent"
+    },
+    {
+      "name": "Fos-Choline 12",
+      "mw": 351.5,
+      "type": "detergent"
+    },
+    {
+      "name": "Brij-35",
+      "mw": 1198,
+      "type": "detergent"
+    },
+    {
+      "name": "CTAB (Cetyltrimethylammonium bromide)",
+      "mw": 364.45,
+      "type": "detergent",
+      "synonyms": [
+        "CTAB"
+      ]
+    },
+    {
+      "name": "Sarkosyl (Sodium Lauroyl Sarcosinate)",
+      "mw": 293.38,
+      "type": "detergent",
+      "synonyms": [
+        "Sarkosyl"
+      ]
+    },
+    {
+      "name": "DTT (Dithiothreitol)",
+      "mw": 154.25,
+      "type": "reducing agent",
+      "synonyms": [
+        "DTT"
+      ]
+    },
+    {
+      "name": "DTE (Dithioerythritol)",
+      "mw": 154.25,
+      "type": "reducing agent",
+      "synonyms": [
+        "DTE"
+      ]
+    },
+    {
+      "name": "TCEP-HCl",
+      "mw": 286.65,
+      "type": "reducing agent",
+      "synonyms": [
+        "TCEP"
+      ]
+    },
+    {
+      "name": "TCEP (Neutral)",
+      "mw": 250.19,
+      "type": "reducing agent",
+      "synonyms": [
+        "TCEP"
+      ]
+    },
+    {
+      "name": "B-ME (Beta-mercaptoethanol)",
+      "mw": 78.13,
+      "type": "reducing agent",
+      "synonyms": [
+        "BME",
+        "Beta-mercaptoethanol"
+      ]
+    },
+    {
+      "name": "GSH (Glutathione, Reduced)",
+      "mw": 307.32,
+      "type": "reducing agent",
+      "synonyms": [
+        "GSH"
+      ]
+    },
+    {
+      "name": "GSSG (Glutathione, Oxidized)",
+      "mw": 612.63,
+      "type": "oxidizing agent",
+      "synonyms": [
+        "GSSG"
+      ]
+    },
+    {
+      "name": "Ascorbic Acid",
+      "mw": 176.12,
+      "type": "reducing agent"
+    },
+    {
+      "name": "Sodium Ascorbate",
+      "mw": 198.11,
+      "type": "reducing agent"
+    },
+    {
+      "name": "Sodium Borohydride",
+      "mw": 37.83,
+      "type": "reducing agent"
+    },
+    {
+      "name": "Sodium Metabisulfite",
+      "mw": 190.11,
+      "type": "reducing agent"
+    },
+    {
+      "name": "EDTA (disodium, dihydrate)",
+      "mw": 372.24,
+      "type": "chelator",
+      "synonyms": [
+        "EDTA"
+      ],
+      "hydrateOf": "EDTA (disodium)",
+      "waters": 2
+    },
+    {
+      "name": "EDTA (tetrasodium, dihydrate)",
+      "mw": 416.2,
+      "type": "chelator",
+      "synonyms": [
+        "EDTA"
+      ],
+      "hydrateOf": "EDTA (tetrasodium)",
+      "waters": 2
+    },
+    {
+      "name": "EDTA (anhydrous)",
+      "mw": 292.24,
+      "type": "chelator",
+      "synonyms": [
+        "EDTA"
+      ],
+      "hydrateOf": "EDTA",
+      "waters": 0
+    },
+    {
+      "name": "EGTA",
+      "mw": 380.35,
+      "type": "chelator",
+      "synonyms": [
+        "EGTA"
+      ]
+    },
+    {
+      "name": "DTPA",
+      "mw": 393.35,
+      "type": "chelator",
+      "synonyms": [
+        "DTPA"
+      ]
+    },
+    {
+      "name": "NTA (Nitrilotriacetic acid)",
+      "mw": 191.14,
+      "type": "chelator",
+      "synonyms": [
+        "NTA"
+      ]
+    },
+    {
+      "name": "Ampicillin (Sodium salt)",
+      "mw": 371.39,
+      "type": "antibiotic",
+      "synonyms": [
+        "Amp"
+      ]
+    },
+    {
+      "name": "Carbenicillin (Disodium)",
+      "mw": 422.36,
+      "type": "antibiotic",
+      "synonyms": [
+        "Carb"
+      ]
+    },
+    {
+      "name": "Kanamycin Sulfate",
+      "mw": 582.58,
+      "type": "antibiotic",
+      "synonyms": [
+        "Kan"
+      ]
+    },
+    {
+      "name": "Chloramphenicol",
+      "mw": 323.13,
+      "type": "antibiotic",
+      "synonyms": [
+        "Cam",
+        "Cm"
+      ]
+    },
+    {
+      "name": "Tetracycline HCl",
+      "mw": 480.9,
+      "type": "antibiotic",
+      "synonyms": [
+        "Tet"
+      ]
+    },
+    {
+      "name": "Streptomycin Sulfate",
+      "mw": 1457.4,
+      "type": "antibiotic",
+      "synonyms": [
+        "Strep"
+      ]
+    },
+    {
+      "name": "Gentamicin Sulfate",
+      "mw": 575.6,
+      "type": "antibiotic",
+      "synonyms": [
+        "Gent"
+      ]
+    },
+    {
+      "name": "Spectinomycin HCl",
+      "mw": 495.35,
+      "type": "antibiotic",
+      "synonyms": [
+        "Spec"
+      ]
+    },
+    {
+      "name": "Rifampicin",
+      "mw": 822.94,
+      "type": "antibiotic",
+      "synonyms": [
+        "Rif"
+      ]
+    },
+    {
+      "name": "Hygromycin B",
+      "mw": 527.5,
+      "type": "antibiotic",
+      "synonyms": [
+        "Hyg"
+      ]
+    },
+    {
+      "name": "G418 (Geneticin)",
+      "mw": 692.7,
+      "type": "antibiotic",
+      "synonyms": [
+        "G418"
+      ]
+    },
+    {
+      "name": "Puromycin Dihydrochloride",
+      "mw": 544.43,
+      "type": "antibiotic",
+      "synonyms": [
+        "Puro"
+      ]
+    },
+    {
+      "name": "Blasticidin S HCl",
+      "mw": 458.9,
+      "type": "antibiotic",
+      "synonyms": [
+        "Blast"
+      ]
+    },
+    {
+      "name": "Zeocin",
+      "mw": 1137,
+      "type": "antibiotic",
+      "synonyms": [
+        "Zeo"
+      ]
+    },
+    {
+      "name": "Cycloheximide",
+      "mw": 281.35,
+      "type": "antibiotic",
+      "synonyms": [
+        "CHX"
+      ]
+    },
+    {
+      "name": "Doxycycline Hyclate",
+      "mw": 512.94,
+      "type": "antibiotic",
+      "synonyms": [
+        "Dox"
+      ]
+    },
+    {
+      "name": "Amphotericin B",
+      "mw": 924.08,
+      "type": "antifungal"
+    },
+    {
+      "name": "ATP (Disodium)",
+      "mw": 551.14,
+      "type": "nucleotide",
+      "synonyms": [
+        "ATP"
+      ]
+    },
+    {
+      "name": "ADP (Disodium)",
+      "mw": 471.16,
+      "type": "nucleotide",
+      "synonyms": [
+        "ADP"
+      ]
+    },
+    {
+      "name": "AMP (Disodium)",
+      "mw": 391.19,
+      "type": "nucleotide",
+      "synonyms": [
+        "AMP"
+      ]
+    },
+    {
+      "name": "GTP (Disodium)",
+      "mw": 567.14,
+      "type": "nucleotide",
+      "synonyms": [
+        "GTP"
+      ]
+    },
+    {
+      "name": "GDP (Disodium)",
+      "mw": 487.16,
+      "type": "nucleotide",
+      "synonyms": [
+        "GDP"
+      ]
+    },
+    {
+      "name": "CTP (Disodium)",
+      "mw": 527.12,
+      "type": "nucleotide",
+      "synonyms": [
+        "CTP"
+      ]
+    },
+    {
+      "name": "UTP (Trisodium)",
+      "mw": 550.09,
+      "type": "nucleotide",
+      "synonyms": [
+        "UTP"
+      ]
+    },
+    {
+      "name": "dATP (Disodium)",
+      "mw": 535.1,
+      "type": "nucleotide",
+      "synonyms": [
+        "dATP"
+      ]
+    },
+    {
+      "name": "dTTP (Disodium)",
+      "mw": 526.13,
+      "type": "nucleotide",
+      "synonyms": [
+        "dTTP"
+      ]
+    },
+    {
+      "name": "dCTP (Disodium)",
+      "mw": 511.1,
+      "type": "nucleotide",
+      "synonyms": [
+        "dCTP"
+      ]
+    },
+    {
+      "name": "dGTP (Disodium)",
+      "mw": 551.1,
+      "type": "nucleotide",
+      "synonyms": [
+        "dGTP"
+      ]
+    },
+    {
+      "name": "NAD+",
+      "mw": 663.43,
+      "type": "cofactor"
+    },
+    {
+      "name": "NADH (Disodium)",
+      "mw": 709.4,
+      "type": "cofactor"
+    },
+    {
+      "name": "NADP+ (Disodium)",
+      "mw": 787.37,
+      "type": "cofactor"
+    },
+    {
+      "name": "NADPH (Tetrasodium)",
+      "mw": 833.35,
+      "type": "cofactor"
+    },
+    {
+      "name": "Coenzyme A (Lithium)",
+      "mw": 785.33,
+      "type": "cofactor"
+    },
+    {
+      "name": "Coenzyme A (Free acid)",
+      "mw": 767.53,
+      "type": "cofactor"
+    },
+    {
+      "name": "Acetyl-CoA",
+      "mw": 809.57,
+      "type": "cofactor"
+    },
+    {
+      "name": "FAD (Disodium)",
+      "mw": 829.51,
+      "type": "cofactor"
+    },
+    {
+      "name": "FMN (Sodium)",
+      "mw": 478.33,
+      "type": "cofactor"
+    },
+    {
+      "name": "SAM (S-Adenosylmethionine)",
+      "mw": 398.44,
+      "type": "cofactor"
+    },
+    {
+      "name": "PLP (Pyridoxal 5'-phosphate)",
+      "mw": 247.14,
+      "type": "cofactor"
+    },
+    {
+      "name": "Thiamine Pyrophosphate (TPP)",
+      "mw": 460.77,
+      "type": "cofactor"
+    },
+    {
+      "name": "Glycerol",
+      "mw": 92.09,
+      "type": "additive"
+    },
+    {
+      "name": "Sucrose",
+      "mw": 342.3,
+      "type": "additive"
+    },
+    {
+      "name": "Glucose",
+      "mw": 180.16,
+      "type": "additive"
+    },
+    {
+      "name": "Trehalose (dihydrate)",
+      "mw": 378.33,
+      "type": "additive",
+      "hydrateOf": "Trehalose",
+      "waters": 2
+    },
+    {
+      "name": "Mannitol",
+      "mw": 182.17,
+      "type": "additive"
+    },
+    {
+      "name": "Sorbitol",
+      "mw": 182.17,
+      "type": "additive"
+    },
+    {
+      "name": "Urea",
+      "mw": 60.06,
+      "type": "denaturant"
+    },
+    {
+      "name": "Guanidine HCl",
+      "mw": 95.53,
+      "type": "denaturant"
+    },
+    {
+      "name": "Guanidine Thiocyanate",
+      "mw": 118.16,
+      "type": "denaturant"
+    },
+    {
+      "name": "L-Arginine (Free base)",
+      "mw": 174.2,
+      "type": "additive"
+    },
+    {
+      "name": "L-Arginine HCl",
+      "mw": 210.66,
+      "type": "additive"
+    },
+    {
+      "name": "L-Glutamic acid",
+      "mw": 147.13,
+      "type": "additive"
+    },
+    {
+      "name": "Spermine (Free base)",
+      "mw": 202.34,
+      "type": "additive"
+    },
+    {
+      "name": "Spermidine (Free base)",
+      "mw": 145.25,
+      "type": "additive"
+    },
+    {
+      "name": "MPD (2-Methyl-2,4-pentanediol)",
+      "mw": 118.17,
+      "type": "precipitant"
+    },
+    {
+      "name": "Sodium Azide",
+      "mw": 65.01,
+      "type": "preservative"
+    },
+    {
+      "name": "Thimerosal",
+      "mw": 404.81,
+      "type": "preservative"
+    },
+    {
+      "name": "PEG 3350",
+      "mw": 3350,
+      "type": "precipitant"
+    },
+    {
+      "name": "PEG 4000",
+      "mw": 4000,
+      "type": "precipitant"
+    },
+    {
+      "name": "PEG 6000",
+      "mw": 6000,
+      "type": "precipitant"
+    },
+    {
+      "name": "PEG 8000",
+      "mw": 8000,
+      "type": "precipitant"
+    },
+    {
+      "name": "L-Alanine",
+      "mw": 89.09,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Cysteine HCl (monohydrate)",
+      "mw": 175.64,
+      "type": "amino acid",
+      "hydrateOf": "L-Cysteine HCl",
+      "waters": 1
+    },
+    {
+      "name": "L-Glutamine",
+      "mw": 146.14,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Histidine HCl (monohydrate)",
+      "mw": 209.63,
+      "type": "amino acid",
+      "hydrateOf": "L-Histidine HCl",
+      "waters": 1
+    },
+    {
+      "name": "L-Lysine HCl",
+      "mw": 182.65,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Methionine",
+      "mw": 149.21,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Phenylalanine",
+      "mw": 165.19,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Proline",
+      "mw": 115.13,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Serine",
+      "mw": 105.09,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Threonine",
+      "mw": 119.12,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Tryptophan",
+      "mw": 204.23,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Tyrosine",
+      "mw": 181.19,
+      "type": "amino acid"
+    },
+    {
+      "name": "L-Valine",
+      "mw": 117.15,
+      "type": "amino acid"
+    },
+    {
+      "name": "Sodium Pyruvate",
+      "mw": 110.04,
+      "type": "metabolite"
+    },
+    {
+      "name": "Cholesterol",
+      "mw": 386.65,
+      "type": "lipid"
+    },
+    {
+      "name": "Hydrocortisone",
+      "mw": 362.46,
+      "type": "steroid"
+    },
+    {
+      "name": "Dexamethasone",
+      "mw": 392.46,
+      "type": "steroid"
+    },
+    {
+      "name": "Biotin",
+      "mw": 244.31,
+      "type": "vitamin"
+    },
+    {
+      "name": "Folic Acid",
+      "mw": 441.4,
+      "type": "vitamin"
+    },
+    {
+      "name": "Riboflavin",
+      "mw": 376.36,
+      "type": "vitamin"
+    },
+    {
+      "name": "IPTG",
+      "mw": 238.31,
+      "type": "inducer"
+    },
+    {
+      "name": "X-Gal",
+      "mw": 408.63,
+      "type": "substrate"
+    },
+    {
+      "name": "X-Gluc",
+      "mw": 521.79,
+      "type": "substrate"
+    },
+    {
+      "name": "ONPG",
+      "mw": 301.25,
+      "type": "substrate"
+    },
+    {
+      "name": "PMSF",
+      "mw": 174.19,
+      "type": "inhibitor"
+    },
+    {
+      "name": "AEBSF HCl",
+      "mw": 239.69,
+      "type": "inhibitor"
+    },
+    {
+      "name": "Benzamidine HCl",
+      "mw": 156.61,
+      "type": "inhibitor"
+    },
+    {
+      "name": "Leupeptin",
+      "mw": 426.64,
+      "type": "inhibitor"
+    },
+    {
+      "name": "Pepstatin A",
+      "mw": 685.89,
+      "type": "inhibitor"
+    },
+    {
+      "name": "Bestatin",
+      "mw": 308.38,
+      "type": "inhibitor"
+    },
+    {
+      "name": "E-64",
+      "mw": 357.41,
+      "type": "inhibitor"
+    },
+    {
+      "name": "Acrylamide",
+      "mw": 71.08,
+      "type": "monomer"
+    },
+    {
+      "name": "Bis-acrylamide",
+      "mw": 154.17,
+      "type": "crosslinker"
+    },
+    {
+      "name": "Ammonium Persulfate (APS)",
+      "mw": 228.2,
+      "type": "catalyst",
+      "synonyms": [
+        "APS"
+      ]
+    },
+    {
+      "name": "TEMED",
+      "mw": 116.21,
+      "type": "catalyst",
+      "synonyms": [
+        "TEMED"
+      ]
+    },
+    {
+      "name": "Bromophenol Blue",
+      "mw": 669.96,
+      "type": "dye"
+    },
+    {
+      "name": "Xylene Cyanol FF",
+      "mw": 538.61,
+      "type": "dye"
+    },
+    {
+      "name": "Coomassie G-250",
+      "mw": 854.02,
+      "type": "dye"
+    },
+    {
+      "name": "Coomassie R-250",
+      "mw": 825.97,
+      "type": "dye"
+    },
+    {
+      "name": "Ethidium Bromide",
+      "mw": 394.31,
+      "type": "dye",
+      "synonyms": [
+        "EtBr"
+      ]
+    },
+    {
+      "name": "SYBR Green I",
+      "mw": 509.73,
+      "type": "dye"
+    },
+    {
+      "name": "Ponceau S",
+      "mw": 760.57,
+      "type": "dye"
+    },
+    {
+      "name": "Crystal Violet",
+      "mw": 407.98,
+      "type": "dye"
+    },
+    {
+      "name": "Methylene Blue",
+      "mw": 319.85,
+      "type": "dye"
+    },
+    {
+      "name": "Trypan Blue",
+      "mw": 960.81,
+      "type": "dye"
+    },
+    {
+      "name": "DAPI (Dihydrochloride)",
+      "mw": 350.25,
+      "type": "dye",
+      "synonyms": [
+        "DAPI"
+      ]
+    },
+    {
+      "name": "Hoechst 33342",
+      "mw": 561.93,
+      "type": "dye"
+    },
+    {
+      "name": "Propidium Iodide",
+      "mw": 668.4,
+      "type": "dye",
+      "synonyms": [
+        "PI"
+      ]
+    },
+    {
+      "name": "Acridine Orange",
+      "mw": 301.82,
+      "type": "dye"
+    },
+    {
+      "name": "Rhodamine B",
+      "mw": 479.02,
+      "type": "dye"
+    },
+    {
+      "name": "Fluorescein Sodium",
+      "mw": 376.27,
+      "type": "dye"
+    }
+  ]
+}

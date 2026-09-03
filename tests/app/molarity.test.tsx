@@ -19,4 +19,12 @@ describe('Molarity tool', () => {
     fireEvent.input(screen.getByLabelText('Final concentration (C2)'), { target: { value: '2 M' } });
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/cannot concentrate/));
   });
+  it('plans an equal-volume serial dilution', async () => {
+    route.value = { name: 'tool', toolId: 'molarity' };
+    render(<View />);
+    fireEvent.click(screen.getByRole('button', { name: 'Serial dilution' }));
+    expect(await screen.findByRole('cell', { name: 'Well 1' })).toBeTruthy();
+    expect(screen.getByTestId('serial-results').textContent).toMatch(/200 µL/);
+    expect(screen.getByTestId('serial-results').textContent).toMatch(/12\.5 mM/);
+  });
 });
