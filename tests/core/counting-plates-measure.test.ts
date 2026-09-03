@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCfu } from '@/core/counting';
+import { calculateCfu, computeSizeDistribution } from '@/core/counting';
 import {
   generateEmptyPlate,
+  applyDilutionSeries,
+  generatePipettingScheme,
   plateToMatrixCsv,
   plateToListCsv,
   DEFAULT_SAMPLE_GROUPS,
@@ -26,6 +28,21 @@ describe('Colony CFU Counting', () => {
     expect(res.cfuPerMl).toBe(15_000_000);
     expect(res.totalCfuPlated).toBe(150);
   });
+
+  it('computes size distribution histogram and statistics', () => {
+    const colonies = [
+      { id: '1', x: 10, y: 10, radius: 4, category: 'cat-1' },
+      { id: '2', x: 20, y: 20, radius: 6, category: 'cat-1' },
+      { id: '3', x: 30, y: 30, radius: 8, category: 'cat-1' },
+      { id: '4', x: 40, y: 40, radius: 10, category: 'cat-1' },
+    ];
+    const stats = computeSizeDistribution(colonies);
+    expect(stats.totalCount).toBe(4);
+    expect(stats.meanRadius).toBe(7);
+    expect(stats.meanDiameter).toBe(14);
+    expect(stats.bins.length).toBeGreaterThanOrEqual(3);
+    expect(stats.cvPercent).toBeGreaterThan(0);
+  });
 });
 
 describe('Plate Layout', () => {
@@ -48,6 +65,43 @@ describe('Plate Layout', () => {
 
     const list = plateToListCsv(wells, DEFAULT_SAMPLE_GROUPS);
     expect(list).toContain('A1,A,1,"Sample 1",sample,"Drug A",1,10,µM');
+  });
+
+  it('generates serial dilution series and pipetting scheme', () => {
+    const empty = generateEmptyPlate(96);
+    const dim = { format: 96 as const, rows: 8, cols: 12, rowLabels: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] };
+    const diluted = applyDilutionSeries(empty, {
+      groupId: 'std',
+      startConc: 100,
+      dilutionFactor: 2,
+      unit: 'ng/mL',
+      direction: 'row',
+      startRow: 'B',
+      startCol: 1,
+      length: 4,
+      replicates: 2,
+      includeBlank: true,
+    }, dim);
+
+    // B1: 100, B2: 50, B3: 25, B4: 0 (blank)
+    expect(diluted['B1']?.value).toBe(100);
+    expect(diluted['B2']?.value).toBe(50);
+    expect(diluted['B3']?.value).toBe(25);
+    expect(diluted['B4']?.value).toBe(0);
+    expect(diluted['B4']?.sampleGroupId).toBe('blank');
+
+    // Replicate row C
+    expect(diluted['C1']?.value).toBe(100);
+    expect(diluted['C2']?.value).toBe(50);
+
+    const plan = generatePipettingScheme(diluted, {
+      workingVolumeUl: 100,
+      transferVolumeUl: 50,
+      pipetteType: '8-channel',
+    });
+    expect(plan.totalAssignedWells).toBe(8);
+    expect(plan.totalDiluentNeededUl).toBe(800);
+    expect(plan.steps.length).toBeGreaterThanOrEqual(3);
   });
 });
 

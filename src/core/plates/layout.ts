@@ -100,7 +100,165 @@ export function generateEmptyPlate(format: PlateFormat): Record<string, WellData
   return wells;
 }
 
-/** Serialize plate data to a tabular CSV format */
+export interface DilutionSeriesConfig {
+  groupId: string;
+  startConc: number;
+  dilutionFactor: number; // e.g. 2 for 1:2
+  unit: string;
+  direction: 'row' | 'col';
+  startRow: string;
+  startCol: number;
+  length: number;
+  replicates: number;
+  includeBlank: boolean;
+}
+
+/** Apply serial dilution values and groups across rows or columns */
+export function applyDilutionSeries(
+  wells: Record<string, WellData>,
+  config: DilutionSeriesConfig,
+  dim: PlateDimension,
+  sampleNamePrefix = 'Std',
+): Record<string, WellData> {
+  const updated = { ...wells };
+  const startRowIdx = dim.rowLabels.indexOf(config.startRow);
+  if (startRowIdx === -1) return wells;
+
+  for (let rep = 0; rep < config.replicates; rep++) {
+    for (let step = 0; step < config.length; step++) {
+      let rIdx = startRowIdx;
+      let cNum = config.startCol;
+
+      if (config.direction === 'row') {
+        rIdx = startRowIdx + rep;
+        cNum = config.startCol + step;
+      } else {
+        rIdx = startRowIdx + step;
+        cNum = config.startCol + rep;
+      }
+
+      if (rIdx >= dim.rows || cNum > dim.cols) continue;
+
+      const rowChar = dim.rowLabels[rIdx]!;
+      const wellId = `${rowChar}${cNum}`;
+
+      const isBlankStep = config.includeBlank && step === config.length - 1;
+      const conc = isBlankStep ? 0 : config.startConc / Math.pow(config.dilutionFactor, step);
+
+      updated[wellId] = {
+        id: wellId,
+        row: rowChar,
+        col: cNum,
+        sampleGroupId: isBlankStep ? 'blank' : config.groupId,
+        sampleName: isBlankStep ? 'Blank' : `${sampleNamePrefix} ${step + 1}`,
+        replicateIndex: config.replicates > 1 ? rep + 1 : undefined,
+        value: conc,
+        unit: config.unit,
+      };
+    }
+  }
+
+  return updated;
+}
+
+export interface PipettingSchemeStep {
+  stepNumber: number;
+  description: string;
+  volumeUl: number;
+  reagent: string;
+  source: string;
+  destination: string;
+  pipetteType: 'single' | '8-channel' | '12-channel';
+}
+
+export interface PipettingPlan {
+  totalAssignedWells: number;
+  workingVolumeUl: number;
+  transferVolumeUl: number;
+  totalDiluentNeededUl: number;
+  totalStockNeededUl: number;
+  steps: PipettingSchemeStep[];
+}
+
+/** Generate a realistic step-by-step pipetting scheme for plate preparation */
+export function generatePipettingScheme(
+  wells: Record<string, WellData>,
+  options: {
+    workingVolumeUl: number;
+    transferVolumeUl: number;
+    pipetteType: 'single' | '8-channel' | '12-channel';
+  },
+): PipettingPlan {
+  const { workingVolumeUl, transferVolumeUl, pipetteType } = options;
+  const assigned = Object.values(wells).filter(w => !!w.sampleGroupId);
+  const diluentVolPerWell = workingVolumeUl;
+  const steps: PipettingSchemeStep[] = [];
+
+  // Step 1: Pre-fill diluent/buffer into destination wells
+  steps.push({
+    stepNumber: 1,
+    description: `Dispense ${diluentVolPerWell} µL assay buffer / diluent into all ${assigned.length} destination wells.`,
+    volumeUl: diluentVolPerWell * assigned.length,
+    reagent: 'Assay Buffer / Media',
+    source: 'Reagent Reservoir',
+    destination: `${assigned.length} active wells`,
+    pipetteType,
+  });
+
+  // Step 2: Load highest concentration stock
+  const stockWells = assigned.filter(w => w.value !== undefined && w.value > 0);
+  const maxVal = Math.max(0, ...stockWells.map(w => w.value || 0));
+  const highestWells = stockWells.filter(w => w.value === maxVal);
+
+  if (highestWells.length > 0) {
+    const stockLoadVol = workingVolumeUl + transferVolumeUl;
+    steps.push({
+      stepNumber: 2,
+      description: `Add ${stockLoadVol} µL concentrated stock solution into initial well(s) ${highestWells.map(w => w.id).join(', ')}.`,
+      volumeUl: stockLoadVol * highestWells.length,
+      reagent: 'Stock Sample / Standard',
+      source: 'Stock Tube',
+      destination: highestWells.map(w => w.id).join(', '),
+      pipetteType: pipetteType === 'single' ? 'single' : '8-channel',
+    });
+
+    // Step 3: Serial transfer instructions
+    steps.push({
+      stepNumber: 3,
+      description: `Perform serial transfer: transfer ${transferVolumeUl} µL sequentially across wells, mixing 3–5× by pipetting up and down at each step. Discard ${transferVolumeUl} µL from the final dilution well before the blank.`,
+      volumeUl: transferVolumeUl,
+      reagent: 'Serial Transfer',
+      source: 'Preceding column/row',
+      destination: 'Succeeding column/row',
+      pipetteType,
+    });
+  }
+
+  // Step 4: Final verification and incubation
+  steps.push({
+    stepNumber: steps.length + 1,
+    description: `Ensure uniform meniscus: centrifuge plate briefly (500 × g, 30 s) or tap gently to remove bubbles before plate reading.`,
+    volumeUl: 0,
+    reagent: 'None',
+    source: 'Benchtop plate spinner',
+    destination: 'Plate Reader',
+    pipetteType: 'single',
+  });
+
+  const totalDiluent = diluentVolPerWell * assigned.length;
+  const totalStock = (workingVolumeUl + transferVolumeUl) * Math.max(1, highestWells.length);
+
+  return {
+    totalAssignedWells: assigned.length,
+    workingVolumeUl,
+    transferVolumeUl,
+    totalDiluentNeededUl: totalDiluent,
+    totalStockNeededUl: totalStock,
+    steps,
+  };
+}
+
+/** Serialize plate data to a tabular matrix CSV format */
 export function plateToMatrixCsv(format: PlateFormat, wells: Record<string, WellData>): string {
   const dim = PLATE_DIMENSIONS[format];
   const header = ['Row', ...Array.from({ length: dim.cols }, (_, i) => (i + 1).toString())];

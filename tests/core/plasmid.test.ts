@@ -7,6 +7,7 @@ import {
   reverseComplement,
   PRESET_PLASMIDS,
   parseFastaPlasmid,
+  detectPlasmidElements,
 } from '@/core/plasmid';
 
 describe('plasmid core analysis', () => {
@@ -51,5 +52,13 @@ describe('plasmid core analysis', () => {
     expect(plasmid.name).toBe('MyVector Test');
     expect(plasmid.length).toBe(84);
     expect(plasmid.isCircular).toBe(true);
+  });
+
+  it('detects standard biological elements and tags', () => {
+    // Construct test sequence with T7 promoter and 6xHis tag
+    const seq = 'TAATACGACTCACTATAGGG' + 'ATGGCT' + 'CATCATCATCATCATCAT' + 'TAA';
+    const detected = detectPlasmidElements(seq, false);
+    expect(detected.some(f => f.name === 'T7 Promoter')).toBe(true);
+    expect(detected.some(f => f.name === '6xHis Tag')).toBe(true);
   });
 });

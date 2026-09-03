@@ -247,6 +247,115 @@ export function findORFs(dna: string, minLengthAa = 30, isCircular = true): ORF[
   return orfs.sort((a, b) => b.lengthAa - a.lengthAa);
 }
 
+export interface KnownElementPattern {
+  name: string;
+  type: PlasmidFeature['type'];
+  pattern: string;
+  notes?: string;
+}
+
+export const KNOWN_PLASMID_ELEMENTS: KnownElementPattern[] = [
+  // Tags
+  { name: '6xHis Tag', type: 'tag', pattern: '(?:CAT|CAC){6}', notes: 'Polyhistidine affinity purification tag' },
+  { name: 'FLAG Tag', type: 'tag', pattern: 'GATTACAAGGATGACGACGATAAG|GACTACAA[AG]GA[CT]GA[CT]GA[CT]GA[CT]AAA', notes: 'DYKDDDDK epitope tag' },
+  { name: 'HA Tag', type: 'tag', pattern: 'TACCCATACGACGTCCCAGACTACGCT', notes: 'YPYDVPDYA hemagglutinin tag' },
+  { name: 'Myc Tag', type: 'tag', pattern: 'GAGCAGAAGCTGATCTCCGAGGAGGACCTG|GAGCAGAA[AG]CT[AG]AT[CT]TC[CT]GAGGA[AG]GA[CT]CT[AG]', notes: 'EQKLISEEDL c-Myc epitope tag' },
+  { name: 'Strep-tag II', type: 'tag', pattern: 'TGGAGC(?:CAC|CAT)CC(?:G|C|A|T)CAGTTCGA(?:G|A)AAA', notes: 'WSHPQFEK streptavidin-binding tag' },
+  { name: 'V5 Tag', type: 'tag', pattern: 'GGTAAGCCTATCCCTAACCCTCTCCTCGGTCTCGATTCTACG', notes: 'GKPIPNPLLGLDST paramyxovirus tag' },
+  { name: 'TEV Cleavage Site', type: 'tag', pattern: 'GAAAACCTGTATTTTCAG(?:GGC|AGT|TCC)', notes: 'ENLYFQ(G/S) TEV protease site' },
+  { name: 'Thrombin Site', type: 'tag', pattern: 'CTGGTGCCGCGCGGCAGC', notes: 'LVPRGS Thrombin protease site' },
+  { name: 'PreScission (3C) Site', type: 'tag', pattern: 'CTGGAAGTTCTGTTCCAGGGTCCG', notes: 'LEVLFQGP Human rhinovirus 3C site' },
+
+  // Promoters & Operators
+  { name: 'T7 Promoter', type: 'promoter', pattern: 'TAATACGACTCACTATAGGG', notes: 'Bacteriophage T7 RNA polymerase promoter' },
+  { name: 'T7 Terminator', type: 'terminator', pattern: 'CTAGCATAACCCCTTGGGGCCTCTAAACGGGTCTTGAGGGGTTTTTTG', notes: 'T7 transcription terminator' },
+  { name: 'T3 Promoter', type: 'promoter', pattern: 'AATTAACCCTCACTAAAGGG', notes: 'Bacteriophage T3 promoter' },
+  { name: 'SP6 Promoter', type: 'promoter', pattern: 'ATTTAGGTGACACTATAGAA', notes: 'Bacteriophage SP6 promoter' },
+  { name: 'lac Operator', type: 'regulatory', pattern: 'AATTGTGAGCGGATAACAATT', notes: 'Binding site for lac repressor' },
+  { name: 'lac Promoter', type: 'promoter', pattern: 'TGGCGAAAGGGGGATGTG', notes: 'E. coli lac operon promoter' },
+  { name: 'Ribosome Binding Site (RBS)', type: 'regulatory', pattern: 'AAGGAGATATACAT|AAGGAGG', notes: 'Shine-Dalgarno translation initiation site' },
+  { name: 'Kozak Sequence', type: 'regulatory', pattern: 'GCCGCCACCATGG', notes: 'Eukaryotic translation initiation signal' },
+  { name: 'AmpR Promoter', type: 'promoter', pattern: 'TTACCAATGCTTAATCAGTGAGGCA', notes: 'Beta-lactamase promoter' },
+
+  // Resistance Markers
+  { name: 'AmpR (bla)', type: 'resistance', pattern: 'ATGAGTATTCAACATTTTCGTGTCGCCCTTATTCCCTTTTTTGCGGCATTTTGCCTTCCTGTTTTTGCTCACCCA', notes: 'Beta-lactamase (Ampicillin resistance)' },
+  { name: 'KanR / NeoR', type: 'resistance', pattern: 'ATGATTGAACAAGATGGATTGCACGCAGGTTCTCCGGCCGCTTGGGTGGAGAGGCTATTCGGCTATGACTGG', notes: 'Aminoglycoside 3-phosphotransferase' },
+  { name: 'Chloramphenicol (CamR)', type: 'resistance', pattern: 'ATGAACTTTAATAAAATTGATTTAGACAATTGGAAGAGAAAAGAGATATTTAATCATTATTTGAACCAACAAACG', notes: 'Chloramphenicol acetyltransferase' },
+  { name: 'Tetracycline (TetR)', type: 'resistance', pattern: 'ATGAATAGTTCGACAAAGATCGCATTGGTAATTACGTTACTCGATGCCATGGGGATTGGCCTTATCATGCCAGTC', notes: 'Tetracycline efflux pump' },
+
+  // Fluorescent Proteins & Reporters
+  { name: 'EGFP', type: 'cds', pattern: 'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGC', notes: 'Enhanced Green Fluorescent Protein' },
+  { name: 'mCherry', type: 'cds', pattern: 'ATGGTGAGCAAGGGCGAGGAGGATAACATGGCCATCATCAAGGAGTTCATGCGCTTCAAGGTGCACATGGAGGGC', notes: 'Red monomeric fluorescent protein' },
+];
+
+/** Auto-detect standard biological tags, promoters, terminators, and elements */
+export function detectPlasmidElements(dna: string, isCircular = true): PlasmidFeature[] {
+  const clean = dna.toUpperCase().replace(/[^ACGT]/g, '');
+  const len = clean.length;
+  if (!len) return [];
+
+  const searchDna = isCircular ? clean + clean : clean;
+  const detected: PlasmidFeature[] = [];
+
+  for (const elem of KNOWN_PLASMID_ELEMENTS) {
+    const regex = new RegExp(elem.pattern, 'gi');
+    let match: RegExpExecArray | null;
+
+    // Search forward strand
+    while ((match = regex.exec(searchDna)) !== null) {
+      const matchIdx = match.index;
+      if (isCircular && matchIdx >= len) break;
+      const start = (matchIdx % len) + 1;
+      const matchLen = match[0].length;
+      const end = ((matchIdx + matchLen - 1) % len) + 1;
+
+      detected.push({
+        id: `auto-${elem.type}-${start}-${end}`,
+        name: elem.name,
+        type: elem.type,
+        start,
+        end,
+        strand: 1,
+        color: FEATURE_COLORS[elem.type] || '#6366f1',
+        notes: elem.notes,
+      });
+
+      if (!regex.global) break;
+    }
+
+    // Search reverse strand
+    const revSearchDna = reverseComplement(searchDna);
+    while ((match = regex.exec(revSearchDna)) !== null) {
+      const matchIdx = match.index;
+      if (isCircular && matchIdx >= len) break;
+      const origEnd = (len * (isCircular ? 2 : 1) - matchIdx) % len || len;
+      const origStart = (len * (isCircular ? 2 : 1) - (matchIdx + match[0].length)) % len || len;
+
+      detected.push({
+        id: `auto-${elem.type}-rev-${origStart}-${origEnd}`,
+        name: elem.name,
+        type: elem.type,
+        start: Math.min(origStart, origEnd),
+        end: Math.max(origStart, origEnd),
+        strand: -1,
+        color: FEATURE_COLORS[elem.type] || '#6366f1',
+        notes: `${elem.notes} (reverse strand)`,
+      });
+
+      if (!regex.global) break;
+    }
+  }
+
+  // Deduplicate overlapping features with same name
+  const filtered: PlasmidFeature[] = [];
+  for (const d of detected) {
+    const exists = filtered.some(e => e.name === d.name && Math.abs(e.start - d.start) < 5);
+    if (!exists) filtered.push(d);
+  }
+
+  return filtered;
+}
+
 // Built-in verified standard plasmid presets
 export const PRESET_PLASMIDS: Plasmid[] = [
   {

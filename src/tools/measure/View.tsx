@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import {
   distanceBetween,
   angleBetweenPoints,
@@ -18,24 +18,33 @@ interface State {
   tool: 'line' | 'angle' | 'rect' | 'calibrate';
   calibLength: number;
   calibUnit: 'nm' | 'µm' | 'mm' | 'cm';
+  scalePixels: number;
 }
 
 const DEFAULTS: State = {
   tool: 'line',
   calibLength: 50,
   calibUnit: 'µm',
+  scalePixels: 100,
 };
+
+function getMeasurementCalibrated(m: MeasurementItem, scale: CalibrationScale) {
+  if (m.type === 'angle') {
+    return { value: m.angleDeg ?? m.pixelValue, unit: '°' };
+  }
+  return applyCalibration(m.pixelValue, m.type, scale);
+}
 
 export default function MeasureView() {
   const [stateSig, shareUrl] = useUrlState<State>('measure', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
-  const [scale, setScale] = useState<CalibrationScale>({
-    pixels: 100,
-    realLength: 50,
-    unit: 'µm',
-  });
+  const activeScale: CalibrationScale = useMemo(() => ({
+    pixels: s.scalePixels > 0 ? s.scalePixels : 100,
+    realLength: s.calibLength > 0 ? s.calibLength : 50,
+    unit: s.calibUnit || 'µm',
+  }), [s.scalePixels, s.calibLength, s.calibUnit]);
 
   const [measurements, setMeasurements] = useState<MeasurementItem[]>([
     {
@@ -86,20 +95,25 @@ export default function MeasureView() {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
       }
 
-      // Default simulated scale bar at bottom right
+      // Dynamic scale bar at bottom right
       ctx.fillStyle = '#0f172a';
-      ctx.fillRect(canvas.width - 150, canvas.height - 35, 100, 6);
+      ctx.fillRect(canvas.width - 150, canvas.height - 35, activeScale.pixels, 6);
       ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`Scale: ${scale.realLength} ${scale.unit} (100 px)`, canvas.width - 100, canvas.height - 18);
+      ctx.fillText(
+        `Scale: ${activeScale.realLength} ${activeScale.unit} (${activeScale.pixels.toFixed(1)} px)`,
+        canvas.width - 150 + activeScale.pixels / 2,
+        canvas.height - 18,
+      );
 
       drawAnnotations(ctx);
     }
-  }, [imageSrc, measurements, currentPoints, scale]);
+  }, [imageSrc, measurements, currentPoints, activeScale]);
 
   function drawAnnotations(ctx: CanvasRenderingContext2D) {
     // Draw finalized measurements
     for (const m of measurements) {
+      const cal = getMeasurementCalibrated(m, activeScale);
       ctx.strokeStyle = m.color;
       ctx.fillStyle = m.color;
       ctx.lineWidth = 2.5;
@@ -120,7 +134,7 @@ export default function MeasureView() {
         const my = (p1!.y + p2!.y) / 2 - 8;
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`${m.label}: ${m.calibratedValue.toFixed(1)} ${m.unit}`, mx, my);
+        ctx.fillText(`${m.label}: ${cal.value.toFixed(1)} ${cal.unit}`, mx, my);
       } else if (m.type === 'rect' && m.points.length === 2) {
         const [p1, p2] = m.points;
         const x = Math.min(p1!.x, p2!.x);
@@ -128,7 +142,7 @@ export default function MeasureView() {
         const w = Math.abs(p2!.x - p1!.x);
         const h = Math.abs(p2!.y - p1!.y);
         ctx.strokeRect(x, y, w, h);
-        ctx.fillText(`${m.label}: ${m.calibratedValue.toFixed(1)} ${m.unit}`, x + w / 2, y - 6);
+        ctx.fillText(`${m.label}: ${cal.value.toFixed(1)} ${cal.unit}`, x + w / 2, y - 6);
       } else if (m.type === 'angle' && m.points.length === 3) {
         const [p1, v, p2] = m.points;
         ctx.beginPath();
@@ -136,7 +150,7 @@ export default function MeasureView() {
         ctx.lineTo(v!.x, v!.y);
         ctx.lineTo(p2!.x, p2!.y);
         ctx.stroke();
-        ctx.fillText(`${m.label}: ${m.angleDeg?.toFixed(1)}°`, v!.x, v!.y - 10);
+        ctx.fillText(`${m.label}: ${cal.value.toFixed(1)}°`, v!.x, v!.y - 10);
       }
     }
 
@@ -163,11 +177,11 @@ export default function MeasureView() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleFactorX = canvas.width / rect.width;
+    const scaleFactorY = canvas.height / rect.height;
     const pt = {
-      x: Math.round((e.clientX - rect.left) * scaleX),
-      y: Math.round((e.clientY - rect.top) * scaleY),
+      x: Math.round((e.clientX - rect.left) * scaleFactorX),
+      y: Math.round((e.clientY - rect.top) * scaleFactorY),
     };
 
     const nextPoints = [...currentPoints, pt];
@@ -176,14 +190,9 @@ export default function MeasureView() {
       if (nextPoints.length === 2) {
         const px = distanceBetween(nextPoints[0]!, nextPoints[1]!);
         if (px > 0) {
-          setScale({
-            pixels: px,
-            realLength: s.calibLength,
-            unit: s.calibUnit,
-          });
+          set({ scalePixels: px, tool: 'line' });
         }
         setCurrentPoints([]);
-        set({ tool: 'line' });
       } else {
         setCurrentPoints(nextPoints);
       }
@@ -195,7 +204,7 @@ export default function MeasureView() {
         const p1 = nextPoints[0]!;
         const p2 = nextPoints[1]!;
         const pxDist = distanceBetween(p1, p2);
-        const cal = applyCalibration(pxDist, s.tool, scale);
+        const cal = applyCalibration(pxDist, s.tool, activeScale);
 
         const newM: MeasurementItem = {
           id: `m-${Date.now()}`,
@@ -249,15 +258,18 @@ export default function MeasureView() {
 
   function handleExportCsv() {
     const rows = [
-      ['ID', 'Label', 'Type', 'Value', 'Unit', 'Pixel_Value'],
-      ...measurements.map(m => [
-        m.id,
-        `"${m.label.replace(/"/g, '""')}"`,
-        m.type,
-        m.calibratedValue.toFixed(2),
-        m.unit,
-        m.pixelValue.toFixed(1),
-      ]),
+      ['ID', 'Label', 'Type', 'Calibrated_Value', 'Unit', 'Pixel_Value'],
+      ...measurements.map(m => {
+        const cal = getMeasurementCalibrated(m, activeScale);
+        return [
+          m.id,
+          `"${m.label.replace(/"/g, '""')}"`,
+          m.type,
+          cal.value.toFixed(3),
+          cal.unit,
+          m.pixelValue.toFixed(1),
+        ];
+      }),
     ];
     const csv = rows.map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -270,8 +282,11 @@ export default function MeasureView() {
   }
 
   const copyText = [
-    `Image Measurer Results (Scale: ${scale.realLength} ${scale.unit} = ${scale.pixels.toFixed(1)} px):`,
-    ...measurements.map(m => `  - ${m.label} (${m.type}): ${m.calibratedValue.toFixed(2)} ${m.unit}`),
+    `Image Measurer Results (Scale: ${activeScale.realLength} ${activeScale.unit} = ${activeScale.pixels.toFixed(1)} px):`,
+    ...measurements.map(m => {
+      const cal = getMeasurementCalibrated(m, activeScale);
+      return `  - ${m.label} (${m.type}): ${cal.value.toFixed(2)} ${cal.unit}`;
+    }),
     '',
     scienceText(SCIENCE),
   ].join('\n');
@@ -331,8 +346,9 @@ export default function MeasureView() {
                 <label class="block text-[11px] text-slate-500 mb-1">Known Length</label>
                 <input
                   type="number"
-                  min="0.1"
+                  min="0.001"
                   step="any"
+                  aria-label="Known Length"
                   value={s.calibLength}
                   onInput={(e) => set({ calibLength: parseFloat((e.target as HTMLInputElement).value) || 1 })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -341,9 +357,10 @@ export default function MeasureView() {
               <div>
                 <label class="block text-[11px] text-slate-500 mb-1">Unit</label>
                 <select
+                  aria-label="Scale Unit"
                   value={s.calibUnit}
                   onChange={(e) => set({ calibUnit: (e.target as HTMLSelectElement).value as State['calibUnit'] })}
-                  class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 font-medium"
                 >
                   <option value="nm">nm</option>
                   <option value="µm">µm</option>
@@ -354,7 +371,7 @@ export default function MeasureView() {
             </div>
 
             <div class="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
-              Current: <strong>{scale.realLength} {scale.unit}</strong> = <strong>{scale.pixels.toFixed(1)} px</strong> ({(scale.realLength / scale.pixels).toFixed(4)} {scale.unit}/px)
+              Current: <strong>{activeScale.realLength} {activeScale.unit}</strong> = <strong>{activeScale.pixels.toFixed(1)} px</strong> ({(activeScale.realLength / activeScale.pixels).toFixed(4)} {activeScale.unit}/px)
             </div>
           </div>
 
@@ -445,27 +462,30 @@ export default function MeasureView() {
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                    {measurements.map((m, idx) => (
-                      <tr key={m.id}>
-                        <td class="py-2 text-slate-400">{idx + 1}</td>
-                        <td class="py-2 font-semibold text-slate-900 dark:text-slate-100">{m.label}</td>
-                        <td class="py-2 text-slate-500 capitalize">{m.type}</td>
-                        <td class="py-2 font-mono font-bold text-right text-accent-600 dark:text-accent-400">
-                          {m.calibratedValue.toFixed(2)} {m.unit}
-                        </td>
-                        <td class="py-2 font-mono text-right text-slate-400">{m.pixelValue.toFixed(1)} px</td>
-                        <td class="py-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setMeasurements(prev => prev.filter(item => item.id !== m.id))}
-                            class="text-slate-400 hover:text-rose-500"
-                            title="Delete measurement"
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {measurements.map((m, idx) => {
+                      const cal = getMeasurementCalibrated(m, activeScale);
+                      return (
+                        <tr key={m.id}>
+                          <td class="py-2 text-slate-400">{idx + 1}</td>
+                          <td class="py-2 font-semibold text-slate-900 dark:text-slate-100">{m.label}</td>
+                          <td class="py-2 text-slate-500 capitalize">{m.type}</td>
+                          <td data-testid={`meas-val-${idx}`} class="py-2 font-mono font-bold text-right text-accent-600 dark:text-accent-400">
+                            {cal.value.toFixed(2)} {cal.unit}
+                          </td>
+                          <td class="py-2 font-mono text-right text-slate-400">{m.pixelValue.toFixed(1)} px</td>
+                          <td class="py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setMeasurements(prev => prev.filter(item => item.id !== m.id))}
+                              class="text-slate-400 hover:text-rose-500"
+                              title="Delete measurement"
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

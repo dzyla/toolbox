@@ -41,7 +41,7 @@ describe('Newly Introduced Laboratory Tools Views', () => {
   it('renders Colony Counter and displays CFU estimate', () => {
     route.value = { name: 'tool', toolId: 'colonies' };
     render(<ColoniesView />);
-    expect(screen.getByText(/Colony & Object Counter/)).toBeTruthy();
+    expect(screen.getByText(/Automated Colony Counter/)).toBeTruthy();
     expect(screen.getByTestId('colony-count')).toBeTruthy();
     expect(screen.getByTestId('cfu-ml')).toBeTruthy();
   });
@@ -57,10 +57,16 @@ describe('Newly Introduced Laboratory Tools Views', () => {
     expect(screen.getByText(/384-Well Plate Grid/)).toBeTruthy();
   });
 
-  it('renders Image Measurer tool', () => {
+  it('renders Image Measurer tool and updates scale unit dynamically', () => {
     route.value = { name: 'tool', toolId: 'measure' };
     render(<MeasureView />);
     expect(screen.getByText(/Image Measurer & Scale Calibration/)).toBeTruthy();
+    expect(screen.getByTestId('meas-val-0').textContent).toContain('µm');
+
+    // Change unit to cm
+    const unitSelect = screen.getByLabelText(/Scale Unit/);
+    fireEvent.change(unitSelect, { target: { value: 'cm' } });
+    expect(screen.getByTestId('meas-val-0').textContent).toContain('cm');
   });
 
   it('renders Lab Timers and Stopwatch', () => {

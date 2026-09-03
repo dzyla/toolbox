@@ -6,6 +6,8 @@ import {
   PLATE_DIMENSIONS,
   DEFAULT_SAMPLE_GROUPS,
   generateEmptyPlate,
+  applyDilutionSeries,
+  generatePipettingScheme,
   plateToMatrixCsv,
   plateToListCsv,
 } from '@/core/plates/layout';
@@ -18,11 +20,37 @@ import { SCIENCE } from './science';
 interface State {
   format: PlateFormat;
   activeGroupId: string;
+  viewTab: 'map' | 'pipetting';
+  // Dilution Series
+  dilutionStartRow: string;
+  dilutionStartCol: number;
+  dilutionLength: number;
+  dilutionStartConc: number;
+  dilutionFactor: number;
+  dilutionUnit: string;
+  dilutionReplicates: number;
+  dilutionIncludeBlank: boolean;
+  // Pipetting parameters
+  workingVolumeUl: number;
+  transferVolumeUl: number;
+  pipetteType: 'single' | '8-channel' | '12-channel';
 }
 
 const DEFAULTS: State = {
   format: 96,
   activeGroupId: 'sample-1',
+  viewTab: 'map',
+  dilutionStartRow: 'B',
+  dilutionStartCol: 1,
+  dilutionLength: 8,
+  dilutionStartConc: 100,
+  dilutionFactor: 2,
+  dilutionUnit: 'µM',
+  dilutionReplicates: 2,
+  dilutionIncludeBlank: true,
+  workingVolumeUl: 100,
+  transferVolumeUl: 50,
+  pipetteType: '8-channel',
 };
 
 export default function PlateView() {
@@ -32,27 +60,56 @@ export default function PlateView() {
 
   const [wells, setWells] = useState<Record<string, WellData>>(() => {
     const w = generateEmptyPlate(96);
-    // Fill in a nice initial template
     // Row A: Blanks
     for (let c = 1; c <= 12; c++) {
       w[`A${c}`] = { id: `A${c}`, row: 'A', col: c, sampleGroupId: 'blank', sampleName: 'Blank' };
     }
-    // Row B: Standards
-    for (let c = 1; c <= 8; c++) {
-      w[`B${c}`] = { id: `B${c}`, row: 'B', col: c, sampleGroupId: 'std', sampleName: `Std ${c}`, value: 100 / Math.pow(2, c - 1), unit: 'ng/mL' };
-    }
-    // Rows C & D: Sample 1 (duplicates)
-    for (let c = 1; c <= 6; c++) {
-      w[`C${c}`] = { id: `C${c}`, row: 'C', col: c, sampleGroupId: 'sample-1', sampleName: `Drug A (${c})`, replicateIndex: 1 };
-      w[`D${c}`] = { id: `D${c}`, row: 'D', col: c, sampleGroupId: 'sample-1', sampleName: `Drug A (${c})`, replicateIndex: 2 };
-    }
-    return w;
+    // Rows B & C: Dilution series (duplicates)
+    const dim = PLATE_DIMENSIONS[96];
+    return applyDilutionSeries(w, {
+      groupId: 'std',
+      startConc: 100,
+      dilutionFactor: 2,
+      unit: 'ng/mL',
+      direction: 'row',
+      startRow: 'B',
+      startCol: 1,
+      length: 8,
+      replicates: 2,
+      includeBlank: true,
+    }, dim, 'Std');
   });
 
   const [groups] = useState<SampleGroup[]>(DEFAULT_SAMPLE_GROUPS);
   const [hoveredWell, setHoveredWell] = useState<WellData | null>(null);
+  const [dragStart, setDragStart] = useState<{ rowIdx: number; col: number } | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<{ rowIdx: number; col: number } | null>(null);
 
   const dim = useMemo(() => PLATE_DIMENSIONS[s.format], [s.format]);
+
+  // Compute min and max values per sample group to scale color shading
+  const groupValueRanges = useMemo(() => {
+    const ranges: Record<string, { min: number; max: number }> = {};
+    for (const w of Object.values(wells)) {
+      if (w.sampleGroupId && w.value !== undefined && w.value > 0) {
+        if (!ranges[w.sampleGroupId]) {
+          ranges[w.sampleGroupId] = { min: w.value, max: w.value };
+        } else {
+          ranges[w.sampleGroupId]!.min = Math.min(ranges[w.sampleGroupId]!.min, w.value);
+          ranges[w.sampleGroupId]!.max = Math.max(ranges[w.sampleGroupId]!.max, w.value);
+        }
+      }
+    }
+    return ranges;
+  }, [wells]);
+
+  const pipettingPlan = useMemo(() => {
+    return generatePipettingScheme(wells, {
+      workingVolumeUl: s.workingVolumeUl,
+      transferVolumeUl: s.transferVolumeUl,
+      pipetteType: s.pipetteType,
+    });
+  }, [wells, s.workingVolumeUl, s.transferVolumeUl, s.pipetteType]);
 
   function handleFormatChange(fmt: PlateFormat) {
     set({ format: fmt });
@@ -63,7 +120,6 @@ export default function PlateView() {
     setWells(prev => {
       const current = prev[wellId];
       if (!current) return prev;
-      // If clicking with same group already applied, clear it; otherwise apply active group
       const newGroupId = current.sampleGroupId === s.activeGroupId ? '' : s.activeGroupId;
       const g = groups.find(item => item.id === newGroupId);
       return {
@@ -72,6 +128,8 @@ export default function PlateView() {
           ...current,
           sampleGroupId: newGroupId,
           sampleName: g ? g.name : '',
+          value: undefined,
+          unit: undefined,
         },
       };
     });
@@ -106,6 +164,65 @@ export default function PlateView() {
     });
   }
 
+  // Box drag selection
+  function handleMouseDown(rIdx: number, cNum: number) {
+    setDragStart({ rowIdx: rIdx, col: cNum });
+    setDragCurrent({ rowIdx: rIdx, col: cNum });
+  }
+
+  function handleMouseEnter(rIdx: number, cNum: number) {
+    if (dragStart) {
+      setDragCurrent({ rowIdx: rIdx, col: cNum });
+    }
+  }
+
+  function handleMouseUp() {
+    if (dragStart && dragCurrent) {
+      const rMin = Math.min(dragStart.rowIdx, dragCurrent.rowIdx);
+      const rMax = Math.max(dragStart.rowIdx, dragCurrent.rowIdx);
+      const cMin = Math.min(dragStart.col, dragCurrent.col);
+      const cMax = Math.max(dragStart.col, dragCurrent.col);
+
+      setWells(prev => {
+        const updated = { ...prev };
+        const g = groups.find(item => item.id === s.activeGroupId);
+        for (let r = rMin; r <= rMax; r++) {
+          const rowChar = dim.rowLabels[r]!;
+          for (let c = cMin; c <= cMax; c++) {
+            const id = `${rowChar}${c}`;
+            if (updated[id]) {
+              updated[id] = {
+                ...updated[id],
+                sampleGroupId: s.activeGroupId,
+                sampleName: g ? g.name : '',
+              };
+            }
+          }
+        }
+        return updated;
+      });
+    }
+    setDragStart(null);
+    setDragCurrent(null);
+  }
+
+  function handleGenerateDilution() {
+    setWells(prev => {
+      return applyDilutionSeries(prev, {
+        groupId: s.activeGroupId,
+        startConc: s.dilutionStartConc,
+        dilutionFactor: s.dilutionFactor,
+        unit: s.dilutionUnit,
+        direction: 'row',
+        startRow: s.dilutionStartRow,
+        startCol: s.dilutionStartCol,
+        length: s.dilutionLength,
+        replicates: s.dilutionReplicates,
+        includeBlank: s.dilutionIncludeBlank,
+      }, dim, 'Dilution');
+    });
+  }
+
   function handleClearPlate() {
     setWells(generateEmptyPlate(s.format));
   }
@@ -132,13 +249,14 @@ export default function PlateView() {
     URL.revokeObjectURL(url);
   }
 
-  // Count assigned wells
   const assignedCount = Object.values(wells).filter(w => !!w.sampleGroupId).length;
   const totalWells = dim.rows * dim.cols;
 
   const copyText = [
     `Microplate Layout: ${s.format}-well format`,
-    `Assigned Wells: ${assignedCount} / ${totalWells} (${((assignedCount / totalWells) * 100).toFixed(1)}% full)`,
+    `Assigned Wells: ${assignedCount} / ${totalWells} (${((assignedCount / totalWells) * 100).toFixed(1)}% occupied)`,
+    `Total Diluent Buffer Required: ${(pipettingPlan.totalDiluentNeededUl / 1000).toFixed(2)} mL`,
+    `Total Concentrated Stock Required: ${(pipettingPlan.totalStockNeededUl / 1000).toFixed(2)} mL`,
     ...groups.map(g => {
       const count = Object.values(wells).filter(w => w.sampleGroupId === g.id).length;
       return count > 0 ? `  - ${g.name}: ${count} wells` : null;
@@ -151,7 +269,7 @@ export default function PlateView() {
     <ToolLayout
       icon="🟦"
       title="Plate Layout Designer"
-      blurb="Design multi-well plate maps (6 to 384 wells), paint replicates, and export to CSV/plate reader."
+      blurb="Multi-well plate maps (6 to 384 wells), box drag selection, serial dilution color shades, and pipetting scheme generator."
       wide={true}
       inputs={
         <div class="space-y-4">
@@ -177,7 +295,7 @@ export default function PlateView() {
           {/* Sample Groups Palette */}
           <div class="space-y-2 rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
             <span class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Sample Palette (Click to Select)
+              Sample Palette (Active Paint)
             </span>
             <div class="space-y-1.5">
               {groups.map(g => {
@@ -201,20 +319,119 @@ export default function PlateView() {
             </div>
           </div>
 
+          {/* Serial Dilution Generator Accordion */}
+          <details class="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 text-xs space-y-2.5">
+            <summary class="cursor-pointer font-semibold text-slate-800 dark:text-slate-200 select-none">
+              ⚡ Serial Dilution Generator
+            </summary>
+
+            <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-slate-400">Start Row</label>
+                  <select
+                    value={s.dilutionStartRow}
+                    onChange={(e) => set({ dilutionStartRow: (e.target as HTMLSelectElement).value })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                  >
+                    {dim.rowLabels.map(r => <option key={r} value={r}>Row {r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400">Start Col</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={dim.cols}
+                    value={s.dilutionStartCol}
+                    onInput={(e) => set({ dilutionStartCol: parseInt((e.target as HTMLInputElement).value) || 1 })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-slate-400">Start Conc</label>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    value={s.dilutionStartConc}
+                    onInput={(e) => set({ dilutionStartConc: parseFloat((e.target as HTMLInputElement).value) || 100 })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400">Unit</label>
+                  <input
+                    type="text"
+                    value={s.dilutionUnit}
+                    onInput={(e) => set({ dilutionUnit: (e.target as HTMLInputElement).value })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-slate-400">Dilution Factor (1:X)</label>
+                  <input
+                    type="number"
+                    min="1.5"
+                    step="0.5"
+                    value={s.dilutionFactor}
+                    onInput={(e) => set({ dilutionFactor: parseFloat((e.target as HTMLInputElement).value) || 2 })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400">Replicate Rows</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={dim.rows}
+                    value={s.dilutionReplicates}
+                    onInput={(e) => set({ dilutionReplicates: parseInt((e.target as HTMLInputElement).value) || 1 })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-400 select-none">
+                <input
+                  type="checkbox"
+                  checked={s.dilutionIncludeBlank}
+                  onChange={(e) => set({ dilutionIncludeBlank: (e.target as HTMLInputElement).checked })}
+                  class="rounded text-accent-600 accent-accent-600"
+                />
+                <span>Include final Blank well</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={handleGenerateDilution}
+                class="w-full py-1.5 bg-accent-600 hover:bg-accent-700 text-white font-semibold rounded-lg transition"
+              >
+                Apply Dilution Series
+              </button>
+            </div>
+          </details>
+
           <div class="flex gap-2">
             <button
               type="button"
               onClick={handleExportMatrix}
               class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white transition"
             >
-              Export Matrix CSV
+              Matrix CSV
             </button>
             <button
               type="button"
               onClick={handleExportList}
               class="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              Export List CSV
+              List CSV
             </button>
           </div>
 
@@ -228,92 +445,195 @@ export default function PlateView() {
         </div>
       }
       results={
-        <div class="space-y-4">
-          {/* Header Summary */}
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>{s.format}-Well Plate Grid</span>
-                <span class="text-xs font-normal text-slate-500 mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                  {assignedCount} / {totalWells} occupied
-                </span>
-              </h2>
-              <p class="text-xs text-slate-500 mt-0.5">
-                Click any well to paint. Click column numbers (1–{dim.cols}) or row letters (A–{dim.rowLabels[dim.rows - 1]}) to fill entire rows or columns.
-              </p>
+        <div class="space-y-4" onMouseUp={handleMouseUp}>
+          {/* Header Tabs */}
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <div class="flex gap-2">
+              <button
+                type="button"
+                onClick={() => set({ viewTab: 'map' })}
+                class={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${s.viewTab === 'map' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
+              >
+                {s.format}-Well Plate Grid
+              </button>
+              <button
+                type="button"
+                onClick={() => set({ viewTab: 'pipetting' })}
+                class={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${s.viewTab === 'pipetting' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
+              >
+                Pipetting Scheme & Volumes
+              </button>
             </div>
 
-            {hoveredWell && (
-              <div class="text-xs mono bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+            {hoveredWell && s.viewTab === 'map' && (
+              <div class="text-xs mono bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
                 <strong>{hoveredWell.id}</strong>: {hoveredWell.sampleName || 'Empty'}
-                {hoveredWell.value !== undefined ? ` (${hoveredWell.value} ${hoveredWell.unit || ''})` : ''}
+                {hoveredWell.value !== undefined ? ` (${hoveredWell.value >= 0.01 ? hoveredWell.value.toFixed(2) : hoveredWell.value.toExponential(2)} ${hoveredWell.unit || ''})` : ''}
               </div>
             )}
           </div>
 
-          {/* Interactive Well Grid */}
-          <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <div class="inline-block min-w-full">
-              {/* Column Header Taps */}
-              <div class="flex items-center mb-1">
-                <span class="w-8 shrink-0 text-center font-bold text-xs text-slate-400 select-none"></span>
-                {Array.from({ length: dim.cols }, (_, i) => i + 1).map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => handlePaintCol(c)}
-                    title={`Fill column ${c}`}
-                    class="w-7 sm:w-8 h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition select-none shrink-0"
+          {s.viewTab === 'map' ? (
+            /* Interactive Well Grid */
+            <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 select-none">
+              <div class="inline-block min-w-full">
+                {/* Column Headers */}
+                <div class="flex items-center mb-1">
+                  <span class="w-8 shrink-0 text-center font-bold text-xs text-slate-400"></span>
+                  {Array.from({ length: dim.cols }, (_, i) => i + 1).map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => handlePaintCol(c)}
+                      title={`Fill column ${c}`}
+                      class="w-7 sm:w-8 h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Rows */}
+                {Array.from({ length: dim.rows }, (_, rIdx) => {
+                  const rowChar = dim.rowLabels[rIdx]!;
+                  return (
+                    <div key={rowChar} class="flex items-center mb-1">
+                      {/* Row Header */}
+                      <button
+                        type="button"
+                        onClick={() => handlePaintRow(rowChar)}
+                        title={`Fill row ${rowChar}`}
+                        class="w-8 h-7 sm:h-8 mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0"
+                      >
+                        {rowChar}
+                      </button>
+
+                      {/* Wells */}
+                      {Array.from({ length: dim.cols }, (_, cIdx) => {
+                        const colNum = cIdx + 1;
+                        const wellId = `${rowChar}${colNum}`;
+                        const well = wells[wellId];
+                        const group = groups.find(g => g.id === well?.sampleGroupId);
+                        const isOccupied = !!group;
+
+                        // Check if inside active drag box
+                        let isDragSelected = false;
+                        if (dragStart && dragCurrent) {
+                          const rMin = Math.min(dragStart.rowIdx, dragCurrent.rowIdx);
+                          const rMax = Math.max(dragStart.rowIdx, dragCurrent.rowIdx);
+                          const cMin = Math.min(dragStart.col, dragCurrent.col);
+                          const cMax = Math.max(dragStart.col, dragCurrent.col);
+                          isDragSelected = rIdx >= rMin && rIdx <= rMax && colNum >= cMin && colNum <= cMax;
+                        }
+
+                        // Calculate color shading / opacity if part of a concentration gradient
+                        let opacity = 1.0;
+                        if (isOccupied && well?.value !== undefined && well.value > 0) {
+                          const range = groupValueRanges[group.id];
+                          if (range && range.max > range.min) {
+                            const minLog = Math.log10(Math.max(1e-6, range.min));
+                            const maxLog = Math.log10(Math.max(1e-6, range.max));
+                            const curLog = Math.log10(Math.max(1e-6, well.value));
+                            const frac = maxLog > minLog ? (curLog - minLog) / (maxLog - minLog) : 1;
+                            opacity = 0.25 + 0.75 * Math.max(0, Math.min(1, frac));
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={wellId}
+                            type="button"
+                            onMouseDown={() => handleMouseDown(rIdx, colNum)}
+                            onMouseEnter={() => { handleMouseEnter(rIdx, colNum); setHoveredWell(well || null); }}
+                            onMouseLeave={() => setHoveredWell(null)}
+                            onClick={() => handleWellClick(wellId)}
+                            title={`${wellId}: ${well?.sampleName || 'Empty'} ${well?.value !== undefined ? `(${well.value} ${well.unit || ''})` : ''}`}
+                            style={{
+                              backgroundColor: isOccupied ? group.color : 'transparent',
+                              opacity: isOccupied ? opacity : 1,
+                            }}
+                            class={`w-7 sm:w-8 h-7 sm:h-8 mx-0.5 rounded-full border transition flex items-center justify-center shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? 'border-black/30 text-white shadow-2xs font-bold text-[9px]' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950'}`}
+                          >
+                            {isOccupied ? (dim.format <= 96 ? wellId : '') : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Pipetting Scheme & Reagent Planner */
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <span class="text-xs text-slate-500 block">Assigned Wells</span>
+                  <span class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {pipettingPlan.totalAssignedWells}
+                  </span>
+                  <span class="text-[11px] text-slate-400 block">out of {totalWells} wells</span>
+                </div>
+
+                <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <span class="text-xs text-slate-500 block">Total Diluent Buffer</span>
+                  <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {(pipettingPlan.totalDiluentNeededUl / 1000).toFixed(2)} mL
+                  </span>
+                  <span class="text-[11px] text-slate-400 block">{pipettingPlan.workingVolumeUl} µL / well</span>
+                </div>
+
+                <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <span class="text-xs text-slate-500 block">Stock Reagent</span>
+                  <span class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
+                    {(pipettingPlan.totalStockNeededUl / 1000).toFixed(2)} mL
+                  </span>
+                  <span class="text-[11px] text-slate-400 block">high-concentration stock</span>
+                </div>
+
+                <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <span class="text-xs text-slate-500 block">Pipette Type</span>
+                  <select
+                    value={s.pipetteType}
+                    onChange={(e) => set({ pipetteType: (e.target as HTMLSelectElement).value as State['pipetteType'] })}
+                    class="mt-1 w-full rounded border border-slate-300 dark:border-slate-700 bg-transparent text-xs font-semibold"
                   >
-                    {c}
-                  </button>
-                ))}
+                    <option value="single">Single Channel</option>
+                    <option value="8-channel">8-Channel Multichannel</option>
+                    <option value="12-channel">12-Channel Multichannel</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Rows */}
-              {Array.from({ length: dim.rows }, (_, r) => {
-                const rowChar = dim.rowLabels[r]!;
-                return (
-                  <div key={rowChar} class="flex items-center mb-1">
-                    {/* Row Header Tap */}
-                    <button
-                      type="button"
-                      onClick={() => handlePaintRow(rowChar)}
-                      title={`Fill row ${rowChar}`}
-                      class="w-8 h-7 sm:h-8 mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition select-none shrink-0"
+              {/* Step-by-Step Pipetting Guide */}
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+                <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  Step-by-Step Pipetting Guide & Checklist
+                </h3>
+                <div class="space-y-2">
+                  {pipettingPlan.steps.map((step) => (
+                    <div
+                      key={step.stepNumber}
+                      class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex items-start gap-3"
                     >
-                      {rowChar}
-                    </button>
-
-                    {/* Wells in this row */}
-                    {Array.from({ length: dim.cols }, (_, c) => {
-                      const wellId = `${rowChar}${c + 1}`;
-                      const well = wells[wellId];
-                      const group = groups.find(g => g.id === well?.sampleGroupId);
-                      const isOccupied = !!group;
-
-                      return (
-                        <button
-                          key={wellId}
-                          type="button"
-                          onClick={() => handleWellClick(wellId)}
-                          onMouseEnter={() => setHoveredWell(well || null)}
-                          onMouseLeave={() => setHoveredWell(null)}
-                          title={`${wellId}: ${well?.sampleName || 'Empty'}`}
-                          style={{
-                            backgroundColor: isOccupied ? group.color : 'transparent',
-                          }}
-                          class={`w-7 sm:w-8 h-7 sm:h-8 mx-0.5 rounded-full border transition flex items-center justify-center shrink-0 ${isOccupied ? 'border-black/20 text-white shadow-2xs font-bold text-[9px]' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950'}`}
-                        >
-                          {isOccupied ? wellId : ''}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+                      <span class="w-6 h-6 rounded-full bg-accent-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                        {step.stepNumber}
+                      </span>
+                      <div class="space-y-0.5 text-xs flex-1">
+                        <div class="flex items-center justify-between">
+                          <strong class="text-slate-900 dark:text-slate-100">{step.reagent}</strong>
+                          <span class="mono text-slate-400">Pipette: {step.pipetteType}</span>
+                        </div>
+                        <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       }
       actions={<ActionBar onCopy={() => copyText} shareUrl={shareUrl} />}
