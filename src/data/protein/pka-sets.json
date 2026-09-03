@@ -1,0 +1,48 @@
+{
+ "_source": "bjellqvist: Bjellqvist 1993 Electrophoresis 14:1023 as implemented by ExPASy (Kozlowski 2016 Biol Direct 11:55 Table 1); emboss: EMBOSS Epk.dat",
+ "values": {
+  "bjellqvist": {
+   "nTerm": {
+    "default": 7.5,
+    "A": 7.59,
+    "M": 7,
+    "S": 6.93,
+    "P": 8.36,
+    "T": 6.82,
+    "V": 7.44,
+    "E": 7.7
+   },
+   "cTerm": {
+    "default": 3.55,
+    "D": 4.55,
+    "E": 4.75
+   },
+   "side": {
+    "K": 10,
+    "R": 12,
+    "H": 5.98,
+    "D": 4.05,
+    "E": 4.45,
+    "C": 9,
+    "Y": 10
+   }
+  },
+  "emboss": {
+   "nTerm": {
+    "default": 8.6
+   },
+   "cTerm": {
+    "default": 3.6
+   },
+   "side": {
+    "K": 10.8,
+    "R": 12.5,
+    "H": 6.5,
+    "D": 3.9,
+    "E": 4.1,
+    "C": 8.5,
+    "Y": 10.1
+   }
+  }
+ }
+}

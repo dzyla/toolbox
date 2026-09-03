@@ -1,0 +1,271 @@
+{
+ "_source": "Curated PTM/localisation motifs (heuristic patterns)",
+ "values": [
+  {
+   "name": "N-glycosylation (N-X-[ST])",
+   "category": "PTM",
+   "color": "#f97316",
+   "note": "N-linked glycosylation consensus (X cannot be Proline).",
+   "pattern": "N[^P][ST]"
+  },
+  {
+   "name": "C-mannosylation (W-x-x-W)",
+   "category": "PTM",
+   "color": "#fb923c",
+   "note": "Tryptophan C-mannosylation motif.",
+   "pattern": "W..W"
+  },
+  {
+   "name": "Tyrosine sulfation ([DE]Y)",
+   "category": "PTM",
+   "color": "#f59e0b",
+   "note": "Acidic residue before Tyr; common heuristic.",
+   "pattern": "[DE]Y"
+  },
+  {
+   "name": "SUMOylation (ψ-K-x-[DE])",
+   "category": "PTM",
+   "color": "#84cc16",
+   "note": "Hydrophobic ψ (V/I/L/M/F/Y/W/C) before Lys; acidic at +2.",
+   "pattern": "[VILMFYWC]K.[DE]"
+  },
+  {
+   "name": "Lysine Acetylation (K)",
+   "category": "PTM",
+   "color": "#a3e635",
+   "note": "Heuristic for Lys acetylation. HIGH FALSE-POSITIVE RATE. Use dedicated predictors for validation.",
+   "pattern": "K"
+  },
+  {
+   "name": "Arg Methylation (GAR motif)",
+   "category": "PTM",
+   "color": "#4ade80",
+   "note": "Glycine-Arginine Rich motif heuristic for PRMTs. HIGH FALSE-POSITIVE RATE.",
+   "pattern": "G.{0,3}R.{0,3}G"
+  },
+  {
+   "name": "CK2 phosphorylation",
+   "category": "PTM",
+   "color": "#22c55e",
+   "note": "Casein Kinase 2 site: (S/T)x(D/E).",
+   "pattern": "[ST]..[DE]"
+  },
+  {
+   "name": "PKA phosphorylation",
+   "category": "PTM",
+   "color": "#f59e0b",
+   "note": "Protein Kinase A site: (R/K)(R/K)x(S/T), no Pro at +1.",
+   "pattern": "(?:R|K){2}.[ST](?!P)"
+  },
+  {
+   "name": "PKC phosphorylation",
+   "category": "PTM",
+   "color": "#f43f5e",
+   "note": "Protein Kinase C site: (S/T)x(R/K).",
+   "pattern": "[ST].[RK]"
+  },
+  {
+   "name": "Akt/PKB phosphorylation",
+   "category": "PTM",
+   "color": "#10b981",
+   "note": "Akt/PKB site: RxRxx(S/T).",
+   "pattern": "R.R..[ST]"
+  },
+  {
+   "name": "CDK phosphorylation",
+   "category": "PTM",
+   "color": "#0ea5e9",
+   "note": "Cyclin-Dependent Kinase site: (S/T)P x (K/R).",
+   "pattern": "[ST]P.[KR]"
+  },
+  {
+   "name": "MAPK phosphorylation",
+   "category": "PTM",
+   "color": "#ef4444",
+   "note": "Mitogen-Activated Protein Kinase site: Px(S/T)P.",
+   "pattern": "P.[ST]P"
+  },
+  {
+   "name": "ATM/ATR phosphorylation",
+   "category": "PTM",
+   "color": "#fbbf24",
+   "note": "DNA damage response kinase site: (S/T)Q.",
+   "pattern": "[ST]Q"
+  },
+  {
+   "name": "N-myristoylation (N-term)",
+   "category": "PTM",
+   "color": "#65a30d",
+   "note": "Gly at pos 2 required; simple heuristic.",
+   "pattern": "^M?G(?![EDRKHP])[A-Z]{3}[STAGCNV]"
+  },
+  {
+   "name": "Prenylation (CaaX, C-term)",
+   "category": "PTM",
+   "color": "#16a34a",
+   "note": "Cys + two aliphatic + [LIVM] at C-terminus.",
+   "pattern": "C[AILVFM][A-Z][LIVM]$"
+  },
+  {
+   "name": "C-term Amidation (G-R/K-R/K)",
+   "category": "PTM",
+   "color": "#0d9488",
+   "note": "PROSITE PS00009. Signal for C-terminal amidation of peptide hormones after cleavage.",
+   "pattern": "G[RK][RK]$"
+  },
+  {
+   "name": "Furin Cleavage (R-x-K/R-R)",
+   "category": "Tags & Sites",
+   "color": "#a16207",
+   "note": "Proprotein convertase site for maturation in secretory pathway.",
+   "pattern": "R.[KR]R"
+  },
+  {
+   "name": "Caspase-3 Cleavage (DEVD)",
+   "category": "Tags & Sites",
+   "color": "#991b1b",
+   "note": "Apoptotic executioner caspase site.",
+   "pattern": "DEVD"
+  },
+  {
+   "name": "Caspase-8 Cleavage ([IL]ETD)",
+   "category": "Tags & Sites",
+   "color": "#b91c1c",
+   "note": "Apoptotic initiator caspase site.",
+   "pattern": "[IL]ETD"
+  },
+  {
+   "name": "Sortase A (LPXTG)",
+   "category": "Tags & Sites",
+   "color": "#0ea5e9",
+   "note": "Transpeptidation signal in Gram-positive bacteria.",
+   "pattern": "LP[A-Z]TG"
+  },
+  {
+   "name": "Tetracysteine Tag",
+   "category": "Tags & Sites",
+   "color": "#fb7185",
+   "note": "Binds biarsenical dyes (FlAsH/ReAsH). Minimal motif is CCxxCC.",
+   "pattern": "CC[A-Z]{2}CC"
+  },
+  {
+   "name": "Signal Peptide (N-term)",
+   "category": "Localization",
+   "color": "#67e8f9",
+   "note": "Heuristic for secretory signal peptide. HIGHLY VARIABLE. Use SignalP for validation.",
+   "pattern": "^M[A-Z]{0,20}[KR][A-Z]{2,8}[LIFVAGMW]{8,15}"
+  },
+  {
+   "name": "Transmembrane Domain",
+   "category": "Localization",
+   "color": "#22d3ee",
+   "note": "Heuristic for hydrophobic transmembrane helix. HIGH FALSE-POSITIVE RATE. Use TMHMM for validation.",
+   "pattern": "[LIFVAGMW]{18,25}"
+  },
+  {
+   "name": "Monopartite NLS",
+   "category": "Localization",
+   "color": "#a855f7",
+   "note": "Classical nuclear localization signal, K(K/R)x(K/R).",
+   "pattern": "K[KR][A-Z][KR]"
+  },
+  {
+   "name": "Bipartite NLS",
+   "category": "Localization",
+   "color": "#8b5cf6",
+   "note": "Two basic clusters separated by ~10aa spacer.",
+   "pattern": "[KR]{2}.{10,12}[KR]{3,}"
+  },
+  {
+   "name": "NES (Leu-rich, heuristic)",
+   "category": "Localization",
+   "color": "#ec4899",
+   "note": "Φ-x(2,3)-Φ-x(2,3)-Φ-x-Φ; Φ=LIVFM.",
+   "pattern": "[LIVFM][A-Z]{2,3}[LIVFM][A-Z]{2,3}[LIVFM][A-Z][LIVFM]"
+  },
+  {
+   "name": "PTS1 (peroxisome, C-term)",
+   "category": "Localization",
+   "color": "#22d3ee",
+   "note": "C-terminal [SAC][KRH][LM].",
+   "pattern": "[SAC][RKH][LM]$"
+  },
+  {
+   "name": "PTS2 (peroxisome, N-term)",
+   "category": "Localization",
+   "color": "#06b6d4",
+   "note": "Within first ~40 aa: [RK][LVI].{5}[HQ][LA].",
+   "pattern": "(?=^.{0,40})[RK][LVI][A-Z]{5}[HQ][LA]"
+  },
+  {
+   "name": "ER retention (KDEL/HDEL)",
+   "category": "Localization",
+   "color": "#10b981",
+   "note": "Luminal ER retrieval signal (C-terminus).",
+   "pattern": "(KDEL|HDEL)$"
+  },
+  {
+   "name": "ER retrieval (KKXX, C-term)",
+   "category": "Localization",
+   "color": "#059669",
+   "note": "Cytosolic KKxx at extreme C-terminus.",
+   "pattern": "KK[A-Z]{2}$"
+  },
+  {
+   "name": "Walker A (P-loop)",
+   "category": "Domain",
+   "color": "#a78bfa",
+   "note": "ATP/GTP binding motif: GxxxxGKS/T.",
+   "pattern": "G[A-Z]{4}GK[ST]"
+  },
+  {
+   "name": "Zn finger C2H2",
+   "category": "Domain",
+   "color": "#7c3aed",
+   "note": "Classical Cys2-His2 zinc finger.",
+   "pattern": "C.{2,4}C.{12}H.{3,5}H"
+  },
+  {
+   "name": "Coiled-Coil Heptad Repeat",
+   "category": "Domain",
+   "color": "#94a3b8",
+   "note": "Heuristic for coiled-coil structure: [h]xxxxx[h]xxxxx[h]. h=hydrophobic.",
+   "pattern": "[LIVMF][A-Z]{6}[LIVMF][A-Z]{6}[LIVMF]"
+  },
+  {
+   "name": "SH3-binding (Class I)",
+   "category": "Domain",
+   "color": "#60a5fa",
+   "note": "Proline-rich motif: RxxPxxP.",
+   "pattern": "R..P..P"
+  },
+  {
+   "name": "WW-binding (PPxY)",
+   "category": "Domain",
+   "color": "#38bdf8",
+   "note": "PPxY motif.",
+   "pattern": "PP.Y"
+  },
+  {
+   "name": "PDZ-binding (Class I, C-term)",
+   "category": "Domain",
+   "color": "#14b8a6",
+   "note": "(S/T)xV at C-terminus.",
+   "pattern": "[ST][A-Z]V$"
+  },
+  {
+   "name": "KEN box (APC/C degron)",
+   "category": "Degron",
+   "color": "#ef4444",
+   "note": "Degradation signal for APC/C E3 ligase.",
+   "pattern": "KEN.{0,3}N"
+  },
+  {
+   "name": "D-box (RxxL)",
+   "category": "Degron",
+   "color": "#f87171",
+   "note": "Destruction box for APC/C E3 ligase.",
+   "pattern": "R..L..[ILV]"
+  }
+ ]
+}

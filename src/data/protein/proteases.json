@@ -1,0 +1,68 @@
+{
+ "_source": "ExPASy PeptideCutter rules (simplified); Lys-C cleaves K-P (PeptideCutter)",
+ "values": [
+  {
+   "name": "Trypsin",
+   "cut": "After K/R",
+   "noCut": "Before P",
+   "pattern": "([KR])(?=[^P])",
+   "desc": "Cuts at carboxyl side of lysine and arginine residues, except when followed by proline."
+  },
+  {
+   "name": "Trypsin/P",
+   "cut": "After K/R",
+   "noCut": "None",
+   "pattern": "([KR])",
+   "desc": "Trypsin cutting even before Proline."
+  },
+  {
+   "name": "Chymotrypsin",
+   "cut": "After F/Y/W",
+   "noCut": "Before P",
+   "pattern": "([FYW])(?=[^P])",
+   "desc": "Cuts at carboxyl side of tyrosine, tryptophan, and phenylalanine."
+  },
+  {
+   "name": "LysC",
+   "cut": "After K",
+   "noCut": "None",
+   "pattern": "(K)",
+   "desc": "Cuts at carboxyl side of lysine."
+  },
+  {
+   "name": "AspN",
+   "cut": "Before D",
+   "noCut": "None",
+   "pattern": "(?=[D])",
+   "desc": "Cuts at amino side of aspartic acid."
+  },
+  {
+   "name": "GluC",
+   "cut": "After E",
+   "noCut": "Before P",
+   "pattern": "(E)(?=[^P])",
+   "desc": "Cuts at carboxyl side of glutamic acid."
+  },
+  {
+   "name": "ArgC",
+   "cut": "After R",
+   "noCut": "Before P",
+   "pattern": "(R)(?=[^P])",
+   "desc": "Cuts at carboxyl side of arginine."
+  },
+  {
+   "name": "Proteinase K",
+   "cut": "After A/F/I/L/V/W/Y",
+   "noCut": "",
+   "pattern": "([AFILVWY])",
+   "desc": "Broad specificity, cuts aliphatic/aromatic."
+  },
+  {
+   "name": "CNBr",
+   "cut": "After M",
+   "noCut": "None",
+   "pattern": "(M)",
+   "desc": "Cyanogen bromide cuts after Methionine."
+  }
+ ]
+}
