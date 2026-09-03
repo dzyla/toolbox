@@ -1,7 +1,7 @@
 # Bio-Bench rebuild — design spec
 
 Date: 2026-09-02
-Status: draft for review
+Status: approved for implementation
 Companion: `docs/science-audit-2026-09-02.md` (findings this design must fix)
 
 ## 1. Goal
@@ -115,6 +115,33 @@ Camera capture on phones feeds the image tools directly.
 **Accessibility and theme**: light/dark from system with override, keyboard
 operable, colour-blind-safe palette in all plots, no information by colour
 alone.
+
+### Interaction principles
+
+Bio-Bench is a public scientific instrument, not a dashboard. Each tool should
+open with the smallest useful set of inputs, a visible default example, and an
+immediate, legible result. Advanced controls belong in a clearly named
+disclosure; they must never be required to complete the common calculation.
+Inputs and results use plain language alongside conventional symbols and units.
+
+The layout is mobile-first: a single vertical flow on narrow screens, with
+inputs before results; at wider breakpoints the same sections form a calm
+two-column workspace. Touch targets are at least 44 px, tables scroll in their
+own region instead of forcing page overflow, and charts remain useful without
+hover by exposing their key values in adjacent text or tables. Keyboard access,
+high-contrast states, and no-colour-only meanings are required on every view.
+
+Every result has a compact “How this works” entry point through the shared
+Science panel. It states the equation, variable definitions, assumptions,
+validated range where applicable, interpretation guidance, and primary
+references. The primary workflow remains uncluttered: equations and background
+are available on demand, rather than competing with the calculation itself.
+
+Visual design should use the existing application tokens, type scale,
+`ToolLayout`, `Quantity`, `ActionBar`, and `SciencePanel`. Prefer whitespace,
+clear grouping, short labels, and restrained borders over decoration. Icons are
+optional functional cues only; no emoji are used as a substitute for a control
+label or scientific meaning.
 
 ## 5. Tool inventory for v1.0
 
