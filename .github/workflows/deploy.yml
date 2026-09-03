@@ -22,7 +22,6 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: BASE_PATH="/${{ github.event.repository.name }}/" npm run build
-      - run: cp -r legacy dist/legacy
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

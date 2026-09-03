@@ -3,7 +3,7 @@
 Thanks for helping make lab science free and correct.
 
 ## Ground rules
-- Science first. A change to `src/core`, `src/data` or the legacy science files needs a reference and a test that pins a published value. CI blocks merges that break a reference test.
+- Science first. A change to `src/core` or `src/data` needs a reference and a test that pins a published value. CI blocks merges that break a reference test.
 - No servers, no accounts, no tracking. Everything runs in the browser.
 - Keep `src/core` free of DOM and framework code; ESLint enforces this.
 
@@ -11,8 +11,8 @@ Thanks for helping make lab science free and correct.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # unit tests + legacy science tests
-npm run build && cp -r legacy dist/legacy && npm run e2e   # browser smoke tests (Playwright Chromium)
+npm test           # unit tests (core science, components)
+npm run build && npm run e2e   # browser smoke tests (Playwright Chromium)
 ```
 
 ## Adding a tool

@@ -10,10 +10,10 @@ describe('shell', () => {
     expect(screen.getByRole('searchbox')).toBeTruthy();
     expect(await screen.findByText('Calculators')).toBeTruthy();
   });
-  it('shows a legacy link card for legacy tools', async () => {
+  it('shows a placeholder for tools still being ported', async () => {
     route.value = { name: 'tool', toolId: 'protein' };
     render(<App />);
-    expect(await screen.findByRole('link', { name: /Open Protein Workbench/ })).toBeTruthy();
+    expect(await screen.findByText(/Being rebuilt/)).toBeTruthy();
   });
   it('shows not found for unknown tools', async () => {
     route.value = { name: 'tool', toolId: 'nothing-here' };

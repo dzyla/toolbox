@@ -1,5 +1,5 @@
-# Legacy tools
+# Legacy tools (frozen, not deployed)
 
-The original standalone tools, frozen. They are deployed under `/legacy/` until
-each has been ported to the new Bio-Bench app. Science fixes from the 2026-09-02
-audit are applied here; new features go into `src/`.
+The original standalone tools, kept for reference while their calculations are ported
+into `src/core` with tests. Science fixes from the 2026-09-02 audit were applied here
+first; `node --test tests/legacy/*.test.js` still exercises them.

@@ -4,7 +4,7 @@ Free, open-source lab tools that show their work: calculators, protein and DNA t
 binding and alignment, and gel analysis. Runs entirely in your browser, installs as an
 app on phones and laptops, works offline, and keeps your projects on your device.
 
-**Live app:** https://dzyla.github.io/toolbox/ · **Legacy tools:** https://dzyla.github.io/toolbox/legacy/
+**Live app:** https://dzyla.github.io/toolbox/
 
 ## Why
 - Every result carries its formula, assumptions and references.
@@ -14,9 +14,10 @@ app on phones and laptops, works offline, and keeps your projects on your device
 
 ## Status
 Rebuild in progress. The original tools were audited on 2026-09-02
-(`docs/science-audit-2026-09-02.md`), all confirmed errors were fixed and are guarded by
-tests, and they remain available under `/legacy/` while each is ported to the new app.
-The design is in `docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`.
+(`docs/science-audit-2026-09-02.md`); every calculation is being ported into `src/core`
+with tests pinned to published reference values. The design is in
+`docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`. The frozen originals are
+kept in `legacy/` for reference only and are not deployed.
 
 ## Develop
 ```bash

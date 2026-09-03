@@ -12,7 +12,7 @@
     "lint": "eslint src tests",
     "test:unit": "vitest run",
     "test:legacy": "node --test tests/legacy/*.test.js",
-    "test": "npm run test:unit && npm run test:legacy",
+    "test": "npm run test:unit",
     "e2e": "playwright test"
   },
   "dependencies": {

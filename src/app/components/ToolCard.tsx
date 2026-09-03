@@ -2,7 +2,7 @@ import { navigate } from '../router';
 import type { ToolMeta } from '@/tools/registry';
 
 export function ToolCard({ tool }: { tool: ToolMeta }) {
-  const pill = tool.status === 'legacy' ? 'Legacy' : tool.status === 'planned' ? 'Planned' : null;
+  const pill = tool.status === 'porting' ? 'Soon' : tool.status === 'planned' ? 'Planned' : null;
   return (
     <button type="button" onClick={() => navigate({ name: 'tool', toolId: tool.id })}
       class="flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-accent-500 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900">

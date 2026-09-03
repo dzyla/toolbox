@@ -6,7 +6,7 @@ describe('registry', () => {
     const ids = TOOLS.map(t => t.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const t of TOOLS) expect(CATEGORIES[t.category]).toBeTruthy();
-    for (const t of TOOLS) expect(t.status === 'legacy' ? t.legacyHref : t.status === 'ready' ? t.load : true).toBeTruthy();
+    for (const t of TOOLS) expect(t.status === 'ready' ? t.load : true).toBeTruthy();
   });
   it('finds and searches', () => {
     expect(findTool('molarity')?.name).toMatch(/Molarity/);

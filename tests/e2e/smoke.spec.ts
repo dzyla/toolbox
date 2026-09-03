@@ -18,15 +18,6 @@ test('home lists tools and opens molarity with a shareable state', async ({ page
   expect(errors).toEqual([]);
 });
 
-test('legacy tool card links to the legacy page, which loads', async ({ page }) => {
-  await page.goto('/#/t/protein');
-  const link = page.getByRole('link', { name: /Open Protein Workbench/ });
-  await expect(link).toHaveAttribute('href', /legacy\/protein_params\.html$/);
-  await link.click();
-  await expect(page).toHaveURL(/legacy\/protein_params\.html/);
-  await expect(page.locator('#analyze_button')).toBeVisible();
-});
-
 test('dark mode toggle persists', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Toggle dark mode' }).click();

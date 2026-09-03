@@ -19,14 +19,12 @@ export function ToolPage({ toolId, projectId }: { toolId: string; projectId?: st
 
   if (!tool) return <NotFound what={`Tool "${toolId}"`} />;
 
-  if (tool.status === 'legacy') {
-    const href = `${import.meta.env.BASE_URL}${tool.legacyHref}`;
+  if (tool.status === 'porting') {
     return (
       <section class="mx-auto max-w-xl p-6">
         <h1 class="text-2xl font-bold">{tool.icon} {tool.name}</h1>
         <p class="mt-2 text-slate-600 dark:text-slate-300">{tool.blurb}</p>
-        <p class="mt-4 text-sm text-slate-500">This tool has not been ported to the new app yet. The original version is still available, and its calculations have been audited and corrected.</p>
-        <a href={href} class="mt-4 inline-block rounded-lg bg-accent-600 px-4 py-2 font-semibold text-white hover:bg-accent-700">Open {tool.name}</a>
+        <p class="mt-4 text-sm text-slate-500">Being rebuilt for this app. Check back soon.</p>
       </section>
     );
   }
