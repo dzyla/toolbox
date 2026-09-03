@@ -1,0 +1,15 @@
+{
+  "_source": "Unimod XML database (https://www.unimod.org/xml/unimod.xml), mass deltas and accessions verified 2026-09-03. Glycan values use Unimod compositions Hex(3)HexNAc(2) and Hex(9)HexNAc(2).",
+  "values": [
+    { "id": "phospho", "name": "Phosphorylation", "unimod": 21, "monoisotopic": 79.966331, "average": 79.9799 },
+    { "id": "acetyl", "name": "Acetylation", "unimod": 1, "monoisotopic": 42.010565, "average": 42.0367 },
+    { "id": "methyl", "name": "Methylation", "unimod": 34, "monoisotopic": 14.01565, "average": 14.0266 },
+    { "id": "dimethyl", "name": "Dimethylation", "unimod": 36, "monoisotopic": 28.0313, "average": 28.0532 },
+    { "id": "trimethyl", "name": "Trimethylation", "unimod": 37, "monoisotopic": 42.04695, "average": 42.0797 },
+    { "id": "oxidation", "name": "Oxidation", "unimod": 35, "monoisotopic": 15.994915, "average": 15.9994 },
+    { "id": "carbamidomethyl", "name": "Carbamidomethylation", "unimod": 4, "monoisotopic": 57.021464, "average": 57.0513 },
+    { "id": "n-glycan-core", "name": "N-glycan core (HexNAc2Hex3)", "unimod": 159, "monoisotopic": 892.317216, "average": 892.8068 },
+    { "id": "high-mannose-man9", "name": "High-mannose Man9 (HexNAc2Hex9)", "unimod": 1531, "monoisotopic": 1864.634157, "average": 1865.6504 },
+    { "id": "biotin", "name": "Biotinylation", "unimod": 3, "monoisotopic": 226.077598, "average": 226.2954 }
+  ]
+}

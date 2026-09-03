@@ -211,3 +211,7 @@ export function summarize(rawSeq: string, scheme: PKaScheme = 'bjellqvist'): Pro
     ext: extinctionCoefficients(counts, mw), instability: instabilityIndex(seq), aliphatic: aliphaticIndex(counts, seq.length),
     gravy: gravy(seq), formula: atomicFormula(counts).formula, ambiguous };
 }
+
+export * from './profiles';
+export * from './features';
+export * from './mass';
