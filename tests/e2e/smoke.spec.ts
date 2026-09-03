@@ -34,3 +34,18 @@ test('service worker registers for offline use', async ({ page }) => {
   ]));
   expect(ok).toBe(true);
 });
+
+test('all ready tools open without page errors', async ({ page }) => {
+  const readyTools = [
+    'molarity', 'buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate',
+    'cryoem', 'protein', 'protein-conc', 'nucleic', 'sequence',
+    'align', 'binding', 'gel', 'colors',
+  ];
+  for (const id of readyTools) {
+    const errors: string[] = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(`/#/t/${id}`);
+    await expect(page.locator('h1')).toBeVisible();
+    expect(errors, `Tool ${id} produced page errors`).toEqual([]);
+  }
+});

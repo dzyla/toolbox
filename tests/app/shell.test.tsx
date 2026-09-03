@@ -10,10 +10,10 @@ describe('shell', () => {
     expect(screen.getByRole('searchbox')).toBeTruthy();
     expect(await screen.findByText('Calculators')).toBeTruthy();
   });
-  it('shows a placeholder for tools still being ported', async () => {
-    route.value = { name: 'tool', toolId: 'protein' };
+  it('shows a placeholder for planned tools', async () => {
+    route.value = { name: 'tool', toolId: 'measure' };
     render(<App />);
-    expect(await screen.findByText(/Being rebuilt/)).toBeTruthy();
+    expect(await screen.findByText(/Planned/)).toBeTruthy();
   });
   it('shows not found for unknown tools', async () => {
     route.value = { name: 'tool', toolId: 'nothing-here' };
