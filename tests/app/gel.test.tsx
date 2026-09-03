@@ -27,4 +27,46 @@ describe('Gel and Blot analysis tool view', () => {
 
     expect(screen.getByText(/demo_gel\.png/)).toBeTruthy();
   });
+
+  it('switches views to MW calibration curve and all-lanes quantification table', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    // Switch to MW Calibration Curve
+    const calTab = screen.getByRole('button', { name: /MW Calibration Curve/ });
+    fireEvent.click(calTab);
+    expect(screen.getByText(/Molecular Weight Calibration Curve/)).toBeTruthy();
+    expect(screen.getByText(/Migration Distance Y along Lane/)).toBeTruthy();
+
+    // Switch to All-Lanes Band Quantification
+    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/ });
+    fireEvent.click(quantTab);
+    expect(screen.getByText(/Net Intensity \(Amount\)/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Export All Lanes CSV/ })).toBeTruthy();
+  });
+
+  it('selects lane when canvas is clicked', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    const canvas = screen.getByTitle(/Click directly on any lane to select it/);
+    expect(canvas).toBeTruthy();
+
+    // Mock getBoundingClientRect
+    canvas.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 400,
+      bottom: 500,
+      width: 400,
+      height: 500,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+
+    // Click near center
+    fireEvent.click(canvas, { clientX: 200, clientY: 250 });
+    expect(await screen.findByText(/Densitometry Profile/)).toBeTruthy();
+  });
 });

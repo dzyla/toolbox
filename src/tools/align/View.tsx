@@ -107,9 +107,20 @@ export default function View() {
         {p.removed && `Ignored characters: ${p.removed}. `}{p.records > 1 && `${p.records} FASTA records found; only the first is used.`}</span>}
     </label>
   );
-  const num = (k: 'gapOpen' | 'gapExtend' | 'match' | 'mismatch', label: string, min?: number) => (
+  const num = (k: 'gapOpen' | 'gapExtend' | 'match' | 'mismatch', label: string, min?: number, step: string = 'any') => (
     <label class="block"><span class="mb-1 block text-sm font-medium">{label}</span>
-      <input type="number" step="any" min={min} value={s[k]} onInput={e => set({ [k]: Number((e.target as HTMLInputElement).value) })} class={inputCls} /></label>
+      <input
+        type="number"
+        step={step}
+        min={min}
+        value={s[k]}
+        onInput={e => {
+          const val = parseFloat((e.target as HTMLInputElement).value);
+          if (Number.isFinite(val)) set({ [k]: val });
+        }}
+        class={inputCls}
+      />
+    </label>
   );
 
   const stats = result?.stats;
@@ -153,7 +164,7 @@ export default function View() {
       </>}
       results={error ? <p role="alert" class="text-red-600">{error}</p> : !result ? <p class="text-slate-500">Press Align to run.</p> : <div class="space-y-4">
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {tile('Score', String(result.score), `${prep.opts.matrix.name}, gaps ${s.gapOpen}/${s.gapExtend}`)}
+          {tile('Score', Number.isInteger(result.score) ? String(result.score) : result.score.toFixed(2), `${prep.opts.matrix.name}, gaps ${s.gapOpen}/${s.gapExtend}`)}
           {stats && tile('Identity', `${stats.identityPct.toFixed(1)} %`, `${stats.identities}/${stats.columns} columns`)}
           {stats && tile('Similarity', `${stats.similarityPct.toFixed(1)} %`, `${stats.similarities}/${stats.columns} columns`)}
           {stats && tile('Gaps', `${stats.gapPct.toFixed(1)} %`, `${stats.gapColumns}/${stats.columns} columns`)}

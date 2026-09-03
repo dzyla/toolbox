@@ -174,7 +174,8 @@ export function align(s1: string, s2: string, opts: AlignOptions): AlignmentResu
   }
   if (aligned1.length === 0) { start1 = start2 = end1 = end2 = 0; scored1[0] = scored2[0] = 0; scored1[1] = scored2[1] = 0; }
   const { midline, classes, stats } = describeAlignment(aligned1, aligned2, opts.matrix);
-  return { mode, score: best, aligned1, aligned2, midline, classes, start1, end1, start2, end2, scored1, scored2, stats };
+  const cleanScore = mode === 'local' ? (best <= 0 ? 0 : Math.round(best * 1e6) / 1e6) : Math.round(best * 1e6) / 1e6;
+  return { mode, score: cleanScore, aligned1, aligned2, midline, classes, start1, end1, start2, end2, scored1, scored2, stats };
 }
 
 /**
@@ -222,5 +223,5 @@ export function rescore(aligned1: string, aligned2: string, opts: AlignOptions):
     else if (a === '-') { s -= inY ? opts.gapExtend : opts.gapOpen; inY = true; inX = false; }
     else { s += scoreOf(opts.matrix, a, b); inX = inY = false; }
   }
-  return s;
+  return Math.round(s * 1e6) / 1e6;
 }

@@ -254,4 +254,11 @@ describe('alignment formats', () => {
     const t = toPairwiseText(r, ['a', 'b'], o);
     expect(t).toMatch(/Identity: 66\/68/); expect(t).toMatch(/Gap open: 10/); expect(t).toMatch(/EMBOSS convention/);
   });
+  it('supports arbitrary float gap penalties without precision issues', () => {
+    const r = align('ACGTACGT', 'ACGTTCGT', { mode: 'global', matrix: DNA, gapOpen: 10.75, gapExtend: 0.25 });
+    expect(rescore(r.aligned1, r.aligned2, { mode: 'global', matrix: DNA, gapOpen: 10.75, gapExtend: 0.25 })).toBe(r.score);
+    const rGap = align('ACGTACGT', 'ACGT', { mode: 'global', matrix: DNA, gapOpen: 2.5, gapExtend: 0.5 });
+    // 4 matches = 4 * 5 = 20. 1 gap of length 4 = 2.5 + 3 * 0.5 = 4.0. Total = 16.0
+    expect(rGap.score).toBe(16);
+  });
 });

@@ -125,8 +125,8 @@ export default function CryoEmView() {
                 <label class="block text-sm font-medium mb-1">Pixel Size (Å/px)</label>
                 <input
                   type="number"
-                  step="0.001"
-                  min="0.1"
+                  step="any"
+                  min="0.001"
                   class={FIELD}
                   value={s.pixelSize}
                   onInput={e => set({ pixelSize: Number((e.target as HTMLInputElement).value) })}
@@ -179,44 +179,44 @@ export default function CryoEmView() {
 
           {s.tab === 'dose' && (
             <div class="space-y-3">
-              <div>
-                <label class="block text-sm font-medium mb-1">Pixel Size (Å/px)</label>
+              <label class="block">
+                <span class="block text-sm font-medium mb-1">Pixel Size (Å/px)</span>
                 <input
                   type="number"
-                  step="0.001"
-                  min="0.1"
+                  step="any"
+                  min="0.001"
                   class={FIELD}
                   value={s.pixelSize}
                   onInput={e => set({ pixelSize: Number((e.target as HTMLInputElement).value) })}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label class="block text-sm font-medium mb-1">Dose Rate (e⁻/px/s on detector)</label>
+              <label class="block">
+                <span class="block text-sm font-medium mb-1">Dose Rate (e⁻/px/s on detector)</span>
                 <input
                   type="number"
-                  step="0.1"
-                  min="0.1"
+                  step="any"
+                  min="0.001"
                   class={FIELD}
                   value={s.doseRate}
                   onInput={e => set({ doseRate: Number((e.target as HTMLInputElement).value) })}
                 />
-              </div>
+              </label>
 
               <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Total Exposure (s)</label>
+                <label class="block">
+                  <span class="block text-sm font-medium mb-1">Total Exposure (s)</span>
                   <input
                     type="number"
-                    step="0.1"
-                    min="0.1"
+                    step="any"
+                    min="0.001"
                     class={FIELD}
                     value={s.exposureTime}
                     onInput={e => set({ exposureTime: Number((e.target as HTMLInputElement).value) })}
                   />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Number of Frames</label>
+                </label>
+                <label class="block">
+                  <span class="block text-sm font-medium mb-1">Number of Frames</span>
                   <input
                     type="number"
                     step="1"
@@ -225,20 +225,20 @@ export default function CryoEmView() {
                     value={s.frames}
                     onInput={e => set({ frames: Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1) })}
                   />
-                </div>
+                </label>
               </div>
 
-              <div class="pt-2">
-                <label class="block text-xs text-slate-500 mb-1">Target Desired Dose (e⁻/Å²)</label>
+              <label class="block pt-2">
+                <span class="block text-xs text-slate-500 mb-1">Target Desired Dose (e⁻/Å²)</span>
                 <input
                   type="number"
-                  step="1"
-                  min="1"
+                  step="any"
+                  min="0.01"
                   class={FIELD}
                   value={s.targetDose}
                   onInput={e => set({ targetDose: Number((e.target as HTMLInputElement).value) })}
                 />
-              </div>
+              </label>
             </div>
           )}
 
@@ -249,7 +249,7 @@ export default function CryoEmView() {
                 <div class="flex gap-2">
                   <input
                     type="number"
-                    step="0.1"
+                    step="any"
                     min="0.1"
                     class={`${FIELD} flex-1`}
                     value={s.detectorUm}
@@ -276,8 +276,8 @@ export default function CryoEmView() {
                 <label class="block text-sm font-medium mb-1">Magnification</label>
                 <input
                   type="number"
-                  step="100"
-                  min="1000"
+                  step="any"
+                  min="1"
                   class={FIELD}
                   value={s.mag}
                   onInput={e => set({ mag: Number((e.target as HTMLInputElement).value) })}
@@ -288,8 +288,8 @@ export default function CryoEmView() {
                 <label class="block text-sm font-medium mb-1">Target Pixel Size (Å/px) → Calculate Mag</label>
                 <input
                   type="number"
-                  step="0.01"
-                  min="0.1"
+                  step="any"
+                  min="0.001"
                   class={FIELD}
                   placeholder="Type a pixel size to update magnification"
                   onChange={e => {

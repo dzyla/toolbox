@@ -26,6 +26,23 @@ describe('Cryo-EM tool', () => {
     expect(await screen.findByTestId('cryo-mag-result')).toBeTruthy();
     expect(screen.getByText(/Calibrated Pixel Size/)).toBeTruthy();
   });
+
+  it('accepts float values for dose, time, and pixel size', async () => {
+    route.value = { name: 'tool', toolId: 'cryoem' };
+    render(<CryoEmView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dose Calculator' }));
+
+    const pixelInput = screen.getByLabelText(/Pixel Size/);
+    fireEvent.input(pixelInput, { target: { value: '0.832' } });
+
+    const timeInput = screen.getByLabelText(/Total Exposure/);
+    fireEvent.input(timeInput, { target: { value: '2.5' } });
+
+    const doseInput = screen.getByLabelText(/Target Desired Dose/);
+    fireEvent.input(doseInput, { target: { value: '42.5' } });
+
+    expect(screen.getByText(/Total Dose/)).toBeTruthy();
+  });
 });
 
 describe('Nucleic Acids tool', () => {
