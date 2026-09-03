@@ -83,8 +83,8 @@ export const TOOLS: ToolMeta[] = [
     blurb: 'Step-by-step protocols with timers', keywords: ['protocol', 'steps', 'checklist'],
     status: 'planned', hasProjects: true },
   { id: 'colors', name: 'Figure Colours', category: 'figures', icon: '🎨',
-    blurb: 'Palettes, colour-blind check, PyMOL export', keywords: ['colors', 'colours', 'palette', 'pymol', 'colorblind'],
-    status: 'porting' },
+    blurb: 'Palettes, colour-blind check, PyMOL export', keywords: ['colors', 'colours', 'palette', 'pymol', 'colorblind', 'viridis', 'matplotlib', 'contrast'],
+    status: 'ready', load: () => import('./colors/View') },
 ];
 
 export function findTool(id: string): ToolMeta | undefined { return TOOLS.find(t => t.id === id); }
