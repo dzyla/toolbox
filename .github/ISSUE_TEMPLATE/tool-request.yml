@@ -1,0 +1,16 @@
+name: Tool request
+description: Suggest a new tool or feature
+title: "[tool] <name>"
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should it do?
+      description: "Inputs, outputs, and the formula or method if you know it."
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How often would you use it, and what do you use today?

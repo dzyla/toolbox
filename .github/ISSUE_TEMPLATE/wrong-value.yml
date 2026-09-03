@@ -1,0 +1,38 @@
+name: Wrong value
+description: A calculation gives a result you believe is incorrect
+title: "[wrong value] <tool>: <short description>"
+labels: [science, bug]
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: Tool
+      placeholder: "e.g. Protein Workbench"
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Inputs
+      description: "Paste the share link if the tool has one, otherwise every input value."
+    validations:
+      required: true
+  - type: input
+    id: got
+    attributes:
+      label: Result shown by Bio-Bench
+    validations:
+      required: true
+  - type: input
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference
+      description: "Where the expected value comes from: paper, textbook, another tool (name and version), hand calculation."
+    validations:
+      required: true

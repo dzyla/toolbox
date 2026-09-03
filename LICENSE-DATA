@@ -1,0 +1,9 @@
+Data files under src/data/ (chemical tables, ladders, pKa sets, substitution
+matrices, codon tables, presets, protocols) are licensed under the Creative
+Commons Attribution 4.0 International License (CC BY 4.0).
+
+You may copy, redistribute and adapt them for any purpose, including
+commercially, as long as you give appropriate credit to the Bio-Bench project
+(https://github.com/dzyla/toolbox) and indicate if changes were made.
+
+Full text: https://creativecommons.org/licenses/by/4.0/legalcode

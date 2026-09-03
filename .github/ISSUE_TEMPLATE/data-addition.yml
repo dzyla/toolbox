@@ -1,0 +1,19 @@
+name: Add data (ladder, chemical, protocol)
+description: Contribute a ladder, chemical, buffer preset or protocol
+title: "[data] <what>"
+labels: [data]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [Ladder, Chemical, Buffer or media preset, Protocol, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data
+      description: "Values with units, and the supplier document or publication they come from."
+    validations:
+      required: true

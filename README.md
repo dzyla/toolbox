@@ -1,21 +1,33 @@
-# Vibe coded tools for stuff
+# Bio-Bench
 
-Sometimes you just need to generate some colors, or maybe you want to generate a random color palette. This is a simple tool that does just that.
+Free, open-source lab tools that show their work: calculators, protein and DNA tools,
+binding and alignment, and gel analysis. Runs entirely in your browser, installs as an
+app on phones and laptops, works offline, and keeps your projects on your device.
 
-Another time you want to count words in a text, or maybe you want to count the number of characters in a text. This tool does that too.
+**Live app:** https://dzyla.github.io/toolbox/ · **Legacy tools:** https://dzyla.github.io/toolbox/legacy/
 
-Yet another time, you want to see how much protein is in the complex with given Kd values. This tool can help you analyze that as well.
+## Why
+- Every result carries its formula, assumptions and references.
+- Every calculation is tested against published reference values on every change.
+- No accounts, no tokens, no tracking, no server.
+- AGPL-3.0: anyone can use, host and improve it; hosted forks must stay open.
 
-And then, there is a day you want to see a protein statistics table, or maybe you want to see a extinction coefficient table. This tool can help you with that too.
+## Status
+Rebuild in progress. The original tools were audited on 2026-09-02
+(`docs/science-audit-2026-09-02.md`), all confirmed errors were fixed and are guarded by
+tests, and they remain available under `/legacy/` while each is ported to the new app.
+The design is in `docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`.
 
-## Features
+## Develop
+```bash
+npm install
+npm run dev
+npm test
+```
+See `CONTRIBUTING.md` for the science rules and how to add a tool.
 
-Mostly vibe coded tools for stuff, using technology I am not familiar with, so it might not be the best code ever, but it works. Tested with other tools that do similar things. Coded using Gemini Pro and OpenAI o3.
+## Citing
+See `CITATION.cff`; GitHub shows a "Cite this repository" button.
 
-
-## Science status
-
-A full audit of every calculation (2026-09-02) is in `docs/science-audit-2026-09-02.md`.
-All confirmed errors are fixed and guarded by `npm test` (plain Node 22, no dependencies).
-The suite is being rebuilt as **Bio-Bench**, a free, offline-capable lab toolkit; see
-`docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`.
+## License
+Code: AGPL-3.0-only (`LICENSE`). Data files under `src/data/`: CC-BY-4.0 (`LICENSE-DATA`).
