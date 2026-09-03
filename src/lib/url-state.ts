@@ -22,24 +22,27 @@ export function decodeState<T>(s: string | undefined, fallback: T): T {
  * Reads once on mount; writes debounced with history.replaceState (no navigation).
  */
 export function useUrlState<T extends object>(toolId: string, defaults: T): [Signal<T>, () => string] {
-  const state = useMemo(() => {
+  const initial = useMemo(() => {
     const r = route.peek();
-    return signal<T>(decodeState(r.name === 'tool' && r.toolId === toolId ? r.state : undefined, defaults));
+    const st = decodeState(r.name === 'tool' && r.toolId === toolId ? r.state : undefined, defaults);
+    return { state: signal<T>(st), written: encodeState(st) };
   }, [toolId]);
+  const { state } = initial;
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
-    let first = true;
+    // Compare against the last written encoding rather than skipping the first run:
+    // effects run after paint, so an edit made before this effect exists must still be written.
     const stop = effect(() => {
-      const s = state.value;
-      if (first) { first = false; return; }
+      const enc = encodeState(state.value);
+      if (enc === initial.written) return;
       if (t) clearTimeout(t);
       t = setTimeout(() => {
         const r = route.peek();
-        if (r.name === 'tool' && r.toolId === toolId && !r.projectId) replaceState({ ...r, state: encodeState(s) });
-      }, 300);
+        if (r.name === 'tool' && r.toolId === toolId && !r.projectId) { replaceState({ ...r, state: enc }); initial.written = enc; }
+      }, 250);
     });
     return () => { stop(); if (t) clearTimeout(t); };
-  }, [state, toolId]);
+  }, [initial, toolId]);
   const shareUrl = () => `${location.origin}${location.pathname}${toHash({ name: 'tool', toolId, state: encodeState(state.value) })}`;
   return [state, shareUrl];
 }
