@@ -161,6 +161,23 @@ export function applyDilutionSeries(
   return updated;
 }
 
+/** Format concentration value cleanly without trailing decimals */
+export function formatWellConcentration(val: number | undefined): string {
+  if (val === undefined) return '';
+  if (val === 0) return '0';
+  if (val >= 1000) return val >= 1e5 ? val.toExponential(1) : Math.round(val).toString();
+  if (val >= 100) return (Math.round(val * 10) / 10).toString();
+  if (val >= 1) {
+    const s = val.toPrecision(3);
+    return parseFloat(s).toString();
+  }
+  if (val >= 0.0001) {
+    const s = val.toPrecision(2);
+    return parseFloat(s).toString();
+  }
+  return val.toExponential(1);
+}
+
 export interface PipettingSchemeStep {
   stepNumber: number;
   description: string;
@@ -171,12 +188,23 @@ export interface PipettingSchemeStep {
   pipetteType: 'single' | '8-channel' | '12-channel';
 }
 
+export interface SampleReagentSummary {
+  sampleName: string;
+  type: string;
+  wellCount: number;
+  wells: string[];
+  stockVolumeNeededUl: number;
+  diluentVolumeNeededUl: number;
+  isDilution: boolean;
+}
+
 export interface PipettingPlan {
   totalAssignedWells: number;
   workingVolumeUl: number;
   transferVolumeUl: number;
   totalDiluentNeededUl: number;
   totalStockNeededUl: number;
+  reagentSummaries: SampleReagentSummary[];
   steps: PipettingSchemeStep[];
 }
 
@@ -188,72 +216,145 @@ export function generatePipettingScheme(
     transferVolumeUl: number;
     pipetteType: 'single' | '8-channel' | '12-channel';
   },
+  groups: SampleGroup[] = [],
 ): PipettingPlan {
   const { workingVolumeUl, transferVolumeUl, pipetteType } = options;
-  const assigned = Object.values(wells).filter(w => !!w.sampleGroupId);
+  const assigned = Object.values(wells).filter(w => !!w.sampleGroupId || !!w.sampleName);
   const diluentVolPerWell = workingVolumeUl;
   const steps: PipettingSchemeStep[] = [];
 
+  const groupNameMap = new Map<string, string>(groups.map(g => [g.id, g.name]));
+  const groupTypeMap = new Map<string, string>(groups.map(g => [g.id, g.type]));
+
+  // Group wells by sampleGroupId or sampleName
+  const groupWells = new Map<string, WellData[]>();
+  for (const w of assigned) {
+    const gKey = w.sampleGroupId || w.sampleName;
+    if (!groupWells.has(gKey)) groupWells.set(gKey, []);
+    groupWells.get(gKey)!.push(w);
+  }
+
+  // Summarize reagents
+  const reagentSummaries: SampleReagentSummary[] = [];
+  let stepCounter = 1;
+
   // Step 1: Pre-fill diluent/buffer into destination wells
   steps.push({
-    stepNumber: 1,
-    description: `Dispense ${diluentVolPerWell} µL assay buffer / diluent into all ${assigned.length} destination wells.`,
+    stepNumber: stepCounter++,
+    description: `Pre-fill assay buffer / diluent (${diluentVolPerWell} µL/well) into all ${assigned.length} assigned wells.`,
     volumeUl: diluentVolPerWell * assigned.length,
-    reagent: 'Assay Buffer / Media',
+    reagent: 'Assay Buffer / Diluent',
     source: 'Reagent Reservoir',
     destination: `${assigned.length} active wells`,
     pipetteType,
   });
 
-  // Step 2: Load highest concentration stock
-  const stockWells = assigned.filter(w => w.value !== undefined && w.value > 0);
-  const maxVal = Math.max(0, ...stockWells.map(w => w.value || 0));
-  const highestWells = stockWells.filter(w => w.value === maxVal);
+  let totalStockNeededUl = 0;
+  let totalDiluentNeededUl = diluentVolPerWell * assigned.length;
 
-  if (highestWells.length > 0) {
-    const stockLoadVol = workingVolumeUl + transferVolumeUl;
-    steps.push({
-      stepNumber: 2,
-      description: `Add ${stockLoadVol} µL concentrated stock solution into initial well(s) ${highestWells.map(w => w.id).join(', ')}.`,
-      volumeUl: stockLoadVol * highestWells.length,
-      reagent: 'Stock Sample / Standard',
-      source: 'Stock Tube',
-      destination: highestWells.map(w => w.id).join(', '),
-      pipetteType: pipetteType === 'single' ? 'single' : '8-channel',
-    });
+  // For each non-blank sample group:
+  for (const [gKey, sWells] of groupWells.entries()) {
+    const gType = groupTypeMap.get(gKey) || (gKey === 'blank' ? 'blank' : 'sample');
+    const sampleName = groupNameMap.get(gKey) || sWells[0]?.sampleName || gKey;
 
-    // Step 3: Serial transfer instructions
-    steps.push({
-      stepNumber: 3,
-      description: `Perform serial transfer: transfer ${transferVolumeUl} µL sequentially across wells, mixing 3–5× by pipetting up and down at each step. Discard ${transferVolumeUl} µL from the final dilution well before the blank.`,
-      volumeUl: transferVolumeUl,
-      reagent: 'Serial Transfer',
-      source: 'Preceding column/row',
-      destination: 'Succeeding column/row',
-      pipetteType,
-    });
+    if (gType === 'blank' || gKey === 'blank') {
+      reagentSummaries.push({
+        sampleName: sampleName || 'Blank / Media',
+        type: 'blank',
+        wellCount: sWells.length,
+        wells: sWells.map(w => w.id),
+        stockVolumeNeededUl: 0,
+        diluentVolumeNeededUl: diluentVolPerWell * sWells.length,
+        isDilution: false,
+      });
+      continue;
+    }
+
+    // Check if it has varying values (dilution series)
+    const distinctValues = new Set(sWells.map(w => w.value).filter(v => v !== undefined && v > 0));
+    const isDilution = distinctValues.size > 1;
+
+    if (isDilution) {
+      // Find maximum concentration well(s) = stock wells
+      const maxVal = Math.max(0, ...sWells.map(w => w.value || 0));
+      const startWells = sWells.filter(w => w.value === maxVal);
+      const stockLoadVol = (workingVolumeUl + transferVolumeUl) * startWells.length;
+      totalStockNeededUl += stockLoadVol;
+
+      reagentSummaries.push({
+        sampleName,
+        type: gType,
+        wellCount: sWells.length,
+        wells: sWells.map(w => w.id),
+        stockVolumeNeededUl: stockLoadVol,
+        diluentVolumeNeededUl: diluentVolPerWell * sWells.length,
+        isDilution: true,
+      });
+
+      steps.push({
+        stepNumber: stepCounter++,
+        description: `Load ${workingVolumeUl + transferVolumeUl} µL ${sampleName} stock into initial well(s) ${startWells.map(w => w.id).join(', ')}.`,
+        volumeUl: stockLoadVol,
+        reagent: `${sampleName} Stock`,
+        source: `${sampleName} Tube`,
+        destination: startWells.map(w => w.id).join(', '),
+        pipetteType: startWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
+      });
+
+      steps.push({
+        stepNumber: stepCounter++,
+        description: `Serial dilution for ${sampleName}: transfer ${transferVolumeUl} µL across consecutive wells (${sWells.map(w => w.id).join(' ➔ ')}), mixing 3–5× at each step. Discard ${transferVolumeUl} µL from the final dilution well.`,
+        volumeUl: transferVolumeUl * (sWells.length - startWells.length),
+        reagent: `${sampleName} Transfer`,
+        source: 'Preceding well',
+        destination: 'Next dilution well',
+        pipetteType: startWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
+      });
+    } else {
+      // Fixed concentration sample
+      const sampleVol = workingVolumeUl * sWells.length;
+      totalStockNeededUl += sampleVol;
+
+      reagentSummaries.push({
+        sampleName,
+        type: gType,
+        wellCount: sWells.length,
+        wells: sWells.map(w => w.id),
+        stockVolumeNeededUl: sampleVol,
+        diluentVolumeNeededUl: 0,
+        isDilution: false,
+      });
+
+      steps.push({
+        stepNumber: stepCounter++,
+        description: `Add ${workingVolumeUl} µL of ${sampleName} into destination well(s) ${sWells.map(w => w.id).join(', ')}.`,
+        volumeUl: sampleVol,
+        reagent: sampleName,
+        source: `${sampleName} Sample`,
+        destination: sWells.map(w => w.id).join(', '),
+        pipetteType: sWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
+      });
+    }
   }
 
-  // Step 4: Final verification and incubation
+  // Final step
   steps.push({
-    stepNumber: steps.length + 1,
-    description: `Ensure uniform meniscus: centrifuge plate briefly (500 × g, 30 s) or tap gently to remove bubbles before plate reading.`,
+    stepNumber: stepCounter++,
+    description: 'Centrifuge microplate briefly (500 × g, 30 s) or tap lightly to eliminate bubbles and ensure a uniform meniscus before reading.',
     volumeUl: 0,
-    reagent: 'None',
-    source: 'Benchtop plate spinner',
+    reagent: 'Plate Spinner',
+    source: 'Plate Centrifuge',
     destination: 'Plate Reader',
     pipetteType: 'single',
   });
-
-  const totalDiluent = diluentVolPerWell * assigned.length;
-  const totalStock = (workingVolumeUl + transferVolumeUl) * Math.max(1, highestWells.length);
 
   return {
     totalAssignedWells: assigned.length,
     workingVolumeUl,
     transferVolumeUl,
-    totalDiluentNeededUl: totalDiluent,
-    totalStockNeededUl: totalStock,
+    totalDiluentNeededUl,
+    totalStockNeededUl,
+    reagentSummaries,
     steps,
   };
 }

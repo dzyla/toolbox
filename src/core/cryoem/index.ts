@@ -94,3 +94,219 @@ export function magFromPixelSize(physicalPixelUm: number, pixelSize: number): nu
   positive(physicalPixelUm, 'Detector pixel'); positive(pixelSize, 'Pixel size');
   return (physicalPixelUm * 1e4) / pixelSize;
 }
+
+/* ---------- CTF & Thon Rings Simulation ---------- */
+
+export interface CtfPoint {
+  s: number;     // Spatial frequency (1/Å)
+  d: number;     // Resolution (Å)
+  ctf: number;   // CTF amplitude (-1 to 1)
+  power: number; // CTF^2 (0 to 1)
+}
+
+/**
+ * Calculates relativistic de Broglie electron wavelength (in Å)
+ * for acceleration voltage V (in kV).
+ * e.g. 300 kV -> ~0.019687 Å (Titan Krios)
+ *      200 kV -> ~0.025079 Å (Talos / Glacios)
+ *      100 kV -> ~0.037014 Å
+ */
+export function relativisticWavelength(voltageKv: number): number {
+  positive(voltageKv, 'Acceleration voltage');
+  const h = 6.62607015e-34; // J*s
+  const m0 = 9.1093837e-31;  // kg
+  const e = 1.602176634e-19; // C
+  const c = 299792458;       // m/s
+  const V = voltageKv * 1000; // Volts
+
+  const E = e * V;
+  const rel = 1 + E / (2 * m0 * c * c);
+  const p = Math.sqrt(2 * m0 * E * rel);
+  const lambdaMeters = h / p;
+  return lambdaMeters * 1e10; // Convert to Å
+}
+
+/**
+ * Phase aberration function χ(s, α) in radians.
+ * s: spatial frequency in 1/Å
+ * defocusA: defocus in Å (underfocus > 0)
+ * csA: spherical aberration in Å (Cs_mm * 1e7)
+ * lambdaA: electron wavelength in Å
+ */
+export function waveAberration(s: number, defocusA: number, csA: number, lambdaA: number): number {
+  const s2 = s * s;
+  const s4 = s2 * s2;
+  const l3 = lambdaA * lambdaA * lambdaA;
+  return Math.PI * lambdaA * s2 * defocusA - 0.5 * Math.PI * csA * l3 * s4;
+}
+
+/**
+ * Contrast Transfer Function value at frequency s.
+ * Includes amplitude contrast Q and envelope B-factor decay.
+ */
+export function ctfValue(
+  s: number,
+  defocusA: number,
+  csA: number,
+  lambdaA: number,
+  amplitudeContrast = 0.07,
+  bFactor = 50
+): number {
+  const chi = waveAberration(s, defocusA, csA, lambdaA);
+  const Q = Math.max(0, Math.min(1, amplitudeContrast));
+  const phaseFactor = Math.sqrt(1 - Q * Q);
+  const envelope = Math.exp((-bFactor * s * s) / 4);
+  return - (phaseFactor * Math.sin(chi) + Q * Math.cos(chi)) * envelope;
+}
+
+/**
+ * 2D CTF value at spatial frequency coordinates (sx, sy) in 1/Å,
+ * including astigmatism: dfU, dfV in Å, and astigmatism angle in radians.
+ */
+export function ctf2D(
+  sx: number,
+  sy: number,
+  dfU_A: number,
+  dfV_A: number,
+  astAngleRad: number,
+  csA: number,
+  lambdaA: number,
+  amplitudeContrast = 0.07,
+  bFactor = 50
+): number {
+  const s = Math.sqrt(sx * sx + sy * sy);
+  if (s === 0) return -amplitudeContrast;
+  const alpha = Math.atan2(sy, sx);
+  // Astigmatic defocus at angle alpha
+  const dfAlpha = (dfU_A + dfV_A) / 2 + ((dfU_A - dfV_A) / 2) * Math.cos(2 * (alpha - astAngleRad));
+  return ctfValue(s, dfAlpha, csA, lambdaA, amplitudeContrast, bFactor);
+}
+
+/**
+ * Computes the first CTF zero resolution d1 (in Å) and frequency s1 (in 1/Å).
+ * At low frequencies, χ ≈ π * λ * s^2 * Δf. For weak amplitude contrast (Q ≈ 0),
+ * first zero is at χ = π => s1 = sqrt(1 / (λ * Δf)), d1 = sqrt(λ * Δf).
+ */
+export function firstCtfZero(
+  defocusUm: number,
+  voltageKv: number,
+  csMm: number,
+  amplitudeContrast = 0.07
+): { s1: number; d1: number } {
+  positive(defocusUm, 'Defocus');
+  positive(voltageKv, 'Voltage');
+  const lambdaA = relativisticWavelength(voltageKv);
+  const dfA = defocusUm * 10000;
+  const csA = csMm * 1e7;
+
+  // Step forward from low frequency to find the FIRST zero crossing bracket
+  let sA = 0.001;
+  let sB = 0.002;
+  const step = 0.0005;
+  let valA = ctfValue(sA, dfA, csA, lambdaA, amplitudeContrast, 0);
+
+  for (let s = sA + step; s < 0.5; s += step) {
+    const curVal = ctfValue(s, dfA, csA, lambdaA, amplitudeContrast, 0);
+    if (valA * curVal <= 0) {
+      sA = s - step;
+      sB = s;
+      break;
+    }
+  }
+
+  // Refine bracket with bisection
+  for (let i = 0; i < 25; i++) {
+    const sMid = (sA + sB) / 2;
+    const midVal = ctfValue(sMid, dfA, csA, lambdaA, amplitudeContrast, 0);
+    if (midVal * valA <= 0) {
+      sB = sMid;
+    } else {
+      sA = sMid;
+    }
+  }
+
+  const s1 = (sA + sB) / 2;
+  const d1 = s1 > 0 ? 1 / s1 : 0;
+  return { s1: Math.round(s1 * 10000) / 10000, d1: Math.round(d1 * 100) / 100 };
+}
+
+/**
+ * Generates 1D CTF oscillation curve from s = 0 up to Nyquist frequency.
+ */
+export function generateCtfProfile(
+  voltageKv: number,
+  csMm: number,
+  defocusUm: number,
+  pixelSize: number,
+  amplitudeContrast = 0.07,
+  bFactor = 50,
+  points = 250
+): CtfPoint[] {
+  const lambdaA = relativisticWavelength(voltageKv);
+  const dfA = defocusUm * 10000;
+  const csA = csMm * 1e7;
+  const sNyquist = 1 / (2 * pixelSize);
+
+  const result: CtfPoint[] = [];
+  for (let i = 0; i <= points; i++) {
+    const s = (i / points) * sNyquist;
+    const d = s > 0 ? 1 / s : 999;
+    const ctf = ctfValue(s, dfA, csA, lambdaA, amplitudeContrast, bFactor);
+    result.push({
+      s: Math.round(s * 10000) / 10000,
+      d: Math.round(d * 100) / 100,
+      ctf: Math.round(ctf * 10000) / 10000,
+      power: Math.round(ctf * ctf * 10000) / 10000,
+    });
+  }
+  return result;
+}
+
+/**
+ * Generates 2D power spectrum matrix (Thon rings) for a square grid of size x size.
+ * Returns normalized values (0 to 1) for direct rendering on an HTML Canvas.
+ */
+export function generateThonRingsMatrix(
+  size: number,
+  voltageKv: number,
+  csMm: number,
+  dfU_um: number,
+  dfV_um: number,
+  astAngleDeg: number,
+  pixelSize: number,
+  amplitudeContrast = 0.07,
+  bFactor = 50
+): Float32Array {
+  const lambdaA = relativisticWavelength(voltageKv);
+  const dfU_A = dfU_um * 10000;
+  const dfV_A = dfV_um * 10000;
+  const astAngleRad = (astAngleDeg * Math.PI) / 180;
+  const csA = csMm * 1e7;
+  const sNyquist = 1 / (2 * pixelSize);
+
+  const matrix = new Float32Array(size * size);
+  const half = size / 2;
+
+  for (let y = 0; y < size; y++) {
+    const ny = (y - half) / half; // -1 to 1
+    const sy = ny * sNyquist;
+    const yOffset = y * size;
+
+    for (let x = 0; x < size; x++) {
+      const nx = (x - half) / half; // -1 to 1
+      const sx = nx * sNyquist;
+
+      const s = Math.sqrt(sx * sx + sy * sy);
+      if (s > sNyquist) {
+        matrix[yOffset + x] = 0;
+        continue;
+      }
+
+      const ctf = ctf2D(sx, sy, dfU_A, dfV_A, astAngleRad, csA, lambdaA, amplitudeContrast, bFactor);
+      matrix[yOffset + x] = ctf * ctf;
+    }
+  }
+
+  return matrix;
+}
+

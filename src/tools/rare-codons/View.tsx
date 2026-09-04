@@ -229,25 +229,31 @@ export default function RareCodonsView() {
               ))}
             </div>
 
-            {/* Hovered Codon Tooltip */}
-            {hoveredCodonIdx !== null && analysis.evaluatedCodons[hoveredCodonIdx] && (
-              <div class="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs flex flex-wrap items-center gap-4 text-slate-700 dark:text-slate-300">
-                {(() => {
+            {/* Codon Inspector Card (Fixed height to prevent GUI jumping on hover) */}
+            <div class="min-h-[44px] p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-800/60 text-xs flex items-center">
+              {hoveredCodonIdx !== null && analysis.evaluatedCodons[hoveredCodonIdx] ? (
+                (() => {
                   const hc = analysis.evaluatedCodons[hoveredCodonIdx]!;
                   return (
-                    <>
-                      <span>Pos: <strong>{hc.position}</strong> ({hc.aa})</span>
-                      <span>Codon: <strong>{hc.codon}</strong></span>
-                      <span>Frequency: <strong>{hc.frequencyPerThousand} / 1000</strong></span>
-                      <span>Relative w: <strong>{hc.relativeAdaptiveness.toFixed(2)}</strong></span>
-                      {hc.status === 'rare' && (
-                        <span>Suggested Optimal: <strong class="text-emerald-600 dark:text-emerald-400 font-bold">{hc.suggestedCodon}</strong></span>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-700 dark:text-slate-300">
+                      <span>Residue: <strong class="font-mono">{hc.position} ({hc.aa})</strong></span>
+                      <span>Codon: <strong class="font-mono">{hc.codon}</strong></span>
+                      <span>Frequency: <strong class="font-mono">{hc.frequencyPerThousand}/1000</strong></span>
+                      <span>Relative w: <strong class="font-mono">{hc.relativeAdaptiveness.toFixed(2)}</strong></span>
+                      {hc.status === 'rare' ? (
+                        <span>Optimal Alternative: <strong class="text-emerald-600 dark:text-emerald-400 font-bold font-mono">{hc.suggestedCodon}</strong></span>
+                      ) : (
+                        <span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ Normal / Frequent Codon</span>
                       )}
-                    </>
+                    </div>
                   );
-                })()}
-              </div>
-            )}
+                })()
+              ) : (
+                <span class="text-slate-400 dark:text-slate-500 italic text-[11px]">
+                  Hover over any codon in the map above to inspect its tRNA frequency, relative adaptiveness (w), and optimal synonymous replacement.
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Synonymously Optimized DNA */}

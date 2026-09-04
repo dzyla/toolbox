@@ -8,6 +8,7 @@ import { SCIENCE } from './science';
 import {
   type AssemblyMethod,
   type FragmentInput,
+  type AssemblyJunction,
   designAssembly,
   calcGc,
 } from '@/core/gibson';
@@ -33,7 +34,103 @@ const DEFAULTS: State = {
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono';
 
-export default function GibsonView() {
+function OverhangGraphic({ junction, method }: { junction: AssemblyJunction; method: AssemblyMethod }) {
+  const bases = junction.overlapSeq.split('');
+  const compMap: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C', U: 'A', N: 'N' };
+  const compBases = bases.map(b => compMap[b.toUpperCase()] || 'N');
+
+  return (
+    <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
+        <div>
+          <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+            Junction: {junction.upstreamName} <span class="text-accent-600 font-normal">➔</span> {junction.downstreamName}
+          </span>
+          <span class="text-[11px] text-slate-500 ml-2 font-mono">
+            ({junction.overlapLength} bp homology, Overlap Tm: {junction.overlapTm}°C)
+          </span>
+        </div>
+        <span class={`px-2 py-0.5 rounded text-[10px] font-bold ${
+          junction.status === 'optimal'
+            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+        }`}>
+          {junction.status.toUpperCase()}
+        </span>
+      </div>
+
+      <p class="text-[11px] text-slate-500 italic">
+        {method === 'gibson'
+          ? "T5 Exonuclease 5'→3' chew-back generates 3' single-stranded overhangs that specifically anneal at 50°C, followed by Phusion gap fill-in & Taq ligation."
+          : "Vaccinia DNA polymerase 3'→5' exonuclease reveals 5' single-stranded homology overhangs that spontaneously hybridize."}
+      </p>
+
+      {/* Double-stranded DNA Chewback & Annealing Schematic */}
+      <div class="overflow-x-auto p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-xs shadow-inner">
+        <div class="min-w-[560px] space-y-1 select-all">
+          {/* Top Strand: Upstream dsDNA -> 3' Overhang */}
+          <div class="flex items-center">
+            <span class="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 w-28 shrink-0 truncate" title={junction.upstreamName}>
+              5' {junction.upstreamName}
+            </span>
+            <div class="h-3 w-16 bg-indigo-500/80 rounded-l mr-1 flex items-center justify-center text-[9px] text-white font-sans font-bold">
+              dsDNA
+            </div>
+            {/* Exposed 3' single-stranded overhang */}
+            <div class="flex items-center bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5 shadow-sm">
+              {bases.map((b, i) => (
+                <span key={i} class="w-3 text-center font-bold text-amber-950 dark:text-amber-200">
+                  {b}
+                </span>
+              ))}
+            </div>
+            <span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold ml-1.5">3'</span>
+            <span class="text-[10px] text-slate-400 italic ml-2">(3' ssDNA overhang)</span>
+          </div>
+
+          {/* Annealed Watson-Crick Base Pairing Lines */}
+          <div class="flex items-center pl-[180px]">
+            <div class="flex items-center px-1.5">
+              {bases.map((_, i) => (
+                <span key={i} class="w-3 text-center text-slate-400 dark:text-slate-500 select-none font-bold">
+                  |
+                </span>
+              ))}
+            </div>
+            <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ml-2 font-sans">
+              Annealed Homology Arm ({junction.overlapLength} bp, Tm {junction.overlapTm}°C)
+            </span>
+          </div>
+
+          {/* Bottom Strand: 3' Overhang <- Downstream dsDNA */}
+          <div class="flex items-center pl-[98px]">
+            <span class="text-[10px] text-slate-400 italic mr-2">(3' ssDNA overhang)</span>
+            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mr-1.5">3'</span>
+            {/* Complementary overhang */}
+            <div class="flex items-center bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-0.5 shadow-sm">
+              {compBases.map((b, i) => (
+                <span key={i} class="w-3 text-center font-bold text-emerald-950 dark:text-emerald-200">
+                  {b}
+                </span>
+              ))}
+            </div>
+            <div class="h-3 w-16 bg-emerald-500/80 rounded-r ml-1 flex items-center justify-center text-[9px] text-white font-sans font-bold">
+              dsDNA
+            </div>
+            <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 w-28 shrink-0 truncate ml-1.5" title={junction.downstreamName}>
+              {junction.downstreamName} 5'
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import type { ToolProps } from '@/tools/registry';
+
+export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
+  const embedded = props?.embedded;
   const [stateSig, shareUrl] = useUrlState<State>('gibson', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
@@ -89,6 +186,13 @@ export default function GibsonView() {
     );
   }, [s.vectorName, s.vectorSeq, inserts, s.method, s.overlapLen, s.targetPrimerTm]);
 
+  // IDT bulk ordering CSV
+  const idtBulkOrderCsv = useMemo(() => {
+    if (!assembly || assembly.primers.length === 0) return '';
+    const rows = assembly.primers.map(p => `${p.name},${p.fullSequence},25nm,STD`);
+    return ['Name,Sequence,Scale,Purification', ...rows].join('\n');
+  }, [assembly]);
+
   const copySummary = () => {
     if (!assembly) return '';
     const lines = [
@@ -96,8 +200,8 @@ export default function GibsonView() {
       `Assembled Length: ${assembly.assembledLength} bp (${calcGc(assembly.assembledSequence).toFixed(1)}% GC)`,
       `Overlap Homology: ${s.overlapLen} bp | Primer Target Tm: ${s.targetPrimerTm}°C`,
       '',
-      'Primers for Ordering:',
-      ...assembly.primers.map(p => `  ${p.name}: ${p.fullSequence} (Len: ${p.totalLength}, Anneal Tm: ${p.annealTm}°C, Ta: ${p.recommendedTa}°C)`),
+      'Primers for Ordering (IDT Bulk Format):',
+      idtBulkOrderCsv,
       '',
       'Junctions:',
       ...assembly.junctions.map(j => `  ${j.upstreamName} -> ${j.downstreamName}: ${j.overlapLength} bp, Tm ${j.overlapTm}°C (${j.message})`),
@@ -111,6 +215,7 @@ export default function GibsonView() {
       title="Gibson & In-Fusion Assembly Designer"
       blurb="Design seamless isothermal homology arms, PCR primers with 5' overhangs, junction Tm diagnostics, and full recombinant construct sequences."
       wide={true}
+      embedded={embedded}
       inputs={
         <div class="space-y-4">
           {/* Method & Parameters */}
@@ -355,6 +460,51 @@ export default function GibsonView() {
                     </div>
                   )}
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* IDT Bulk Ordering Window */}
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  IDT Bulk Order Format (CSV)
+                </h3>
+                <p class="text-xs text-slate-500">
+                  Copy and paste directly into Integrated DNA Technologies (IDT) Bulk Oligo Entry.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopyPrimer('idt', idtBulkOrderCsv)}
+                class="px-3 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition shadow-sm"
+              >
+                {copiedPrimerId === 'idt' ? '✓ Copied IDT CSV!' : '📋 Copy IDT CSV'}
+              </button>
+            </div>
+            <textarea
+              rows={Math.min(8, (assembly?.primers.length || 0) + 2)}
+              readOnly
+              value={idtBulkOrderCsv}
+              class="w-full font-mono text-xs p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-all text-slate-700 dark:text-slate-300 leading-relaxed"
+            />
+          </div>
+
+          {/* Overhang & Homology Alignment Graphics */}
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
+            <div>
+              <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
+                Single-Stranded Overhang &amp; Base Pairing Graphics
+              </h3>
+              <p class="text-xs text-slate-500">
+                Physical visualization of exonuclease chew-back, single-stranded homology overhang exposure, and complementary hybridization.
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              {assembly?.junctions.map((j, idx) => (
+                <OverhangGraphic key={idx} junction={j} method={s.method} />
               ))}
             </div>
           </div>

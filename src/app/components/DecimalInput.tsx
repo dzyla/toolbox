@@ -70,6 +70,10 @@ export function DecimalInput({
 
   const handleBlur = () => {
     const cleaned = text.replace(',', '.').trim();
+    if (!cleaned) {
+      setText(Number.isFinite(value) ? String(value) : '');
+      return;
+    }
     const num = Number(cleaned);
     if (Number.isFinite(num) && (min === undefined || num >= min) && (max === undefined || num <= max)) {
       setText(String(num));

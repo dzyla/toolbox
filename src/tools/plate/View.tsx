@@ -7,10 +7,12 @@ import {
   generateEmptyPlate,
   applyDilutionSeries,
   generatePipettingScheme,
+  formatWellConcentration,
   plateToMatrixCsv,
   plateToListCsv,
   plateToMarkdown,
 } from '@/core/plates/layout';
+import { DecimalInput } from '@/app/components/DecimalInput';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
@@ -23,6 +25,7 @@ interface State {
   viewTab: 'map' | 'pipetting';
   displayMode: 'shading' | 'labels';
   // Dilution Series
+  dilutionDirection: 'row' | 'col';
   dilutionStartRow: string;
   dilutionStartCol: number;
   dilutionLength: number;
@@ -41,7 +44,8 @@ const DEFAULTS: State = {
   format: 96,
   activeGroupId: 'sample-1',
   viewTab: 'map',
-  displayMode: 'shading',
+  displayMode: 'labels',
+  dilutionDirection: 'row',
   dilutionStartRow: 'B',
   dilutionStartCol: 1,
   dilutionLength: 8,
@@ -175,12 +179,28 @@ export default function PlateView() {
   }, [wells]);
 
   const pipettingPlan = useMemo(() => {
-    return generatePipettingScheme(wells, {
-      workingVolumeUl: s.workingVolumeUl,
-      transferVolumeUl: s.transferVolumeUl,
-      pipetteType: s.pipetteType,
-    });
-  }, [wells, s.workingVolumeUl, s.transferVolumeUl, s.pipetteType]);
+    return generatePipettingScheme(
+      wells,
+      {
+        workingVolumeUl: s.workingVolumeUl,
+        transferVolumeUl: s.transferVolumeUl,
+        pipetteType: s.pipetteType,
+      },
+      groups,
+    );
+  }, [wells, s.workingVolumeUl, s.transferVolumeUl, s.pipetteType, groups]);
+
+  function getWellTextColor(hexColor: string, opacity: number): string {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 128;
+    const g = parseInt(hex.substring(2, 4), 16) || 128;
+    const b = parseInt(hex.substring(4, 6), 16) || 128;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    if (opacity < 0.45 || lum > 0.65) {
+      return 'text-slate-950 dark:text-slate-100 font-bold';
+    }
+    return 'text-white font-bold drop-shadow-xs';
+  }
 
   function handleFormatChange(fmt: PlateFormat) {
     set({ format: fmt });
@@ -284,7 +304,7 @@ export default function PlateView() {
         startConc: s.dilutionStartConc,
         dilutionFactor: s.dilutionFactor,
         unit: s.dilutionUnit,
-        direction: 'row',
+        direction: s.dilutionDirection,
         startRow: s.dilutionStartRow,
         startCol: s.dilutionStartCol,
         length: s.dilutionLength,
@@ -443,40 +463,86 @@ export default function PlateView() {
             </summary>
 
             <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Direction: Row vs Column */}
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Dilution Direction</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => set({ dilutionDirection: 'row' })}
+                    class={`py-1 rounded text-xs font-semibold transition ${s.dilutionDirection === 'row' ? 'bg-accent-600 text-white' : 'border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                  >
+                    Across Rows (Horiz)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set({ dilutionDirection: 'col' })}
+                    class={`py-1 rounded text-xs font-semibold transition ${s.dilutionDirection === 'col' ? 'bg-accent-600 text-white' : 'border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                  >
+                    Down Columns (Vert)
+                  </button>
+                </div>
+              </div>
+
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="block text-[10px] text-slate-400">Start Row</label>
                   <select
                     value={s.dilutionStartRow}
                     onChange={(e) => set({ dilutionStartRow: (e.target as HTMLSelectElement).value })}
-                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold"
                   >
                     {dim.rowLabels.map(r => <option key={r} value={r}>Row {r}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label class="block text-[10px] text-slate-400">Start Col</label>
+                  <label class="block text-[10px] text-slate-400">Start Column</label>
                   <input
                     type="number"
                     min="1"
                     max={dim.cols}
                     value={s.dilutionStartCol}
                     onInput={(e) => set({ dilutionStartCol: parseInt((e.target as HTMLInputElement).value) || 1 })}
-                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold"
                   />
                 </div>
               </div>
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[10px] text-slate-400">Start Conc</label>
+                  <label class="block text-[10px] text-slate-400">Number of Steps (Wells)</label>
                   <input
                     type="number"
-                    min="0.001"
-                    step="any"
+                    min="2"
+                    max={s.dilutionDirection === 'row' ? dim.cols : dim.rows}
+                    value={s.dilutionLength}
+                    onInput={(e) => set({ dilutionLength: parseInt((e.target as HTMLInputElement).value) || 8 })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400">
+                    {s.dilutionDirection === 'row' ? 'Replicate Rows' : 'Replicate Columns'}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={s.dilutionDirection === 'row' ? dim.rows : dim.cols}
+                    value={s.dilutionReplicates}
+                    onInput={(e) => set({ dilutionReplicates: parseInt((e.target as HTMLInputElement).value) || 1 })}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-slate-400">Start Concentration</label>
+                  <DecimalInput
                     value={s.dilutionStartConc}
-                    onInput={(e) => set({ dilutionStartConc: parseFloat((e.target as HTMLInputElement).value) || 100 })}
-                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                    onChange={dilutionStartConc => set({ dilutionStartConc })}
+                    min={0.000001}
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold font-mono"
                   />
                 </div>
                 <div>
@@ -485,34 +551,19 @@ export default function PlateView() {
                     type="text"
                     value={s.dilutionUnit}
                     onInput={(e) => set({ dilutionUnit: (e.target as HTMLInputElement).value })}
-                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
+                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold"
                   />
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-[10px] text-slate-400">Dilution Factor (1:X)</label>
-                  <input
-                    type="number"
-                    min="1.5"
-                    step="0.5"
-                    value={s.dilutionFactor}
-                    onInput={(e) => set({ dilutionFactor: parseFloat((e.target as HTMLInputElement).value) || 2 })}
-                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
-                  />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Replicate Rows</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={dim.rows}
-                    value={s.dilutionReplicates}
-                    onInput={(e) => set({ dilutionReplicates: parseInt((e.target as HTMLInputElement).value) || 1 })}
-                    class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950"
-                  />
-                </div>
+              <div>
+                <label class="block text-[10px] text-slate-400">Dilution Factor (e.g. 2 for 1:2, 10 for 1:10)</label>
+                <DecimalInput
+                  value={s.dilutionFactor}
+                  onChange={dilutionFactor => set({ dilutionFactor })}
+                  min={1.01}
+                  class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold font-mono"
+                />
               </div>
 
               <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-400 select-none">
@@ -522,15 +573,15 @@ export default function PlateView() {
                   onChange={(e) => set({ dilutionIncludeBlank: (e.target as HTMLInputElement).checked })}
                   class="rounded text-accent-600 accent-accent-600"
                 />
-                <span>Include final Blank well</span>
+                <span>Include final Blank well (conc = 0)</span>
               </label>
 
               <button
                 type="button"
                 onClick={handleGenerateDilution}
-                class="w-full py-1.5 bg-accent-600 hover:bg-accent-700 text-white font-semibold rounded-lg transition"
+                class="w-full py-2 bg-accent-600 hover:bg-accent-700 text-white font-semibold rounded-lg transition shadow-xs"
               >
-                Apply Dilution Series
+                Apply Serial Dilution ({s.dilutionLength} steps, 1:{s.dilutionFactor})
               </button>
             </div>
           </details>
@@ -645,7 +696,7 @@ export default function PlateView() {
                       type="button"
                       onClick={() => handlePaintCol(c)}
                       title={`Fill column ${c}`}
-                      class={`${s.displayMode === 'labels' && dim.format <= 96 ? 'w-14 sm:w-16' : 'w-7 sm:w-8'} h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
+                      class={`${dim.format <= 96 ? 'w-14 sm:w-16' : 'w-7 sm:w-8'} h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
                     >
                       {c}
                     </button>
@@ -662,7 +713,7 @@ export default function PlateView() {
                         type="button"
                         onClick={() => handlePaintRow(rowChar)}
                         title={`Fill row ${rowChar}`}
-                        class={`w-8 ${s.displayMode === 'labels' && dim.format <= 96 ? 'h-12 sm:h-14' : 'h-7 sm:h-8'} mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
+                        class={`w-8 ${dim.format <= 96 ? 'h-14 sm:h-16' : 'h-7 sm:h-8'} mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
                       >
                         {rowChar}
                       </button>
@@ -713,22 +764,22 @@ export default function PlateView() {
                               backgroundColor: isOccupied ? group.color : 'transparent',
                               opacity: isOccupied ? opacity : 1,
                             }}
-                            class={`${isLabelsMode ? 'w-14 sm:w-16 h-12 sm:h-14 rounded-lg flex flex-col justify-between p-1' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? 'border-black/30 text-white shadow-2xs font-bold' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950'}`}
+                            class={`${dim.format <= 96 ? 'w-14 sm:w-16 h-14 sm:h-16 rounded-full flex flex-col justify-between py-1 px-0.5' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? `border-black/25 ${getWellTextColor(group.color, opacity)} shadow-xs` : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950 text-slate-400'}`}
                           >
                             {isLabelsMode ? (
                               <>
-                                <div class="w-full flex justify-between items-start text-[8px] font-mono leading-none opacity-80">
-                                  <span>{wellId}</span>
+                                <div class="w-full text-center text-[8px] font-mono leading-none opacity-85">
+                                  {wellId}
                                 </div>
-                                <div class="w-full text-center font-bold text-[9px] sm:text-[10px] leading-tight truncate px-0.5">
+                                <div class="w-full text-center text-[9px] sm:text-[10px] leading-tight font-bold truncate px-0.5">
                                   {well?.sampleName || (isOccupied ? group.name : '—')}
                                 </div>
                                 <div class="w-full text-center text-[8px] font-mono leading-none opacity-90 truncate">
-                                  {well?.value !== undefined ? `${well.value >= 0.01 ? well.value : well.value.toExponential(1)} ${well.unit || ''}` : ''}
+                                  {well?.value !== undefined ? `${formatWellConcentration(well.value)} ${well.unit || ''}` : ''}
                                 </div>
                               </>
                             ) : (
-                              isOccupied ? (dim.format <= 96 ? <span class="text-[9px]">{wellId}</span> : '') : ''
+                              isOccupied ? (dim.format <= 96 ? <span class="text-[10px] font-mono font-bold">{wellId}</span> : '') : ''
                             )}
                           </button>
                         );
@@ -759,11 +810,11 @@ export default function PlateView() {
                 </div>
 
                 <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Stock Reagent</span>
+                  <span class="text-xs text-slate-500 block">Stock Reagents</span>
                   <span class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                     {(pipettingPlan.totalStockNeededUl / 1000).toFixed(2)} mL
                   </span>
-                  <span class="text-[11px] text-slate-400 block">high-concentration stock</span>
+                  <span class="text-[11px] text-slate-400 block">concentrated stocks</span>
                 </div>
 
                 <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -780,10 +831,58 @@ export default function PlateView() {
                 </div>
               </div>
 
+              {/* Reagent Requirement Breakdown Table */}
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    Reagent &amp; Sample Requirements Breakdown
+                  </h3>
+                  <span class="text-xs text-slate-500">
+                    Calculated for {pipettingPlan.workingVolumeUl} µL/well (+ {pipettingPlan.transferVolumeUl} µL transfer excess)
+                  </span>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead>
+                      <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-semibold">
+                        <th class="pb-2">Sample / Reagent</th>
+                        <th class="pb-2">Role</th>
+                        <th class="pb-2 text-center">Assigned Wells</th>
+                        <th class="pb-2 text-right">Stock Solution Needed</th>
+                        <th class="pb-2 text-right">Diluent / Buffer Needed</th>
+                        <th class="pb-2 text-center">Loading Mode</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {pipettingPlan.reagentSummaries.map((item, i) => (
+                        <tr key={i} class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <td class="py-2.5 font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <span>{item.sampleName}</span>
+                          </td>
+                          <td class="py-2.5 capitalize text-slate-500">{item.type}</td>
+                          <td class="py-2.5 text-center font-mono">{item.wellCount} wells ({item.wells.slice(0, 4).join(', ')}{item.wells.length > 4 ? '…' : ''})</td>
+                          <td class="py-2.5 text-right font-mono font-bold text-accent-600 dark:text-accent-400">
+                            {item.stockVolumeNeededUl > 0 ? `${item.stockVolumeNeededUl >= 1000 ? `${(item.stockVolumeNeededUl / 1000).toFixed(2)} mL` : `${Math.round(item.stockVolumeNeededUl)} µL`}` : '—'}
+                          </td>
+                          <td class="py-2.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            {item.diluentVolumeNeededUl > 0 ? `${item.diluentVolumeNeededUl >= 1000 ? `${(item.diluentVolumeNeededUl / 1000).toFixed(2)} mL` : `${Math.round(item.diluentVolumeNeededUl)} µL`}` : '—'}
+                          </td>
+                          <td class="py-2.5 text-center">
+                            <span class={`px-2 py-0.5 rounded text-[10px] font-bold ${item.isDilution ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                              {item.isDilution ? 'Serial Transfer' : 'Direct Add'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               {/* Step-by-Step Pipetting Guide */}
               <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
                 <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                  Step-by-Step Pipetting Guide & Checklist
+                  Step-by-Step Pipetting Guide &amp; Checklist
                 </h3>
                 <div class="space-y-2">
                   {pipettingPlan.steps.map((step) => (

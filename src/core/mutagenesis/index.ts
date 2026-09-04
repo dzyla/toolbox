@@ -169,6 +169,158 @@ export function extractOrfCodons(orfDna: string, orfStartInPlasmid = 0): CodonIn
   return codons;
 }
 
+export type MutationType = 'substitution' | 'insertion' | 'deletion';
+
+export interface FlexibleMutationDesignResult {
+  mutationType: MutationType;
+  targetBpStart: number; // 0-indexed in plasmid
+  replacedSequence: string;
+  replacementSequence: string;
+  forwardPrimer: {
+    name: string;
+    sequence: string; // 5' to 3'
+    length: number;
+    tm: number; // Annealing region Tm
+    totalTm: number;
+    gc: number;
+    mutationOffsetFrom5Prime: number;
+    mutationLength: number;
+  };
+  reversePrimer: {
+    name: string;
+    sequence: string; // 5' to 3'
+    length: number;
+    tm: number;
+    gc: number;
+  };
+  recommendedTa: number; // °C for Q5
+  mutantPlasmidSeq: string;
+  mutantOrfSeq?: string;
+  mutantProteinSeq?: string;
+  pcrProgram: {
+    initialDenat: string;
+    cycling: string;
+    finalExt: string;
+    kldTreatment: string;
+  };
+}
+
+/**
+ * Designs flexible mutagenesis primers with complete sequence freedom:
+ * - Arbitrary nucleotide substitutions (1 bp, 3 bp, or N bp)
+ * - Arbitrary insertions of any length (e.g. tag additions, linkers)
+ * - Arbitrary deletions of any length (e.g. domain cutouts)
+ */
+export function designFlexibleMutagenesis(
+  plasmidDna: string,
+  targetBpStart: number, // 0-indexed start position
+  replacedLen: number, // 0 for pure insertion, >0 for substitution or deletion
+  replacementSeq: string, // Sequence to insert/substitute (can be empty string for deletion)
+  targetPrimerTm = 62
+): FlexibleMutationDesignResult {
+  const cleanPlasmid = cleanDna(plasmidDna);
+  const pLen = cleanPlasmid.length;
+  if (pLen === 0) throw new Error('Plasmid sequence cannot be empty');
+
+  const normStart = ((targetBpStart % pLen) + pLen) % pLen;
+  const cleanReplacement = cleanDna(replacementSeq);
+
+  const replacedSequence = cleanPlasmid.slice(normStart, normStart + replacedLen);
+  let mutationType: MutationType = 'substitution';
+  if (replacedLen === 0 && cleanReplacement.length > 0) mutationType = 'insertion';
+  else if (cleanReplacement.length === 0 && replacedLen > 0) mutationType = 'deletion';
+
+  // 1. Forward Primer:
+  // 5' end contains the mutation, followed by downstream template annealing sequence
+  let bestFwdAnnealTm = 0;
+  let bestFwdSeq = '';
+
+  for (let len = 16; len <= 38; len++) {
+    let downstream = '';
+    for (let k = 0; k < len; k++) {
+      const idx = (normStart + replacedLen + k) % pLen;
+      downstream += cleanPlasmid[idx];
+    }
+    const tm = calcTm(downstream);
+    if (Math.abs(tm - targetPrimerTm) < Math.abs(bestFwdAnnealTm - targetPrimerTm) || bestFwdSeq === '') {
+      bestFwdAnnealTm = tm;
+      bestFwdSeq = cleanReplacement + downstream;
+    }
+  }
+
+  // 2. Reverse Primer:
+  // Starts immediately 5' of normStart and extends upstream (reverse complemented)
+  let bestRevTm = 0;
+  let bestRevSeq = '';
+
+  for (let len = 16; len <= 38; len++) {
+    let upstream = '';
+    for (let k = 0; k < len; k++) {
+      const idx = (normStart - 1 - k + pLen * 2) % pLen;
+      upstream += cleanPlasmid[idx];
+    }
+    const tm = calcTm(upstream);
+    if (Math.abs(tm - bestFwdAnnealTm) < Math.abs(bestRevTm - bestFwdAnnealTm) || bestRevSeq === '') {
+      bestRevTm = tm;
+      bestRevSeq = revComp(upstream);
+    }
+  }
+
+  const lowerTm = Math.min(bestFwdAnnealTm, bestRevTm);
+  const recommendedTa = Math.round(lowerTm + 3);
+
+  // Construct mutant plasmid
+  const mutantPlasmid =
+    cleanPlasmid.slice(0, normStart) +
+    cleanReplacement +
+    cleanPlasmid.slice(normStart + replacedLen);
+
+  const mutLength = mutantPlasmid.length;
+
+  const pcrProgram = {
+    initialDenat: '98°C for 30 seconds',
+    cycling: `25 cycles: 98°C for 10 s | ${recommendedTa}°C for 20 s | 72°C for ${Math.max(20, Math.ceil((mutLength / 1000) * 30))} s (30 s/kb)`,
+    finalExt: '72°C for 2 minutes',
+    kldTreatment: '5 minutes at room temperature (Kinase, Ligase, DpnI)',
+  };
+
+  const nameSuffix =
+    mutationType === 'insertion'
+      ? `Ins_${normStart + 1}_+${cleanReplacement.length}bp`
+      : mutationType === 'deletion'
+      ? `Del_${normStart + 1}_-${replacedLen}bp`
+      : `Mut_${normStart + 1}_${replacedSequence}>${cleanReplacement}`;
+
+  return {
+    mutationType,
+    targetBpStart: normStart,
+    replacedSequence,
+    replacementSequence: cleanReplacement,
+    forwardPrimer: {
+      name: `Fwd_${nameSuffix}`,
+      sequence: bestFwdSeq,
+      length: bestFwdSeq.length,
+      tm: bestFwdAnnealTm,
+      totalTm: calcTm(bestFwdSeq),
+      gc: calcGc(bestFwdSeq),
+      mutationOffsetFrom5Prime: cleanReplacement.length,
+      mutationLength: cleanReplacement.length,
+    },
+    reversePrimer: {
+      name: `Rev_${nameSuffix}`,
+      sequence: bestRevSeq,
+      length: bestRevSeq.length,
+      tm: bestRevTm,
+      gc: calcGc(bestRevSeq),
+    },
+    recommendedTa,
+    mutantPlasmidSeq: mutantPlasmid,
+    mutantOrfSeq: mutantPlasmid,
+    mutantProteinSeq: translateDna(mutantPlasmid),
+    pcrProgram,
+  };
+}
+
 /**
  * Designs non-overlapping back-to-back mutagenesis primers (NEBaseChanger / Q5 SDM protocol).
  */
@@ -187,60 +339,7 @@ export function designSiteDirectedMutagenesis(
   const mutCodon = mutantCodonSeq.toUpperCase();
   const mutAa = GENETIC_CODE[mutCodon] || '?';
 
-  // 1. Forward Primer:
-  // Starts with mutantCodon at 5' end, followed by downstream template sequence
-  let bestFwdTm = 0;
-  let bestFwdSeq = '';
-
-  for (let len = 15; len <= 35; len++) {
-    // Read downstream on forward strand (circular wrap)
-    let downstream = '';
-    for (let k = 0; k < len; k++) {
-      const idx = (targetBpStart + wtCodonLen + k) % pLen;
-      downstream += cleanPlasmid[idx];
-    }
-    const tm = calcTm(downstream);
-    if (Math.abs(tm - targetPrimerTm) < Math.abs(bestFwdTm - targetPrimerTm) || bestFwdSeq === '') {
-      bestFwdTm = tm;
-      bestFwdSeq = mutCodon + downstream;
-    }
-  }
-
-  // 2. Reverse Primer:
-  // Starts at the nucleotide immediately 5' of targetBpStart, extending in reverse direction (back-to-back, no overlap)
-  let bestRevTm = 0;
-  let bestRevSeq = '';
-
-  for (let len = 15; len <= 35; len++) {
-    let upstream = '';
-    for (let k = 0; k < len; k++) {
-      const idx = (targetBpStart - 1 - k + pLen * 2) % pLen;
-      upstream += cleanPlasmid[idx];
-    }
-    const tm = calcTm(upstream);
-    if (Math.abs(tm - bestFwdTm) < Math.abs(bestRevTm - bestFwdTm) || bestRevSeq === '') {
-      bestRevTm = tm;
-      // Reverse primer is reverse complement of upstream sequence
-      bestRevSeq = revComp(upstream);
-    }
-  }
-
-  // Recommended Ta for Q5 is lower Tm + 3°C
-  const lowerTm = Math.min(bestFwdTm, bestRevTm);
-  const recommendedTa = Math.round(lowerTm + 3);
-
-  // Construct mutant plasmid sequence
-  const mutantPlasmid =
-    cleanPlasmid.slice(0, targetBpStart) +
-    mutCodon +
-    cleanPlasmid.slice(targetBpStart + wtCodonLen);
-
-  const pcrProgram = {
-    initialDenat: '98°C for 30 seconds',
-    cycling: `25 cycles: 98°C for 10 s | ${recommendedTa}°C for 20 s | 72°C for ${Math.max(20, Math.ceil((pLen / 1000) * 30))} s (30 s/kb)`,
-    finalExt: '72°C for 2 minutes',
-    kldTreatment: '5 minutes at room temperature (Kinase, Ligase, DpnI)',
-  };
+  const flex = designFlexibleMutagenesis(cleanPlasmid, targetBpStart, wtCodonLen, mutCodon, targetPrimerTm);
 
   return {
     wtCodon,
@@ -251,23 +350,23 @@ export function designSiteDirectedMutagenesis(
     ntPosition: targetBpStart + 1,
     forwardPrimer: {
       name: `Mut_${wtAa}${Math.floor(targetBpStart / 3) + 1}${mutAa}_Fwd`,
-      sequence: bestFwdSeq,
-      length: bestFwdSeq.length,
-      tm: bestFwdTm,
-      gc: calcGc(bestFwdSeq),
-      mutationOffsetFrom5Prime: mutCodon.length,
+      sequence: flex.forwardPrimer.sequence,
+      length: flex.forwardPrimer.length,
+      tm: flex.forwardPrimer.tm,
+      gc: flex.forwardPrimer.gc,
+      mutationOffsetFrom5Prime: flex.forwardPrimer.mutationOffsetFrom5Prime,
     },
     reversePrimer: {
       name: `Mut_${wtAa}${Math.floor(targetBpStart / 3) + 1}${mutAa}_Rev`,
-      sequence: bestRevSeq,
-      length: bestRevSeq.length,
-      tm: bestRevTm,
-      gc: calcGc(bestRevSeq),
+      sequence: flex.reversePrimer.sequence,
+      length: flex.reversePrimer.length,
+      tm: flex.reversePrimer.tm,
+      gc: flex.reversePrimer.gc,
     },
-    recommendedTa,
-    mutantPlasmidSeq: mutantPlasmid,
-    mutantOrfSeq: mutantPlasmid,
-    mutantProteinSeq: translateDna(mutantPlasmid),
-    pcrProgram,
+    recommendedTa: flex.recommendedTa,
+    mutantPlasmidSeq: flex.mutantPlasmidSeq,
+    mutantOrfSeq: flex.mutantOrfSeq || flex.mutantPlasmidSeq,
+    mutantProteinSeq: flex.mutantProteinSeq || translateDna(flex.mutantPlasmidSeq),
+    pcrProgram: flex.pcrProgram,
   };
 }

@@ -9,6 +9,7 @@ import {
   type SecStandard,
   PRESET_COLUMNS,
   DEFAULT_STANDARDS_S200,
+  getStandardsForColumn,
   fitSecCalibration,
   predictFromVe,
   predictVeFromMw,
@@ -41,14 +42,17 @@ export default function SecView() {
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
-  const [standards, setStandards] = useState<SecStandard[]>(() => JSON.parse(JSON.stringify(DEFAULT_STANDARDS_S200)));
+  const [standards, setStandards] = useState<SecStandard[]>(() => getStandardsForColumn(DEFAULTS.columnId));
   const [activeTab, setActiveTab] = useState<'curve' | 'chromatogram'>('curve');
 
-  // Handle column selection
+  // Handle column selection with automatic standard preset loading
   function handleSelectColumn(colId: string) {
     const col = PRESET_COLUMNS.find(c => c.id === colId);
     if (col) {
       set({ columnId: colId, vt: col.bedVolume, v0: col.voidVolume });
+      setStandards(getStandardsForColumn(colId));
+      const midVe = col.voidVolume + 0.35 * (col.bedVolume - col.voidVolume);
+      set({ unknownVe: Math.round(midVe * 10) / 10 });
     } else {
       set({ columnId: colId });
     }
@@ -71,12 +75,12 @@ export default function SecView() {
     const newId = `std_${Date.now()}`;
     setStandards(prev => [
       ...prev,
-      { id: newId, name: 'New Standard', mwDa: 50000, elutionVolumeMl: 14.0, enabled: true },
+      { id: newId, name: 'New Standard', mwDa: 50000, elutionVolumeMl: Math.round((s.v0 + (s.vt - s.v0) * 0.5) * 10) / 10, enabled: true },
     ]);
   }
 
   function handleResetStandards() {
-    setStandards(JSON.parse(JSON.stringify(DEFAULT_STANDARDS_S200)));
+    setStandards(getStandardsForColumn(s.columnId));
   }
 
   // Calibration model
@@ -96,6 +100,27 @@ export default function SecView() {
   }, [model, s.targetMwKDa]);
 
   const activeColumn = PRESET_COLUMNS.find(c => c.id === s.columnId) || PRESET_COLUMNS[0]!;
+
+  // Dynamic x-axis range adapted to active column fractionation range and loaded standards
+  const { xMinLog, xMaxLog, xTicks } = useMemo(() => {
+    const allMw = [
+      activeColumn.rangeMinDa,
+      activeColumn.rangeMaxDa,
+      ...standards.filter(st => st.enabled && st.mwDa > 0).map(st => st.mwDa),
+      ...(s.queryMode === 've_to_mw' && predictionMw ? [predictionMw.apparentMwDa] : []),
+      ...(s.queryMode === 'mw_to_ve' && s.targetMwKDa > 0 ? [s.targetMwKDa * 1000] : []),
+    ];
+    const minVal = Math.min(...allMw);
+    const maxVal = Math.max(...allMw);
+    const minLog = Math.max(2.5, Math.floor(Math.log10(minVal * 0.7) * 2) / 2);
+    const maxLog = Math.min(7.5, Math.ceil(Math.log10(maxVal * 1.3) * 2) / 2);
+
+    const ticks: number[] = [];
+    for (let t = minLog; t <= maxLog + 1e-6; t += 0.5) {
+      ticks.push(Math.round(t * 10) / 10);
+    }
+    return { xMinLog: minLog, xMaxLog: Math.max(minLog + 1.5, maxLog), xTicks: ticks };
+  }, [activeColumn, standards, s.queryMode, predictionMw, s.targetMwKDa]);
 
   const copySummary = () => {
     const lines = [
@@ -253,54 +278,62 @@ export default function SecView() {
               <button
                 type="button"
                 onClick={handleResetStandards}
-                class="text-[11px] text-accent-600 dark:text-accent-400 hover:underline"
+                class="text-[11px] text-accent-600 dark:text-accent-400 hover:underline font-semibold"
               >
                 Reset Defaults
               </button>
             </div>
 
-            <div class="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+            {/* Table Header */}
+            <div class="flex items-center gap-2 px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              <span class="w-4"></span>
+              <span class="flex-1">Standard Protein</span>
+              <span class="w-20 text-right">MW (kDa)</span>
+              <span class="w-20 text-right">Ve (mL)</span>
+              <span class="w-5"></span>
+            </div>
+
+            <div class="space-y-1.5 max-h-[290px] overflow-y-auto pr-1">
               {standards.map(std => (
                 <div
                   key={std.id}
-                  class={`p-2.5 rounded-lg border text-xs flex items-center gap-2 transition ${std.enabled ? 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40' : 'border-slate-200/50 dark:border-slate-800 opacity-40'}`}
+                  class={`p-2 rounded-xl border text-xs flex items-center gap-2 transition ${std.enabled ? 'border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 shadow-2xs' : 'border-slate-200/50 dark:border-slate-800 opacity-40'}`}
                 >
                   <input
                     type="checkbox"
                     checked={std.enabled}
                     onChange={() => handleToggleStandard(std.id)}
-                    class="rounded text-accent-600 focus:ring-accent-500 cursor-pointer"
+                    class="rounded text-accent-600 focus:ring-accent-500 cursor-pointer w-4 h-4 shrink-0"
+                    title={std.enabled ? 'Include in regression' : 'Excluded from regression'}
                   />
                   <input
                     type="text"
                     value={std.name}
                     onInput={(e) => handleUpdateStandard(std.id, { name: (e.target as HTMLInputElement).value })}
-                    class="flex-1 bg-transparent font-medium border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent-500 outline-none px-1"
+                    class="flex-1 min-w-0 bg-transparent font-semibold text-slate-800 dark:text-slate-200 border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent-500 outline-none px-1 text-xs truncate"
                   />
-                  <div class="w-16">
+                  <div class="w-20 shrink-0">
                     <DecimalInput
                       value={std.mwDa / 1000}
                       onChange={val => handleUpdateStandard(std.id, { mwDa: val * 1000 })}
                       min={0.1}
                       step={1}
-                      class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-[11px]"
+                      class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-xs font-semibold"
                     />
-                    <span class="text-[9px] text-slate-400 text-right block">kDa</span>
                   </div>
-                  <div class="w-16">
+                  <div class="w-20 shrink-0">
                     <DecimalInput
                       value={std.elutionVolumeMl}
                       onChange={elutionVolumeMl => handleUpdateStandard(std.id, { elutionVolumeMl })}
-                      min={0.1}
+                      min={0.01}
                       step={0.1}
-                      class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-[11px]"
+                      class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-xs font-semibold"
                     />
-                    <span class="text-[9px] text-slate-400 text-right block">mL</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDeleteStandard(std.id)}
-                    class="text-slate-400 hover:text-rose-600 text-xs px-1"
+                    class="w-5 text-slate-400 hover:text-rose-600 text-xs shrink-0 text-center"
                     title="Delete standard"
                   >
                     ✕
@@ -452,16 +485,16 @@ export default function SecView() {
             {/* SVG Plot */}
             {activeTab === 'curve' && model && (
               <div class="overflow-x-auto">
-                <svg viewBox="0 0 650 320" class="w-full h-auto min-w-[500px] select-none text-xs font-sans">
+                <svg viewBox="0 0 660 330" class="w-full h-auto min-w-[500px] select-none text-xs font-sans">
                   {/* Axes & Grid */}
-                  <rect x="60" y="20" width="560" height="250" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                  <rect x="60" y="20" width="570" height="250" fill="none" stroke="#e2e8f0" stroke-width="1" class="dark:stroke-slate-800" />
 
                   {/* Y Axis Gridlines (Kav 0.0 to 1.0) */}
                   {[0, 0.2, 0.4, 0.6, 0.8, 1.0].map(kVal => {
                     const y = 20 + 250 * (1 - kVal);
                     return (
                       <g key={kVal}>
-                        <line x1="60" x2="620" y1={y} y2={y} stroke="#f1f5f9" stroke-dasharray="3,3" />
+                        <line x1="60" x2="630" y1={y} y2={y} stroke="#f1f5f9" stroke-dasharray="3,3" class="dark:stroke-slate-800" />
                         <text x="52" y={y + 4} text-anchor="end" font-size="10" fill="#94a3b8" class="font-mono">
                           {kVal.toFixed(1)}
                         </text>
@@ -472,52 +505,50 @@ export default function SecView() {
                     Partition Coefficient (Kav)
                   </text>
 
-                  {/* X Axis: log10(MW) from 3.5 (3.1 kDa) to 6.5 (3.1 MDa) */}
-                  {[3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5].map(logVal => {
-                    const x = 60 + ((logVal - 3.5) / 3.0) * 560;
+                  {/* X Axis: dynamic log10(MW) ticks */}
+                  {xTicks.map(logVal => {
+                    const x = 60 + ((logVal - xMinLog) / (xMaxLog - xMinLog)) * 570;
                     const mwLabel = Math.round(10 ** logVal / 1000);
                     return (
                       <g key={logVal}>
-                        <line x1={x} x2={x} y1="20" y2="270" stroke="#f1f5f9" stroke-dasharray="3,3" />
+                        <line x1={x} x2={x} y1="20" y2="270" stroke="#f1f5f9" stroke-dasharray="3,3" class="dark:stroke-slate-800" />
                         <text x={x} y="288" text-anchor="middle" font-size="10" fill="#94a3b8" class="font-mono">
                           {mwLabel >= 1000 ? `${(mwLabel / 1000).toFixed(1)}M` : `${mwLabel}k`}
                         </text>
                       </g>
                     );
                   })}
-                  <text x="340" y="308" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">
+                  <text x="345" y="312" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">
                     Molecular Weight (Da, log scale)
                   </text>
 
                   {/* Regression Line */}
                   {(() => {
-                    const x1 = 3.5;
-                    const y1Kav = model.slope * x1 + model.intercept;
-                    const x2 = 6.5;
-                    const y2Kav = model.slope * x2 + model.intercept;
-
                     const sx1 = 60;
+                    const y1Kav = model.slope * xMinLog + model.intercept;
                     const sy1 = 20 + 250 * (1 - Math.max(0, Math.min(1, y1Kav)));
-                    const sx2 = 620;
+                    const sx2 = 630;
+                    const y2Kav = model.slope * xMaxLog + model.intercept;
                     const sy2 = 20 + 250 * (1 - Math.max(0, Math.min(1, y2Kav)));
 
                     return <line x1={sx1} y1={sy1} x2={sx2} y2={sy2} stroke="#2563eb" stroke-width="2" stroke-dasharray="4,4" />;
                   })()}
 
-                  {/* Standard Points */}
+                  {/* Standard Points with Staggered Labels */}
                   {model.points.map((pt, idx) => {
-                    const cx = 60 + ((pt.logMw - 3.5) / 3.0) * 560;
+                    const cx = 60 + ((pt.logMw - xMinLog) / (xMaxLog - xMinLog)) * 570;
                     const cy = 20 + 250 * (1 - Math.max(0, Math.min(1, pt.kav)));
+                    const isAbove = idx % 2 === 0;
                     return (
                       <g key={idx} class="cursor-pointer group">
-                        <circle cx={cx} cy={cy} r="5" fill="#3b82f6" stroke="#ffffff" stroke-width="2" />
+                        <circle cx={cx} cy={cy} r="5.5" fill="#3b82f6" stroke="#ffffff" stroke-width="2" />
                         <text
                           x={cx}
-                          y={cy - 8}
+                          y={isAbove ? cy - 9 : cy + 16}
                           text-anchor="middle"
                           font-size="9"
-                          fill="#475569"
-                          font-weight="600"
+                          fill="#334155"
+                          class="font-semibold select-none dark:fill-slate-300"
                         >
                           {pt.name.split(' ')[0]} ({Math.round(pt.mwDa / 1000)}k)
                         </text>
@@ -530,12 +561,12 @@ export default function SecView() {
                     <g>
                       {(() => {
                         const logMw = Math.log10(predictionMw.apparentMwDa);
-                        const cx = 60 + ((logMw - 3.5) / 3.0) * 560;
+                        const cx = 60 + ((logMw - xMinLog) / (xMaxLog - xMinLog)) * 570;
                         const cy = 20 + 250 * (1 - Math.max(0, Math.min(1, predictionMw.kav)));
                         return (
                           <g>
                             <line x1={cx} y1="20" x2={cx} y2="270" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
-                            <line x1="60" y1={cy} x2="620" y2={cy} stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
+                            <line x1="60" y1={cy} x2="630" y2={cy} stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
                             <circle cx={cx} cy={cy} r="8" fill="#f43f5e" stroke="#ffffff" stroke-width="2.5" />
                             <text x={cx} y={cy - 12} text-anchor="middle" font-size="11" font-weight="bold" fill="#e11d48">
                               Unknown ({predictionMw.apparentMwkDa.toFixed(1)} kDa)

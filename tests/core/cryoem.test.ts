@@ -4,6 +4,8 @@ import {
   cropBoxForBin, binnedPixelSize, compareBoxes,
   dosePerFrame, totalDose, dosePlan, exposureForDose,
   pixelSizeFromMag, magFromPixelSize, CryoEmError,
+  relativisticWavelength, waveAberration, ctfValue, firstCtfZero,
+  generateCtfProfile, generateThonRingsMatrix,
 } from '@/core/cryoem';
 
 describe('cryo-em geometry and sampling', () => {
@@ -71,5 +73,51 @@ describe('detector magnification and pixel size', () => {
     const px = pixelSizeFromMag(5, 105000);
     expect(px).toBeCloseTo(0.47619, 4);
     expect(magFromPixelSize(5, px)).toBeCloseTo(105000, 1);
+  });
+});
+
+describe('CTF and Thon rings physics', () => {
+  it('computes relativistic electron de Broglie wavelengths accurately', () => {
+    // 300 kV (Titan Krios) ~ 0.019687 Å
+    expect(relativisticWavelength(300)).toBeCloseTo(0.019687, 4);
+    // 200 kV (Talos Arctica / Glacios) ~ 0.025079 Å
+    expect(relativisticWavelength(200)).toBeCloseTo(0.025079, 4);
+    // 100 kV ~ 0.037014 Å
+    expect(relativisticWavelength(100)).toBeCloseTo(0.037014, 4);
+  });
+
+  it('computes wave aberration and CTF values with envelope decay', () => {
+    const lambdaA = relativisticWavelength(300);
+    const dfA = 15000; // 1.5 µm underfocus
+    const csA = 2.7 * 1e7; // 2.7 mm
+    const s = 0.1; // 10 Å resolution
+
+    const chi = waveAberration(s, dfA, csA, lambdaA);
+    expect(Number.isFinite(chi)).toBe(true);
+
+    const ctf = ctfValue(s, dfA, csA, lambdaA, 0.07, 50);
+    expect(ctf).toBeGreaterThanOrEqual(-1);
+    expect(ctf).toBeLessThanOrEqual(1);
+  });
+
+  it('determines first CTF zero correctly', () => {
+    // For 1.5 µm underfocus at 300 kV (lambda ~ 0.019687 Å):
+    // d1 ≈ sqrt(lambda * df) = sqrt(0.019687 * 15000) = sqrt(295.3) ≈ 17.18 Å
+    const zero = firstCtfZero(1.5, 300, 2.7, 0.07);
+    expect(zero.d1).toBeGreaterThan(15);
+    expect(zero.d1).toBeLessThan(20);
+    expect(zero.s1).toBeCloseTo(1 / zero.d1, 3);
+  });
+
+  it('generates 1D CTF profile and 2D Thon rings matrix', () => {
+    const profile = generateCtfProfile(300, 2.7, 1.5, 1.0, 0.07, 50, 50);
+    expect(profile.length).toBe(51);
+    expect(profile[0]!.s).toBe(0);
+    expect(profile[profile.length - 1]!.s).toBeCloseTo(0.5, 3); // Nyquist for 1.0 Å/px
+
+    const matrix = generateThonRingsMatrix(64, 300, 2.7, 1.5, 1.5, 0, 1.0);
+    expect(matrix.length).toBe(64 * 64);
+    // Center DC frequency
+    expect(matrix[32 * 64 + 32]).toBeGreaterThanOrEqual(0);
   });
 });

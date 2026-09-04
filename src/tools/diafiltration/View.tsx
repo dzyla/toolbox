@@ -21,6 +21,7 @@ interface State {
   initialVolMl: number;
   concentrateVolMl: number;
   numCycles: number;
+  spinTimeMin: number;
   sampleVolMl: number;
   bathVolMl: number;
   bathChanges: number;
@@ -39,6 +40,7 @@ const DEFAULTS: State = {
   initialVolMl: 15.0,
   concentrateVolMl: 1.0,
   numCycles: 3,
+  spinTimeMin: 15,
   sampleVolMl: 3.0,
   bathVolMl: 1000.0,
   bathChanges: 3,
@@ -199,22 +201,35 @@ export default function DiafiltrationView() {
                 </div>
               </div>
 
-              <div>
-                <label class="block text-xs text-slate-500 mb-1">Number of Cycles (Wash Spins)</label>
-                <DecimalInput
-                  class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
-                  value={s.numCycles}
-                  onChange={numCycles => set({ numCycles: Math.max(1, Math.round(numCycles)) })}
-                  min={1}
-                  max={20}
-                  step={1}
-                />
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Number of Cycles (Spins)</label>
+                  <DecimalInput
+                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
+                    value={s.numCycles}
+                    onChange={numCycles => set({ numCycles: Math.max(1, Math.round(numCycles)) })}
+                    min={1}
+                    max={20}
+                    step={1}
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Spin Time per Cycle (min)</label>
+                  <DecimalInput
+                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
+                    value={s.spinTimeMin}
+                    onChange={spinTimeMin => set({ spinTimeMin: Math.max(1, Math.round(spinTimeMin)) })}
+                    min={1}
+                    max={180}
+                    step={5}
+                  />
+                </div>
               </div>
             </div>
           ) : (
             <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Dialysis Volumes
+                Dialysis Volumes &amp; Baths
               </label>
               <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -239,9 +254,14 @@ export default function DiafiltrationView() {
                 </div>
               </div>
               <div>
-                <label class="block text-xs text-slate-500 mb-1">Number of Bath Changes</label>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-0.5">
+                  Total Dialysis Baths (Buffers)
+                </label>
+                <span class="block text-[11px] text-slate-400 mb-1">
+                  1 = Initial bath only (single equilibrium / 0 changes); 2 = Initial + 1 change; 3 = Initial + 2 changes
+                </span>
                 <DecimalInput
-                  class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono font-semibold"
                   value={s.bathChanges}
                   onChange={bathChanges => set({ bathChanges: Math.max(1, Math.round(bathChanges)) })}
                   min={1}
@@ -373,9 +393,12 @@ export default function DiafiltrationView() {
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">Total Diafiltration Vol</span>
+                <span class="text-slate-400 block">{s.mode === 'ultrafiltration' ? 'Total Spin Duration' : 'Total Bath Volume'}</span>
                 <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
-                  {s.mode === 'ultrafiltration' ? `${ufSim.totalDfv.toFixed(1)} DFV` : `${((s.bathVolMl / s.sampleVolMl) * s.bathChanges).toFixed(0)}× Bath`}
+                  {s.mode === 'ultrafiltration' ? `${s.numCycles * s.spinTimeMin} min` : `${((s.bathVolMl * s.bathChanges) / 1000).toFixed(1)} L`}
+                </span>
+                <span class="text-[10px] text-slate-400 block">
+                  {s.mode === 'ultrafiltration' ? `${s.numCycles} × ${s.spinTimeMin} min spins` : `${s.bathChanges} baths × ${(s.bathVolMl / 1000).toFixed(1)} L`}
                 </span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
@@ -387,11 +410,17 @@ export default function DiafiltrationView() {
                     return `${clearedPct.toFixed(2)}%`;
                   })()}
                 </span>
+                <span class="text-[10px] text-slate-400 block">
+                  {s.mode === 'ultrafiltration' ? `${ufSim.totalDfv.toFixed(1)} DFV` : `${((s.bathVolMl / s.sampleVolMl) * s.bathChanges).toFixed(0)}× dilution`}
+                </span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">Cycles to Safe Target</span>
+                <span class="text-slate-400 block">Target Clearance ({`<${s.targetSafeConc} ${s.unit}`})</span>
                 <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
-                  {s.mode === 'ultrafiltration' ? `${ufSim.cyclesToSafeTarget} spins` : `${dialSim.changesToSafeTarget} changes`}
+                  {s.mode === 'ultrafiltration' ? `${ufSim.cyclesToSafeTarget} spins` : `${dialSim.changesToSafeTarget} bath${dialSim.changesToSafeTarget > 1 ? 's' : ''}`}
+                </span>
+                <span class="text-[10px] text-slate-400 block">
+                  {s.mode === 'ultrafiltration' ? `Est. ${ufSim.cyclesToSafeTarget * s.spinTimeMin} min spin time` : `(${dialSim.changesToSafeTarget - 1} buffer change${dialSim.changesToSafeTarget - 1 === 1 ? '' : 's'})`}
                 </span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
@@ -399,6 +428,7 @@ export default function DiafiltrationView() {
                 <span class={`text-base font-bold font-mono ${mwcoEval.status === 'safe' ? 'text-emerald-600 dark:text-emerald-400' : mwcoEval.status === 'borderline' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                   ~{mwcoEval.retentionPercent}%
                 </span>
+                <span class="text-[10px] text-slate-400 block">{mwcoEval.ratio.toFixed(1)}× MW/MWCO</span>
               </div>
             </div>
           </div>
@@ -439,7 +469,7 @@ export default function DiafiltrationView() {
                 <tbody>
                   {ufSim.cycles.map(c => (
                     <tr key={c.cycleNum} class="border-b border-slate-100 dark:border-slate-800">
-                      <td class="py-2 font-semibold">Cycle {c.cycleNum}</td>
+                      <td class="py-2 font-semibold">Cycle {c.cycleNum} ({c.cycleNum * s.spinTimeMin} min total)</td>
                       <td class="py-2 text-right font-mono">{c.concAfterConcentration.toFixed(1)}</td>
                       <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{c.concAfterRefill < 0.01 ? c.concAfterRefill.toExponential(2) : c.concAfterRefill.toFixed(2)}</td>
                       <td class="py-2 text-right font-mono">{c.cumulativeDfv.toFixed(1)}</td>
@@ -452,7 +482,7 @@ export default function DiafiltrationView() {
               <table class="w-full text-xs text-left">
                 <thead>
                   <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
-                    <th class="pb-2">Bath Change</th>
+                    <th class="pb-2">Dialysis Step</th>
                     <th class="pb-2 text-right">Equilibrium Conc ({s.unit})</th>
                     <th class="pb-2 text-right">Step Dilution</th>
                     <th class="pb-2 text-right">Cumulative Removal</th>
@@ -461,7 +491,9 @@ export default function DiafiltrationView() {
                 <tbody>
                   {dialSim.steps.map(st => (
                     <tr key={st.stepNum} class="border-b border-slate-100 dark:border-slate-800">
-                      <td class="py-2 font-semibold">Change {st.stepNum}</td>
+                      <td class="py-2 font-semibold">
+                        {st.stepNum === 1 ? 'Bath 1 (Initial Setup / 0 changes)' : `Bath ${st.stepNum} (${st.stepNum - 1}${st.stepNum === 2 ? 'st' : st.stepNum === 3 ? 'nd' : 'th'} Buffer Change)`}
+                      </td>
                       <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{st.equilibriumConc < 0.01 ? st.equilibriumConc.toExponential(2) : st.equilibriumConc.toFixed(2)}</td>
                       <td class="py-2 text-right font-mono">{st.dilutionFactor.toFixed(0)}×</td>
                       <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{st.removalPct.toFixed(2)}%</td>

@@ -9,6 +9,7 @@ export function ToolLayout({
   actions,
   science,
   wide,
+  embedded,
 }: {
   icon: string;
   title: string;
@@ -18,13 +19,16 @@ export function ToolLayout({
   actions: ComponentChildren;
   science: ComponentChildren;
   wide?: boolean;
+  embedded?: boolean;
 }) {
   return (
-    <section class={`mx-auto p-4 ${wide ? 'max-w-[92rem]' : 'max-w-6xl'}`}>
-      <header class="mb-4">
-        <h1 class="text-2xl font-bold">{icon} {title}</h1>
-        <p class="text-slate-600 dark:text-slate-300">{blurb}</p>
-      </header>
+    <section class={embedded ? 'w-full' : `mx-auto p-4 ${wide ? 'max-w-[92rem]' : 'max-w-6xl'}`}>
+      {!embedded && (
+        <header class="mb-4">
+          <h1 class="text-2xl font-bold">{icon} {title}</h1>
+          <p class="text-slate-600 dark:text-slate-300">{blurb}</p>
+        </header>
+      )}
       <div class={`grid gap-6 ${wide ? 'lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'}`}>
         <div class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 self-start lg:sticky lg:top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
           {inputs}

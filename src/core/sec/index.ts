@@ -128,7 +128,7 @@ export const PRESET_COLUMNS: SecColumn[] = [
   },
 ];
 
-export const DEFAULT_STANDARDS_S200: SecStandard[] = [
+export const DEFAULT_STANDARDS_S200_10_300: SecStandard[] = [
   { id: 'thyro', name: 'Thyroglobulin (bovine)', mwDa: 669000, elutionVolumeMl: 8.8, stokesRadiusNm: 8.5, enabled: true },
   { id: 'ferritin', name: 'Ferritin (horse)', mwDa: 440000, elutionVolumeMl: 10.2, stokesRadiusNm: 6.1, enabled: true },
   { id: 'aldolase', name: 'Aldolase (rabbit)', mwDa: 158000, elutionVolumeMl: 11.9, stokesRadiusNm: 4.8, enabled: true },
@@ -138,6 +138,87 @@ export const DEFAULT_STANDARDS_S200: SecStandard[] = [
   { id: 'rnase', name: 'Ribonuclease A', mwDa: 13700, elutionVolumeMl: 17.5, stokesRadiusNm: 1.6, enabled: true },
   { id: 'aprotinin', name: 'Aprotinin (bovine)', mwDa: 6500, elutionVolumeMl: 19.3, stokesRadiusNm: 1.3, enabled: false },
 ];
+
+export const DEFAULT_STANDARDS_S200 = DEFAULT_STANDARDS_S200_10_300;
+
+export const DEFAULT_STANDARDS_S200_5_150: SecStandard[] = [
+  { id: 'thyro', name: 'Thyroglobulin (bovine)', mwDa: 669000, elutionVolumeMl: 1.11, stokesRadiusNm: 8.5, enabled: true },
+  { id: 'ferritin', name: 'Ferritin (horse)', mwDa: 440000, elutionVolumeMl: 1.28, stokesRadiusNm: 6.1, enabled: true },
+  { id: 'aldolase', name: 'Aldolase (rabbit)', mwDa: 158000, elutionVolumeMl: 1.50, stokesRadiusNm: 4.8, enabled: true },
+  { id: 'conalbumin', name: 'Conalbumin (chicken)', mwDa: 75000, elutionVolumeMl: 1.68, stokesRadiusNm: 3.6, enabled: true },
+  { id: 'ovalbumin', name: 'Ovalbumin (chicken)', mwDa: 44000, elutionVolumeMl: 1.82, stokesRadiusNm: 3.0, enabled: true },
+  { id: 'carbonic', name: 'Carbonic Anhydrase', mwDa: 29000, elutionVolumeMl: 2.01, stokesRadiusNm: 2.4, enabled: true },
+  { id: 'rnase', name: 'Ribonuclease A', mwDa: 13700, elutionVolumeMl: 2.19, stokesRadiusNm: 1.6, enabled: true },
+  { id: 'aprotinin', name: 'Aprotinin (bovine)', mwDa: 6500, elutionVolumeMl: 2.41, stokesRadiusNm: 1.3, enabled: false },
+];
+
+export const DEFAULT_STANDARDS_S75_10_300: SecStandard[] = [
+  { id: 'conalbumin', name: 'Conalbumin (chicken)', mwDa: 75000, elutionVolumeMl: 8.9, stokesRadiusNm: 3.6, enabled: true },
+  { id: 'ovalbumin', name: 'Ovalbumin (chicken)', mwDa: 44000, elutionVolumeMl: 10.3, stokesRadiusNm: 3.0, enabled: true },
+  { id: 'carbonic', name: 'Carbonic Anhydrase', mwDa: 29000, elutionVolumeMl: 11.8, stokesRadiusNm: 2.4, enabled: true },
+  { id: 'rnase', name: 'Ribonuclease A', mwDa: 13700, elutionVolumeMl: 13.9, stokesRadiusNm: 1.6, enabled: true },
+  { id: 'aprotinin', name: 'Aprotinin (bovine)', mwDa: 6500, elutionVolumeMl: 16.2, stokesRadiusNm: 1.3, enabled: true },
+  { id: 'cobalamin', name: 'Vitamin B12', mwDa: 1355, elutionVolumeMl: 19.5, stokesRadiusNm: 0.85, enabled: true },
+];
+
+export const DEFAULT_STANDARDS_S75_5_150: SecStandard[] = [
+  { id: 'conalbumin', name: 'Conalbumin (chicken)', mwDa: 75000, elutionVolumeMl: 1.11, stokesRadiusNm: 3.6, enabled: true },
+  { id: 'ovalbumin', name: 'Ovalbumin (chicken)', mwDa: 44000, elutionVolumeMl: 1.29, stokesRadiusNm: 3.0, enabled: true },
+  { id: 'carbonic', name: 'Carbonic Anhydrase', mwDa: 29000, elutionVolumeMl: 1.48, stokesRadiusNm: 2.4, enabled: true },
+  { id: 'rnase', name: 'Ribonuclease A', mwDa: 13700, elutionVolumeMl: 1.74, stokesRadiusNm: 1.6, enabled: true },
+  { id: 'aprotinin', name: 'Aprotinin (bovine)', mwDa: 6500, elutionVolumeMl: 2.03, stokesRadiusNm: 1.3, enabled: true },
+  { id: 'cobalamin', name: 'Vitamin B12', mwDa: 1355, elutionVolumeMl: 2.44, stokesRadiusNm: 0.85, enabled: true },
+];
+
+export const DEFAULT_STANDARDS_SUPEROSE6: SecStandard[] = [
+  { id: 'thyro', name: 'Thyroglobulin (bovine)', mwDa: 669000, elutionVolumeMl: 10.5, stokesRadiusNm: 8.5, enabled: true },
+  { id: 'ferritin', name: 'Ferritin (horse)', mwDa: 440000, elutionVolumeMl: 12.1, stokesRadiusNm: 6.1, enabled: true },
+  { id: 'catalase', name: 'Catalase (bovine)', mwDa: 232000, elutionVolumeMl: 13.6, stokesRadiusNm: 5.2, enabled: true },
+  { id: 'aldolase', name: 'Aldolase (rabbit)', mwDa: 158000, elutionVolumeMl: 14.5, stokesRadiusNm: 4.8, enabled: true },
+  { id: 'bsa', name: 'Bovine Serum Albumin', mwDa: 66000, elutionVolumeMl: 16.0, stokesRadiusNm: 3.5, enabled: true },
+  { id: 'ovalbumin', name: 'Ovalbumin (chicken)', mwDa: 44000, elutionVolumeMl: 17.2, stokesRadiusNm: 3.0, enabled: true },
+  { id: 'carbonic', name: 'Carbonic Anhydrase', mwDa: 29000, elutionVolumeMl: 18.5, stokesRadiusNm: 2.4, enabled: true },
+];
+
+export const COLUMN_STANDARDS_MAP: Record<string, SecStandard[]> = {
+  s200_10_300: DEFAULT_STANDARDS_S200_10_300,
+  s200_5_150: DEFAULT_STANDARDS_S200_5_150,
+  s75_10_300: DEFAULT_STANDARDS_S75_10_300,
+  s75_5_150: DEFAULT_STANDARDS_S75_5_150,
+  superose6_10_300: DEFAULT_STANDARDS_SUPEROSE6,
+  hiload_16_600_s200: DEFAULT_STANDARDS_S200_10_300.map(s => ({
+    ...s,
+    elutionVolumeMl: Math.round((40.0 + ((s.elutionVolumeMl - 7.5) / (24.0 - 7.5)) * 80.0) * 10) / 10,
+  })),
+  hiload_16_600_s75: DEFAULT_STANDARDS_S75_10_300.map(s => ({
+    ...s,
+    elutionVolumeMl: Math.round((42.0 + ((s.elutionVolumeMl - 8.0) / (24.0 - 8.0)) * 78.0) * 10) / 10,
+  })),
+};
+
+export function getStandardsForColumn(colId: string): SecStandard[] {
+  const standards = COLUMN_STANDARDS_MAP[colId] || DEFAULT_STANDARDS_S200_10_300;
+  return JSON.parse(JSON.stringify(standards));
+}
+
+/** Scale elution volumes when column dimensions change while keeping Kav constant */
+export function scaleStandardsForColumn(
+  standards: SecStandard[],
+  oldV0: number,
+  oldVt: number,
+  newV0: number,
+  newVt: number
+): SecStandard[] {
+  if (oldVt <= oldV0 || newVt <= newV0) return standards;
+  return standards.map(s => {
+    const kav = (s.elutionVolumeMl - oldV0) / (oldVt - oldV0);
+    const newVe = newV0 + Math.max(0.01, Math.min(1.05, kav)) * (newVt - newV0);
+    return {
+      ...s,
+      elutionVolumeMl: Math.round(newVe * 100) / 100,
+    };
+  });
+}
 
 /**
  * Computes Gel Phase Distribution Coefficient (Kav)
