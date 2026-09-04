@@ -56,6 +56,20 @@ const FRAME_COLORS: Record<number, string> = {
   [-3]: '#eab308', // Amber
 };
 
+function renderLinearChevron(x: number, y: number, w: number, h: number, strand: 1 | -1 = 1, arrowHead = 7): string {
+  const head = Math.min(arrowHead, w * 0.35);
+  if (w <= head + 2) {
+    return `M ${x} ${y} h ${w} v ${h} h ${-w} Z`;
+  }
+  if (strand === 1) {
+    // 5' -> 3' (pointing Right)
+    return `M ${x} ${y} L ${x + w - head} ${y} L ${x + w} ${y + h / 2} L ${x + w - head} ${y + h} L ${x} ${y + h} Z`;
+  } else {
+    // 3' <- 5' (pointing Left)
+    return `M ${x + w} ${y} L ${x + head} ${y} L ${x} ${y + h / 2} L ${x + head} ${y + h} L ${x + w} ${y + h} Z`;
+  }
+}
+
 export default function PlasmidView() {
   const [stateSig, shareUrl] = useUrlState<State>('plasmid', DEFAULTS);
   const s = stateSig.value;
@@ -1069,12 +1083,14 @@ export default function PlasmidView() {
                     );
                   })}
 
-                  {/* Features */}
+                  {/* Features with Directional Chevrons */}
                   {plasmid.features.map((feat, idx) => {
                     const x1 = 30 + ((feat.start - 1) / plasmid.length) * 740;
                     const x2 = 30 + ((feat.end - 1) / plasmid.length) * 740;
-                    const w = Math.max(8, x2 - x1);
+                    const w = Math.max(8, Math.abs(x2 - x1));
+                    const left = Math.min(x1, x2);
                     const y = (idx % 2 === 0) ? 45 : 105;
+                    const strand = feat.strand || 1;
 
                     return (
                       <g
@@ -1084,18 +1100,14 @@ export default function PlasmidView() {
                           handleSelectFeatureRange(feat.start, feat.end, feat.name, feat.id);
                         }}
                       >
-                        <rect
-                          x={x1}
-                          y={y}
-                          width={w}
-                          height="18"
-                          rx="4"
+                        <path
+                          d={renderLinearChevron(left, y, w, 18, strand, 6)}
                           fill={feat.color || FEATURE_COLORS[feat.type] || '#3b82f6'}
                           stroke="#ffffff"
                           stroke-width="1"
                         />
                         {w > 25 && (
-                          <text x={x1 + w / 2} y={y + 12} font-size="9" font-weight="bold" text-anchor="middle" fill="#ffffff">
+                          <text x={left + w / 2} y={y + 12} font-size="9" font-weight="bold" text-anchor="middle" fill="#ffffff">
                             {feat.name}
                           </text>
                         )}
@@ -1103,12 +1115,13 @@ export default function PlasmidView() {
                     );
                   })}
 
-                  {/* ORFs on Linear Track */}
+                  {/* ORFs on Linear Track with Directional Chevrons */}
                   {s.showOrfsOnMap && detectedOrfs.map((orf) => {
                     const x1 = 30 + ((orf.start - 1) / plasmid.length) * 740;
                     const x2 = 30 + ((orf.end - 1) / plasmid.length) * 740;
-                    const w = Math.max(6, Math.abs(x2 - x1));
-                    const y = orf.strand === 1 ? 25 : 135;
+                    const w = Math.max(8, Math.abs(x2 - x1));
+                    const left = Math.min(x1, x2);
+                    const y = orf.strand === 1 ? 23 : 135;
                     const frameColor = FRAME_COLORS[orf.frame] || '#6366f1';
 
                     return (
@@ -1119,15 +1132,18 @@ export default function PlasmidView() {
                           handleSelectFeatureRange(orf.start, orf.end, `ORF (${orf.frame > 0 ? `+${orf.frame}` : orf.frame})`);
                         }}
                       >
-                        <rect
-                          x={Math.min(x1, x2)}
-                          y={y}
-                          width={w}
-                          height="12"
-                          rx="3"
+                        <path
+                          d={renderLinearChevron(left, y, w, 14, orf.strand, 5)}
                           fill={frameColor}
-                          opacity={0.8}
+                          opacity={0.85}
+                          stroke="#ffffff"
+                          stroke-width="0.75"
                         />
+                        {w > 35 && (
+                          <text x={left + w / 2} y={y + 10} font-size="8" font-weight="bold" text-anchor="middle" fill="#ffffff">
+                            {orf.strand === 1 ? '▶' : '◀'} {orf.lengthAa} aa
+                          </text>
+                        )}
                       </g>
                     );
                   })}
@@ -1310,54 +1326,60 @@ export default function PlasmidView() {
                         {(start + 1).toString().padStart(5, '0')}
                       </button>
 
-                      <div class="flex-1 overflow-x-auto select-text flex flex-wrap items-start gap-x-1.5 gap-y-2">
-                        {codonCells.map((cell, cIdx) => {
-                          const isCodonSelected = s.selectedRange && (
-                            cell.startBp <= s.selectedRange.end &&
-                            cell.startBp + cell.dna.length - 1 >= s.selectedRange.start
-                          );
+                      <div class="flex-1 overflow-x-auto select-text">
+                        <div class="flex flex-nowrap items-start gap-x-1 min-w-max pb-1">
+                          {codonCells.map((cell, cIdx) => {
+                            const isCodonSelected = s.selectedRange && (
+                              cell.startBp <= s.selectedRange.end &&
+                              cell.startBp + cell.dna.length - 1 >= s.selectedRange.start
+                            );
 
-                          return (
-                            <div
-                              key={cIdx}
-                              onClick={() => handleSelectFeatureRange(cell.startBp, cell.startBp + cell.dna.length - 1, `bp ${cell.startBp}`)}
-                              title={`bp ${cell.startBp}–${cell.startBp + cell.dna.length - 1}${cell.aa ? ` (${cell.aa})` : ''} · Click to select / set origin`}
-                              class={`inline-flex flex-col items-center cursor-pointer px-1 py-0.5 rounded transition ${
-                                isCodonSelected
-                                  ? 'bg-amber-100/90 dark:bg-amber-950/80 ring-1 ring-amber-400'
-                                  : 'hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
-                              }`}
-                            >
-                              {/* Translation AA centered directly over the 3-base codon */}
-                              {s.translationMode !== 'none' && (
-                                <span class="h-4 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 w-full flex items-center justify-center select-all">
-                                  {cell.aa || ' '}
-                                </span>
-                              )}
-                              {/* Forward 5' -> 3' DNA */}
-                              <span class="font-bold text-xs tracking-wider text-slate-900 dark:text-slate-100 select-all">
-                                {cell.dna.split('').map((base, bIdx) => {
-                                  const baseBp = cell.startBp + bIdx;
-                                  const isBaseSelected = s.selectedRange && (
-                                    baseBp >= s.selectedRange.start && baseBp <= s.selectedRange.end
-                                  );
-                                  return (
-                                    <span
-                                      key={bIdx}
-                                      class={isBaseSelected ? 'bg-amber-300 dark:bg-amber-700 text-amber-950 dark:text-amber-100 px-px rounded-2xs' : ''}
-                                    >
-                                      {base}
+                            return (
+                              <div
+                                key={cIdx}
+                                onClick={() => handleSelectFeatureRange(cell.startBp, cell.startBp + cell.dna.length - 1, `bp ${cell.startBp}`)}
+                                title={`bp ${cell.startBp}–${cell.startBp + cell.dna.length - 1}${cell.aa ? ` (${cell.aa})` : ''} · Click to select / set origin`}
+                                class={`inline-flex flex-col items-center cursor-pointer px-0.5 py-0.5 rounded transition ${
+                                  isCodonSelected
+                                    ? 'bg-amber-100/90 dark:bg-amber-950/80 ring-1 ring-amber-400'
+                                    : 'hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                                }`}
+                              >
+                                {/* Translation AA centered directly over the 3-base codon */}
+                                {s.translationMode !== 'none' && (
+                                  <span class="h-4 text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 w-full flex items-center justify-center select-all">
+                                    {cell.aa || '\u00A0'}
+                                  </span>
+                                )}
+                                {/* Forward 5' -> 3' DNA */}
+                                <div class="flex items-center font-bold text-xs font-mono text-slate-900 dark:text-slate-100 select-all">
+                                  {cell.dna.split('').map((base, bIdx) => {
+                                    const baseBp = cell.startBp + bIdx;
+                                    const isBaseSelected = s.selectedRange && (
+                                      baseBp >= s.selectedRange.start && baseBp <= s.selectedRange.end
+                                    );
+                                    return (
+                                      <span
+                                        key={bIdx}
+                                        class={`w-2.5 text-center inline-block ${isBaseSelected ? 'bg-amber-300 dark:bg-amber-700 text-amber-950 dark:text-amber-100 rounded-2xs' : ''}`}
+                                      >
+                                        {base}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                                {/* Complement 3' <- 5' DNA */}
+                                <div class="flex items-center text-[11px] font-mono text-slate-400 dark:text-slate-500 select-all">
+                                  {cell.comp.split('').map((compBase, bIdx) => (
+                                    <span key={bIdx} class="w-2.5 text-center inline-block">
+                                      {compBase}
                                     </span>
-                                  );
-                                })}
-                              </span>
-                              {/* Complement 3' <- 5' DNA */}
-                              <span class="text-[11px] tracking-wider text-slate-400 dark:text-slate-500 select-all">
-                                {cell.comp}
-                              </span>
-                            </div>
-                          );
-                        })}
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   );

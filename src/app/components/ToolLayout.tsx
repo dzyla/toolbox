@@ -80,7 +80,7 @@ export function ToolLayout({
       </div>
 
       <div class={`grid gap-6 ${wide ? 'lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'}`}>
-        <div class={`space-y-4 rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-700 dark:bg-slate-900 self-start lg:sticky lg:top-4 max-h-[calc(100vh-2rem)] overflow-y-auto lg:block ${mobileTab === 'results' ? 'hidden' : 'block'}`}>
+        <div class={`space-y-4 rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-700 dark:bg-slate-900 self-start lg:sticky lg:top-16 max-h-[calc(100vh-5rem)] overflow-y-auto lg:block ${mobileTab === 'results' ? 'hidden' : 'block'}`}>
           {inputs}
 
           {/* Quick Mobile Results Preview & Jump Button */}

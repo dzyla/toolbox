@@ -619,24 +619,26 @@ export default function SeqMatrixView() {
                     </div>
 
                     {/* Pairwise Alignment Viewer */}
-                    <div class="overflow-x-auto rounded-xl bg-slate-950 p-4 font-mono text-xs text-slate-200 space-y-1">
-                      <div class="flex items-center gap-3 text-slate-400 text-[11px] pb-1 border-b border-slate-800">
-                        <span class="w-24 truncate">{activeComparison.name1}</span>
-                        <span class="flex-1 tracking-widest whitespace-pre overflow-x-auto text-emerald-400">
-                          {activeComparison.aligned1}
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-3 text-slate-500 text-[11px]">
-                        <span class="w-24 text-right pr-2">Match:</span>
-                        <span class="flex-1 tracking-widest whitespace-pre overflow-x-auto font-bold text-sky-400">
-                          {activeComparison.midline}
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-3 text-slate-400 text-[11px] pt-1 border-t border-slate-800">
-                        <span class="w-24 truncate">{activeComparison.name2}</span>
-                        <span class="flex-1 tracking-widest whitespace-pre overflow-x-auto text-emerald-400">
-                          {activeComparison.aligned2}
-                        </span>
+                    <div class="overflow-x-auto rounded-xl bg-slate-950 p-4 font-mono text-xs text-slate-200">
+                      <div class="min-w-max space-y-1">
+                        <div class="flex items-center gap-3 text-slate-400 text-[11px] pb-1 border-b border-slate-800">
+                          <span class="w-28 shrink-0 truncate font-semibold">{activeComparison.name1}</span>
+                          <span class="tracking-widest whitespace-pre text-emerald-400 select-all">
+                            {activeComparison.aligned1}
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-500 text-[11px]">
+                          <span class="w-28 shrink-0 text-right pr-2 font-mono">Match:</span>
+                          <span class="tracking-widest whitespace-pre font-bold text-sky-400 select-all">
+                            {activeComparison.midline}
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-400 text-[11px] pt-1 border-t border-slate-800">
+                          <span class="w-28 shrink-0 truncate font-semibold">{activeComparison.name2}</span>
+                          <span class="tracking-widest whitespace-pre text-emerald-400 select-all">
+                            {activeComparison.aligned2}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

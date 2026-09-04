@@ -5,7 +5,9 @@ import {
   applyDilutionSeries,
   generatePipettingScheme,
   plateToMatrixCsv,
+  plateToMatrixTsv,
   plateToListCsv,
+  parseMatrixText,
   DEFAULT_SAMPLE_GROUPS,
 } from '@/core/plates/layout';
 import {
@@ -102,6 +104,32 @@ describe('Plate Layout', () => {
     expect(plan.totalAssignedWells).toBe(8);
     expect(plan.totalDiluentNeededUl).toBe(800);
     expect(plan.steps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('parses pasted TSV/CSV spreadsheet matrix and round-trips with plateToMatrixTsv', () => {
+    // 8x12 TSV copied from Excel with headers
+    const sampleTsv = [
+      'Row\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12',
+      'A\tBlank\tBlank\tPosCtrl\tNegCtrl\tSample 1\tSample 1\t—\t—\t—\t—\t—\t—',
+      'B\tStd (100 µM)\tStd (50 µM)\tStd (25 µM)\tStd (12.5 µM)\t—\t—\t—\t—\t—\t—\t—\t—',
+    ].join('\n');
+
+    const { wells, groups } = parseMatrixText(sampleTsv, 96);
+    expect(wells['A1']?.sampleName).toBe('Blank');
+    expect(wells['A1']?.sampleGroupId).toBeDefined();
+    expect(wells['A3']?.sampleName).toBe('PosCtrl');
+    expect(wells['A5']?.sampleName).toBe('Sample 1');
+    expect(wells['A7']?.sampleName).toBe(''); // empty/dash
+    expect(wells['B1']?.sampleName).toBe('Std');
+    expect(wells['B1']?.value).toBe(100);
+    expect(wells['B1']?.unit).toBe('µM');
+    expect(wells['B2']?.value).toBe(50);
+    expect(wells['B4']?.value).toBe(12.5);
+
+    // Export to TSV
+    const exportedTsv = plateToMatrixTsv(96, wells);
+    expect(exportedTsv).toContain('Row\t1\t2\t3');
+    expect(exportedTsv).toContain('Std (100 µM)');
   });
 });
 

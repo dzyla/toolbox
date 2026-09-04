@@ -6,21 +6,31 @@ import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { SCIENCE } from './science';
 import {
   type HostOrganism,
+  type ReadingFrame,
   HOST_NAMES,
   cleanDna,
   analyzeCodonUsage,
+  getSequenceInFrame,
+  autoDetectBestOrf,
+  compareAllHosts,
 } from '@/core/rare-codons';
 
 interface State {
   codingDna: string;
   host: HostOrganism;
+  frame: ReadingFrame;
 }
 
 const DEMO_HUMAN_PROTEIN = 'ATGCGAAGAAGGCGACGGATACTACCCCCTGGAGGAGAAATTCTAATACGGAGGAGGCGGACACCGCCGCCAGGTGGTCGACGACGGCGACGAATTTTTCTTTTTT';
 
+const PUC19_BLA_GENE = 'TTACCAATGCTTAATCAGTGAGGCACCTATCTCAGCGATCTGTCTATTTCGTTCATCCATAGTTGCCTGACTCCCCGTCGTGTAGATAACTACGATACGGGAGGGCTTACCATCTGGCCCCAGTGCTGCAATGATACCGCGAGACCCACGCTCACCGGCTCCAGATTTATCAGCAATAAACCAGCCAGCCGGAAGGGCCGAGCGCAGAAGTGGTCCTGCAACTTTATCCGCCTCCATCCAGTCTATTAATTGTTGCCGGGAAGCTAGAGTAAGTAGTTCGCCAGTTAATAGTTTGCGCAACGTTGTTGCCATTGCTACAGGCATCGTGGTGTCACGCTCGTCGTTTGGTATGGCTTCATTCAGCTCCGGTTCCCAACGATCAAGGCGAGTTACATGATCCCCCATGTTGTGCAAAAAAGCGGTTAGCTCCTTCGGTCCTCCGATCGTTGTCAGAAGTAAGTTGGCCGCAGTGTTATCACTCATGGTTATGGCAGCACTGCATAATTCTCTTACTGTCATGCCATCCGTAAGATGCTTTTCTGTGACTGGTGAGTACTCAACCAAGTCATTCTGAGAATAGTGTATGCGGCGACCGAGTTGCTCTTGCCCGGCGTCAATACGGGATAATACCGCGCCACATAGCAGAACTTTAAAAGTGCTCATCATTGGAAAACGTTCTTCGGGGCGAAAACTCTCAAGGATCTTACCGCTGTTGAGATCCAGTTCGATGTAACCCACTCGTGCACCCAACTGATCTTCAGCATCTTTTACTTTCACCAGCGTTTCTGGGTGAGCAAAAACAGGAAGGCAAAATGCCGCAAAAAAGGGAATAAGGGCGACACGGAAATGTTGAATACTCAT';
+
+const GFP_CODING_SEQ = 'ATGAGTAAAGGAGAAGAACTTTTCACTGGAGTTGTCCCAATTCTTGTTGAATTAGATGGTGATGTTAATGGGCACAAATTTTCTGTCAGTGGAGAGGGTGAAGGTGATGCAACATACGGAAAACTTACCCTTAAATTTATTTGCACTACTGGAAAACTACCTGTTCCATGGCCAACACTTGTCACTACTTTCTCTTATGGTGTTCAATGCTTTTCAAGATACCCAGATCATATGAAACAGCATGACTTTTTCAAGAGTGCCATGCCCGAAGGTTATGTACAGGAAAGAACTATATTTTTCAAAGATGACGGGAACTACAAGACACGTGCTGAAGTCAAGTTTGAAGGTGATACCCTTGTTAATAGAATCGAGTTAAAAGGTATTGATTTTAAAGAAGATGGAAACATTCTTGGACACAAATTGGAATACAACTATAACTCACACAATGTATACATCATGGCAGACAAACAAAAGAATGGAATCAAAGTTAACTTCAAAATTAGACACAACATTGAAGATGGAAGCGTTCAACTAGCAGACCATTATCAACAAAATACTCCAATTGGCGATGGCCCTGTCCTTTTACCAGACAACCATTACCTGTCCACACAATCTGCCCTTTCGAAAGATCCCAACGAAAAGAGAGACCACATGGTCCTTCTTGAGTTTGTAACAGCTGCTGGGATTACACATGGCATGGATGAACTATACAAATAA';
+
 const DEFAULTS: State = {
   codingDna: DEMO_HUMAN_PROTEIN,
   host: 'ecoli',
+  frame: 1,
 };
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono';
@@ -32,10 +42,30 @@ export default function RareCodonsView() {
 
   const [copiedOpt, setCopiedOpt] = useState(false);
   const [hoveredCodonIdx, setHoveredCodonIdx] = useState<number | null>(null);
+  const [orfFeedback, setOrfFeedback] = useState<string | null>(null);
+
+  const activeSequence = useMemo(() => {
+    return getSequenceInFrame(s.codingDna, s.frame);
+  }, [s.codingDna, s.frame]);
 
   const analysis = useMemo(() => {
-    return analyzeCodonUsage(s.codingDna, s.host);
-  }, [s.codingDna, s.host]);
+    return analyzeCodonUsage(activeSequence, s.host);
+  }, [activeSequence, s.host]);
+
+  const multiHostComparison = useMemo(() => {
+    return compareAllHosts(activeSequence);
+  }, [activeSequence]);
+
+  function handleAutoDetectOrf() {
+    const detected = autoDetectBestOrf(s.codingDna);
+    if (detected) {
+      set({ frame: detected.frame });
+      setOrfFeedback(`✓ Auto-detected ${detected.label}! Switched reading frame to ${detected.frame > 0 ? `+${detected.frame}` : detected.frame}.`);
+    } else {
+      setOrfFeedback('⚠️ No complete ORF (≥30 codons with start and stop) found in any frame.');
+    }
+    setTimeout(() => setOrfFeedback(null), 5000);
+  }
 
   function handleCopyOptimized() {
     if (!analysis) return;
@@ -47,9 +77,9 @@ export default function RareCodonsView() {
   const copySummary = () => {
     if (!analysis) return '';
     const lines = [
-      `Rare Codon Analysis (${HOST_NAMES[s.host]}):`,
-      `Codons: ${analysis.totalCodons} | CAI: ${analysis.cai.toFixed(3)} | GC: ${analysis.overallGc}% | GC3: ${analysis.gc3}%`,
-      `Rare Codons: ${analysis.rareCodonCount} (${analysis.rareCodonPct}%)`,
+      `Rare Codon Analysis (${HOST_NAMES[s.host]} - Frame ${s.frame > 0 ? `+${s.frame}` : s.frame}):`,
+      `Codons: ${analysis.totalCodons} | CAI: ${analysis.cai.toFixed(3)} | Optimal: ${analysis.optimalCodonPct}% | Rare: ${analysis.rareCodonPct}%`,
+      `GC: ${analysis.overallGc}% | GC3: ${analysis.gc3}%`,
       `Strain Recommendation: ${analysis.strainRecommendation.recommendedStrain}`,
       `Details: ${analysis.strainRecommendation.reason}`,
       '',
@@ -59,11 +89,12 @@ export default function RareCodonsView() {
     return `${lines.join('\n')}\n\n${scienceText(SCIENCE)}`;
   };
 
+
   return (
     <ToolLayout
       icon="⚠️"
       title="Rare Codon & Expression Optimizer"
-      blurb="Detect rare tRNA bottlenecks, ribosomal pause hotspots, and Codon Adaptation Index (CAI) for recombinant E. coli expression with automated host strain recommendations."
+      blurb="Detect rare tRNA bottlenecks, ribosomal pause hotspots, and Codon Adaptation Index (CAI) across E. coli, Yeast, Insect (Sf9), and Human hosts with expression host recommendations."
       wide={true}
       inputs={
         <div class="space-y-4">
@@ -85,25 +116,103 @@ export default function RareCodonsView() {
             </select>
           </div>
 
-          {/* DNA Input */}
+          {/* Preset Sequences */}
           <div class="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              Load Example DNA Sequence
+            </label>
+            <div class="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => { set({ codingDna: DEMO_HUMAN_PROTEIN, frame: 1 }); }}
+                class="w-full text-left p-2 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+              >
+                🔬 Human Heterologous Protein (Severe E. coli tRNAs)
+              </button>
+              <button
+                type="button"
+                onClick={() => { set({ codingDna: PUC19_BLA_GENE, frame: 1 }); }}
+                class="w-full text-left p-2 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+              >
+                💊 pUC19 Ampicillin (*bla* gene on strand -1)
+              </button>
+              <button
+                type="button"
+                onClick={() => { set({ codingDna: GFP_CODING_SEQ, frame: 1 }); }}
+                class="w-full text-left p-2 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+              >
+                🧪 GFP (Aequorea victoria Wild-Type)
+              </button>
+            </div>
+          </div>
+
+          {/* DNA Input with Reading Frame Toggle & Auto-detect ORF */}
+          <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
             <div class="flex items-center justify-between">
               <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Coding DNA Sequence (5' to 3')
+                Coding DNA Sequence
               </label>
               <span class="text-[11px] text-slate-500 font-mono">
-                {cleanDna(s.codingDna).length} bp ({analysis.totalCodons} aa)
+                {cleanDna(s.codingDna).length} bp input ({analysis.totalCodons} codons in frame {s.frame > 0 ? `+${s.frame}` : s.frame})
               </span>
             </div>
+
             <textarea
               rows={6}
               value={s.codingDna}
               onInput={(e) => set({ codingDna: (e.target as HTMLTextAreaElement).value })}
-              placeholder="Paste coding sequence (ORF starting with ATG)..."
+              placeholder="Paste coding sequence or plasmid fragment..."
               class={FIELD}
             />
+
+            {/* Reading Frame Selector */}
+            <div class="space-y-1.5 pt-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-700 dark:text-slate-300">
+                  Reading Frame:
+                </span>
+                <span class="text-[11px] text-slate-500 font-mono">
+                  {s.frame > 0 ? `Forward Strand (+${s.frame})` : `Reverse Strand (${s.frame})`}
+                </span>
+              </div>
+              <div class="grid grid-cols-6 gap-1">
+                {([1, 2, 3, -1, -2, -3] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => set({ frame: f })}
+                    class={`py-1.5 text-xs font-mono font-bold rounded-lg transition ${
+                      s.frame === f
+                        ? 'bg-accent-600 text-white shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {f > 0 ? `+${f}` : f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Auto-detect ORF Action */}
+            <div class="pt-1">
+              <button
+                type="button"
+                onClick={handleAutoDetectOrf}
+                class="w-full py-2 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:hover:bg-indigo-900 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition flex items-center justify-center gap-1.5"
+              >
+                <span>⚡</span>
+                <span>Auto-Detect Coding ORF (Find Frame &amp; Strand)</span>
+              </button>
+            </div>
+
+            {orfFeedback && (
+              <div class="p-2.5 rounded-lg text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800">
+                {orfFeedback}
+              </div>
+            )}
           </div>
         </div>
+
       }
       results={
         <div class="space-y-4">
@@ -131,30 +240,41 @@ export default function RareCodonsView() {
               </div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                 <span class="text-slate-400 block">Total Codons</span>
                 <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                   {analysis.totalCodons}
                 </span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">Frame {s.frame > 0 ? `+${s.frame}` : s.frame}</span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">Overall GC</span>
-                <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
-                  {analysis.overallGc.toFixed(1)}%
+                <span class="text-slate-400 block">Optimal Codons</span>
+                <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  {analysis.optimalCodonPct}%
                 </span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">{analysis.optimalCodonCount} codons</span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">GC3 (Wobble)</span>
-                <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
-                  {analysis.gc3.toFixed(1)}%
+                <span class="text-slate-400 block">Rare Codons</span>
+                <span className={`text-base font-bold font-mono ${analysis.rareCodonCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {analysis.rareCodonPct}%
                 </span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">{analysis.rareCodonCount} codons</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                <span class="text-slate-400 block">Overall GC (GC3)</span>
+                <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
+                  {analysis.overallGc.toFixed(1)}% <span class="text-xs text-slate-400 font-normal">({analysis.gc3.toFixed(0)}%)</span>
+                </span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">Wobble position</span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                 <span class="text-slate-400 block">Pause Hotspots</span>
                 <span className={`text-base font-bold font-mono ${analysis.pauseClusters.length > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {analysis.pauseClusters.length} clusters
                 </span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">{analysis.pauseClusters.length > 0 ? 'Stalling risk' : 'No clusters'}</span>
               </div>
             </div>
           </div>
@@ -174,6 +294,80 @@ export default function RareCodonsView() {
               {analysis.strainRecommendation.reason}
             </p>
           </div>
+
+          {/* Multi-Host Cross-Platform Comparison Table */}
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div>
+                <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Cross-Platform Expression Comparison (All 4 Hosts)
+                </h3>
+                <p class="text-[11px] text-slate-500">
+                  Evaluates this exact sequence across E. coli, Yeast, Human, and Insect hosts
+                </p>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-left">
+                <thead>
+                  <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                    <th class="pb-2 font-semibold">Host Organism</th>
+                    <th class="pb-2 font-semibold text-center">CAI</th>
+                    <th class="pb-2 font-semibold text-center">% Optimal</th>
+                    <th class="pb-2 font-semibold text-center">% Rare</th>
+                    <th class="pb-2 font-semibold">Recommended Strain / Line</th>
+                    <th class="pb-2 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                  {multiHostComparison.map((m) => {
+                    const isCurrent = m.host === s.host;
+                    return (
+                      <tr key={m.host} class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 ${isCurrent ? 'bg-accent-50/50 dark:bg-accent-950/20 font-semibold' : ''}`}>
+                        <td class="py-2.5">
+                          <span class="text-slate-900 dark:text-slate-100">{m.hostName}</span>
+                          {isCurrent && (
+                            <span class="ml-1.5 px-1.5 py-0.5 text-[10px] rounded bg-accent-100 text-accent-800 dark:bg-accent-900 dark:text-accent-200">
+                              Active
+                            </span>
+                          )}
+                        </td>
+                        <td class="py-2.5 text-center font-mono font-bold">
+                          <span className={`px-2 py-0.5 rounded text-[11px] ${m.cai >= 0.8 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : m.cai >= 0.65 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'}`}>
+                            {m.cai.toFixed(3)}
+                          </span>
+                        </td>
+                        <td class="py-2.5 text-center font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                          {m.optimalPct}%
+                        </td>
+                        <td class="py-2.5 text-center font-mono font-semibold">
+                          <span className={m.rareCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500'}>
+                            {m.rarePct}% ({m.rareCount})
+                          </span>
+                        </td>
+                        <td class="py-2.5 text-slate-700 dark:text-slate-300">
+                          {m.recommendedStrain}
+                        </td>
+                        <td class="py-2.5 text-right">
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => set({ host: m.host })}
+                              class="px-2 py-1 text-[11px] font-semibold rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                            >
+                              Select
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
 
           {/* Pause Clusters Warning */}
           {analysis.pauseClusters.length > 0 && (

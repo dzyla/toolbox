@@ -11,6 +11,10 @@ export type FitModelType =
   | '4pl'
   | '5pl'
   | 'michaelis_menten'
+  | 'substrate_inhibition'
+  | 'spr_association'
+  | 'spr_dissociation'
+  | 'spr_sensorgram'
   | 'two_site_binding'
   | 'exp_decay'
   | 'exp_growth'
@@ -476,15 +480,21 @@ export function fit4PL(data: DataPoint[]): FitResult {
   const minY = Math.min(...yVals);
   const maxY = Math.max(...yVals);
   const medianX = data[Math.floor(n / 2)]!.x;
+  const isIncreasing = yVals[yVals.length - 1]! >= yVals[0]!;
+  const initialHill = isIncreasing ? 1.0 : -1.0;
 
   const evalModel = (x: number, p: number[]) => {
     const [bottom, top, ec50, hill] = p;
-    if (x <= 0) return hill! > 0 ? bottom! : top!;
-    const ratio = Math.pow(x / Math.max(1e-9, Math.abs(ec50!)), hill!);
-    return bottom! + (top! - bottom!) / (1 + ratio);
+    const h = hill ?? 1;
+    if (x <= 0) return h >= 0 ? bottom! : top!;
+    const ec = Math.max(1e-12, Math.abs(ec50!));
+    const exponent = (Math.log10(ec) - Math.log10(x)) * h;
+    if (exponent > 50) return bottom!;
+    if (exponent < -50) return top!;
+    return bottom! + (top! - bottom!) / (1 + Math.pow(10, exponent));
   };
 
-  const initial = [minY, maxY, medianX > 0 ? medianX : 1.0, 1.0];
+  const initial = [minY, maxY, medianX > 0 ? medianX : 1.0, initialHill];
   const cost = (p: number[]) => {
     let sum = 0;
     for (const d of data) {
@@ -521,7 +531,7 @@ export function fit4PL(data: DataPoint[]): FitResult {
   return {
     modelType: '4pl',
     modelName: '4-Parameter Logistic (4PL / EC50)',
-    equationStr: `y = ${bottom!.toFixed(2)} + (${(top! - bottom!).toFixed(2)}) / [1 + (x / ${Math.abs(ec50!).toFixed(3)})^(${hill!.toFixed(2)})]`,
+    equationStr: `y = ${bottom!.toFixed(2)} + (${(top! - bottom!).toFixed(2)}) / [1 + (${Math.abs(ec50!).toFixed(3)} / x)^(${hill!.toFixed(2)})]`,
     parameters: [
       {
         name: 'Half-Maximal Concentration',
@@ -579,15 +589,22 @@ export function fit5PL(data: DataPoint[]): FitResult {
   const minY = Math.min(...yVals);
   const maxY = Math.max(...yVals);
   const medianX = data[Math.floor(n / 2)]!.x;
+  const isIncreasing = yVals[yVals.length - 1]! >= yVals[0]!;
+  const initialHill = isIncreasing ? 1.0 : -1.0;
 
   const evalModel = (x: number, p: number[]) => {
     const [bottom, top, ec50, hill, asymmetry] = p;
-    if (x <= 0) return bottom!;
-    const ratio = Math.pow(x / Math.max(1e-9, Math.abs(ec50!)), hill!);
-    return bottom! + (top! - bottom!) / Math.pow(1 + ratio, Math.max(0.1, asymmetry!));
+    const h = hill ?? 1;
+    if (x <= 0) return h >= 0 ? bottom! : top!;
+    const ec = Math.max(1e-12, Math.abs(ec50!));
+    const asym = Math.max(0.01, asymmetry ?? 1);
+    const exponent = (Math.log10(ec) - Math.log10(x)) * h;
+    if (exponent > 50) return bottom!;
+    if (exponent < -50) return top!;
+    return bottom! + (top! - bottom!) / Math.pow(1 + Math.pow(10, exponent), asym);
   };
 
-  const initial = [minY, maxY, medianX > 0 ? medianX : 1.0, 1.0, 1.0];
+  const initial = [minY, maxY, medianX > 0 ? medianX : 1.0, initialHill, 1.0];
   const cost = (p: number[]) => {
     let sum = 0;
     for (const d of data) {
@@ -623,7 +640,7 @@ export function fit5PL(data: DataPoint[]): FitResult {
   return {
     modelType: '5pl',
     modelName: '5-Parameter Logistic (5PL / Asymmetric)',
-    equationStr: `y = ${bottom!.toFixed(2)} + (${(top! - bottom!).toFixed(2)}) / [1 + (x / ${Math.abs(ec50!).toFixed(3)})^(${hill!.toFixed(2)})]^(${asymmetry!.toFixed(2)})`,
+    equationStr: `y = ${bottom!.toFixed(2)} + (${(top! - bottom!).toFixed(2)}) / [1 + (${Math.abs(ec50!).toFixed(3)} / x)^(${hill!.toFixed(2)})]^(${asymmetry!.toFixed(2)})`,
     parameters: [
       { name: 'EC50 / Inflection', symbol: 'C', value: Math.abs(ec50!), standardError: paramSE[2], description: 'Transition midpoint parameter' },
       { name: 'Hill Slope', symbol: 'B', value: hill!, standardError: paramSE[3], description: 'Slope factor' },
@@ -1032,6 +1049,326 @@ export function fitGaussian(data: DataPoint[]): FitResult {
   };
 }
 
+/** Substrate Inhibition Enzyme Kinetics: v = (Vmax * [S]) / (Km + [S] + [S]^2 / Ki) */
+export function fitSubstrateInhibition(data: DataPoint[]): FitResult {
+  const n = data.length;
+  if (n < 4) throw new Error('Substrate inhibition fit requires at least 4 points.');
+
+  const yVals = data.map(d => d.y);
+  const maxY = Math.max(...yVals);
+  const maxIdx = yVals.indexOf(maxY);
+  const maxS = data[maxIdx]!.x;
+
+  const evalModel = (x: number, p: number[]) => {
+    const [vmax, km, ki] = p;
+    const s = Math.max(0, x);
+    const denom = Math.max(1e-6, km!) + s + (s * s) / Math.max(1e-6, ki!);
+    return (vmax! * s) / denom;
+  };
+
+  const initial = [maxY * 1.5, Math.max(0.1, maxS / 2), Math.max(1, maxS * 2)];
+  const cost = (p: number[]) => {
+    let sum = 0;
+    for (const d of data) {
+      sum += Math.pow(d.y - evalModel(d.x, p), 2);
+    }
+    return sum;
+  };
+
+  const optimal = nelderMead(cost, initial);
+  const [vmax, km, ki] = optimal;
+  const predict = (x: number) => evalModel(x, optimal);
+
+  let sse = 0, sst = 0;
+  const meanY = yVals.reduce((a, b) => a + b, 0) / n;
+  for (const d of data) {
+    const yFit = predict(d.x);
+    sse += Math.pow(d.y - yFit, 2);
+    sst += Math.pow(d.y - meanY, 2);
+  }
+
+  const df = Math.max(1, n - 3);
+  const rmse = Math.sqrt(sse / df);
+  const r2 = sst > 0 ? Math.max(0, 1 - sse / sst) : 1;
+  const adjR2 = sst > 0 ? Math.max(0, 1 - ((sse / df) / (sst / (n - 1)))) : 1;
+
+  const { paramSE, fittedSE } = estimateCovarianceAndSE(evalModel, optimal, data, sse, df);
+
+  const fittedPoints: FittedPoint[] = data.map((d, i) => {
+    const yFit = predict(d.x);
+    return { x: d.x, y: d.y, yFit, seFit: fittedSE[i], residual: d.y - yFit };
+  });
+
+  const sOpt = Math.sqrt(Math.max(1e-6, km!) * Math.max(1e-6, ki!));
+  const vOpt = evalModel(sOpt, optimal);
+
+  return {
+    modelType: 'substrate_inhibition',
+    modelName: 'Substrate Inhibition Kinetics (Haldane)',
+    equationStr: `v = (${vmax!.toFixed(3)} · [S]) / (${km!.toFixed(3)} + [S] + [S]² / ${ki!.toFixed(3)})`,
+    parameters: [
+      { name: 'Maximal Velocity (uninhibited)', symbol: 'Vmax', value: vmax!, standardError: paramSE[0], description: 'Theoretical asymptotic velocity' },
+      { name: 'Michaelis Constant', symbol: 'Km', value: km!, standardError: paramSE[1], description: 'Substrate affinity constant' },
+      { name: 'Inhibition Constant', symbol: 'Ki', value: ki!, standardError: paramSE[2], description: 'Substrate self-inhibition constant' },
+      { name: 'Optimal Substrate [S]opt', symbol: '[S]opt', value: sOpt, description: 'Substrate concentration at peak velocity √(Km · Ki)' },
+      { name: 'Maximum Observed Velocity', symbol: 'v_opt', value: vOpt, description: 'Actual peak velocity attainable with inhibition' },
+    ],
+    r2,
+    adjR2,
+    rmse,
+    sse,
+    df,
+    predict,
+    fittedPoints,
+  };
+}
+
+/** BLI / SPR 1:1 Binding Association Kinetics: R(t) = R0 + Req * (1 - exp(-kobs * (t - t0))) */
+export function fitSprAssociation(data: DataPoint[]): FitResult {
+  const n = data.length;
+  if (n < 3) throw new Error('Association fit requires at least 3 points.');
+
+  const t0 = data[0]!.x;
+  const y0 = data[0]!.y;
+  const yVals = data.map(d => d.y);
+  const maxY = Math.max(...yVals);
+
+  const evalModel = (t: number, p: number[]) => {
+    const [r0, req, kobs] = p;
+    const dt = Math.max(0, t - t0);
+    return r0! + req! * (1 - Math.exp(-Math.max(1e-6, kobs!) * dt));
+  };
+
+  const initial = [y0, Math.max(0.01, maxY - y0), 0.05];
+  const cost = (p: number[]) => {
+    let sum = 0;
+    for (const d of data) {
+      sum += Math.pow(d.y - evalModel(d.x, p), 2);
+    }
+    return sum;
+  };
+
+  const optimal = nelderMead(cost, initial);
+  const [r0, req, kobs] = optimal;
+  const predict = (x: number) => evalModel(x, optimal);
+
+  let sse = 0, sst = 0;
+  const meanY = yVals.reduce((a, b) => a + b, 0) / n;
+  for (const d of data) {
+    const yFit = predict(d.x);
+    sse += Math.pow(d.y - yFit, 2);
+    sst += Math.pow(d.y - meanY, 2);
+  }
+
+  const df = Math.max(1, n - 3);
+  const rmse = Math.sqrt(sse / df);
+  const r2 = sst > 0 ? Math.max(0, 1 - sse / sst) : 1;
+  const adjR2 = sst > 0 ? Math.max(0, 1 - ((sse / df) / (sst / (n - 1)))) : 1;
+
+  const { paramSE, fittedSE } = estimateCovarianceAndSE(evalModel, optimal, data, sse, df);
+
+  const fittedPoints: FittedPoint[] = data.map((d, i) => {
+    const yFit = predict(d.x);
+    return { x: d.x, y: d.y, yFit, seFit: fittedSE[i], residual: d.y - yFit };
+  });
+
+  const tHalf = Math.LN2 / Math.max(1e-7, kobs!);
+
+  return {
+    modelType: 'spr_association',
+    modelName: 'BLI / SPR 1:1 Binding Association',
+    equationStr: `R(t) = ${r0!.toFixed(3)} + ${req!.toFixed(3)} · (1 - exp[-${kobs!.toFixed(5)} · (t - ${t0.toFixed(1)})])`,
+    parameters: [
+      { name: 'Observed Association Rate', symbol: 'kobs', value: kobs!, standardError: paramSE[2], unit: 's⁻¹', description: 'Observed rate constant (kon·[L] + koff)' },
+      { name: 'Equilibrium Response', symbol: 'Req', value: req!, standardError: paramSE[1], unit: 'RU / nm', description: 'Plateau binding signal amplitude' },
+      { name: 'Initial Baseline', symbol: 'R0', value: r0!, standardError: paramSE[0], unit: 'RU / nm', description: 'Response before injection onset' },
+      { name: 'Association Half-Time', symbol: 't1/2', value: tHalf, unit: 's', description: 'Time to reach 50% equilibrium plateau' },
+    ],
+    r2,
+    adjR2,
+    rmse,
+    sse,
+    df,
+    predict,
+    fittedPoints,
+  };
+}
+
+/** BLI / SPR 1:1 Binding Dissociation Kinetics: R(t) = Roffset + R0 * exp(-koff * (t - t0)) */
+export function fitSprDissociation(data: DataPoint[]): FitResult {
+  const n = data.length;
+  if (n < 3) throw new Error('Dissociation fit requires at least 3 points.');
+
+  const t0 = data[0]!.x;
+  const y0 = data[0]!.y;
+  const yEnd = data[data.length - 1]!.y;
+  const yVals = data.map(d => d.y);
+
+  const evalModel = (t: number, p: number[]) => {
+    const [r0, koff, roffset] = p;
+    const dt = Math.max(0, t - t0);
+    return roffset! + r0! * Math.exp(-Math.max(1e-7, koff!) * dt);
+  };
+
+  const initial = [Math.max(0.01, y0 - yEnd), 0.005, yEnd];
+  const cost = (p: number[]) => {
+    let sum = 0;
+    for (const d of data) {
+      sum += Math.pow(d.y - evalModel(d.x, p), 2);
+    }
+    return sum;
+  };
+
+  const optimal = nelderMead(cost, initial);
+  const [r0, koff, roffset] = optimal;
+  const predict = (x: number) => evalModel(x, optimal);
+
+  let sse = 0, sst = 0;
+  const meanY = yVals.reduce((a, b) => a + b, 0) / n;
+  for (const d of data) {
+    const yFit = predict(d.x);
+    sse += Math.pow(d.y - yFit, 2);
+    sst += Math.pow(d.y - meanY, 2);
+  }
+
+  const df = Math.max(1, n - 3);
+  const rmse = Math.sqrt(sse / df);
+  const r2 = sst > 0 ? Math.max(0, 1 - sse / sst) : 1;
+  const adjR2 = sst > 0 ? Math.max(0, 1 - ((sse / df) / (sst / (n - 1)))) : 1;
+
+  const { paramSE, fittedSE } = estimateCovarianceAndSE(evalModel, optimal, data, sse, df);
+
+  const fittedPoints: FittedPoint[] = data.map((d, i) => {
+    const yFit = predict(d.x);
+    return { x: d.x, y: d.y, yFit, seFit: fittedSE[i], residual: d.y - yFit };
+  });
+
+  const tHalf = Math.LN2 / Math.max(1e-7, koff!);
+
+  return {
+    modelType: 'spr_dissociation',
+    modelName: 'BLI / SPR 1:1 Binding Dissociation',
+    equationStr: `R(t) = ${roffset!.toFixed(3)} + ${r0!.toFixed(3)} · exp[-${koff!.toFixed(5)} · (t - ${t0.toFixed(1)})]`,
+    parameters: [
+      { name: 'Dissociation Rate Constant', symbol: 'koff (kd)', value: koff!, standardError: paramSE[1], unit: 's⁻¹', description: 'Off-rate constant for complex dissociation' },
+      { name: 'Initial Complex Response', symbol: 'R0', value: r0!, standardError: paramSE[0], unit: 'RU / nm', description: 'Signal amplitude at start of dissociation' },
+      { name: 'Dissociation Half-Life', symbol: 't1/2', value: tHalf, unit: 's', description: 'Complex half-life ln(2) / koff' },
+      { name: 'Residual Drift / Baseline', symbol: 'Roffset', value: roffset!, standardError: paramSE[2], unit: 'RU / nm', description: 'Residual plateau response' },
+    ],
+    r2,
+    adjR2,
+    rmse,
+    sse,
+    df,
+    predict,
+    fittedPoints,
+  };
+}
+
+/** Complete BLI / SPR Sensorgram (Association + Dissociation): 1:1 Langmuir interaction */
+export function fitSprSensorgram(data: DataPoint[]): FitResult {
+  const n = data.length;
+  if (n < 6) throw new Error('Sensorgram fit requires at least 6 points across association and dissociation.');
+
+  const tStart = data[0]!.x;
+  const yVals = data.map(d => d.y);
+  const maxY = Math.max(...yVals);
+  const maxIdx = yVals.indexOf(maxY);
+  const tPeak = data[maxIdx]!.x;
+
+  const evalModel = (t: number, p: number[]) => {
+    const [r0, req, kobs, koff, roffset, tdiss] = p;
+    const switchTime = tdiss!;
+    if (t <= switchTime) {
+      const dt = Math.max(0, t - tStart);
+      return r0! + req! * (1 - Math.exp(-Math.max(1e-6, kobs!) * dt));
+    } else {
+      const dtAssoc = Math.max(0, switchTime - tStart);
+      const rSwitch = r0! + req! * (1 - Math.exp(-Math.max(1e-6, kobs!) * dtAssoc));
+      const dtDiss = t - switchTime;
+      return roffset! + (rSwitch - roffset!) * Math.exp(-Math.max(1e-7, koff!) * dtDiss);
+    }
+  };
+
+  const initial = [data[0]!.y, maxY - data[0]!.y, 0.05, 0.01, data[n - 1]!.y, tPeak];
+  const cost = (p: number[]) => {
+    let sum = 0;
+    for (const d of data) {
+      sum += Math.pow(d.y - evalModel(d.x, p), 2);
+    }
+    return sum;
+  };
+
+  const optimal = nelderMead(cost, initial);
+  const [r0, req, kobs, koff, roffset, tdiss] = optimal;
+  const predict = (x: number) => evalModel(x, optimal);
+
+  let sse = 0, sst = 0;
+  const meanY = yVals.reduce((a, b) => a + b, 0) / n;
+  for (const d of data) {
+    const yFit = predict(d.x);
+    sse += Math.pow(d.y - yFit, 2);
+    sst += Math.pow(d.y - meanY, 2);
+  }
+
+  const df = Math.max(1, n - 6);
+  const rmse = Math.sqrt(sse / df);
+  const r2 = sst > 0 ? Math.max(0, 1 - sse / sst) : 1;
+  const adjR2 = sst > 0 ? Math.max(0, 1 - ((sse / df) / (sst / (n - 1)))) : 1;
+
+  const { paramSE, fittedSE } = estimateCovarianceAndSE(evalModel, optimal, data, sse, df);
+
+  const fittedPoints: FittedPoint[] = data.map((d, i) => {
+    const yFit = predict(d.x);
+    return { x: d.x, y: d.y, yFit, seFit: fittedSE[i], residual: d.y - yFit };
+  });
+
+  const tHalfOff = Math.LN2 / Math.max(1e-7, koff!);
+
+  return {
+    modelType: 'spr_sensorgram',
+    modelName: 'BLI / SPR Full 1:1 Sensorgram (Assoc + Dissoc)',
+    equationStr: `Assoc: R(t) = R₀ + Req·(1-e^(-kobs·t)) | Dissoc: R(t) = Roff + (Rpeak-Roff)·e^(-koff·Δt)`,
+    parameters: [
+      { name: 'Observed Association Rate', symbol: 'kobs', value: kobs!, standardError: paramSE[2], unit: 's⁻¹', description: 'Observed association rate constant' },
+      { name: 'Dissociation Rate Constant', symbol: 'koff (kd)', value: koff!, standardError: paramSE[3], unit: 's⁻¹', description: 'Dissociation off-rate constant' },
+      { name: 'Equilibrium Plateau', symbol: 'Req', value: req!, standardError: paramSE[1], unit: 'RU / nm', description: 'Steady-state binding amplitude' },
+      { name: 'Dissociation Switch Time', symbol: 'tdiss', value: tdiss!, standardError: paramSE[5], unit: 's', description: 'Time analyte injection stopped' },
+      { name: 'Dissociation Half-Life', symbol: 't1/2,off', value: tHalfOff, unit: 's', description: 'Complex half-life ln(2) / koff' },
+      { name: 'Baseline Offset', symbol: 'R0', value: r0!, standardError: paramSE[0], unit: 'RU / nm', description: 'Pre-injection sensor baseline' },
+    ],
+    r2,
+    adjR2,
+    rmse,
+    sse,
+    df,
+    predict,
+    fittedPoints,
+  };
+}
+
+export interface EnzymeDiagnosticTransforms {
+  lineweaverBurk: { invS: number; invV: number }[];
+  eadieHofstee: { vOverS: number; v: number }[];
+  hanesWoolf: { s: number; sOverV: number }[];
+}
+
+export function computeEnzymeTransforms(data: DataPoint[]): EnzymeDiagnosticTransforms {
+  const lineweaverBurk: { invS: number; invV: number }[] = [];
+  const eadieHofstee: { vOverS: number; v: number }[] = [];
+  const hanesWoolf: { s: number; sOverV: number }[] = [];
+
+  for (const d of data) {
+    if (d.x > 0 && d.y > 0) {
+      lineweaverBurk.push({ invS: 1 / d.x, invV: 1 / d.y });
+      eadieHofstee.push({ vOverS: d.y / d.x, v: d.y });
+      hanesWoolf.push({ s: d.x, sOverV: d.x / d.y });
+    }
+  }
+
+  return { lineweaverBurk, eadieHofstee, hanesWoolf };
+}
+
 /** Dispatcher to fit any supported laboratory model */
 export function fitModel(modelType: FitModelType, data: DataPoint[]): FitResult {
   switch (modelType) {
@@ -1045,6 +1382,14 @@ export function fitModel(modelType: FitModelType, data: DataPoint[]): FitResult 
       return fit5PL(data);
     case 'michaelis_menten':
       return fitMichaelisMenten(data);
+    case 'substrate_inhibition':
+      return fitSubstrateInhibition(data);
+    case 'spr_association':
+      return fitSprAssociation(data);
+    case 'spr_dissociation':
+      return fitSprDissociation(data);
+    case 'spr_sensorgram':
+      return fitSprSensorgram(data);
     case 'two_site_binding':
       return fitTwoSiteBinding(data);
     case 'exp_decay':
@@ -1155,4 +1500,67 @@ export const SAMPLE_DATASETS: Record<string, { name: string; model: FitModelType
 1.5\t1.590
 2.0\t2.120`,
   },
+  substrate_inhibition: {
+    name: 'Enzyme Substrate Inhibition (Haldane)',
+    model: 'substrate_inhibition',
+    text: `# Substrate [S] (µM)\tInitial Velocity v (µM/min)
+2.0\t3.51
+5.0\t7.40
+10.0\t11.65
+20.0\t15.60
+40.0\t17.58
+80.0\t16.20
+160.0\t12.35
+320.0\t8.10
+640.0\t4.70`,
+  },
+  spr_association: {
+    name: 'BLI / SPR Association Phase (kobs)',
+    model: 'spr_association',
+    text: `# Time (s)\tBinding Response (nm / RU)
+0\t0.021
+5\t0.224
+10\t0.392
+20\t0.647
+30\t0.835
+45\t1.009
+60\t1.119
+90\t1.218
+120\t1.250
+180\t1.269`,
+  },
+  spr_dissociation: {
+    name: 'BLI / SPR Dissociation Phase (koff)',
+    model: 'spr_dissociation',
+    text: `# Time (s)\tBinding Response (nm / RU)
+0\t1.252
+10\t1.115
+20\t0.992
+30\t0.889
+45\t0.748
+60\t0.635
+90\t0.457
+120\t0.336
+180\t0.187
+240\t0.119
+300\t0.082`,
+  },
+  spr_sensorgram: {
+    name: 'BLI / SPR Full Sensorgram Cycle',
+    model: 'spr_sensorgram',
+    text: `# Time (s)\tBinding Response (nm / RU)
+0\t0.001
+15\t0.102
+30\t0.182
+60\t0.298
+90\t0.371
+120\t0.418
+130\t0.378
+145\t0.326
+160\t0.281
+190\t0.209
+240\t0.127
+300\t0.070`,
+  },
 };
+

@@ -39,6 +39,8 @@ export interface CodonAnalysisResult {
   cai: number; // Codon Adaptation Index (0.0 to 1.0)
   rareCodonCount: number;
   rareCodonPct: number;
+  optimalCodonCount: number;
+  optimalCodonPct: number;
   evaluatedCodons: EvaluatedCodon[];
   pauseClusters: CodonPauseCluster[];
   strainRecommendation: {
@@ -50,75 +52,19 @@ export interface CodonAnalysisResult {
   optimizedCai: number;
 }
 
-// Kazusa codon usage tables (frequencies per thousand)
-export const ECOLI_CODON_USAGE: Record<string, CodonUsageEntry> = {
-  TTT: { aa: 'F', fraction: 0.42, frequencyPerThousand: 22.4 },
-  TTC: { aa: 'F', fraction: 0.58, frequencyPerThousand: 16.5 },
-  TTA: { aa: 'L', fraction: 0.14, frequencyPerThousand: 13.9 },
-  TTG: { aa: 'L', fraction: 0.13, frequencyPerThousand: 13.7 },
-  CTT: { aa: 'L', fraction: 0.12, frequencyPerThousand: 11.0 },
-  CTC: { aa: 'L', fraction: 0.10, frequencyPerThousand: 11.1 },
-  CTA: { aa: 'L', fraction: 0.04, frequencyPerThousand: 3.7 }, // RARE
-  CTG: { aa: 'L', fraction: 0.47, frequencyPerThousand: 52.8 }, // OPTIMAL
-  ATT: { aa: 'I', fraction: 0.49, frequencyPerThousand: 30.5 },
-  ATC: { aa: 'I', fraction: 0.42, frequencyPerThousand: 25.1 },
-  ATA: { aa: 'I', fraction: 0.09, frequencyPerThousand: 4.1 }, // RARE
-  ATG: { aa: 'M', fraction: 1.00, frequencyPerThousand: 27.9 },
-  GTT: { aa: 'V', fraction: 0.28, frequencyPerThousand: 18.2 },
-  GTC: { aa: 'V', fraction: 0.20, frequencyPerThousand: 15.3 },
-  GTA: { aa: 'V', fraction: 0.17, frequencyPerThousand: 10.9 },
-  GTG: { aa: 'V', fraction: 0.35, frequencyPerThousand: 26.3 },
-  TCT: { aa: 'S', fraction: 0.17, frequencyPerThousand: 8.5 },
-  TCC: { aa: 'S', fraction: 0.15, frequencyPerThousand: 8.6 },
-  TCA: { aa: 'S', fraction: 0.14, frequencyPerThousand: 7.1 },
-  TCG: { aa: 'S', fraction: 0.14, frequencyPerThousand: 8.9 },
-  AGT: { aa: 'S', fraction: 0.16, frequencyPerThousand: 8.8 },
-  AGC: { aa: 'S', fraction: 0.25, frequencyPerThousand: 16.0 }, // OPTIMAL
-  CCT: { aa: 'P', fraction: 0.18, frequencyPerThousand: 7.0 },
-  CCC: { aa: 'P', fraction: 0.13, frequencyPerThousand: 5.5 }, // RARE
-  CCA: { aa: 'P', fraction: 0.20, frequencyPerThousand: 8.5 },
-  CCG: { aa: 'P', fraction: 0.49, frequencyPerThousand: 23.3 }, // OPTIMAL
-  ACT: { aa: 'T', fraction: 0.19, frequencyPerThousand: 8.9 },
-  ACC: { aa: 'T', fraction: 0.40, frequencyPerThousand: 23.4 }, // OPTIMAL
-  ACA: { aa: 'T', fraction: 0.15, frequencyPerThousand: 7.0 },
-  ACG: { aa: 'T', fraction: 0.26, frequencyPerThousand: 14.4 },
-  GCT: { aa: 'A', fraction: 0.18, frequencyPerThousand: 15.3 },
-  GCC: { aa: 'A', fraction: 0.26, frequencyPerThousand: 25.5 },
-  GCA: { aa: 'A', fraction: 0.23, frequencyPerThousand: 20.3 },
-  GCG: { aa: 'A', fraction: 0.33, frequencyPerThousand: 33.7 }, // OPTIMAL
-  TAT: { aa: 'Y', fraction: 0.43, frequencyPerThousand: 16.2 },
-  TAC: { aa: 'Y', fraction: 0.57, frequencyPerThousand: 12.2 },
-  TAA: { aa: '*', fraction: 0.61, frequencyPerThousand: 2.0 },
-  TAG: { aa: '*', fraction: 0.09, frequencyPerThousand: 0.3 },
-  TGA: { aa: '*', fraction: 0.30, frequencyPerThousand: 1.0 },
-  CAT: { aa: 'H', fraction: 0.57, frequencyPerThousand: 12.9 },
-  CAC: { aa: 'H', fraction: 0.43, frequencyPerThousand: 9.7 },
-  CAA: { aa: 'Q', fraction: 0.34, frequencyPerThousand: 15.4 },
-  CAG: { aa: 'Q', fraction: 0.66, frequencyPerThousand: 28.9 },
-  AAT: { aa: 'N', fraction: 0.49, frequencyPerThousand: 17.7 },
-  AAC: { aa: 'N', fraction: 0.51, frequencyPerThousand: 21.6 },
-  AAA: { aa: 'K', fraction: 0.74, frequencyPerThousand: 33.6 },
-  AAG: { aa: 'K', fraction: 0.26, frequencyPerThousand: 10.3 },
-  GAT: { aa: 'D', fraction: 0.63, frequencyPerThousand: 32.2 },
-  GAC: { aa: 'D', fraction: 0.37, frequencyPerThousand: 19.1 },
-  GAA: { aa: 'E', fraction: 0.68, frequencyPerThousand: 39.6 },
-  GAG: { aa: 'E', fraction: 0.32, frequencyPerThousand: 17.9 },
-  TGT: { aa: 'C', fraction: 0.46, frequencyPerThousand: 5.2 },
-  TGC: { aa: 'C', fraction: 0.54, frequencyPerThousand: 6.4 },
-  TGG: { aa: 'W', fraction: 1.00, frequencyPerThousand: 15.3 },
-  CGT: { aa: 'R', fraction: 0.36, frequencyPerThousand: 20.9 }, // OPTIMAL
-  CGC: { aa: 'R', fraction: 0.36, frequencyPerThousand: 22.0 }, // OPTIMAL
-  CGA: { aa: 'R', fraction: 0.07, frequencyPerThousand: 3.1 }, // RARE
-  CGG: { aa: 'R', fraction: 0.11, frequencyPerThousand: 5.4 }, // RARE
-  AGA: { aa: 'R', fraction: 0.04, frequencyPerThousand: 2.1 }, // VERY RARE
-  AGG: { aa: 'R', fraction: 0.02, frequencyPerThousand: 1.4 }, // EXTREMELY RARE
-  GGT: { aa: 'G', fraction: 0.35, frequencyPerThousand: 24.7 },
-  GGC: { aa: 'G', fraction: 0.38, frequencyPerThousand: 29.6 },
-  GGA: { aa: 'G', fraction: 0.13, frequencyPerThousand: 7.8 }, // RARE
-  GGG: { aa: 'G', fraction: 0.15, frequencyPerThousand: 11.0 },
-};
+import codonUsageJson from '@/data/codon-usage.json';
 
-export const HUMAN_CODON_USAGE: Record<string, CodonUsageEntry> = { ...ECOLI_CODON_USAGE }; // fallback map
+export const ECOLI_CODON_USAGE: Record<string, CodonUsageEntry> = codonUsageJson.tables.ecoli as Record<string, CodonUsageEntry>;
+export const HUMAN_CODON_USAGE: Record<string, CodonUsageEntry> = codonUsageJson.tables.human as Record<string, CodonUsageEntry>;
+export const YEAST_CODON_USAGE: Record<string, CodonUsageEntry> = codonUsageJson.tables.yeast as Record<string, CodonUsageEntry>;
+export const INSECT_CODON_USAGE: Record<string, CodonUsageEntry> = codonUsageJson.tables.insect as Record<string, CodonUsageEntry>;
+
+export const HOST_CODON_USAGE: Record<HostOrganism, Record<string, CodonUsageEntry>> = {
+  ecoli: ECOLI_CODON_USAGE,
+  human: HUMAN_CODON_USAGE,
+  yeast: YEAST_CODON_USAGE,
+  insect: INSECT_CODON_USAGE,
+};
 
 export const HOST_NAMES: Record<HostOrganism, string> = {
   ecoli: 'Escherichia coli (BL21 / K-12)',
@@ -127,7 +73,7 @@ export const HOST_NAMES: Record<HostOrganism, string> = {
   insect: 'Insect (Spodoptera frugiperda Sf9)',
 };
 
-/** E. coli specific rare codons (Rosetta pRARE target codons) */
+/** Host-specific rare codons */
 export const ECOLI_RARE_CODONS = new Set([
   'AGG', 'AGA', 'CGA', 'CGG', // Arg
   'AUA', 'ATA',               // Ile
@@ -135,6 +81,13 @@ export const ECOLI_RARE_CODONS = new Set([
   'CCC',                      // Pro
   'GGA',                      // Gly
 ]);
+
+export const HOST_RARE_CODONS: Record<HostOrganism, Set<string>> = {
+  ecoli: ECOLI_RARE_CODONS,
+  human: new Set(['TCG', 'CGT', 'ACG', 'CGA', 'CCG', 'CUA', 'CTA', 'GUA', 'GCG', 'AUA', 'ATA', 'UUA', 'TTA']),
+  yeast: new Set(['CGG', 'CGC', 'CGA', 'CGT', 'CCG', 'CCC', 'CTC', 'CUC', 'GGG', 'GCG', 'ACG', 'TGC', 'UGC']),
+  insect: new Set(['CGG', 'GGG', 'CGA', 'CUA', 'CTA', 'UUA', 'TTA', 'UCG', 'CCG', 'AUA', 'ATA', 'AGU']),
+};
 
 export function cleanDna(raw: string): string {
   return raw
@@ -154,7 +107,8 @@ export function analyzeCodonUsage(
   const clean = cleanDna(dna);
   const totalCodons = Math.floor(clean.length / 3);
 
-  const usageTable = ECOLI_CODON_USAGE;
+  const usageTable = HOST_CODON_USAGE[host] || ECOLI_CODON_USAGE;
+  const rareSet = HOST_RARE_CODONS[host] || ECOLI_RARE_CODONS;
 
   // Find max frequency for each AA to compute relative adaptiveness w_i
   const maxFreqPerAa: Record<string, number> = {};
@@ -193,7 +147,7 @@ export function analyzeCodonUsage(
 
     // Status
     let status: EvaluatedCodon['status'] = 'optimal';
-    if (ECOLI_RARE_CODONS.has(codon) || freq < 6.0 || wi < 0.15) {
+    if (rareSet.has(codon) || freq < 6.0 || wi < 0.15) {
       status = 'rare';
       rareCount++;
     } else if (freq < 12.0 || wi < 0.35) {
@@ -243,18 +197,48 @@ export function analyzeCodonUsage(
   let reason = 'Sequence has high Codon Adaptation Index (CAI) with no problematic rare codon clusters. Standard BL21(DE3) will yield high expression.';
   let isRareStrainNeeded = false;
 
-  const rareArgs = evaluatedCodons.filter(c => ['AGG', 'AGA', 'CGA', 'CGG'].includes(c.codon)).length;
-  const rareIles = evaluatedCodons.filter(c => c.codon === 'ATA' || c.codon === 'AUA').length;
-  const rareLeus = evaluatedCodons.filter(c => c.codon === 'CTA' || c.codon === 'CUA').length;
-  const rarePros = evaluatedCodons.filter(c => c.codon === 'CCC').length;
+  if (host === 'ecoli') {
+    const rareArgs = evaluatedCodons.filter(c => ['AGG', 'AGA', 'CGA', 'CGG'].includes(c.codon)).length;
+    const rareIles = evaluatedCodons.filter(c => c.codon === 'ATA' || c.codon === 'AUA').length;
+    const rareLeus = evaluatedCodons.filter(c => c.codon === 'CTA' || c.codon === 'CUA').length;
+    const rarePros = evaluatedCodons.filter(c => c.codon === 'CCC').length;
 
-  if (pauseClusters.length > 0 || rareArgs >= 3 || rareIles >= 3) {
-    isRareStrainNeeded = true;
-    recommendedStrain = 'Rosetta 2(DE3)';
-    reason = `Detected ${pauseClusters.length} ribosomal pause cluster(s) and rare codons (Arg: ${rareArgs}, Ile: ${rareIles}, Leu: ${rareLeus}, Pro: ${rarePros}). Rosetta 2(DE3) supplies all 7 rare tRNAs (AUA, AGG, AGA, CUA, CCC, GGA, CGG on pRARE2) to prevent translation arrest.`;
-  } else if (rareCount > 0) {
-    recommendedStrain = 'BL21 CodonPlus(DE3)-RIL';
-    reason = `Minor rare codon presence (${rareCount} rare codons). CodonPlus-RIL supplies Arg, Ile, and Leu tRNAs for robust yields.`;
+    if (pauseClusters.length > 0 || rareArgs >= 3 || rareIles >= 3) {
+      isRareStrainNeeded = true;
+      recommendedStrain = 'Rosetta 2(DE3)';
+      reason = `Detected ${pauseClusters.length} ribosomal pause cluster(s) and rare codons (Arg: ${rareArgs}, Ile: ${rareIles}, Leu: ${rareLeus}, Pro: ${rarePros}). Rosetta 2(DE3) supplies all 7 rare tRNAs (AUA, AGG, AGA, CUA, CCC, GGA, CGG on pRARE2) to prevent translation arrest.`;
+    } else if (rareCount > 0) {
+      recommendedStrain = 'BL21 CodonPlus(DE3)-RIL';
+      reason = `Minor rare codon presence (${rareCount} rare codons). CodonPlus-RIL supplies Arg, Ile, and Leu tRNAs for robust yields.`;
+    }
+  } else if (host === 'human') {
+    if (cai < 0.75 || pauseClusters.length > 0) {
+      isRareStrainNeeded = true;
+      recommendedStrain = 'Codon-Optimized HEK293 / CHO';
+      reason = `Mammalian CAI (${cai.toFixed(2)}) is suboptimal or contains rare codon clusters. Synonymous optimization to human preference (high GC3) is recommended for HEK293/CHO expression.`;
+    } else {
+      recommendedStrain = 'HEK293 / CHO-K1';
+      reason = `High mammalian codon adaptation (CAI ${cai.toFixed(2)}). Well-suited for direct expression in human/mammalian host cells.`;
+    }
+  } else if (host === 'yeast') {
+    if (cai < 0.75 || pauseClusters.length > 0) {
+      isRareStrainNeeded = true;
+      recommendedStrain = 'Codon-Optimized Pichia / S. cerevisiae';
+      reason = `Yeast CAI (${cai.toFixed(2)}) is suboptimal or contains rare codon clusters. Synonymous optimization is recommended for Pichia pastoris / S. cerevisiae.`;
+    } else {
+      recommendedStrain = 'Pichia pastoris (GS115) / S. cerevisiae';
+      reason = `Well-adapted to yeast codon bias (CAI ${cai.toFixed(2)}). Expected robust expression in yeast.`;
+    }
+  } else {
+    // insect
+    if (cai < 0.75 || pauseClusters.length > 0) {
+      isRareStrainNeeded = true;
+      recommendedStrain = 'Codon-Optimized Sf9 / High Five';
+      reason = `Insect CAI (${cai.toFixed(2)}) is suboptimal. Synonymous adaptation to Sf9/High Five preference is recommended for baculovirus vectors.`;
+    } else {
+      recommendedStrain = 'Spodoptera frugiperda (Sf9 / Sf21)';
+      reason = `Good insect codon compatibility (CAI ${cai.toFixed(2)}). Suitable for baculovirus expression.`;
+    }
   }
 
   // Synonymously optimized DNA sequence
@@ -280,6 +264,10 @@ export function analyzeCodonUsage(
     cai: Math.round(cai * 1000) / 1000,
     rareCodonCount: rareCount,
     rareCodonPct: totalCodons > 0 ? Math.round(((rareCount / totalCodons) * 100) * 10) / 10 : 0,
+    optimalCodonCount: totalCodons - rareCount - evaluatedCodons.filter(c => c.status === 'moderate').length,
+    optimalCodonPct: totalCodons > 0
+      ? Math.round((((totalCodons - rareCount - evaluatedCodons.filter(c => c.status === 'moderate').length) / totalCodons) * 100) * 10) / 10
+      : 0,
     evaluatedCodons,
     pauseClusters,
     strainRecommendation: {
@@ -291,3 +279,120 @@ export function analyzeCodonUsage(
     optimizedCai: Math.round(optimizedCai * 1000) / 1000,
   };
 }
+
+export type ReadingFrame = 1 | 2 | 3 | -1 | -2 | -3;
+
+export function reverseComplement(seq: string): string {
+  const complement: Record<string, string> = {
+    A: 'T', T: 'A', G: 'C', C: 'G',
+    a: 't', t: 'a', g: 'c', c: 'g',
+    U: 'T', u: 't', N: 'N', n: 'n',
+  };
+  return seq.split('').reverse().map(b => complement[b] || b).join('');
+}
+
+export function getSequenceInFrame(dna: string, frame: ReadingFrame): string {
+  const clean = cleanDna(dna);
+  if (frame > 0) {
+    const offset = frame - 1;
+    return clean.slice(offset);
+  } else {
+    const rev = reverseComplement(clean);
+    const offset = Math.abs(frame) - 1;
+    return rev.slice(offset);
+  }
+}
+
+export interface DetectedOrf {
+  frame: ReadingFrame;
+  start: number;
+  end: number;
+  lengthBp: number;
+  lengthAa: number;
+  sequence: string;
+  isAmpicillinBla: boolean;
+  label: string;
+}
+
+/**
+ * Searches across all 6 reading frames (+1 to -3) to automatically detect
+ * the authentic coding Open Reading Frame (ORF).
+ * Handles native sequences as well as inverted plasmid strands (e.g. bla on pUC19 strand -1).
+ */
+export function autoDetectBestOrf(rawDna: string, minAa = 30): DetectedOrf | null {
+  const clean = cleanDna(rawDna);
+  if (clean.length < 90) return null;
+
+  const frames: ReadingFrame[] = [1, 2, 3, -1, -2, -3];
+  let bestOrf: DetectedOrf | null = null;
+
+  for (const frame of frames) {
+    const strandSeq = frame > 0 ? clean : reverseComplement(clean);
+    const offset = Math.abs(frame) - 1;
+
+    let currentStart = -1;
+    for (let i = offset; i + 2 < strandSeq.length; i += 3) {
+      const codon = strandSeq.slice(i, i + 3);
+      if (codon === 'ATG' && currentStart === -1) {
+        currentStart = i;
+      } else if ((codon === 'TAA' || codon === 'TAG' || codon === 'TGA') && currentStart !== -1) {
+        const orfSeq = strandSeq.slice(currentStart, i + 3);
+        const aaLen = orfSeq.length / 3 - 1;
+        if (aaLen >= minAa) {
+          // Check for Ampicillin (bla beta-lactamase) characteristics:
+          // bla is 861 bp (286 aa) and starts with ATG AGT ATT CAA CAT TTC CGT GTC GCC CTT ATT CCC
+          const isBla = orfSeq.length === 861 || orfSeq.includes('AGTATTCAACATTTCCGTGTC');
+
+          if (!bestOrf || isBla || orfSeq.length > bestOrf.lengthBp) {
+            bestOrf = {
+              frame,
+              start: currentStart + 1,
+              end: i + 3,
+              lengthBp: orfSeq.length,
+              lengthAa: aaLen,
+              sequence: orfSeq,
+              isAmpicillinBla: isBla,
+              label: isBla
+                ? `Ampicillin Resistance (bla / β-lactamase, ${aaLen} aa on strand ${frame > 0 ? '+' : ''}${frame})`
+                : `ORF ${aaLen} aa (${orfSeq.length} bp, frame ${frame > 0 ? '+' : ''}${frame})`,
+            };
+          }
+        }
+        currentStart = -1;
+      }
+    }
+  }
+
+  return bestOrf;
+}
+
+export interface MultiHostComparison {
+  host: HostOrganism;
+  hostName: string;
+  cai: number;
+  optimalPct: number;
+  rarePct: number;
+  rareCount: number;
+  recommendedStrain: string;
+  isRareStrainNeeded: boolean;
+  reason: string;
+}
+
+export function compareAllHosts(dna: string): MultiHostComparison[] {
+  const hosts: HostOrganism[] = ['ecoli', 'yeast', 'human', 'insect'];
+  return hosts.map(h => {
+    const res = analyzeCodonUsage(dna, h);
+    return {
+      host: h,
+      hostName: HOST_NAMES[h],
+      cai: res.cai,
+      optimalPct: res.optimalCodonPct,
+      rarePct: res.rareCodonPct,
+      rareCount: res.rareCodonCount,
+      recommendedStrain: res.strainRecommendation.recommendedStrain,
+      isRareStrainNeeded: res.strainRecommendation.isRareStrainNeeded,
+      reason: res.strainRecommendation.reason,
+    };
+  });
+}
+

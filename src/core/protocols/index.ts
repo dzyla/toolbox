@@ -9,6 +9,7 @@ export interface ProtocolStep {
   timerMinutes?: number;
   notes?: string;
   critical?: boolean;
+  warning?: boolean;
 }
 
 export interface Protocol {
@@ -65,7 +66,8 @@ export function parseMarkdownProtocol(markdown: string): Protocol {
         timerMinutes = parseFloat(timerMatch[1]!);
       }
 
-      const isCritical = /critical|immediately|exact|careful|do not exceed/i.test(text);
+      const isCritical = /\b(critical|danger|fatal|hazard)\b/i.test(text);
+      const isWarning = !isCritical && /\b(warning|caution|attention|careful|immediately|exact|do not exceed)\b/i.test(text);
 
       steps.push({
         id: `step-${stepIdx++}`,
@@ -73,6 +75,7 @@ export function parseMarkdownProtocol(markdown: string): Protocol {
         completed: isDone,
         timerMinutes,
         critical: isCritical,
+        warning: isWarning,
       });
     }
   }

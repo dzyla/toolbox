@@ -7,7 +7,17 @@ import { autoLanes, equalLanes } from '@/core/gel/lanes';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
 import { rollingBaseline, valleyBaseline, sharedCrossLaneBaseline } from '@/core/gel/background';
 import { quantifyBands, detectPolarity, type BandMetrics } from '@/core/gel/quant';
-import { fitCalibration, formatSize, type Calibration } from '@/core/gel/calibration';
+import {
+  fitCalibration,
+  formatSize,
+  fitMassCalibration,
+  formatMass,
+  MASS_STANDARD_PRESETS,
+  type Calibration,
+  type MassCalibration,
+  type MassCalibrationModel,
+  type MassCalibrationPoint,
+} from '@/core/gel/calibration';
 import { transformPlane, type Geometry } from '@/core/gel/transform';
 import type { Plane, Polarity, Lane, Band } from '@/core/gel/types';
 import laddersData from '@/data/ladders.json';
@@ -38,6 +48,11 @@ interface State {
   ladderLaneId: string;
   ladderId: string;
   calibMethod: 'linear' | 'piecewise' | 'spline';
+  massLaneId: string;
+  massCalibMethod: MassCalibrationModel;
+  massPresetId: string;
+  calibSubTab: 'mw' | 'mass';
+  showMassLabels: boolean;
   refBandId: string;
   viewTab: 'gel' | 'calib' | 'quant';
   tableMode: 'all' | 'selected';
@@ -54,6 +69,11 @@ const DEFAULTS: State = {
   ladderLaneId: '',
   ladderId: 'broad-protein',
   calibMethod: 'piecewise',
+  massLaneId: '',
+  massCalibMethod: 'linear',
+  massPresetId: 'two-fold-dilution',
+  calibSubTab: 'mw',
+  showMassLabels: false,
   refBandId: '',
   viewTab: 'gel',
   tableMode: 'all',
@@ -66,7 +86,7 @@ interface LaneAnalysisItem {
   laneIdx: number;
   profile: Float32Array;
   baseline: Float32Array;
-  metrics: (BandMetrics & { number: number; share: number; ratio: number; sizeEst: number | null })[];
+  metrics: (BandMetrics & { number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null })[];
   totalNet: number;
 }
 
@@ -693,6 +713,51 @@ export default function GelView() {
     }
   }, [plane, lanes, s.ladderLaneId, bandMap, s.prominence, s.polarity, activeLadder, s.calibMethod]);
 
+  // Densitometric Mass Calibration
+  const [customMassMap, setCustomMassMap] = useState<Record<string, number>>({});
+
+  const massCalibration: MassCalibration | null = useMemo(() => {
+    if (!plane || !s.massLaneId) return null;
+    const massLane = lanes.find(l => l.id === s.massLaneId);
+    if (!massLane) return null;
+
+    try {
+      const dens = sampleLane(plane, massLane, s.polarity);
+      const prof = laneProfile(dens);
+      const bands = bandMap[massLane.id] || toBands(detectBands(prof, { minProminence: s.prominence }));
+      if (bands.length === 0) return null;
+
+      const baseline = rollingBaseline(prof, s.rollingRadius);
+      const metrics = quantifyBands(dens, bands, baseline);
+      const sortedMetrics = [...metrics].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
+
+      const preset = MASS_STANDARD_PRESETS.find(p => p.id === s.massPresetId) || MASS_STANDARD_PRESETS[0]!;
+      const pts: MassCalibrationPoint[] = [];
+
+      for (let i = 0; i < sortedMetrics.length; i++) {
+        const m = sortedMetrics[i]!;
+        const known = customMassMap[m.bandId] ?? preset.masses[i] ?? Math.round(1000 / Math.pow(2, i));
+        if (known > 0 && m.net > 0) {
+          pts.push({
+            bandId: m.bandId,
+            laneId: massLane.id,
+            laneIdx: lanes.findIndex(l => l.id === massLane.id),
+            netIntensity: m.net,
+            knownMass: known,
+            unit: preset.unit,
+          });
+        }
+      }
+
+      const minPts = s.massCalibMethod === 'quadratic' ? 3 : s.massCalibMethod === 'linear_zero' ? 1 : 2;
+      if (pts.length < minPts) return null;
+
+      return fitMassCalibration(pts, s.massCalibMethod, preset.unit);
+    } catch {
+      return null;
+    }
+  }, [plane, lanes, s.massLaneId, bandMap, s.prominence, s.polarity, s.rollingRadius, s.massCalibMethod, s.massPresetId, customMassMap]);
+
   // Comprehensive analysis across ALL lanes
   const allLanesAnalysis: LaneAnalysisItem[] = useMemo(() => {
     if (!plane) return [];
@@ -735,7 +800,8 @@ export default function GelView() {
           const ratio = refNet > 0 ? Math.max(0, m.net) / refNet : 1;
           const peakY = m.peakY ?? 0;
           const sizeEst = calibration ? calibration.sizeAt(peakY) : null;
-          return { ...m, number: i + 1, share, ratio, sizeEst };
+          const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
+          return { ...m, number: i + 1, share, ratio, sizeEst, massEst };
         });
 
         return { lane, laneIdx, profile: prof, baseline, metrics: enriched, totalNet };
@@ -743,7 +809,7 @@ export default function GelView() {
         return { lane, laneIdx, profile: new Float32Array(0), baseline: new Float32Array(0), metrics: [], totalNet: 0 };
       }
     });
-  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, calibration]);
+  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, calibration, massCalibration]);
 
   const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
   const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);
@@ -935,6 +1001,20 @@ export default function GelView() {
               ctx.fillRect(l.x + half + 2, band.peakY - 7, txtW + 4, 14);
               ctx.fillStyle = '#ffffff';
               ctx.fillText(text, l.x + half + 4, band.peakY + 4);
+            }
+          }
+
+          // Mass annotation text if calibrated
+          if (s.showMassLabels && massCalibration) {
+            const ms = band.massEst;
+            if (ms !== null) {
+              const text = formatMass(ms, massCalibration.unit);
+              ctx.font = 'bold 9px sans-serif';
+              ctx.fillStyle = 'rgba(5, 150, 105, 0.85)';
+              const txtW = ctx.measureText(text).width;
+              ctx.fillRect(l.x - half - txtW - 6, band.peakY - 7, txtW + 4, 14);
+              ctx.fillStyle = '#ffffff';
+              ctx.fillText(text, l.x - half - txtW - 4, band.peakY + 4);
             }
           }
         }
@@ -1254,8 +1334,9 @@ export default function GelView() {
   // Export CSV
   function handleExportCsv() {
     const unit = activeLadder.kind === 'protein' ? 'kDa' : 'bp';
+    const massUnit = massCalibration?.unit || 'ng';
     const rows = [
-      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Estimated_Mass_Formatted', 'Size_Unit', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
+      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Size_Unit', 'Calibrated_Mass', 'Mass_Unit', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
       ...allLanesAnalysis.flatMap(item =>
         item.metrics.map(m => {
           let label = laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`;
@@ -1269,8 +1350,9 @@ export default function GelView() {
             m.number,
             m.peakY ? Number(m.peakY.toFixed(2)) : '',
             m.sizeEst ? Number(m.sizeEst.toFixed(1)) : '',
-            m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '',
             unit,
+            m.massEst ? Number(m.massEst.toFixed(2)) : '',
+            massUnit,
             Number(m.raw.toFixed(1)),
             Number(m.background.toFixed(1)),
             Number(m.net.toFixed(1)),
@@ -1619,6 +1701,82 @@ export default function GelView() {
               <div class="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                 ✓ Calibrated ({calibration.points.length} ladder bands matched).
               </div>
+            )}
+          </div>
+
+          {/* Densitometric Mass / Quantity Calibration Card */}
+          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                Mass Densitometry
+              </span>
+              <label class="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={s.showMassLabels}
+                  onChange={(e) => set({ showMassLabels: (e.target as HTMLInputElement).checked })}
+                  class="rounded text-emerald-600"
+                />
+                Show ng
+              </label>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium text-slate-500 block mb-1">Standard Lane / Well</label>
+              <select
+                value={s.massLaneId}
+                onChange={(e) => set({ massLaneId: (e.target as HTMLSelectElement).value })}
+                class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-medium"
+              >
+                <option value="">None (Uncalibrated)</option>
+                {lanes.map((l, i) => (
+                  <option key={l.id} value={l.id}>
+                    Lane {i + 1} {laneLabels[l.id] ? `(${laneLabels[l.id]})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {s.massLaneId && (
+              <>
+                <div>
+                  <label class="text-xs font-medium text-slate-500 block mb-1">Standard Preset</label>
+                  <select
+                    value={s.massPresetId}
+                    onChange={(e) => set({ massPresetId: (e.target as HTMLSelectElement).value })}
+                    class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    {MASS_STANDARD_PRESETS.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label class="text-xs font-medium text-slate-500 block mb-1">Curve Fit Model</label>
+                  <select
+                    value={s.massCalibMethod}
+                    onChange={(e) => set({ massCalibMethod: (e.target as HTMLSelectElement).value as MassCalibrationModel })}
+                    class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <option value="linear">Linear (y = mx + b)</option>
+                    <option value="linear_zero">Linear through Origin (y = mx)</option>
+                    <option value="quadratic">Quadratic (Curvature)</option>
+                    <option value="power">Power Law (Allometric)</option>
+                  </select>
+                </div>
+
+                {massCalibration ? (
+                  <div class="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 space-y-1">
+                    <div class="font-bold">✓ Mass Calibrated ({massCalibration.points.length} standards)</div>
+                    <div class="text-[11px] font-mono">R² = {massCalibration.r2.toFixed(4)}</div>
+                  </div>
+                ) : (
+                  <div class="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    Select a lane with detected bands to calibrate mass.
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -2303,125 +2461,357 @@ export default function GelView() {
               </div>
             </div>
 
-          {/* TAB 2: Molecular Weight Calibration Curve Plot */}
+          {/* TAB 2: Calibration Curves (MW and Mass Densitometry) */}
           {s.viewTab === 'calib' && (
             <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
               <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
                 <div>
                   <h3 class="font-bold text-base text-slate-900 dark:text-slate-100">
-                    Molecular Weight Calibration Curve
+                    {s.calibSubTab === 'mw' ? 'Molecular Weight Calibration Curve' : 'Mass Densitometry Calibration Curve'}
                   </h3>
                   <p class="text-xs text-slate-500">
-                    Semi-log regression: Migration distance $Y$ (pixels) vs Log₁₀(Molecular Weight / Size)
+                    {s.calibSubTab === 'mw'
+                      ? 'Semi-log regression: Migration distance Y (pixels) vs Log₁₀(Molecular Weight / Size)'
+                      : 'Densitometric Mass Quantification: Net Optical Density (OD · px) vs Known Mass (ng / µg)'}
                   </p>
                 </div>
-                {calibration && (
-                  <div class="flex items-center gap-3 text-xs">
-                    <span class="font-medium text-slate-500">Model: <strong class="text-slate-800 dark:text-slate-200">{s.calibMethod}</strong></span>
-                    {calibration.r2 !== undefined && (
-                      <span class="font-medium text-slate-500">R²: <strong class="text-emerald-600 dark:text-emerald-400">{calibration.r2.toFixed(4)}</strong></span>
-                    )}
+
+                <div class="flex items-center gap-3">
+                  {/* Sub-tab switcher */}
+                  <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-950 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => set({ calibSubTab: 'mw' })}
+                      class={`px-3 py-1.5 font-semibold rounded-md transition ${s.calibSubTab === 'mw' ? 'bg-accent-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
+                    >
+                      Molecular Weight (MW)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set({ calibSubTab: 'mass' })}
+                      class={`px-3 py-1.5 font-semibold rounded-md transition ${s.calibSubTab === 'mass' ? 'bg-accent-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
+                    >
+                      Mass / Densitometry (ng)
+                    </button>
                   </div>
-                )}
+
+                  {s.calibSubTab === 'mw' && calibration && (
+                    <div class="hidden sm:flex items-center gap-3 text-xs">
+                      <span class="font-medium text-slate-500">Model: <strong class="text-slate-800 dark:text-slate-200">{s.calibMethod}</strong></span>
+                      {calibration.r2 !== undefined && (
+                        <span class="font-medium text-slate-500">R²: <strong class="text-emerald-600 dark:text-emerald-400">{calibration.r2.toFixed(4)}</strong></span>
+                      )}
+                    </div>
+                  )}
+
+                  {s.calibSubTab === 'mass' && massCalibration && (
+                    <div class="hidden sm:flex items-center gap-3 text-xs">
+                      <span class="font-medium text-slate-500">Model: <strong class="text-slate-800 dark:text-slate-200">{s.massCalibMethod}</strong></span>
+                      <span class="font-medium text-slate-500">R²: <strong class="text-emerald-600 dark:text-emerald-400">{massCalibration.r2.toFixed(4)}</strong></span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {calibration && calibration.points.length >= 2 ? (
-                <div class="space-y-4">
-                  <svg viewBox="0 0 600 320" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                    {/* Axes */}
-                    <line x1="60" y1="20" x2="60" y2="270" stroke="#94a3b8" stroke-width="1.5" />
-                    <line x1="60" y1="270" x2="570" y2="270" stroke="#94a3b8" stroke-width="1.5" />
+              {s.calibSubTab === 'mw' ? (
+                <>
+                  {calibration && calibration.points.length >= 2 ? (
+                    <div class="space-y-4">
+                      <svg viewBox="0 0 600 320" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                        {/* Axes */}
+                        <line x1="60" y1="20" x2="60" y2="270" stroke="#94a3b8" stroke-width="1.5" />
+                        <line x1="60" y1="270" x2="570" y2="270" stroke="#94a3b8" stroke-width="1.5" />
 
-                    {/* Axis Labels */}
-                    <text x="315" y="305" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
-                      Migration Distance Y along Lane (px)
-                    </text>
-                    <text transform="rotate(-90 20 145)" x="20" y="145" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
-                      Log₁₀(Size / MW)
-                    </text>
+                        {/* Axis Labels */}
+                        <text x="315" y="305" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
+                          Migration Distance Y along Lane (px)
+                        </text>
+                        <text transform="rotate(-90 20 145)" x="20" y="145" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
+                          Log₁₀(Size / MW)
+                        </text>
 
-                    {/* Compute min/max for scale */}
-                    {(() => {
-                      const pts = calibration.points;
-                      const minY = Math.min(...pts.map(p => p.y));
-                      const maxY = Math.max(...pts.map(p => p.y));
-                      const rangeY = Math.max(20, maxY - minY);
+                        {/* Compute min/max for scale */}
+                        {(() => {
+                          const pts = calibration.points;
+                          const minY = Math.min(...pts.map(p => p.y));
+                          const maxY = Math.max(...pts.map(p => p.y));
+                          const rangeY = Math.max(20, maxY - minY);
 
-                      const minLog = Math.min(...pts.map(p => Math.log10(p.size)));
-                      const maxLog = Math.max(...pts.map(p => Math.log10(p.size)));
-                      const rangeLog = Math.max(0.5, maxLog - minLog);
+                          const minLog = Math.min(...pts.map(p => Math.log10(p.size)));
+                          const maxLog = Math.max(...pts.map(p => Math.log10(p.size)));
+                          const rangeLog = Math.max(0.5, maxLog - minLog);
 
-                      // Curve points
-                      const curveSteps = 50;
-                      const curvePts: [number, number][] = [];
-                      for (let step = 0; step <= curveSteps; step++) {
-                        const yVal = minY + (step / curveSteps) * rangeY;
-                        const sz = calibration.sizeAt(yVal);
-                        if (sz > 0) {
-                          const xSvg = 60 + ((yVal - minY) / rangeY) * 500;
-                          const ySvg = 270 - ((Math.log10(sz) - minLog) / rangeLog) * 240;
-                          curvePts.push([xSvg, ySvg]);
-                        }
-                      }
+                          // Curve points
+                          const curveSteps = 50;
+                          const curvePts: [number, number][] = [];
+                          for (let step = 0; step <= curveSteps; step++) {
+                            const yVal = minY + (step / curveSteps) * rangeY;
+                            const sz = calibration.sizeAt(yVal);
+                            if (sz > 0) {
+                              const xSvg = 60 + ((yVal - minY) / rangeY) * 500;
+                              const ySvg = 270 - ((Math.log10(sz) - minLog) / rangeLog) * 240;
+                              curvePts.push([xSvg, ySvg]);
+                            }
+                          }
 
-                      return (
-                        <>
-                          {/* Regression Fitted Curve */}
-                          {curvePts.length > 1 && (
-                            <path
-                              d={curvePts.reduce((acc, [cx, cy], i) => i === 0 ? `M ${cx} ${cy}` : `${acc} L ${cx} ${cy}`, '')}
-                              fill="none"
-                              stroke="#2563eb"
-                              stroke-width="2.5"
-                            />
-                          )}
-
-                          {/* Standard Ladder Markers */}
-                          {pts.map((pt, i) => {
-                            const sx = 60 + ((pt.y - minY) / rangeY) * 500;
-                            const sy = 270 - ((Math.log10(pt.size) - minLog) / rangeLog) * 240;
-                            return (
-                              <g key={i}>
-                                <circle cx={sx} cy={sy} r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
-                                <text x={sx} y={sy - 9} font-size="9" text-anchor="middle" fill="#d97706" font-weight="bold">
-                                  {formatSize(pt.size, activeLadder.kind)}
-                                </text>
-                              </g>
-                            );
-                          })}
-
-                          {/* Unknown sample bands projected onto curve */}
-                          {selectedLane && laneAnalysis && laneAnalysis.metrics.map((m) => {
-                            if (m.peakY === undefined || m.sizeEst === null) return null;
-                            const sx = 60 + ((m.peakY - minY) / rangeY) * 500;
-                            const sy = 270 - ((Math.log10(m.sizeEst) - minLog) / rangeLog) * 240;
-                            return (
-                              <g key={m.bandId}>
-                                <polygon
-                                  points={`${sx},${sy - 5} ${sx + 5},${sy} ${sx},${sy + 5} ${sx - 5},${sy}`}
-                                  fill="#10b981"
-                                  stroke="#ffffff"
-                                  stroke-width="1.2"
+                          return (
+                            <>
+                              {/* Regression Fitted Curve */}
+                              {curvePts.length > 1 && (
+                                <path
+                                  d={curvePts.reduce((acc, [cx, cy], i) => i === 0 ? `M ${cx} ${cy}` : `${acc} L ${cx} ${cy}`, '')}
+                                  fill="none"
+                                  stroke="#2563eb"
+                                  stroke-width="2.5"
                                 />
-                              </g>
-                            );
-                          })}
-                        </>
-                      );
-                    })()}
-                  </svg>
+                              )}
 
-                  <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
-                    <div class="flex items-center gap-4">
-                      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Standard Ladder Points</span>
-                      <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 bg-accent-600 inline-block"></span> Fitted Standard Curve</span>
-                      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rotate-45 bg-emerald-500 inline-block"></span> Sample Bands (Interpolated)</span>
+                              {/* Standard Ladder Markers */}
+                              {pts.map((pt, i) => {
+                                const sx = 60 + ((pt.y - minY) / rangeY) * 500;
+                                const sy = 270 - ((Math.log10(pt.size) - minLog) / rangeLog) * 240;
+                                return (
+                                  <g key={i}>
+                                    <circle cx={sx} cy={sy} r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />
+                                    <text x={sx} y={sy - 9} font-size="9" text-anchor="middle" fill="#d97706" font-weight="bold">
+                                      {formatSize(pt.size, activeLadder.kind)}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+
+                              {/* Unknown sample bands projected onto curve */}
+                              {selectedLane && laneAnalysis && laneAnalysis.metrics.map((m) => {
+                                if (m.peakY === undefined || m.sizeEst === null) return null;
+                                const sx = 60 + ((m.peakY - minY) / rangeY) * 500;
+                                const sy = 270 - ((Math.log10(m.sizeEst) - minLog) / rangeLog) * 240;
+                                return (
+                                  <g key={m.bandId}>
+                                    <polygon
+                                      points={`${sx},${sy - 5} ${sx + 5},${sy} ${sx},${sy + 5} ${sx - 5},${sy}`}
+                                      fill="#10b981"
+                                      stroke="#ffffff"
+                                      stroke-width="1.2"
+                                    />
+                                  </g>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
+                      </svg>
+
+                      <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                        <div class="flex items-center gap-4">
+                          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Standard Ladder Points</span>
+                          <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 bg-accent-600 inline-block"></span> Fitted Standard Curve</span>
+                          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rotate-45 bg-emerald-500 inline-block"></span> Sample Bands (Interpolated)</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  ) : (
+                    <div class="py-12 text-center text-slate-400 text-xs">
+                      Please select a standard ladder lane with at least 2 detected bands in the left sidebar to plot the molecular weight calibration curve.
+                    </div>
+                  )}
+                </>
               ) : (
-                <div class="py-12 text-center text-slate-400 text-xs">
-                  Please select a standard ladder lane with at least 2 detected bands in the left sidebar to plot the molecular weight calibration curve.
+                /* Mass / Densitometry Sub-Tab */
+                <div class="space-y-4">
+                  <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <div>
+                        <span class="text-slate-500 font-medium mr-1.5">Standard Lane / Well:</span>
+                        <select
+                          value={s.massLaneId}
+                          onChange={(e) => set({ massLaneId: (e.target as HTMLSelectElement).value })}
+                          class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
+                        >
+                          <option value="">Select Lane...</option>
+                          {lanes.map((l, i) => (
+                            <option key={l.id} value={l.id}>
+                              Lane {i + 1} {laneLabels[l.id] ? `(${laneLabels[l.id]})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span class="text-slate-500 font-medium mr-1.5">Preset:</span>
+                        <select
+                          value={s.massPresetId}
+                          onChange={(e) => set({ massPresetId: (e.target as HTMLSelectElement).value })}
+                          class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
+                        >
+                          {MASS_STANDARD_PRESETS.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span class="text-slate-500 font-medium mr-1.5">Model:</span>
+                        <select
+                          value={s.massCalibMethod}
+                          onChange={(e) => set({ massCalibMethod: (e.target as HTMLSelectElement).value as MassCalibrationModel })}
+                          class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
+                        >
+                          <option value="linear">Linear (y = mx + b)</option>
+                          <option value="linear_zero">Linear Origin (y = mx)</option>
+                          <option value="quadratic">Quadratic (Polynomial)</option>
+                          <option value="power">Power Law</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {massCalibration && (
+                      <div class="flex items-center gap-3 font-mono">
+                        <span class="text-slate-600 dark:text-slate-400 font-semibold">{massCalibration.formula}</span>
+                        <span class="text-emerald-600 font-bold">R² = {massCalibration.r2.toFixed(4)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {massCalibration && massCalibration.points.length >= 2 ? (
+                    <div class="space-y-4">
+                      {/* SVG Plot for Mass Calibration */}
+                      <svg viewBox="0 0 600 320" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                        {/* Axes */}
+                        <line x1="60" y1="20" x2="60" y2="270" stroke="#94a3b8" stroke-width="1.5" />
+                        <line x1="60" y1="270" x2="570" y2="270" stroke="#94a3b8" stroke-width="1.5" />
+
+                        <text x="315" y="305" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
+                          Net Optical Density / Integrated Intensity (OD · px)
+                        </text>
+                        <text transform="rotate(-90 20 145)" x="20" y="145" font-size="11" text-anchor="middle" fill="#64748b" font-weight="600">
+                          Known Mass ({massCalibration.unit})
+                        </text>
+
+                        {(() => {
+                          const pts = massCalibration.points;
+                          const minX = 0;
+                          const maxX = Math.max(10, Math.max(...pts.map(p => p.netIntensity)) * 1.15);
+                          const rangeX = Math.max(1, maxX - minX);
+
+                          const minY = 0;
+                          const maxY = Math.max(10, Math.max(...pts.map(p => p.knownMass)) * 1.15);
+                          const rangeY = Math.max(1, maxY - minY);
+
+                          // Curve
+                          const curveSteps = 60;
+                          const curvePts: [number, number][] = [];
+                          for (let sIdx = 0; sIdx <= curveSteps; sIdx++) {
+                            const netVal = minX + (sIdx / curveSteps) * rangeX;
+                            const massVal = massCalibration.massAt(netVal);
+                            const xSvg = 60 + ((netVal - minX) / rangeX) * 500;
+                            const ySvg = 270 - ((massVal - minY) / rangeY) * 240;
+                            curvePts.push([xSvg, Math.max(20, Math.min(270, ySvg))]);
+                          }
+
+                          return (
+                            <>
+                              {/* Fitted Curve */}
+                              {curvePts.length > 1 && (
+                                <path
+                                  d={curvePts.reduce((acc, [cx, cy], i) => i === 0 ? `M ${cx} ${cy}` : `${acc} L ${cx} ${cy}`, '')}
+                                  fill="none"
+                                  stroke="#10b981"
+                                  stroke-width="2.5"
+                                />
+                              )}
+
+                              {/* Calibration Standard Points */}
+                              {pts.map((pt, i) => {
+                                const sx = 60 + ((pt.netIntensity - minX) / rangeX) * 500;
+                                const sy = 270 - ((pt.knownMass - minY) / rangeY) * 240;
+                                return (
+                                  <g key={i}>
+                                    <circle cx={sx} cy={sy} r="5.5" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+                                    <text x={sx} y={sy - 9} font-size="9" text-anchor="middle" fill="#059669" font-weight="bold">
+                                      {pt.knownMass} {pt.unit || 'ng'}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+
+                              {/* Sample Bands from selected lane */}
+                              {selectedLane && laneAnalysis && laneAnalysis.lane.id !== s.massLaneId && laneAnalysis.metrics.map((m) => {
+                                if (m.massEst === null || m.net <= 0) return null;
+                                const sx = 60 + ((m.net - minX) / rangeX) * 500;
+                                const sy = 270 - ((m.massEst - minY) / rangeY) * 240;
+                                if (sx > 570 || sy < 20 || sy > 270) return null;
+                                return (
+                                  <g key={m.bandId}>
+                                    <polygon
+                                      points={`${sx},${sy - 5} ${sx + 5},${sy} ${sx},${sy + 5} ${sx - 5},${sy}`}
+                                      fill="#3b82f6"
+                                      stroke="#ffffff"
+                                      stroke-width="1.2"
+                                    />
+                                  </g>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
+                      </svg>
+
+                      {/* Standards Table with inputs for user customization */}
+                      <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-white dark:bg-slate-900">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                            Standard Bands in Lane {lanes.findIndex(l => l.id === s.massLaneId) + 1}
+                          </h4>
+                          <span class="text-[11px] text-slate-500">Edit known mass for each band to customize standard curve</span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-50 dark:bg-slate-950 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                              <tr>
+                                <th class="p-2">Band #</th>
+                                <th class="p-2">Net OD (Signal)</th>
+                                <th class="p-2">Known Mass ({massCalibration.unit})</th>
+                                <th class="p-2">Fitted Mass</th>
+                                <th class="p-2">Residual Error</th>
+                              </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                              {massCalibration.points.map((p, idx) => {
+                                const res = massCalibration.residuals[idx];
+                                return (
+                                  <tr key={p.bandId}>
+                                    <td class="p-2 font-bold font-sans">Band {idx + 1}</td>
+                                    <td class="p-2 font-bold">{p.netIntensity.toFixed(1)}</td>
+                                    <td class="p-2">
+                                      <input
+                                        type="number"
+                                        value={customMassMap[p.bandId] ?? p.knownMass}
+                                        onInput={(e) => {
+                                          const val = parseFloat((e.target as HTMLInputElement).value);
+                                          if (!isNaN(val) && val > 0) {
+                                            setCustomMassMap(prev => ({ ...prev, [p.bandId]: val }));
+                                          }
+                                        }}
+                                        class="w-24 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-xs font-bold font-mono"
+                                        step="any"
+                                      />
+                                    </td>
+                                    <td class="p-2 text-emerald-600 font-bold">{res?.fittedMass.toFixed(1)} {massCalibration.unit}</td>
+                                    <td class="p-2 text-slate-500">{res ? `${(res.fraction * 100).toFixed(1)}%` : '-'}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div class="py-12 text-center text-slate-400 text-xs">
+                      Please select a lane with at least 2 detected bands in the dropdown above to calibrate mass densitometry.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2502,6 +2892,7 @@ export default function GelView() {
                       <th class="pb-2 font-semibold">Band #</th>
                       <th class="pb-2 font-semibold">Migration Y</th>
                       <th class="pb-2 font-semibold">Est. Size</th>
+                      <th class="pb-2 font-semibold text-right text-emerald-600 dark:text-emerald-400">Calibrated Mass</th>
                       <th class="pb-2 font-semibold text-right">Raw Area</th>
                       <th class="pb-2 font-semibold text-right">Baseline</th>
                       <th class="pb-2 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity (Amount)</th>
@@ -2534,6 +2925,9 @@ export default function GelView() {
                             <td class="py-2.5 mono">{m.peakY ? m.peakY.toFixed(1) : '-'} px</td>
                             <td class="py-2.5 font-bold text-accent-600 dark:text-accent-400">
                               {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
+                            </td>
+                            <td class="py-2.5 mono text-right font-bold text-emerald-600 dark:text-emerald-400">
+                              {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
                             </td>
                             <td class="py-2.5 mono text-right text-slate-500">{m.raw.toFixed(1)}</td>
                             <td class="py-2.5 mono text-right text-slate-500">{m.background.toFixed(1)}</td>

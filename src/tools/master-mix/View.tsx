@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
-import { MasterMixError, masterMix } from '@/core/reactions/mastermix';
+import { MASTER_MIX_PRESETS, MasterMixError, masterMix } from '@/core/reactions/mastermix';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ToolLayout } from '@/app/components/ToolLayout';
@@ -24,6 +24,7 @@ const shown = (value: number) => Number(value.toFixed(3));
 export default function View() {
   const [state, shareUrl] = useUrlState<State>('master-mix', DEFAULTS);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('');
   const s = state.value;
   const set = (patch: Partial<State>) => { state.value = { ...state.value, ...patch }; };
   const updateComponent = (index: number, patch: Partial<EditorComponent>) => set({
@@ -68,7 +69,47 @@ export default function View() {
         <span>Total MM: <strong class="text-accent-700 dark:text-accent-300 font-mono text-sm">{shown(result!.totalVolume)} µL</strong> ({result!.effectiveReactions.toFixed(1)} rxns)</span>
       )
     }
-    inputs={<>
+    inputs={<div class="space-y-4">
+      <div class="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3.5 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+        <label class="block text-xs font-semibold uppercase tracking-wider text-indigo-800 dark:text-indigo-300 mb-1.5">
+          Load Reaction Preset
+        </label>
+        <select
+          aria-label="Reaction Preset"
+          value={selectedPresetId}
+          onChange={e => {
+            const id = (e.target as HTMLSelectElement).value;
+            setSelectedPresetId(id);
+            const preset = MASTER_MIX_PRESETS.find(p => p.id === id);
+            if (preset) {
+              set({
+                reactionVolume: preset.reactionVolume,
+                excessPercent: preset.excessPercent,
+                deadVolume: preset.deadVolume,
+                components: preset.components.map(c => ({
+                  id: `mm-${nextId++}`,
+                  name: c.name,
+                  perReaction: c.perReaction,
+                })),
+              });
+            }
+          }}
+          class={fieldClass}
+        >
+          <option value="">-- Choose a standard protocol (Q5, Taq, KLD, In-Fusion, Ligation, Golden Gate) --</option>
+          {MASTER_MIX_PRESETS.map(preset => (
+            <option key={preset.id} value={preset.id}>
+              {preset.name} ({preset.reactionVolume} µL)
+            </option>
+          ))}
+        </select>
+        {selectedPresetId && (
+          <p class="mt-2 text-xs text-indigo-700 dark:text-indigo-400">
+            {MASTER_MIX_PRESETS.find(p => p.id === selectedPresetId)?.description}
+          </p>
+        )}
+      </div>
+
       <div class="grid gap-3 sm:grid-cols-2">
         {numberField('Reaction volume (µL)', 'reactionVolume', 0)}
         <div>
@@ -102,7 +143,7 @@ export default function View() {
       </fieldset>
       <button type="button" onClick={() => set({ components: [...s.components, { id: `mm-${nextId++}`, name: 'Reagent', perReaction: 1 }] })}
         class="w-full rounded-lg border border-dashed border-slate-400 px-3 py-2 text-sm hover:border-accent-500 hover:text-accent-600 transition">+ Add reagent</button>
-    </>}
+    </div>}
     results={calculation.error ? <p role="alert" class="text-red-600">{calculation.error}</p> : <div data-testid="mastermix-results" class="space-y-3">
       <div class="flex items-baseline justify-between">
         <h2 class="font-semibold text-slate-900 dark:text-slate-100">Total master mix</h2>

@@ -101,12 +101,9 @@ export function netCharge(counts: Counts, pH: number, scheme: PKaScheme = 'bjell
   const pKc = pK.cTerm[last] ?? pK.cTerm.default!;
   const pos = (n: number, pKa: number) => n / (1 + 10 ** (pH - pKa));
   const neg = (n: number, pKa: number) => n / (1 + 10 ** (pKa - pH));
-  let nD = counts.D ?? 0, nE = counts.E ?? 0;
   let q = pos(1, pKn) - neg(1, pKc);
-  if (last === 'D' && pK.cTerm.D !== undefined && nD > 0) { nD -= 1; q -= neg(1, pK.cTerm.D); }
-  if (last === 'E' && pK.cTerm.E !== undefined && nE > 0) { nE -= 1; q -= neg(1, pK.cTerm.E); }
   q += pos(counts.K ?? 0, pK.side.K!) + pos(counts.R ?? 0, pK.side.R!) + pos(counts.H ?? 0, pK.side.H!);
-  q -= neg(nD, pK.side.D!) + neg(nE, pK.side.E!) + neg(counts.C ?? 0, pK.side.C!) + neg(counts.Y ?? 0, pK.side.Y!);
+  q -= neg(counts.D ?? 0, pK.side.D!) + neg(counts.E ?? 0, pK.side.E!) + neg(counts.C ?? 0, pK.side.C!) + neg(counts.Y ?? 0, pK.side.Y!);
   return q;
 }
 
@@ -133,11 +130,11 @@ export function perResidueCharge(seq: string, pH: number, scheme: PKaScheme = 'b
     }
   });
   if (seq.length) {
-    const last = seq[seq.length - 1]!;
-    arr[0]! += 1 / (1 + 10 ** (pH - (pK.nTerm[seq[0]!] ?? pK.nTerm.default!)));
-    const cSide = pK.cTerm[last];
-    if (cSide !== undefined && (last === 'D' || last === 'E')) arr[seq.length - 1] = -1 / (1 + 10 ** (cSide - pH));
-    arr[seq.length - 1]! += -1 / (1 + 10 ** (pK.cTerm.default! - pH));
+    const first = seq[0]!, last = seq[seq.length - 1]!;
+    const pKn = pK.nTerm[first] ?? pK.nTerm.default!;
+    const pKc = pK.cTerm[last] ?? pK.cTerm.default!;
+    arr[0]! += 1 / (1 + 10 ** (pH - pKn));
+    arr[seq.length - 1]! += -1 / (1 + 10 ** (pKc - pH));
   }
   return arr;
 }

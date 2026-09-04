@@ -7,6 +7,7 @@ import { SCIENCE } from './science';
 import {
   approxMolecularWeight, massConcToMolar,
   a260ToMassConc, copyNumber, oligoMass, oligoNmol,
+  oligoExtinctionCoefficient, quantifyOligoA260,
   type NaType,
 } from '@/core/nucleic/quant';
 import {
@@ -29,6 +30,10 @@ interface State {
   copies: number;
   oligoSeq: string;
   oligoUg: number;
+  oligoResuspendConc_uM: number;
+  oligoA260: number;
+  oligoDilution: number;
+  oligoPath: number;
   tmSeq: string;
   primerConc_nM: number;
   naConc_mM: number;
@@ -49,6 +54,10 @@ const DEFAULTS: State = {
   copies: 9.26e10,
   oligoSeq: 'ATGCAAAGGGTTT',
   oligoUg: 10,
+  oligoResuspendConc_uM: 100,
+  oligoA260: 0,
+  oligoDilution: 1.0,
+  oligoPath: 1.0,
   tmSeq: 'ACGTACGTACGTACGT',
   primerConc_nM: 250,
   naConc_mM: 50,
@@ -97,18 +106,50 @@ export default function NucleicView() {
     }
   }, [s.copyNg, s.length, s.naType]);
 
-  // Oligo mass
+  // Oligo mass & quantification
   const oligoResults = useMemo(() => {
     try {
       const clean = cleanNucleic(s.oligoSeq).seq;
       if (!clean) return null;
-      const mw = oligoMass(clean, s.naType === 'ssRNA' ? 'RNA' : 'DNA');
+      const type = s.naType === 'ssRNA' ? 'RNA' : 'DNA';
+      const mw = oligoMass(clean, type);
+      const ec = oligoExtinctionCoefficient(clean, type);
       const nmol = s.oligoUg > 0 ? oligoNmol(s.oligoUg, mw) : 0;
-      return { mw, nmol, len: clean.length, error: '' };
+      const resuspendConc = s.oligoResuspendConc_uM > 0 ? s.oligoResuspendConc_uM : 100;
+      const resuspendUl = nmol > 0 ? (nmol / resuspendConc) * 1000 : 0;
+      const nmolPerOd = ec > 0 ? 1e6 / ec : 0;
+      const ugPerOd = ec > 0 ? (mw * 1e3) / ec : 0;
+      const a260Quant = s.oligoA260 > 0
+        ? quantifyOligoA260(s.oligoA260, clean, type, s.oligoPath || 1, s.oligoDilution || 1)
+        : null;
+
+      return {
+        mw,
+        ec,
+        nmol,
+        len: clean.length,
+        resuspendConc,
+        resuspendUl,
+        nmolPerOd,
+        ugPerOd,
+        a260Quant,
+        error: '',
+      };
     } catch (e) {
-      return { mw: 0, nmol: 0, len: 0, error: e instanceof Error ? e.message : 'Oligo calculation error' };
+      return {
+        mw: 0,
+        ec: 0,
+        nmol: 0,
+        len: 0,
+        resuspendConc: 100,
+        resuspendUl: 0,
+        nmolPerOd: 0,
+        ugPerOd: 0,
+        a260Quant: null,
+        error: e instanceof Error ? e.message : 'Oligo calculation error',
+      };
     }
-  }, [s.oligoSeq, s.naType, s.oligoUg]);
+  }, [s.oligoSeq, s.naType, s.oligoUg, s.oligoResuspendConc_uM, s.oligoA260, s.oligoPath, s.oligoDilution]);
 
   // Melting temp
   const tmResults = useMemo(() => {
@@ -138,7 +179,7 @@ export default function NucleicView() {
     } else if (s.tab === 'copy' && copyResults && !copyResults.error) {
       lines.push(`${s.copyNg} ng of ${s.length} bp ${s.naType} contains ${copyResults.num.toExponential(3)} copies`);
     } else if (s.tab === 'oligo' && oligoResults && !oligoResults.error) {
-      lines.push(`Oligo (${oligoResults.len} nt): MW ${oligoResults.mw.toFixed(2)} g/mol; ${s.oligoUg} µg = ${oligoResults.nmol.toFixed(2)} nmol`);
+      lines.push(`Oligo (${oligoResults.len} nt): MW ${oligoResults.mw.toFixed(2)} Da, ε₂₆₀ = ${oligoResults.ec.toLocaleString()} M⁻¹cm⁻¹; ${s.oligoUg} µg = ${oligoResults.nmol.toFixed(2)} nmol (${oligoResults.resuspendUl.toFixed(1)} µL for ${oligoResults.resuspendConc} µM stock)`);
     } else if (s.tab === 'tm' && tmResults && tmResults.success) {
       lines.push(`Tm for ${s.tmSeq} (${tmResults.len} nt): NN Tm = ${tmResults.nn.tm.toFixed(1)} °C, Basic Tm = ${tmResults.basic.tm.toFixed(1)} °C, Wallace Tm = ${tmResults.wallace.tm.toFixed(1)} °C`);
     }
@@ -182,7 +223,7 @@ export default function NucleicView() {
         ) : s.tab === 'copy' && copyResults ? (
           <span>Copy count: <strong class="font-mono text-accent-700 dark:text-accent-300">{copyResults.num.toExponential(3)} copies</strong></span>
         ) : s.tab === 'oligo' && oligoResults ? (
-          <span>Oligo MW: <strong class="font-mono">{oligoResults.mw.toFixed(1)} g/mol</strong> · <strong class="font-mono text-accent-700 dark:text-accent-300">{oligoResults.nmol.toFixed(2)} nmol</strong></span>
+          <span>Oligo MW: <strong class="font-mono">{oligoResults.mw.toFixed(1)} Da</strong> · <strong class="font-mono text-accent-700 dark:text-accent-300">{oligoResults.nmol.toFixed(2)} nmol</strong> · <span class="font-mono text-xs">ε₂₆₀ {oligoResults.ec.toLocaleString()}</span></span>
         ) : s.tab === 'tm' && tmResults && tmResults.nn ? (
           <span>Tm (Nearest Neighbor): <strong class="font-mono text-accent-700 dark:text-accent-300">{tmResults.nn.tm.toFixed(1)} °C</strong></span>
         ) : null
@@ -345,16 +386,70 @@ export default function NucleicView() {
                 />
               </div>
 
-              <div>
-                <label class="block text-sm font-medium mb-1">Mass (µg)</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  class={FIELD}
-                  value={s.oligoUg}
-                  onInput={e => set({ oligoUg: Number((e.target as HTMLInputElement).value) })}
-                />
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Mass (µg)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    class={FIELD}
+                    value={s.oligoUg}
+                    onInput={e => set({ oligoUg: Number((e.target as HTMLInputElement).value) })}
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Stock Target Conc (µM)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.1"
+                    class={FIELD}
+                    value={s.oligoResuspendConc_uM ?? 100}
+                    onInput={e => set({ oligoResuspendConc_uM: Number((e.target as HTMLInputElement).value) })}
+                  />
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40">
+                <span class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Optional A260 Spectrophotometry (NanoDrop / UV)
+                </span>
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">A260</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class={FIELD}
+                      value={s.oligoA260 ?? 0}
+                      onInput={e => set({ oligoA260: Number((e.target as HTMLInputElement).value) })}
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">Dilution</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      class={FIELD}
+                      value={s.oligoDilution ?? 1}
+                      onInput={e => set({ oligoDilution: Number((e.target as HTMLInputElement).value) })}
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">Path (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.01"
+                      class={FIELD}
+                      value={s.oligoPath ?? 1.0}
+                      onInput={e => set({ oligoPath: Number((e.target as HTMLInputElement).value) })}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -497,29 +592,78 @@ export default function NucleicView() {
               {oligoResults.error ? (
                 <div role="alert" class="text-red-600">{oligoResults.error}</div>
               ) : (
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Exact Anhydrous MW</div>
-                    <div class="mono text-2xl font-bold text-accent-600">
-                      {oligoResults.mw.toFixed(2)} Da
+                <div class="space-y-3">
+                  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <div class="text-xs text-slate-500">Exact Anhydrous MW</div>
+                      <div class="mono text-2xl font-bold text-accent-600">
+                        {oligoResults.mw.toFixed(2)} Da
+                      </div>
+                      <div class="text-xs text-slate-500">5′-OH / 3′-OH free acid</div>
                     </div>
-                    <div class="text-xs text-slate-500">5′-OH / 3′-OH free acid</div>
+
+                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <div class="text-xs text-slate-500">Extinction Coeff (ε₂₆₀)</div>
+                      <div class="mono text-2xl font-bold text-accent-600">
+                        {oligoResults.ec.toLocaleString()}
+                      </div>
+                      <div class="text-xs text-slate-500">M⁻¹ cm⁻¹ (nearest-neighbor)</div>
+                    </div>
+
+                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700 col-span-2 sm:col-span-1">
+                      <div class="text-xs text-slate-500">Quantity from Mass</div>
+                      <div class="mono text-2xl font-bold">
+                        {oligoResults.nmol.toFixed(2)} nmol
+                      </div>
+                      <div class="text-xs text-slate-500">from {s.oligoUg} µg ({oligoResults.len} nt)</div>
+                    </div>
                   </div>
 
-                  <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Quantity</div>
-                    <div class="mono text-2xl font-bold">
-                      {oligoResults.nmol.toFixed(2)} nmol
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div class="rounded-xl border border-accent-300 bg-accent-50/40 p-3 dark:border-accent-800 dark:bg-accent-950/20">
+                      <div class="text-xs font-semibold text-accent-700 dark:text-accent-300">
+                        Stock Resuspension ({oligoResults.resuspendConc} µM)
+                      </div>
+                      <div class="mono text-2xl font-bold text-accent-600 mt-1">
+                        {oligoResults.resuspendUl.toFixed(1)} µL
+                      </div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                        Add {oligoResults.resuspendUl.toFixed(1)} µL buffer (TE or sterile H₂O) to dissolve {s.oligoUg} µg ({oligoResults.nmol.toFixed(2)} nmol)
+                      </div>
                     </div>
-                    <div class="text-xs text-slate-500">from {s.oligoUg} µg</div>
+
+                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <div class="text-xs text-slate-500">OD₂₆₀ Conversion Factors</div>
+                      <div class="mono text-base font-semibold mt-1">
+                        1 OD₂₆₀ = {oligoResults.nmolPerOd.toFixed(2)} nmol
+                      </div>
+                      <div class="mono text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        1 OD₂₆₀ = {oligoResults.ugPerOd.toFixed(2)} µg (in 1.0 mL)
+                      </div>
+                    </div>
                   </div>
 
-                  <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Residues</div>
-                    <div class="mono text-2xl font-bold">
-                      {oligoResults.len} nt
+                  {oligoResults.a260Quant && (
+                    <div class="rounded-xl border border-emerald-300 bg-emerald-50/30 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+                      <div class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        Spectrophotometric A260 Concentration ({s.oligoA260} AU)
+                      </div>
+                      <div class="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <div class="text-xs text-slate-500">Molar Concentration</div>
+                          <div class="mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                            {oligoResults.a260Quant.molarConcUM.toFixed(2)} µM
+                          </div>
+                        </div>
+                        <div>
+                          <div class="text-xs text-slate-500">Mass Concentration</div>
+                          <div class="mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                            {oligoResults.a260Quant.massConcUgPerMl.toFixed(2)} µg/mL (ng/µL)
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>

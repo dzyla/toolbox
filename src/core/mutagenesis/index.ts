@@ -4,6 +4,8 @@
  * followed by Kinase-Ligase-DpnI (KLD) circularization.
  */
 
+import { tmNearestNeighbour, tmWallace } from '@/core/nucleic/tm';
+
 export interface CodonInfo {
   index: number; // 0-indexed codon index in ORF
   aaPos: number; // 1-indexed amino acid position
@@ -122,18 +124,28 @@ export function calcGc(dna: string): number {
   return Math.round(((gcCount / dna.length) * 100) * 10) / 10;
 }
 
+/**
+ * Nearest-neighbor melting temperature with salt correction (50 mM Na+, 1.5 mM Mg2+, 0.2 µM primer)
+ * SantaLucia (1998) unified thermodynamic parameters and Owczarzy (2008) divalent salt correction.
+ */
 export function calcTm(dna: string): number {
-  const clean = dna.toUpperCase();
+  const clean = cleanDna(dna).replace(/U/g, 'T');
   const len = clean.length;
   if (len === 0) return 0;
-  if (len < 14) {
-    const at = (clean.match(/[AT]/g) || []).length;
-    const gc = (clean.match(/[GC]/g) || []).length;
-    return 2 * at + 4 * gc;
+  if (len < 8) {
+    return tmWallace(clean).tm;
   }
-  const gc = (clean.match(/[GC]/g) || []).length;
-  const tm = 64.9 + (41 * (gc - 16.4)) / len;
-  return Math.round(tm * 10) / 10;
+  try {
+    const res = tmNearestNeighbour(clean, {
+      naMM: 50,
+      mgMM: 1.5,
+      primerNM: 200,
+      saltCorrection: 'owczarzy2008',
+    });
+    return Math.round(res.tm * 10) / 10;
+  } catch {
+    return tmWallace(clean).tm;
+  }
 }
 
 /** Translate DNA to Amino Acids */
@@ -216,7 +228,9 @@ export function designFlexibleMutagenesis(
   targetBpStart: number, // 0-indexed start position
   replacedLen: number, // 0 for pure insertion, >0 for substitution or deletion
   replacementSeq: string, // Sequence to insert/substitute (can be empty string for deletion)
-  targetPrimerTm = 62
+  targetPrimerTm = 62,
+  constructName = 'Target',
+  mutationLabel?: string,
 ): FlexibleMutationDesignResult {
   const cleanPlasmid = cleanDna(plasmidDna);
   const pLen = cleanPlasmid.length;
@@ -249,20 +263,25 @@ export function designFlexibleMutagenesis(
   }
 
   // 2. Reverse Primer:
-  // Starts immediately 5' of normStart and extends upstream (reverse complemented)
+  // Starts immediately 5' of normStart and extends upstream (5' to 3' synthesis away from mutation)
+  // Upstream template sense strand (5' to 3') is from (normStart - len) to (normStart - 1).
+  // The reverse primer anneals to the sense strand and polymerizes towards the 5' end of the plasmid sense strand,
+  // so its 5' end pairs with (normStart - 1) and its 3' end pairs with (normStart - len).
+  // Therefore, the reverse primer sequence (5' to 3') is revComp(upstream_template_5_to_3).
   let bestRevTm = 0;
   let bestRevSeq = '';
 
   for (let len = 16; len <= 38; len++) {
     let upstream = '';
-    for (let k = 0; k < len; k++) {
-      const idx = (normStart - 1 - k + pLen * 2) % pLen;
+    for (let k = len; k >= 1; k--) {
+      const idx = (normStart - k + pLen * 10) % pLen;
       upstream += cleanPlasmid[idx];
     }
-    const tm = calcTm(upstream);
+    const revSeq = revComp(upstream);
+    const tm = calcTm(revSeq);
     if (Math.abs(tm - bestFwdAnnealTm) < Math.abs(bestRevTm - bestFwdAnnealTm) || bestRevSeq === '') {
       bestRevTm = tm;
-      bestRevSeq = revComp(upstream);
+      bestRevSeq = revSeq;
     }
   }
 
@@ -284,8 +303,11 @@ export function designFlexibleMutagenesis(
     kldTreatment: '5 minutes at room temperature (Kinase, Ligase, DpnI)',
   };
 
+  const cleanConstruct = (constructName || 'Target').trim().replace(/[^A-Za-z0-9_-]/g, '_');
   const nameSuffix =
-    mutationType === 'insertion'
+    mutationLabel
+      ? mutationLabel
+      : mutationType === 'insertion'
       ? `Ins_${normStart + 1}_+${cleanReplacement.length}bp`
       : mutationType === 'deletion'
       ? `Del_${normStart + 1}_-${replacedLen}bp`
@@ -297,7 +319,7 @@ export function designFlexibleMutagenesis(
     replacedSequence,
     replacementSequence: cleanReplacement,
     forwardPrimer: {
-      name: `Fwd_${nameSuffix}`,
+      name: `${cleanConstruct}_${nameSuffix}_Fwd`,
       sequence: bestFwdSeq,
       length: bestFwdSeq.length,
       tm: bestFwdAnnealTm,
@@ -307,7 +329,7 @@ export function designFlexibleMutagenesis(
       mutationLength: cleanReplacement.length,
     },
     reversePrimer: {
-      name: `Rev_${nameSuffix}`,
+      name: `${cleanConstruct}_${nameSuffix}_Rev`,
       sequence: bestRevSeq,
       length: bestRevSeq.length,
       tm: bestRevTm,
@@ -329,7 +351,9 @@ export function designSiteDirectedMutagenesis(
   targetBpStart: number, // 0-indexed position in plasmid of the codon/nt to mutate
   mutantCodonSeq: string, // Replacement sequence (e.g. 3 bp codon)
   wtCodonLen = 3,
-  targetPrimerTm = 62
+  targetPrimerTm = 62,
+  constructName = 'Target',
+  mutationLabel?: string,
 ): MutationDesignResult {
   const cleanPlasmid = cleanDna(plasmidDna);
 
@@ -338,7 +362,16 @@ export function designSiteDirectedMutagenesis(
   const mutCodon = mutantCodonSeq.toUpperCase();
   const mutAa = GENETIC_CODE[mutCodon] || '?';
 
-  const flex = designFlexibleMutagenesis(cleanPlasmid, targetBpStart, wtCodonLen, mutCodon, targetPrimerTm);
+  const label = mutationLabel || `${wtAa}${Math.floor(targetBpStart / 3) + 1}${mutAa}`;
+  const flex = designFlexibleMutagenesis(
+    cleanPlasmid,
+    targetBpStart,
+    wtCodonLen,
+    mutCodon,
+    targetPrimerTm,
+    constructName,
+    label
+  );
 
   return {
     wtCodon,
@@ -348,7 +381,7 @@ export function designSiteDirectedMutagenesis(
     aaPosition: Math.floor(targetBpStart / 3) + 1,
     ntPosition: targetBpStart + 1,
     forwardPrimer: {
-      name: `Mut_${wtAa}${Math.floor(targetBpStart / 3) + 1}${mutAa}_Fwd`,
+      name: flex.forwardPrimer.name,
       sequence: flex.forwardPrimer.sequence,
       length: flex.forwardPrimer.length,
       tm: flex.forwardPrimer.tm,
@@ -356,7 +389,7 @@ export function designSiteDirectedMutagenesis(
       mutationOffsetFrom5Prime: flex.forwardPrimer.mutationOffsetFrom5Prime,
     },
     reversePrimer: {
-      name: `Mut_${wtAa}${Math.floor(targetBpStart / 3) + 1}${mutAa}_Rev`,
+      name: flex.reversePrimer.name,
       sequence: flex.reversePrimer.sequence,
       length: flex.reversePrimer.length,
       tm: flex.reversePrimer.tm,
@@ -474,5 +507,154 @@ export function generateMutatedSequence(
       wtSegment,
       mutSegment,
     },
+  };
+}
+
+export interface BatchMutationItem {
+  raw: string;
+  wtAa: string;
+  position: number; // 1-indexed in target ORF
+  mutAa: string;
+  valid: boolean;
+  error?: string;
+  targetBpStart?: number; // 0-indexed in plasmid
+  fwdPrimerName?: string;
+  fwdPrimerSeq?: string;
+  fwdLen?: number;
+  fwdTm?: number;
+  fwdGc?: number;
+  revPrimerName?: string;
+  revPrimerSeq?: string;
+  revLen?: number;
+  revTm?: number;
+  revGc?: number;
+  recommendedTa?: number;
+  design?: FlexibleMutationDesignResult;
+}
+
+export interface BatchMutationResult {
+  constructName: string;
+  items: BatchMutationItem[];
+  idtBulkCsv: string;
+}
+
+export interface BatchMutationOptions {
+  constructName?: string;
+  orfStartBp?: number; // 0-indexed start of ORF in plasmid
+  orfStrand?: 1 | -1;  // 1 = sense / forward, -1 = reverse complement
+  orfEndBp?: number;   // 0-indexed end of ORF in plasmid (required if orfStrand === -1)
+  targetPrimerTm?: number;
+}
+
+/**
+ * Designs back-to-back mutagenesis primers for multiple point mutations in batch.
+ * Generates formatted primer names (e.g. GFP_S65T_Fwd / Rev) and IDT bulk ordering CSV.
+ */
+export function designBatchMutations(
+  plasmidDna: string,
+  mutationsInput: string | string[],
+  options: BatchMutationOptions = {}
+): BatchMutationResult {
+  const {
+    constructName = 'GFP',
+    orfStartBp = 0,
+    orfStrand = 1,
+    orfEndBp,
+    targetPrimerTm = 62,
+  } = options;
+
+  const parsed = Array.isArray(mutationsInput)
+    ? mutationsInput.flatMap(m => parseMutationList(m))
+    : parseMutationList(mutationsInput);
+
+  const cleanPlasmid = cleanDna(plasmidDna);
+  const pLen = cleanPlasmid.length;
+
+  const items: BatchMutationItem[] = [];
+
+  for (const m of parsed) {
+    if (!m.valid) {
+      items.push({
+        raw: m.raw,
+        wtAa: m.wtAa,
+        position: m.position,
+        mutAa: m.mutAa,
+        valid: false,
+        error: m.error || 'Invalid mutation syntax',
+      });
+      continue;
+    }
+
+    // Determine target 0-indexed bp in plasmid
+    let targetBp0 = 0;
+    let replacementCodon = PREFERRED_CODONS_ECOLI[m.mutAa] || 'GCG';
+
+    if (orfStrand === 1) {
+      targetBp0 = (orfStartBp + (m.position - 1) * 3) % pLen;
+    } else {
+      // Minus strand ORF
+      const effectiveEnd = orfEndBp !== undefined ? orfEndBp : pLen;
+      targetBp0 = ((effectiveEnd - (m.position - 1) * 3 - 3) % pLen + pLen) % pLen;
+      // On sense template, substitute with reverse complement of desired mutant codon
+      replacementCodon = revComp(replacementCodon);
+    }
+
+    try {
+      const mutLabel = `${m.wtAa}${m.position}${m.mutAa}`;
+      const design = designFlexibleMutagenesis(
+        cleanPlasmid,
+        targetBp0,
+        3,
+        replacementCodon,
+        targetPrimerTm,
+        constructName,
+        mutLabel
+      );
+
+      items.push({
+        raw: m.raw,
+        wtAa: m.wtAa,
+        position: m.position,
+        mutAa: m.mutAa,
+        valid: true,
+        targetBpStart: targetBp0,
+        fwdPrimerName: design.forwardPrimer.name,
+        fwdPrimerSeq: design.forwardPrimer.sequence,
+        fwdLen: design.forwardPrimer.length,
+        fwdTm: design.forwardPrimer.tm,
+        fwdGc: design.forwardPrimer.gc,
+        revPrimerName: design.reversePrimer.name,
+        revPrimerSeq: design.reversePrimer.sequence,
+        revLen: design.reversePrimer.length,
+        revTm: design.reversePrimer.tm,
+        revGc: design.reversePrimer.gc,
+        recommendedTa: design.recommendedTa,
+        design,
+      });
+    } catch (err: unknown) {
+      items.push({
+        raw: m.raw,
+        wtAa: m.wtAa,
+        position: m.position,
+        mutAa: m.mutAa,
+        valid: false,
+        error: err instanceof Error ? err.message : 'Primer design failed',
+      });
+    }
+  }
+
+  // Generate IDT bulk order CSV
+  const csvLines = ['Name,Sequence,Scale,Purification'];
+  for (const item of items) {
+    if (item.valid && item.fwdPrimerName && item.fwdPrimerSeq && item.revPrimerName && item.revPrimerSeq) {
+      csvLines.push(`${item.fwdPrimerName},${item.fwdPrimerSeq},25nm,STD`);
+      csvLines.push(`${item.revPrimerName},${item.revPrimerSeq},25nm,STD`);
+    }
+  }
+
+  return {
+    constructName,
+    items,
+    idtBulkCsv: csvLines.join('\n'),
   };
 }

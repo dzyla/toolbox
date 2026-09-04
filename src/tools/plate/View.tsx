@@ -9,8 +9,10 @@ import {
   generatePipettingScheme,
   formatWellConcentration,
   plateToMatrixCsv,
+  plateToMatrixTsv,
   plateToListCsv,
   plateToMarkdown,
+  parseMatrixText,
 } from '@/core/plates/layout';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import { ToolLayout } from '@/app/components/ToolLayout';
@@ -97,6 +99,10 @@ export default function PlateView() {
   const [dragStart, setDragStart] = useState<{ rowIdx: number; col: number } | null>(null);
   const [dragCurrent, setDragCurrent] = useState<{ rowIdx: number; col: number } | null>(null);
   const [density, setDensity] = useState<'normal' | 'compact'>('normal');
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [pasteError, setPasteError] = useState('');
+  const [tsvCopied, setTsvCopied] = useState(false);
 
   function handleRenameGroup(id: string, newName: string) {
     setGroups(prev => prev.map(g => g.id === id ? { ...g, name: newName } : g));
@@ -191,16 +197,24 @@ export default function PlateView() {
     );
   }, [wells, s.workingVolumeUl, s.transferVolumeUl, s.pipetteType, groups]);
 
-  function getWellTextColor(hexColor: string, opacity: number): string {
+  function hexToRgba(hexColor: string, alpha: number): string {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 128;
+    const g = parseInt(hex.substring(2, 4), 16) || 128;
+    const b = parseInt(hex.substring(4, 6), 16) || 128;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function getWellTextColor(hexColor: string): string {
     const hex = hexColor.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16) || 128;
     const g = parseInt(hex.substring(2, 4), 16) || 128;
     const b = parseInt(hex.substring(4, 6), 16) || 128;
     const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    if (opacity < 0.45 || lum > 0.65) {
-      return 'text-slate-950 dark:text-slate-100 font-bold';
+    if (lum > 0.55) {
+      return 'text-slate-950 font-extrabold';
     }
-    return 'text-white font-bold drop-shadow-xs';
+    return 'text-white font-extrabold drop-shadow-xs';
   }
 
   function handleFormatChange(fmt: PlateFormat) {
@@ -356,6 +370,35 @@ export default function PlateView() {
     window.print();
   }
 
+  function handleCopyTsv() {
+    const tsv = plateToMatrixTsv(s.format, wells);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(tsv);
+    }
+    setTsvCopied(true);
+    setTimeout(() => setTsvCopied(false), 2000);
+  }
+
+  function handleImportMatrix() {
+    if (!pasteText.trim()) {
+      setPasteError('Please paste matrix cells from Excel, Google Sheets, or CSV.');
+      return;
+    }
+    try {
+      const { wells: newWells, groups: newGroups } = parseMatrixText(pasteText, s.format, groups);
+      setWells(newWells);
+      setGroups(newGroups);
+      if (newGroups.length > 0) {
+        set({ activeGroupId: newGroups[0]!.id });
+      }
+      setShowPasteModal(false);
+      setPasteText('');
+      setPasteError('');
+    } catch (err) {
+      setPasteError(err instanceof Error ? err.message : 'Failed to parse table');
+    }
+  }
+
   const assignedCount = Object.values(wells).filter(w => !!w.sampleGroupId).length;
   const totalWells = dim.rows * dim.cols;
 
@@ -373,7 +416,8 @@ export default function PlateView() {
   ].join('\n');
 
   return (
-    <ToolLayout
+    <>
+      <ToolLayout
       icon="🟦"
       title="Plate Layout Designer"
       blurb="Multi-well plate maps (6 to 384 wells), box drag selection, serial dilution color shades, and pipetting scheme generator."
@@ -590,6 +634,32 @@ export default function PlateView() {
             </div>
           </details>
 
+          {/* Excel / Google Sheets Sync */}
+          <div class="space-y-2 rounded-xl border border-indigo-200 bg-indigo-50/40 p-3.5 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+            <span class="block text-xs font-semibold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">
+              Spreadsheet Sync (Excel / Sheets)
+            </span>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleCopyTsv}
+                class="py-1.5 px-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1 shadow-xs"
+              >
+                {tsvCopied ? '✓ Copied TSV!' : '📋 Copy (Excel TSV)'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPasteModal(true)}
+                class="py-1.5 px-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition flex items-center justify-center gap-1 shadow-xs"
+              >
+                📥 Paste Matrix
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+              Copy/paste 8×12 well grid directly between Excel or Google Sheets and the designer.
+            </p>
+          </div>
+
           <div class="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -785,20 +855,19 @@ export default function PlateView() {
                             onClick={() => handleWellClick(wellId)}
                             title={`${wellId}: ${well?.sampleName || 'Empty'} ${well?.value !== undefined ? `(${well.value} ${well.unit || ''})` : ''}`}
                             style={{
-                              backgroundColor: isOccupied ? group.color : 'transparent',
-                              opacity: isOccupied ? opacity : 1,
+                              backgroundColor: isOccupied ? hexToRgba(group.color, opacity) : undefined,
                             }}
-                            class={`${!isCompact ? 'w-14 sm:w-16 h-14 sm:h-16 rounded-full flex flex-col justify-between py-1 px-0.5' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? `border-black/25 ${getWellTextColor(group.color, opacity)} shadow-xs` : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950 text-slate-400'}`}
+                            class={`${!isCompact ? 'w-14 sm:w-16 h-14 sm:h-16 rounded-full flex flex-col justify-between py-1 px-0.5' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? `border-black/35 ${getWellTextColor(group.color)} shadow-xs` : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950 text-slate-400'}`}
                           >
                             {isLabelsMode ? (
                               <>
-                                <div class="w-full text-center text-[8px] font-mono leading-none opacity-85">
+                                <div class="w-full text-center text-[8px] font-mono leading-none font-bold">
                                   {wellId}
                                 </div>
-                                <div class="w-full text-center text-[9px] sm:text-[10px] leading-tight font-bold truncate px-0.5">
+                                <div class="w-full text-center text-[9px] sm:text-[10px] leading-tight font-extrabold truncate px-0.5">
                                   {well?.sampleName || (isOccupied ? group.name : '—')}
                                 </div>
-                                <div class="w-full text-center text-[8px] font-mono leading-none opacity-90 truncate">
+                                <div class="w-full text-center text-[8px] font-mono leading-none font-bold truncate">
                                   {well?.value !== undefined ? `${formatWellConcentration(well.value)} ${well.unit || ''}` : ''}
                                 </div>
                               </>
@@ -937,5 +1006,63 @@ export default function PlateView() {
       actions={<ActionBar onCopy={() => copyText} shareUrl={shareUrl} />}
       science={<SciencePanel science={SCIENCE} />}
     />
+    {showPasteModal && (
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">
+                Paste 8×12 Matrix (Excel / Sheets / CSV)
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Paste copied cells directly from Excel, Google Sheets, or CSV text.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setShowPasteModal(false); setPasteError(''); }}
+              class="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-base"
+            >
+              ✕
+            </button>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Matrix Data (TSV / CSV):
+            </label>
+            <textarea
+              rows={10}
+              value={pasteText}
+              onInput={e => { setPasteText((e.target as HTMLTextAreaElement).value); setPasteError(''); }}
+              placeholder={`Example copied from Excel:\nSample 1\tSample 1\tSample 2\tSample 2\t...\nStd (100 µM)\tStd (50 µM)\tStd (25 µM)\t...\nBlank\tBlank\tNegative\tPositive\t...`}
+              class="w-full font-mono text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-slate-100 focus:border-accent-500 focus:outline-none"
+            />
+            <p class="text-[11px] text-slate-400 mt-1">
+              Optional row labels (A–H) and column headers (1–12) are auto-detected and parsed. Sample names and concentrations e.g. "Std (100 nM)" or "50 µM" will be automatically extracted into groups and values.
+            </p>
+          </div>
+          {pasteError && (
+            <p class="text-xs text-rose-600 dark:text-rose-400 font-semibold">{pasteError}</p>
+          )}
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => { setShowPasteModal(false); setPasteError(''); }}
+              class="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImportMatrix}
+              class="px-4 py-2 text-xs font-semibold rounded-lg bg-accent-600 text-white hover:bg-accent-700 transition shadow-xs"
+            >
+              Apply to Plate Layout
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

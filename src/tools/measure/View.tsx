@@ -62,12 +62,31 @@ export default function MeasureView() {
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [zoomMode, setZoomMode] = useState<'fit' | 'custom'>('fit');
+  const [hoverPt, setHoverPt] = useState<Point | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canvasWidth = imageDimensions?.width ?? 640;
   const canvasHeight = imageDimensions?.height ?? 480;
+
+  // Transform client mouse coordinate on displayed canvas to native unzoomed image resolution
+  function getCanvasCoord(e: MouseEvent): Point | null {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const scaleFactorX = canvas.width / rect.width;
+    const scaleFactorY = canvas.height / rect.height;
+    const rawX = (e.clientX - rect.left) * scaleFactorX;
+    const rawY = (e.clientY - rect.top) * scaleFactorY;
+    return {
+      x: Math.round(Math.max(0, Math.min(canvas.width, rawX))),
+      y: Math.round(Math.max(0, Math.min(canvas.height, rawY))),
+    };
+  }
 
   // Redraw canvas
   useEffect(() => {
@@ -88,7 +107,7 @@ export default function MeasureView() {
       };
       img.src = imageSrc;
     } else {
-      // Draw grid / test pattern
+      // Draw realistic cell micrograph / test pattern
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -100,6 +119,24 @@ export default function MeasureView() {
       for (let y = 0; y < canvas.height; y += 50) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
       }
+
+      // Draw sample cell contours
+      ctx.save();
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.12)';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(190, 170, 75, 40, 0.35, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+      ctx.strokeStyle = '#059669';
+      ctx.beginPath();
+      ctx.ellipse(400, 260, 90, 50, -0.4, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
       // Dynamic scale bar at bottom right
       ctx.fillStyle = '#0f172a';
@@ -114,7 +151,7 @@ export default function MeasureView() {
 
       drawAnnotations(ctx);
     }
-  }, [imageSrc, imageDimensions, measurements, currentPoints, activeScale, canvasWidth, canvasHeight]);
+  }, [imageSrc, imageDimensions, measurements, currentPoints, hoverPt, activeScale, canvasWidth, canvasHeight]);
 
   function drawAnnotations(ctx: CanvasRenderingContext2D) {
     // Draw finalized measurements
@@ -160,7 +197,7 @@ export default function MeasureView() {
       }
     }
 
-    // Draw active drawing points in progress
+    // Draw active drawing points in progress and live rubberband preview
     if (currentPoints.length > 0) {
       ctx.fillStyle = '#ef4444';
       ctx.strokeStyle = '#ef4444';
@@ -170,25 +207,69 @@ export default function MeasureView() {
         ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
         ctx.fill();
       }
-      if (currentPoints.length === 2 && s.tool === 'line') {
+
+      // Live rubberband preview to cursor position
+      const p1 = currentPoints[0]!;
+      const pPreview = hoverPt || (currentPoints.length === 2 ? currentPoints[1]! : null);
+
+      if (pPreview && currentPoints.length === 1) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = s.tool === 'calibrate' ? '#d97706' : '#3b82f6';
+        ctx.fillStyle = s.tool === 'calibrate' ? '#d97706' : '#3b82f6';
+
+        if (s.tool === 'line' || s.tool === 'calibrate') {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(pPreview.x, pPreview.y);
+          ctx.stroke();
+
+          const distPx = distanceBetween(p1, pPreview);
+          const cal = applyCalibration(distPx, 'line', activeScale);
+          const mx = (p1.x + pPreview.x) / 2;
+          const my = (p1.y + pPreview.y) / 2 - 8;
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${distPx.toFixed(1)} px (${cal.value.toFixed(1)} ${cal.unit})`, mx, my);
+        } else if (s.tool === 'rect') {
+          const x = Math.min(p1.x, pPreview.x);
+          const y = Math.min(p1.y, pPreview.y);
+          const w = Math.abs(pPreview.x - p1.x);
+          const h = Math.abs(pPreview.y - p1.y);
+          ctx.strokeRect(x, y, w, h);
+
+          const areaPx = w * h;
+          const cal = applyCalibration(areaPx, 'rect', activeScale);
+          ctx.font = 'bold 11px sans-serif';
+          ctx.fillText(`${cal.value.toFixed(1)} ${cal.unit}`, x + w / 2, y - 6);
+        }
+        ctx.restore();
+      } else if (currentPoints.length === 2 && s.tool === 'angle' && hoverPt) {
+        // Live angle preview with arm 1, vertex, and hover arm 2
+        const [pt1, v] = currentPoints;
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#10b981';
         ctx.beginPath();
-        ctx.moveTo(currentPoints[0]!.x, currentPoints[0]!.y);
-        ctx.lineTo(currentPoints[1]!.x, currentPoints[1]!.y);
+        ctx.moveTo(pt1!.x, pt1!.y);
+        ctx.lineTo(v!.x, v!.y);
+        ctx.lineTo(hoverPt.x, hoverPt.y);
         ctx.stroke();
+
+        const deg = angleBetweenPoints(pt1!, v!, hoverPt);
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${deg.toFixed(1)}°`, v!.x, v!.y - 10);
+        ctx.restore();
       }
     }
   }
 
   function handleCanvasClick(e: MouseEvent) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleFactorX = canvas.width / rect.width;
-    const scaleFactorY = canvas.height / rect.height;
-    const pt = {
-      x: Math.round((e.clientX - rect.left) * scaleFactorX),
-      y: Math.round((e.clientY - rect.top) * scaleFactorY),
-    };
+    const pt = getCanvasCoord(e);
+    if (!pt) return;
 
     const nextPoints = [...currentPoints, pt];
 
@@ -247,6 +328,20 @@ export default function MeasureView() {
       } else {
         setCurrentPoints(nextPoints);
       }
+    }
+  }
+
+  function handleCanvasMouseMove(e: MouseEvent) {
+    const pt = getCanvasCoord(e);
+    setHoverPt(pt);
+  }
+
+  function handleWheel(e: WheelEvent) {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.2 : -0.2;
+      setZoomMode('custom');
+      setZoom(z => Math.max(0.2, Math.min(8.0, Math.round((z + delta) * 100) / 100)));
     }
   }
 
@@ -456,14 +551,132 @@ export default function MeasureView() {
               </button>
             </div>
 
-            <div class="flex justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-auto max-h-[750px]">
+            {/* Zoom Controls & Coordinate Readout Toolbar */}
+            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300">
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs font-semibold">
+                  {canvasWidth} × {canvasHeight} px
+                </span>
+                {hoverPt ? (
+                  <span class="text-accent-600 dark:text-accent-400 font-semibold">
+                    X: {hoverPt.x} px · Y: {hoverPt.y} px (
+                    {((hoverPt.x * activeScale.realLength) / activeScale.pixels).toFixed(1)} {activeScale.unit},{' '}
+                    {((hoverPt.y * activeScale.realLength) / activeScale.pixels).toFixed(1)} {activeScale.unit})
+                  </span>
+                ) : (
+                  <span class="text-slate-400 text-[11px]">Hover image to inspect coordinates · Ctrl+Scroll to zoom</span>
+                )}
+              </div>
+
+              {/* Zoom Controls */}
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="text-[11px] text-slate-500 font-medium">Zoom:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoomMode('custom');
+                    setZoom(z => Math.max(0.25, Math.round((z - 0.25) * 100) / 100));
+                  }}
+                  class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold transition shadow-2xs"
+                  title="Zoom Out (-25%)"
+                  aria-label="Zoom Out"
+                >
+                  −
+                </button>
+
+                <select
+                  value={zoomMode === 'fit' ? 'fit' : zoom.toString()}
+                  onChange={(e) => {
+                    const val = (e.target as HTMLSelectElement).value;
+                    if (val === 'fit') {
+                      setZoomMode('fit');
+                    } else {
+                      setZoomMode('custom');
+                      setZoom(parseFloat(val));
+                    }
+                  }}
+                  aria-label="Zoom Level"
+                  class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-semibold shadow-2xs"
+                >
+                  <option value="fit">Fit (Auto)</option>
+                  <option value="0.25">25%</option>
+                  <option value="0.5">50%</option>
+                  <option value="0.75">75%</option>
+                  <option value="1">100% (1:1)</option>
+                  <option value="1.25">125%</option>
+                  <option value="1.5">150%</option>
+                  <option value="2">200%</option>
+                  <option value="3">300%</option>
+                  <option value="4">400%</option>
+                  <option value="8">800%</option>
+                  {zoomMode === 'custom' && !['0.25', '0.5', '0.75', '1', '1.25', '1.5', '2', '3', '4', '8'].includes(zoom.toString()) && (
+                    <option value={zoom.toString()}>{Math.round(zoom * 100)}%</option>
+                  )}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoomMode('custom');
+                    setZoom(z => Math.min(8.0, Math.round((z + 0.25) * 100) / 100));
+                  }}
+                  class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold transition shadow-2xs"
+                  title="Zoom In (+25%)"
+                  aria-label="Zoom In"
+                >
+                  +
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setZoomMode('fit')}
+                  class={`px-2.5 py-1 rounded-lg font-semibold transition text-xs shadow-2xs ${
+                    zoomMode === 'fit'
+                      ? 'bg-accent-600 text-white'
+                      : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  Fit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoom(1.0);
+                    setZoomMode('custom');
+                  }}
+                  class={`px-2.5 py-1 rounded-lg font-semibold transition text-xs shadow-2xs ${
+                    zoomMode === 'custom' && zoom === 1.0
+                      ? 'bg-accent-600 text-white'
+                      : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  100%
+                </button>
+              </div>
+            </div>
+
+            <div
+              onWheel={handleWheel}
+              class="flex justify-center items-center p-3 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-auto max-h-[750px] min-h-[360px] border border-slate-200/60 dark:border-slate-800/60"
+            >
               <canvas
                 ref={canvasRef}
                 width={canvasWidth}
                 height={canvasHeight}
                 onClick={handleCanvasClick}
-                class="cursor-crosshair max-w-full h-auto object-contain rounded-lg shadow-xs"
-                style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={() => setHoverPt(null)}
+                class="cursor-crosshair rounded-lg shadow-sm transition-[width,height] duration-75"
+                style={{
+                  width: zoomMode === 'fit' ? '100%' : `${Math.round(canvasWidth * zoom)}px`,
+                  height: zoomMode === 'fit' ? 'auto' : `${Math.round(canvasHeight * zoom)}px`,
+                  maxWidth: zoomMode === 'fit' ? '100%' : 'none',
+                  maxHeight: zoomMode === 'fit' ? '700px' : 'none',
+                  minWidth: zoomMode === 'fit' ? 'auto' : `${Math.round(canvasWidth * zoom)}px`,
+                  objectFit: 'contain',
+                  imageRendering: zoom >= 1.5 ? 'pixelated' : 'auto',
+                }}
               />
             </div>
           </div>

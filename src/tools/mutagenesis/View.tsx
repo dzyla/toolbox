@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useRef } from 'preact/hooks';
 import { useUrlState } from '@/lib/url-state';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
@@ -9,16 +9,22 @@ import {
   AA_NAMES,
   PREFERRED_CODONS_ECOLI,
   cleanDna,
+  revComp,
   extractOrfCodons,
   designFlexibleMutagenesis,
   FlexibleMutationDesignResult,
   parseMutationList,
   generateMutatedSequence,
+  designBatchMutations,
+  BatchMutationResult,
 } from '@/core/mutagenesis';
+import { findORFs, reverseComplement, type ORF } from '@/core/plasmid';
 
 interface State {
   mode: 'free' | 'codon' | 'list';
+  constructName: string;
   plasmidDna: string;
+  selectedOrfId: string;
   targetPosition: number; // 1-indexed for user display
   replaceLength: number; // 0 for insertion, >0 for substitution/deletion
   replacementSeq: string; // sequence to insert or replace with
@@ -33,7 +39,9 @@ const DEMO_GFP = 'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGG
 
 const DEFAULTS: State = {
   mode: 'free',
+  constructName: 'GFP',
   plasmidDna: DEMO_GFP,
+  selectedOrfId: 'full',
   targetPosition: 193, // bp 193 corresponds to codon 65 (TCC -> S65)
   replaceLength: 3,
   replacementSeq: 'ACC', // Thr (S65T mutation)
@@ -63,11 +71,40 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
   const [copiedPrimerId, setCopiedPrimerId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Extract codons from current sequence
-  const codons = useMemo(() => {
-    return extractOrfCodons(s.plasmidDna);
+  // Auto-detect ORFs in template plasmid
+  const detectedOrfs = useMemo<ORF[]>(() => {
+    const cleanP = cleanDna(s.plasmidDna);
+    if (cleanP.length < 60) return [];
+    try {
+      return findORFs(cleanP, 20, true);
+    } catch {
+      return [];
+    }
   }, [s.plasmidDna]);
+
+  const activeOrf = useMemo(() => {
+    if (s.selectedOrfId === 'full') return null;
+    return detectedOrfs.find(o => o.id === s.selectedOrfId) || null;
+  }, [detectedOrfs, s.selectedOrfId]);
+
+  // Extract codons from current sequence or selected ORF
+  const codons = useMemo(() => {
+    const cleanP = cleanDna(s.plasmidDna);
+    if (!cleanP) return [];
+    if (activeOrf) {
+      if (activeOrf.strand === 1) {
+        const orfSeq = cleanP.slice(activeOrf.start - 1, activeOrf.end);
+        return extractOrfCodons(orfSeq, activeOrf.start - 1);
+      } else {
+        const orfDna = cleanP.slice(activeOrf.start - 1, activeOrf.end);
+        const orfSeq = reverseComplement(orfDna);
+        return extractOrfCodons(orfSeq, activeOrf.start - 1);
+      }
+    }
+    return extractOrfCodons(cleanP);
+  }, [s.plasmidDna, activeOrf]);
 
   const activeCodon = codons[s.selectedCodonIdx] || codons[0];
 
@@ -83,32 +120,57 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
     return PREFERRED_CODONS_ECOLI[s.targetAa] || 'GCG';
   }, [s.targetAa]);
 
+  // Batch mutation results for all mutations in list
+  const batchResult = useMemo<BatchMutationResult | null>(() => {
+    const cleanP = cleanDna(s.plasmidDna);
+    if (!cleanP || !s.mutationListInput) return null;
+    try {
+      return designBatchMutations(cleanP, s.mutationListInput, {
+        constructName: s.constructName || 'Target',
+        orfStartBp: activeOrf ? activeOrf.start - 1 : 0,
+        orfStrand: activeOrf ? activeOrf.strand : 1,
+        orfEndBp: activeOrf ? activeOrf.end - 1 : undefined,
+        targetPrimerTm: s.targetPrimerTm,
+      });
+    } catch {
+      return null;
+    }
+  }, [s.plasmidDna, s.mutationListInput, s.constructName, activeOrf, s.targetPrimerTm]);
+
   // Design mutagenesis based on mode
   const result: FlexibleMutationDesignResult | null = useMemo(() => {
     const cleanP = cleanDna(s.plasmidDna);
     if (!cleanP) return null;
 
+    const construct = s.constructName || 'Target';
+
     try {
       if (s.mode === 'codon') {
         if (!activeCodon) return null;
+        const mutLabel = `${activeCodon.wtAa}${activeCodon.aaPos}${s.targetAa}`;
         return designFlexibleMutagenesis(
           cleanP,
           activeCodon.startBp,
           3,
           codonModeReplacement,
-          s.targetPrimerTm
+          s.targetPrimerTm,
+          construct,
+          mutLabel
         );
       } else if (s.mode === 'list') {
         if (!activeListMutation || !activeListMutation.valid) return null;
         const targetCodon = codons.find(c => c.aaPos === activeListMutation.position);
         if (!targetCodon) return null;
         const replCodon = PREFERRED_CODONS_ECOLI[activeListMutation.mutAa] || 'GCG';
+        const mutLabel = `${activeListMutation.wtAa}${activeListMutation.position}${activeListMutation.mutAa}`;
         return designFlexibleMutagenesis(
           cleanP,
           targetCodon.startBp,
           3,
           replCodon,
-          s.targetPrimerTm
+          s.targetPrimerTm,
+          construct,
+          mutLabel
         );
       } else {
         const start0 = Math.max(0, Math.min(cleanP.length - 1, (s.targetPosition || 1) - 1));
@@ -117,13 +179,14 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
           start0,
           Math.max(0, s.replaceLength || 0),
           s.replacementSeq || '',
-          s.targetPrimerTm
+          s.targetPrimerTm,
+          construct
         );
       }
     } catch {
       return null;
     }
-  }, [s.mode, s.plasmidDna, s.targetPosition, s.replaceLength, s.replacementSeq, activeCodon, codonModeReplacement, activeListMutation, codons, s.targetPrimerTm]);
+  }, [s.mode, s.plasmidDna, s.constructName, s.targetPosition, s.replaceLength, s.replacementSeq, activeCodon, codonModeReplacement, activeListMutation, codons, s.targetPrimerTm, s.targetAa]);
 
   // Sequence & Translation preview comparing WT and mutant construct
   const preview = useMemo(() => {
@@ -232,23 +295,104 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
             </button>
           </div>
 
-          {/* Plasmid DNA Input */}
-          <div class="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Plasmid / Template Sequence (5' to 3')
-              </label>
-              <span class="text-[11px] text-slate-500 font-mono">
-                {cleanDna(s.plasmidDna).length} bp
-              </span>
+          {/* Construct Name & Sequence Upload */}
+          <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex-1">
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Construct / Gene Name
+                </label>
+                <input
+                  type="text"
+                  value={s.constructName}
+                  onInput={(e) => set({ constructName: (e.target as HTMLInputElement).value })}
+                  placeholder="e.g. GFP, pUC19_bla..."
+                  class={FIELD}
+                />
+              </div>
+              <div class="pt-5">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".fasta,.fa,.dna,.gb,.gbk,.txt,.seq"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                      const text = evt.target?.result as string;
+                      if (!text) return;
+                      const fastaHeader = text.match(/^>([^\r\n]+)/);
+                      if (fastaHeader && fastaHeader[1]) {
+                        const name = fastaHeader[1].trim().split(/[\s,]+/)[0] || 'Construct';
+                        set({ constructName: name });
+                      } else {
+                        const baseName = file.name.replace(/\.[^/.]+$/, '');
+                        set({ constructName: baseName });
+                      }
+                      const cleaned = cleanDna(text);
+                      set({ plasmidDna: cleaned, selectedOrfId: 'full' });
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  class="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5"
+                  title="Upload FASTA, GenBank, SnapGene, or text plasmid file"
+                >
+                  <span>📁</span>
+                  <span>Upload</span>
+                </button>
+              </div>
             </div>
-            <textarea
-              rows={4}
-              value={s.plasmidDna}
-              onInput={(e) => set({ plasmidDna: (e.target as HTMLTextAreaElement).value })}
-              placeholder="Paste template plasmid or insert sequence (5' to 3')..."
-              class={FIELD}
-            />
+
+            {/* Plasmid DNA Input */}
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Plasmid / Template Sequence (5' to 3')
+                </label>
+                <span class="text-[11px] text-slate-500 font-mono">
+                  {cleanDna(s.plasmidDna).length} bp
+                </span>
+              </div>
+              <textarea
+                rows={4}
+                value={s.plasmidDna}
+                onInput={(e) => set({ plasmidDna: (e.target as HTMLTextAreaElement).value })}
+                placeholder="Paste template plasmid or insert sequence (5' to 3')..."
+                class={FIELD}
+              />
+            </div>
+
+            {/* ORF Selector */}
+            {detectedOrfs.length > 0 && (
+              <div class="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Target ORF / Coding Region
+                  </label>
+                  <span class="text-[10px] text-accent-600 dark:text-accent-400 font-mono">
+                    {detectedOrfs.length} ORFs detected
+                  </span>
+                </div>
+                <select
+                  value={s.selectedOrfId}
+                  onChange={(e) => set({ selectedOrfId: (e.target as HTMLSelectElement).value })}
+                  class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
+                >
+                  <option value="full">Full Sequence (Direct coordinates)</option>
+                  {detectedOrfs.map((orf, i) => (
+                    <option key={orf.id} value={orf.id}>
+                      ORF #{i + 1}: {orf.strand === 1 ? '+' : '-'} strand, bp {orf.start}–{orf.end} ({orf.lengthAa} aa / {orf.lengthBp} bp)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Controls based on active mode */}
@@ -483,6 +627,104 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
       }
       results={
         <div class="space-y-4">
+          {/* Batch Mutation Results Table */}
+          {s.mode === 'list' && batchResult && batchResult.items.length > 0 && (
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <span>📋 Batch Mutagenesis Primers ({batchResult.items.filter(i => i.valid).length} Variants)</span>
+                  </h3>
+                  <p class="text-xs text-slate-500">
+                    Non-overlapping back-to-back primers generated for all requested point mutations.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyText('batch-idt', batchResult.idtBulkCsv)}
+                  class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition shadow-sm flex items-center gap-1.5"
+                >
+                  <span>{copiedPrimerId === 'batch-idt' ? '✓ Copied IDT CSV!' : '📋 Copy All IDT CSV'}</span>
+                </button>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 dark:bg-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th class="p-2 rounded-l-lg">Mutation</th>
+                      <th class="p-2">Forward Primer (5'→3')</th>
+                      <th class="p-2">Reverse Primer (5'→3')</th>
+                      <th class="p-2">Ta</th>
+                      <th class="p-2 rounded-r-lg text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    {batchResult.items.map((item, idx) => {
+                      const isSelected = s.activeListMutationIdx === idx;
+                      if (!item.valid) {
+                        return (
+                          <tr key={idx} class="text-rose-500">
+                            <td class="p-2 font-mono font-bold">{item.raw}</td>
+                            <td colSpan={4} class="p-2 italic">{item.error}</td>
+                          </tr>
+                        );
+                      }
+                      return (
+                        <tr
+                          key={idx}
+                          class={`hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition ${isSelected ? 'bg-accent-50/60 dark:bg-accent-950/40' : ''}`}
+                          onClick={() => set({ activeListMutationIdx: idx })}
+                        >
+                          <td class="p-2 font-mono font-bold text-accent-600 dark:text-accent-400 whitespace-nowrap">
+                            {item.raw}
+                          </td>
+                          <td class="p-2 font-mono text-[11px]">
+                            <div class="font-semibold text-slate-800 dark:text-slate-200">{item.fwdPrimerName}</div>
+                            <div class="text-slate-500 truncate max-w-xs">{item.fwdPrimerSeq}</div>
+                            <div class="text-[10px] text-slate-400">{item.fwdLen} nt · {item.fwdTm}°C · {item.fwdGc}% GC</div>
+                          </td>
+                          <td class="p-2 font-mono text-[11px]">
+                            <div class="font-semibold text-slate-800 dark:text-slate-200">{item.revPrimerName}</div>
+                            <div class="text-slate-500 truncate max-w-xs">{item.revPrimerSeq}</div>
+                            <div class="text-[10px] text-slate-400">{item.revLen} nt · {item.revTm}°C · {item.revGc}% GC</div>
+                          </td>
+                          <td class="p-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                            {item.recommendedTa}°C
+                          </td>
+                          <td class="p-2 text-right whitespace-nowrap space-x-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyText(`fwd-${idx}`, item.fwdPrimerSeq || '');
+                              }}
+                              class="px-2 py-0.5 text-[11px] rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                              title="Copy Forward Primer Sequence"
+                            >
+                              {copiedPrimerId === `fwd-${idx}` ? '✓' : 'Fwd'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyText(`rev-${idx}`, item.revPrimerSeq || '');
+                              }}
+                              class="px-2 py-0.5 text-[11px] rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                              title="Copy Reverse Primer Sequence"
+                            >
+                              {copiedPrimerId === `rev-${idx}` ? '✓' : 'Rev'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {result && (
             <>
               {/* Mutation Summary Banner */}
@@ -493,7 +735,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                       Engineered Mutation ({result.mutationType})
                     </span>
                     <div class="text-2xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
-                      {result.forwardPrimer.name.replace('Fwd_', '')}
+                      {result.forwardPrimer.name.replace(/^[A-Za-z0-9_-]+_Fwd_|^Fwd_/, '')}
                     </div>
                   </div>
                   <div class="text-right">

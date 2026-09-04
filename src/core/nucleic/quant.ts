@@ -85,3 +85,106 @@ export function oligoNmol(ug: number, mw: number): number {
   positive(mw, 'Molecular weight');
   return (ug / mw) * 1000;
 }
+
+export const DNA_EXTINCTION_DIMERS: Record<string, number> = {
+  AA: 27400, AC: 21200, AG: 25000, AT: 22800,
+  CA: 21200, CC: 14600, CG: 18000, CT: 15200,
+  GA: 25200, GC: 17600, GG: 21600, GT: 20000,
+  TA: 23400, TC: 16200, TG: 19000, TT: 16800,
+};
+
+export const DNA_EXTINCTION_MONOMERS: Record<string, number> = {
+  A: 15200, C: 7050, G: 12010, T: 8400,
+};
+
+export const RNA_EXTINCTION_DIMERS: Record<string, number> = {
+  AA: 27400, AC: 21000, AG: 25000, AU: 24000,
+  CA: 21000, CC: 14200, CG: 17800, CU: 16200,
+  GA: 25200, GC: 17400, GG: 21600, GU: 21200,
+  UA: 24600, UC: 17200, UG: 20000, UU: 19600,
+};
+
+export const RNA_EXTINCTION_MONOMERS: Record<string, number> = {
+  A: 15400, C: 7200, G: 11500, U: 9900,
+};
+
+/**
+ * Computes exact nearest-neighbor molar extinction coefficient at 260 nm (ε260 in M⁻¹ cm⁻¹)
+ * using Warshaw & Cantor (1970) / Puglisi & Tinoco (1989) / Cavaluzzi & Borer (2004) parameters.
+ */
+export function oligoExtinctionCoefficient(seq: string, type: NucleicType = 'DNA'): number {
+  const s = seq.toUpperCase().replace(/\s/g, '');
+  if (!s) throw new NucleicError('Empty sequence');
+  const clean = type === 'RNA' ? s.replace(/T/g, 'U') : s.replace(/U/g, 'T');
+
+  const dimers = type === 'RNA' ? RNA_EXTINCTION_DIMERS : DNA_EXTINCTION_DIMERS;
+  const monomers = type === 'RNA' ? RNA_EXTINCTION_MONOMERS : DNA_EXTINCTION_MONOMERS;
+
+  if (clean.length === 1) {
+    const m = monomers[clean[0]!];
+    if (m === undefined) throw new NucleicError(`"${clean[0]}" is not a valid ${type} base`);
+    return m;
+  }
+
+  let total = 0;
+  // Sum of nearest-neighbor dimers
+  for (let i = 0; i < clean.length - 1; i++) {
+    const pair = clean.slice(i, i + 2);
+    const dVal = dimers[pair];
+    if (dVal === undefined) throw new NucleicError(`"${pair}" contains an invalid ${type} base`);
+    total += dVal;
+  }
+
+  // Subtract internal monomers (for length >= 3)
+  for (let i = 1; i < clean.length - 1; i++) {
+    const base = clean[i]!;
+    const mVal = monomers[base];
+    if (mVal === undefined) throw new NucleicError(`"${base}" is not a valid ${type} base`);
+    total -= mVal;
+  }
+
+  return total;
+}
+
+export interface OligoQuantResult {
+  extinctionCoefficient: number; // M^-1 cm^-1
+  mw: number; // g/mol
+  molarConcUM: number; // µM (µmol/L)
+  massConcUgPerMl: number; // µg/mL (ng/µL)
+  nmolPerOd260: number; // nmol / OD260 (in 1 mL)
+  ugPerOd260: number; // µg / OD260
+}
+
+/**
+ * Calculates exact sequence-specific concentration and optical density parameters from A260.
+ */
+export function quantifyOligoA260(
+  a260: number,
+  seq: string,
+  type: NucleicType = 'DNA',
+  pathCm = 1,
+  dilution = 1
+): OligoQuantResult {
+  if (!Number.isFinite(a260) || a260 < 0) throw new NucleicError('A260 must be ≥ 0');
+  positive(pathCm, 'Path length');
+  positive(dilution, 'Dilution factor');
+
+  const ec = oligoExtinctionCoefficient(seq, type);
+  const mw = oligoMass(seq, type);
+
+  // c = (A260 * dilution) / (ec * pathCm) in mol/L
+  const molarM = (a260 * dilution) / (ec * pathCm);
+  const molarConcUM = molarM * 1e6;
+  const massConcUgPerMl = molarM * mw * 1e3;
+  const nmolPerOd260 = ec > 0 ? (1e6 / ec) : 0;
+  const ugPerOd260 = ec > 0 ? ((mw * 1e3) / ec) : 0;
+
+  return {
+    extinctionCoefficient: ec,
+    mw,
+    molarConcUM,
+    massConcUgPerMl,
+    nmolPerOd260: Math.round(nmolPerOd260 * 100) / 100,
+    ugPerOd260: Math.round(ugPerOd260 * 100) / 100,
+  };
+}

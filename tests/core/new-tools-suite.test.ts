@@ -24,6 +24,7 @@ import {
   PREFERRED_CODONS_ECOLI,
   parseMutationList,
   generateMutatedSequence,
+  designBatchMutations,
 } from '@/core/mutagenesis';
 import {
   evaluateMwco,
@@ -153,20 +154,31 @@ describe('Site-Directed Mutagenesis Core Logic', () => {
     expect(codons[2]!.wtAa).toBe('*');
   });
 
-  it('designs back-to-back non-overlapping primers with Q5 Ta recommendation', () => {
+  it('designs back-to-back non-overlapping primers with Q5 Ta recommendation and correct reverse primer orientation', () => {
     const seq = 'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAG';
     // Codon 2 starts at bp index 6 (0-indexed). Original codon is AGC (Ser). Let's mutate it to Thr (ACC)
     const targetCodon = PREFERRED_CODONS_ECOLI['T']!; // ACC
-    const result = designSiteDirectedMutagenesis(seq, 6, targetCodon, 3, 62);
+    const result = designSiteDirectedMutagenesis(seq, 6, targetCodon, 3, 62, 'GFP', 'S3T');
 
     expect(result.wtCodon).toBe('AGC');
     expect(result.wtAa).toBe('S');
     expect(result.mutCodon).toBe('ACC');
     expect(result.mutAa).toBe('T');
 
+    // Named primers
+    expect(result.forwardPrimer.name).toBe('GFP_S3T_Fwd');
+    expect(result.reversePrimer.name).toBe('GFP_S3T_Rev');
+
     // Forward and reverse primers must be non-overlapping (back-to-back)
     expect(result.forwardPrimer.sequence.length).toBeGreaterThan(15);
     expect(result.reversePrimer.sequence.length).toBeGreaterThan(15);
+
+    // Forward primer 5' starts with mutation (ACC)
+    expect(result.forwardPrimer.sequence.startsWith('ACC')).toBe(true);
+
+    // Reverse primer 5' must be directly adjacent to bp index 6 on template (i.e. bp 5 = G).
+    // Complement of G is C, so reverse primer 5' base MUST be C!
+    expect(result.reversePrimer.sequence[0]).toBe('C');
 
     // Q5 recommended Ta is Tm(lower) + 3°C
     const minTm = Math.min(result.forwardPrimer.tm, result.reversePrimer.tm);
@@ -174,6 +186,35 @@ describe('Site-Directed Mutagenesis Core Logic', () => {
 
     // Mutated plasmid has exact same length as original for single codon point mutation
     expect(result.mutantPlasmidSeq.length).toBe(seq.length);
+  });
+
+  it('designs batch point mutations with named primers and IDT CSV format', () => {
+    const seq = 'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAG';
+    const batch = designBatchMutations(seq, 'S3T, K4E', {
+      constructName: 'GFP',
+      targetPrimerTm: 62,
+    });
+
+    expect(batch.constructName).toBe('GFP');
+    expect(batch.items.length).toBe(2);
+
+    const s3t = batch.items[0]!;
+    expect(s3t.valid).toBe(true);
+    expect(s3t.fwdPrimerName).toBe('GFP_S3T_Fwd');
+    expect(s3t.revPrimerName).toBe('GFP_S3T_Rev');
+    expect(s3t.fwdPrimerSeq?.startsWith('ACC')).toBe(true);
+
+    const k4e = batch.items[1]!;
+    expect(k4e.valid).toBe(true);
+    expect(k4e.fwdPrimerName).toBe('GFP_K4E_Fwd');
+    expect(k4e.revPrimerName).toBe('GFP_K4E_Rev');
+
+    // Check IDT bulk CSV
+    expect(batch.idtBulkCsv).toContain('Name,Sequence,Scale,Purification');
+    expect(batch.idtBulkCsv).toContain('GFP_S3T_Fwd');
+    expect(batch.idtBulkCsv).toContain('GFP_S3T_Rev');
+    expect(batch.idtBulkCsv).toContain('GFP_K4E_Fwd');
+    expect(batch.idtBulkCsv).toContain('GFP_K4E_Rev');
   });
 
   it('parses biochemical mutation lists like A22Y and Ala22Tyr', () => {
@@ -250,9 +291,22 @@ describe('Rare Codons Core Logic', () => {
     expect(optAnalysis.cai).toBeGreaterThan(0.9);
   });
 
-  it('supports multiple host organisms', () => {
+  it('supports multiple host organisms and organism-specific tables', () => {
     expect(Object.keys(HOST_NAMES)).toContain('ecoli');
     expect(Object.keys(HOST_NAMES)).toContain('yeast');
     expect(Object.keys(HOST_NAMES)).toContain('human');
+    expect(Object.keys(HOST_NAMES)).toContain('insect');
+
+    // CGA is rare in yeast (<10% threshold), while standard in other organisms
+    const testDna = 'ATGCGACGACGACGATAA';
+    const yeastAnalysis = analyzeCodonUsage(testDna, 'yeast');
+    const humanAnalysis = analyzeCodonUsage(testDna, 'human');
+
+    expect(yeastAnalysis.host).toBe('yeast');
+    expect(humanAnalysis.host).toBe('human');
+    expect(yeastAnalysis.cai).toBeDefined();
+    expect(humanAnalysis.cai).toBeDefined();
+    // CGA is much rarer in yeast than in human
+    expect(yeastAnalysis.rareCodonCount).toBeGreaterThan(0);
   });
 });

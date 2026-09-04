@@ -6,6 +6,7 @@ import {
 import {
   approxMolecularWeight, massConcToMolar, molarToMassConc,
   a260ToMassConc, copyNumber, massForCopies, oligoMass, oligoNmol,
+  oligoExtinctionCoefficient, quantifyOligoA260,
 } from '@/core/nucleic/quant';
 import {
   tmWallace, tmBasic, tmSaltAdjusted, tmNearestNeighbour,
@@ -93,6 +94,20 @@ describe('nucleic acid quantification', () => {
     // dA 313.21, dC 289.18, dG 329.21, dT 304.20 -> 1235.8 - 61.96 = 1173.84
     const m = oligoMass('ACGT', 'DNA');
     expect(m).toBeCloseTo(1173.84, 2);
+  });
+
+  it('calculates nearest-neighbor oligo extinction coefficient (ε260) and A260 quantification', () => {
+    // Oligo: ACGT (DNA)
+    // Dimers: AC (21200) + CG (18000) + GT (20000) = 59200
+    // Internal monomers: C (7050) + G (12010) = 19060
+    // ε260 = 59200 - 19060 = 40140 M^-1 cm^-1
+    const ec = oligoExtinctionCoefficient('ACGT', 'DNA');
+    expect(ec).toBe(40140);
+
+    const quant = quantifyOligoA260(1.0, 'ACGT', 'DNA');
+    expect(quant.extinctionCoefficient).toBe(40140);
+    expect(quant.molarConcUM).toBeCloseTo(1e6 / 40140, 2);
+    expect(quant.nmolPerOd260).toBeCloseTo(1e6 / 40140, 2);
   });
 });
 

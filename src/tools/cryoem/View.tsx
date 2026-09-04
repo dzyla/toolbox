@@ -13,9 +13,10 @@ import {
   type DiffractionArtifactType,
   DIFFRACTION_PRESETS,
 } from '@/core/cryoem';
+import { MrcViewer } from './MrcViewer';
 
 interface State {
-  tab: 'box' | 'dose' | 'ctf' | 'mag';
+  tab: 'box' | 'dose' | 'ctf' | 'classes' | 'mag';
   pixelSize: number;
   box: number;
   cropBox: number;
@@ -36,6 +37,7 @@ interface State {
   bFactor: number;
   diffractionArtifact: DiffractionArtifactType;
 }
+
 
 const DEFAULTS: State = {
   tab: 'box',
@@ -262,10 +264,11 @@ function CtfCurvePlot({
   diffractionArtifact?: DiffractionArtifactType;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [plotMode, setPlotMode] = useState<'both' | 'ctf' | 'power'>('both');
 
   const w = 520;
   const h = 200;
-  const padLeft = 40;
+  const padLeft = 42;
   const padRight = 20;
   const padTop = 15;
   const padBottom = 30;
@@ -275,22 +278,87 @@ function CtfCurvePlot({
 
   const sMax = 1 / (2 * Math.max(0.1, pixelSize));
 
-  const pts = profile.map((p, i) => {
+  // 1D CTF oscillation curve (-1 to 1)
+  const ctfPts = profile.map((p, i) => {
     const x = padLeft + (p.s / sMax) * plotW;
     const y = midY - p.ctf * (plotH / 2);
     return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
   }).join(' ');
+
+  // 1D Power spectrum curve (|CTF|² + diffraction) (0 to 1)
+  const powerPts = profile.map((p, i) => {
+    const x = padLeft + (p.s / sMax) * plotW;
+    const y = padTop + plotH - p.power * plotH;
+    return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+
+  // Shaded area for diffraction artifact peaks
+  const diffAreaPts = useMemo(() => {
+    if (diffractionArtifact === 'none') return '';
+    const pts: string[] = [];
+    let started = false;
+    let firstX = 0;
+    let lastX = 0;
+    const baseY = padTop + plotH;
+
+    for (let i = 0; i < profile.length; i++) {
+      const p = profile[i]!;
+      const x = padLeft + (p.s / sMax) * plotW;
+      const pureSqY = baseY - (p.ctf * p.ctf) * plotH;
+      const totalY = baseY - p.power * plotH;
+
+      if ((p.diffraction ?? 0) > 0.01) {
+        if (!started) {
+          pts.push(`M ${x.toFixed(1)} ${pureSqY.toFixed(1)}`);
+          firstX = x;
+          started = true;
+        }
+        pts.push(`L ${x.toFixed(1)} ${totalY.toFixed(1)}`);
+        lastX = x;
+      } else if (started) {
+        pts.push(`L ${lastX.toFixed(1)} ${baseY.toFixed(1)}`);
+        started = false;
+      }
+    }
+    return pts.join(' ');
+  }, [profile, diffractionArtifact, sMax, plotW, plotH, padLeft, padTop]);
 
   const zeroX = zeroD1 > 0 ? padLeft + ((1 / zeroD1) / sMax) * plotW : null;
   const hovered = hoverIdx !== null && profile[hoverIdx] ? profile[hoverIdx] : null;
 
   return (
     <div class="space-y-2">
-      <div class="flex items-center justify-between text-xs">
-        <span class="font-bold text-slate-700 dark:text-slate-300">1D CTF Oscillation Curve &amp; First Zero</span>
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-slate-700 dark:text-slate-300">1D CTF &amp; Diffraction Spectrum</span>
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[11px]">
+            <button
+              type="button"
+              onClick={() => setPlotMode('both')}
+              class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'both' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Overlay
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlotMode('ctf')}
+              class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'ctf' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              CTF(s)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlotMode('power')}
+              class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'power' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              |CTF|² Power
+            </button>
+          </div>
+        </div>
+
         {hovered ? (
           <span class="font-mono font-semibold text-accent-600 dark:text-accent-400">
-            s: {hovered.s} Å⁻¹ | d: {hovered.d} Å | CTF: {hovered.ctf}{hovered.diffraction ? ` | Diff: +${hovered.diffraction}` : ''}
+            s: {hovered.s} Å⁻¹ | d: {hovered.d} Å | CTF: {hovered.ctf} | |CTF|²: {hovered.power.toFixed(3)}{hovered.diffraction ? ` | Bragg: +${hovered.diffraction.toFixed(3)}` : ''}
           </span>
         ) : (
           <span class="text-slate-400 text-[11px]">Hover over curve to inspect frequency &amp; resolution</span>
@@ -303,9 +371,10 @@ function CtfCurvePlot({
           class="w-full h-auto select-none"
           onMouseLeave={() => setHoverIdx(null)}
         >
+          {/* Baseline grid */}
           <line x1={padLeft} y1={midY} x2={w - padRight} y2={midY} stroke="currentColor" class="text-slate-300 dark:text-slate-700" stroke-dasharray="3,3" />
           <line x1={padLeft} y1={padTop} x2={w - padRight} y2={padTop} stroke="currentColor" class="text-slate-100 dark:text-slate-800" />
-          <line x1={padLeft} y1={padTop + plotH} x2={w - padRight} y2={padTop + plotH} stroke="currentColor" class="text-slate-100 dark:text-slate-800" />
+          <line x1={padLeft} y1={padTop + plotH} x2={w - padRight} y2={padTop + plotH} stroke="currentColor" class="text-slate-200 dark:text-slate-800" />
 
           {/* First CTF Zero */}
           {zeroX !== null && zeroX >= padLeft && zeroX <= w - padRight && (
@@ -317,26 +386,51 @@ function CtfCurvePlot({
             </g>
           )}
 
-          {/* Diffraction Artifact Markers */}
+          {/* Diffraction Artifact Markers on 1D spectrum */}
           {diffractionArtifact !== 'none' && DIFFRACTION_PRESETS[diffractionArtifact]?.rings.map(ring => {
             const s0 = 1 / ring.dSpacingA;
             if (s0 > sMax) return null;
             const x = padLeft + (s0 / sMax) * plotW;
             return (
               <g key={ring.label}>
-                <line x1={x} y1={padTop} x2={x} y2={padTop + plotH} stroke="#f59e0b" stroke-dasharray="2,2" stroke-width="1.2" />
-                <text x={x} y={padTop + 22} text-anchor="middle" fill="#d97706" class="text-[8.5px] font-mono font-bold">
+                <line x1={x} y1={padTop} x2={x} y2={padTop + plotH} stroke="#f59e0b" stroke-dasharray="2,2" stroke-width="1.5" />
+                <rect x={x - 28} y={padTop + 14} width="56" height="13" rx="3" fill="#fef3c7" class="dark:fill-amber-950" stroke="#f59e0b" stroke-width="0.8" />
+                <text x={x} y={padTop + 23} text-anchor="middle" fill="#b45309" class="text-[8px] font-mono font-bold">
                   {ring.label}
                 </text>
               </g>
             );
           })}
 
-          <path d={pts} fill="none" stroke="#0284c7" stroke-width="2" />
+          {/* Shaded Bragg Diffraction Peak Area */}
+          {(plotMode === 'power' || plotMode === 'both') && diffAreaPts && (
+            <path d={diffAreaPts} fill="rgba(245, 158, 11, 0.25)" stroke="#f59e0b" stroke-width="1.5" />
+          )}
 
-          <text x={padLeft - 6} y={padTop + 4} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">+1</text>
-          <text x={padLeft - 6} y={midY + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">0</text>
-          <text x={padLeft - 6} y={padTop + plotH + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">-1</text>
+          {/* Power Spectrum curve */}
+          {(plotMode === 'power' || plotMode === 'both') && (
+            <path d={powerPts} fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray={plotMode === 'both' ? '4,2' : undefined} />
+          )}
+
+          {/* CTF amplitude curve */}
+          {(plotMode === 'ctf' || plotMode === 'both') && (
+            <path d={ctfPts} fill="none" stroke="#0284c7" stroke-width="2" />
+          )}
+
+          {/* Y Axis Labels */}
+          {plotMode === 'ctf' || plotMode === 'both' ? (
+            <>
+              <text x={padLeft - 6} y={padTop + 4} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">+1</text>
+              <text x={padLeft - 6} y={midY + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">0</text>
+              <text x={padLeft - 6} y={padTop + plotH + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">-1</text>
+            </>
+          ) : (
+            <>
+              <text x={padLeft - 6} y={padTop + 4} text-anchor="end" fill="currentColor" class="text-[9px] fill-amber-500 font-mono">1.0</text>
+              <text x={padLeft - 6} y={midY + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-amber-500 font-mono">0.5</text>
+              <text x={padLeft - 6} y={padTop + plotH + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-amber-500 font-mono">0.0</text>
+            </>
+          )}
 
           <text x={padLeft} y={h - 8} text-anchor="start" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">0 Å⁻¹ (DC)</text>
           <text x={w - padRight} y={h - 8} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">
@@ -361,9 +455,9 @@ function CtfCurvePlot({
           {hovered && hoverIdx !== null && (
             <circle
               cx={padLeft + (hovered.s / sMax) * plotW}
-              cy={midY - hovered.ctf * (plotH / 2)}
+              cy={plotMode === 'power' ? padTop + plotH - hovered.power * plotH : midY - hovered.ctf * (plotH / 2)}
               r="4"
-              fill="#0ea5e9"
+              fill={plotMode === 'power' ? '#f59e0b' : '#0ea5e9'}
               stroke="#ffffff"
               stroke-width="1.5"
             />
@@ -466,6 +560,7 @@ export default function CryoEmView() {
                 ['box', 'Box & Sampling'],
                 ['dose', 'Dose Calculator'],
                 ['ctf', 'CTF & Thon Rings'],
+                ['classes', '2D Classes & 3D Volume'],
                 ['mag', 'Magnification'],
               ] as const
             ).map(([id, label]) => (
@@ -483,6 +578,24 @@ export default function CryoEmView() {
               </button>
             ))}
           </div>
+
+          {s.tab === 'classes' && (
+            <div class="space-y-3 text-xs text-slate-600 dark:text-slate-400">
+              <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+                <h4 class="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
+                  📦 MRC / MRCS Format Specifications
+                </h4>
+                <p>
+                  Supports standard CCP4/MRC2014 file headers across Modes 0 (int8), 1 (int16), 2 (float32), and 6 (uint16).
+                </p>
+                <ul class="list-disc pl-4 space-y-1">
+                  <li><strong>2D Stack (.mrcs)</strong>: Curate, select, and export publication-ready grids with calibrated scale bars and contrast leveling.</li>
+                  <li><strong>3D Volume (.mrc, .map)</strong>: Scrub synchronized orthogonal slices across XY (Axial), XZ (Coronal), and YZ (Sagittal) planes.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
 
           {s.tab === 'box' && (
             <div class="space-y-3">
@@ -1087,6 +1200,12 @@ export default function CryoEmView() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {s.tab === 'classes' && (
+            <div data-testid="cryo-classes-result">
+              <MrcViewer />
             </div>
           )}
         </div>

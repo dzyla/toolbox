@@ -463,51 +463,55 @@ export default function DiafiltrationView() {
             </h3>
 
             {s.mode === 'ultrafiltration' ? (
-              <table class="w-full text-xs text-left">
-                <thead>
-                  <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
-                    <th class="pb-2">Spin Cycle</th>
-                    <th class="pb-2 text-right">After Spin ({s.unit})</th>
-                    <th class="pb-2 text-right">After Refill ({s.unit})</th>
-                    <th class="pb-2 text-right">Total DFV</th>
-                    <th class="pb-2 text-right">Cumulative Removal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ufSim.cycles.map(c => (
-                    <tr key={c.cycleNum} class="border-b border-slate-100 dark:border-slate-800">
-                      <td class="py-2 font-semibold">Cycle {c.cycleNum} ({c.cycleNum * s.spinTimeMin} min total)</td>
-                      <td class="py-2 text-right font-mono">{c.concAfterConcentration.toFixed(1)}</td>
-                      <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{c.concAfterRefill < 0.01 ? c.concAfterRefill.toExponential(2) : c.concAfterRefill.toFixed(2)}</td>
-                      <td class="py-2 text-right font-mono">{c.cumulativeDfv.toFixed(1)}</td>
-                      <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{c.removalPct.toFixed(1)}%</td>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left min-w-[340px]">
+                  <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                      <th class="pb-2">Spin Cycle</th>
+                      <th class="pb-2 text-right">After Spin ({s.unit})</th>
+                      <th class="pb-2 text-right">After Refill ({s.unit})</th>
+                      <th class="pb-2 text-right">Total DFV</th>
+                      <th class="pb-2 text-right">Cumulative Removal</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ufSim.cycles.map(c => (
+                      <tr key={c.cycleNum} class="border-b border-slate-100 dark:border-slate-800">
+                        <td class="py-2 font-semibold">Cycle {c.cycleNum} ({c.cycleNum * s.spinTimeMin} min total)</td>
+                        <td class="py-2 text-right font-mono">{c.concAfterConcentration.toFixed(1)}</td>
+                        <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{c.concAfterRefill < 0.01 ? c.concAfterRefill.toExponential(2) : c.concAfterRefill.toFixed(2)}</td>
+                        <td class="py-2 text-right font-mono">{c.cumulativeDfv.toFixed(1)}</td>
+                        <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{c.removalPct.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <table class="w-full text-xs text-left">
-                <thead>
-                  <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
-                    <th class="pb-2">Dialysis Step</th>
-                    <th class="pb-2 text-right">Equilibrium Conc ({s.unit})</th>
-                    <th class="pb-2 text-right">Step Dilution</th>
-                    <th class="pb-2 text-right">Cumulative Removal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dialSim.steps.map(st => (
-                    <tr key={st.stepNum} class="border-b border-slate-100 dark:border-slate-800">
-                      <td class="py-2 font-semibold">
-                        {st.stepNum === 1 ? 'Bath 1 (Initial Setup / 0 changes)' : `Bath ${st.stepNum} (${st.stepNum - 1}${st.stepNum === 2 ? 'st' : st.stepNum === 3 ? 'nd' : 'th'} Buffer Change)`}
-                      </td>
-                      <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{st.equilibriumConc < 0.01 ? st.equilibriumConc.toExponential(2) : st.equilibriumConc.toFixed(2)}</td>
-                      <td class="py-2 text-right font-mono">{st.dilutionFactor.toFixed(0)}×</td>
-                      <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{st.removalPct.toFixed(2)}%</td>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left min-w-[340px]">
+                  <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                      <th class="pb-2">Dialysis Step</th>
+                      <th class="pb-2 text-right">Equilibrium Conc ({s.unit})</th>
+                      <th class="pb-2 text-right">Step Dilution</th>
+                      <th class="pb-2 text-right">Cumulative Removal</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {dialSim.steps.map(st => (
+                      <tr key={st.stepNum} class="border-b border-slate-100 dark:border-slate-800">
+                        <td class="py-2 font-semibold">
+                          {st.stepNum === 1 ? 'Bath 1 (Initial Setup / 0 changes)' : `Bath ${st.stepNum} (${st.stepNum - 1}${st.stepNum === 2 ? 'st' : st.stepNum === 3 ? 'nd' : 'th'} Buffer Change)`}
+                        </td>
+                        <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{st.equilibriumConc < 0.01 ? st.equilibriumConc.toExponential(2) : st.equilibriumConc.toFixed(2)}</td>
+                        <td class="py-2 text-right font-mono">{st.dilutionFactor.toFixed(0)}×</td>
+                        <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{st.removalPct.toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

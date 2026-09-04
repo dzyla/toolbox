@@ -1,0 +1,1293 @@
+{
+  "_source": "Kazusa DNA Research Institute Codon Usage Database (Nakamura et al. 2000, Nucleic Acids Res 28:292). Species: E. coli (83333), H. sapiens (9606), S. cerevisiae (4932), S. frugiperda (7108).",
+  "tables": {
+    "ecoli": {
+      "TTT": {
+        "aa": "F",
+        "fraction": 0.42,
+        "frequencyPerThousand": 22.4
+      },
+      "TTC": {
+        "aa": "F",
+        "fraction": 0.58,
+        "frequencyPerThousand": 16.5
+      },
+      "TTA": {
+        "aa": "L",
+        "fraction": 0.14,
+        "frequencyPerThousand": 13.9
+      },
+      "TTG": {
+        "aa": "L",
+        "fraction": 0.13,
+        "frequencyPerThousand": 13.7
+      },
+      "CTT": {
+        "aa": "L",
+        "fraction": 0.12,
+        "frequencyPerThousand": 11
+      },
+      "CTC": {
+        "aa": "L",
+        "fraction": 0.1,
+        "frequencyPerThousand": 11.1
+      },
+      "CTA": {
+        "aa": "L",
+        "fraction": 0.04,
+        "frequencyPerThousand": 3.7
+      },
+      "CTG": {
+        "aa": "L",
+        "fraction": 0.47,
+        "frequencyPerThousand": 52.8
+      },
+      "ATT": {
+        "aa": "I",
+        "fraction": 0.49,
+        "frequencyPerThousand": 30.5
+      },
+      "ATC": {
+        "aa": "I",
+        "fraction": 0.42,
+        "frequencyPerThousand": 25.1
+      },
+      "ATA": {
+        "aa": "I",
+        "fraction": 0.09,
+        "frequencyPerThousand": 4.1
+      },
+      "ATG": {
+        "aa": "M",
+        "fraction": 1,
+        "frequencyPerThousand": 27.9
+      },
+      "GTT": {
+        "aa": "V",
+        "fraction": 0.28,
+        "frequencyPerThousand": 18.2
+      },
+      "GTC": {
+        "aa": "V",
+        "fraction": 0.2,
+        "frequencyPerThousand": 15.3
+      },
+      "GTA": {
+        "aa": "V",
+        "fraction": 0.17,
+        "frequencyPerThousand": 10.9
+      },
+      "GTG": {
+        "aa": "V",
+        "fraction": 0.35,
+        "frequencyPerThousand": 26.3
+      },
+      "TCT": {
+        "aa": "S",
+        "fraction": 0.17,
+        "frequencyPerThousand": 8.5
+      },
+      "TCC": {
+        "aa": "S",
+        "fraction": 0.15,
+        "frequencyPerThousand": 8.6
+      },
+      "TCA": {
+        "aa": "S",
+        "fraction": 0.14,
+        "frequencyPerThousand": 7.1
+      },
+      "TCG": {
+        "aa": "S",
+        "fraction": 0.14,
+        "frequencyPerThousand": 8.9
+      },
+      "AGT": {
+        "aa": "S",
+        "fraction": 0.16,
+        "frequencyPerThousand": 8.8
+      },
+      "AGC": {
+        "aa": "S",
+        "fraction": 0.25,
+        "frequencyPerThousand": 16
+      },
+      "CCT": {
+        "aa": "P",
+        "fraction": 0.18,
+        "frequencyPerThousand": 7
+      },
+      "CCC": {
+        "aa": "P",
+        "fraction": 0.13,
+        "frequencyPerThousand": 5.5
+      },
+      "CCA": {
+        "aa": "P",
+        "fraction": 0.2,
+        "frequencyPerThousand": 8.5
+      },
+      "CCG": {
+        "aa": "P",
+        "fraction": 0.49,
+        "frequencyPerThousand": 23.3
+      },
+      "ACT": {
+        "aa": "T",
+        "fraction": 0.19,
+        "frequencyPerThousand": 8.9
+      },
+      "ACC": {
+        "aa": "T",
+        "fraction": 0.4,
+        "frequencyPerThousand": 23.4
+      },
+      "ACA": {
+        "aa": "T",
+        "fraction": 0.15,
+        "frequencyPerThousand": 7
+      },
+      "ACG": {
+        "aa": "T",
+        "fraction": 0.26,
+        "frequencyPerThousand": 14.4
+      },
+      "GCT": {
+        "aa": "A",
+        "fraction": 0.18,
+        "frequencyPerThousand": 15.3
+      },
+      "GCC": {
+        "aa": "A",
+        "fraction": 0.26,
+        "frequencyPerThousand": 25.5
+      },
+      "GCA": {
+        "aa": "A",
+        "fraction": 0.23,
+        "frequencyPerThousand": 20.3
+      },
+      "GCG": {
+        "aa": "A",
+        "fraction": 0.33,
+        "frequencyPerThousand": 33.7
+      },
+      "TAT": {
+        "aa": "Y",
+        "fraction": 0.43,
+        "frequencyPerThousand": 16.2
+      },
+      "TAC": {
+        "aa": "Y",
+        "fraction": 0.57,
+        "frequencyPerThousand": 12.2
+      },
+      "TAA": {
+        "aa": "*",
+        "fraction": 0.61,
+        "frequencyPerThousand": 2
+      },
+      "TAG": {
+        "aa": "*",
+        "fraction": 0.09,
+        "frequencyPerThousand": 0.3
+      },
+      "TGA": {
+        "aa": "*",
+        "fraction": 0.3,
+        "frequencyPerThousand": 1
+      },
+      "CAT": {
+        "aa": "H",
+        "fraction": 0.57,
+        "frequencyPerThousand": 12.9
+      },
+      "CAC": {
+        "aa": "H",
+        "fraction": 0.43,
+        "frequencyPerThousand": 9.7
+      },
+      "CAA": {
+        "aa": "Q",
+        "fraction": 0.34,
+        "frequencyPerThousand": 15.4
+      },
+      "CAG": {
+        "aa": "Q",
+        "fraction": 0.66,
+        "frequencyPerThousand": 28.9
+      },
+      "AAT": {
+        "aa": "N",
+        "fraction": 0.49,
+        "frequencyPerThousand": 17.7
+      },
+      "AAC": {
+        "aa": "N",
+        "fraction": 0.51,
+        "frequencyPerThousand": 21.6
+      },
+      "AAA": {
+        "aa": "K",
+        "fraction": 0.74,
+        "frequencyPerThousand": 33.6
+      },
+      "AAG": {
+        "aa": "K",
+        "fraction": 0.26,
+        "frequencyPerThousand": 10.3
+      },
+      "GAT": {
+        "aa": "D",
+        "fraction": 0.63,
+        "frequencyPerThousand": 32.2
+      },
+      "GAC": {
+        "aa": "D",
+        "fraction": 0.37,
+        "frequencyPerThousand": 19.1
+      },
+      "GAA": {
+        "aa": "E",
+        "fraction": 0.68,
+        "frequencyPerThousand": 39.6
+      },
+      "GAG": {
+        "aa": "E",
+        "fraction": 0.32,
+        "frequencyPerThousand": 17.9
+      },
+      "TGT": {
+        "aa": "C",
+        "fraction": 0.46,
+        "frequencyPerThousand": 5.2
+      },
+      "TGC": {
+        "aa": "C",
+        "fraction": 0.54,
+        "frequencyPerThousand": 6.4
+      },
+      "TGG": {
+        "aa": "W",
+        "fraction": 1,
+        "frequencyPerThousand": 15.3
+      },
+      "CGT": {
+        "aa": "R",
+        "fraction": 0.36,
+        "frequencyPerThousand": 20.9
+      },
+      "CGC": {
+        "aa": "R",
+        "fraction": 0.36,
+        "frequencyPerThousand": 22
+      },
+      "CGA": {
+        "aa": "R",
+        "fraction": 0.07,
+        "frequencyPerThousand": 3.1
+      },
+      "CGG": {
+        "aa": "R",
+        "fraction": 0.11,
+        "frequencyPerThousand": 5.4
+      },
+      "AGA": {
+        "aa": "R",
+        "fraction": 0.04,
+        "frequencyPerThousand": 2.1
+      },
+      "AGG": {
+        "aa": "R",
+        "fraction": 0.02,
+        "frequencyPerThousand": 1.4
+      },
+      "GGT": {
+        "aa": "G",
+        "fraction": 0.35,
+        "frequencyPerThousand": 24.7
+      },
+      "GGC": {
+        "aa": "G",
+        "fraction": 0.38,
+        "frequencyPerThousand": 29.6
+      },
+      "GGA": {
+        "aa": "G",
+        "fraction": 0.13,
+        "frequencyPerThousand": 7.8
+      },
+      "GGG": {
+        "aa": "G",
+        "fraction": 0.15,
+        "frequencyPerThousand": 11
+      }
+    },
+    "human": {
+      "TTT": {
+        "aa": "F",
+        "fraction": 0.46,
+        "frequencyPerThousand": 17.6
+      },
+      "TTC": {
+        "aa": "F",
+        "fraction": 0.54,
+        "frequencyPerThousand": 20.3
+      },
+      "TTA": {
+        "aa": "L",
+        "fraction": 0.08,
+        "frequencyPerThousand": 7.7
+      },
+      "TTG": {
+        "aa": "L",
+        "fraction": 0.13,
+        "frequencyPerThousand": 12.9
+      },
+      "CTT": {
+        "aa": "L",
+        "fraction": 0.13,
+        "frequencyPerThousand": 13.2
+      },
+      "CTC": {
+        "aa": "L",
+        "fraction": 0.2,
+        "frequencyPerThousand": 19.6
+      },
+      "CTA": {
+        "aa": "L",
+        "fraction": 0.07,
+        "frequencyPerThousand": 7.2
+      },
+      "CTG": {
+        "aa": "L",
+        "fraction": 0.4,
+        "frequencyPerThousand": 39.6
+      },
+      "ATT": {
+        "aa": "I",
+        "fraction": 0.36,
+        "frequencyPerThousand": 16
+      },
+      "ATC": {
+        "aa": "I",
+        "fraction": 0.47,
+        "frequencyPerThousand": 20.8
+      },
+      "ATA": {
+        "aa": "I",
+        "fraction": 0.17,
+        "frequencyPerThousand": 7.5
+      },
+      "ATG": {
+        "aa": "M",
+        "fraction": 1,
+        "frequencyPerThousand": 22
+      },
+      "GTT": {
+        "aa": "V",
+        "fraction": 0.18,
+        "frequencyPerThousand": 11
+      },
+      "GTC": {
+        "aa": "V",
+        "fraction": 0.24,
+        "frequencyPerThousand": 14.5
+      },
+      "GTA": {
+        "aa": "V",
+        "fraction": 0.12,
+        "frequencyPerThousand": 7.1
+      },
+      "GTG": {
+        "aa": "V",
+        "fraction": 0.46,
+        "frequencyPerThousand": 28.1
+      },
+      "TCT": {
+        "aa": "S",
+        "fraction": 0.19,
+        "frequencyPerThousand": 15.2
+      },
+      "TCC": {
+        "aa": "S",
+        "fraction": 0.22,
+        "frequencyPerThousand": 17.7
+      },
+      "TCA": {
+        "aa": "S",
+        "fraction": 0.15,
+        "frequencyPerThousand": 12.2
+      },
+      "TCG": {
+        "aa": "S",
+        "fraction": 0.05,
+        "frequencyPerThousand": 4.4
+      },
+      "CCT": {
+        "aa": "P",
+        "fraction": 0.29,
+        "frequencyPerThousand": 17.5
+      },
+      "CCC": {
+        "aa": "P",
+        "fraction": 0.32,
+        "frequencyPerThousand": 19.8
+      },
+      "CCA": {
+        "aa": "P",
+        "fraction": 0.28,
+        "frequencyPerThousand": 16.9
+      },
+      "CCG": {
+        "aa": "P",
+        "fraction": 0.11,
+        "frequencyPerThousand": 6.9
+      },
+      "ACT": {
+        "aa": "T",
+        "fraction": 0.25,
+        "frequencyPerThousand": 13.1
+      },
+      "ACC": {
+        "aa": "T",
+        "fraction": 0.36,
+        "frequencyPerThousand": 18.9
+      },
+      "ACA": {
+        "aa": "T",
+        "fraction": 0.28,
+        "frequencyPerThousand": 15.1
+      },
+      "ACG": {
+        "aa": "T",
+        "fraction": 0.11,
+        "frequencyPerThousand": 6.1
+      },
+      "GCT": {
+        "aa": "A",
+        "fraction": 0.27,
+        "frequencyPerThousand": 18.4
+      },
+      "GCC": {
+        "aa": "A",
+        "fraction": 0.4,
+        "frequencyPerThousand": 27.7
+      },
+      "GCA": {
+        "aa": "A",
+        "fraction": 0.23,
+        "frequencyPerThousand": 15.8
+      },
+      "GCG": {
+        "aa": "A",
+        "fraction": 0.11,
+        "frequencyPerThousand": 7.4
+      },
+      "TAT": {
+        "aa": "Y",
+        "fraction": 0.44,
+        "frequencyPerThousand": 12.2
+      },
+      "TAC": {
+        "aa": "Y",
+        "fraction": 0.56,
+        "frequencyPerThousand": 15.3
+      },
+      "TAA": {
+        "aa": "*",
+        "fraction": 0.29,
+        "frequencyPerThousand": 1
+      },
+      "TAG": {
+        "aa": "*",
+        "fraction": 0.24,
+        "frequencyPerThousand": 0.8
+      },
+      "CAT": {
+        "aa": "H",
+        "fraction": 0.42,
+        "frequencyPerThousand": 10.9
+      },
+      "CAC": {
+        "aa": "H",
+        "fraction": 0.58,
+        "frequencyPerThousand": 15.1
+      },
+      "CAA": {
+        "aa": "Q",
+        "fraction": 0.26,
+        "frequencyPerThousand": 12.3
+      },
+      "CAG": {
+        "aa": "Q",
+        "fraction": 0.74,
+        "frequencyPerThousand": 34.2
+      },
+      "AAT": {
+        "aa": "N",
+        "fraction": 0.47,
+        "frequencyPerThousand": 17
+      },
+      "AAC": {
+        "aa": "N",
+        "fraction": 0.53,
+        "frequencyPerThousand": 19.1
+      },
+      "AAA": {
+        "aa": "K",
+        "fraction": 0.43,
+        "frequencyPerThousand": 24.4
+      },
+      "AAG": {
+        "aa": "K",
+        "fraction": 0.57,
+        "frequencyPerThousand": 31.9
+      },
+      "GAT": {
+        "aa": "D",
+        "fraction": 0.46,
+        "frequencyPerThousand": 21.8
+      },
+      "GAC": {
+        "aa": "D",
+        "fraction": 0.54,
+        "frequencyPerThousand": 25.1
+      },
+      "GAA": {
+        "aa": "E",
+        "fraction": 0.42,
+        "frequencyPerThousand": 29
+      },
+      "GAG": {
+        "aa": "E",
+        "fraction": 0.58,
+        "frequencyPerThousand": 39.6
+      },
+      "TGT": {
+        "aa": "C",
+        "fraction": 0.46,
+        "frequencyPerThousand": 10.6
+      },
+      "TGC": {
+        "aa": "C",
+        "fraction": 0.54,
+        "frequencyPerThousand": 12.6
+      },
+      "TGA": {
+        "aa": "*",
+        "fraction": 0.47,
+        "frequencyPerThousand": 1.6
+      },
+      "TGG": {
+        "aa": "W",
+        "fraction": 1,
+        "frequencyPerThousand": 13.2
+      },
+      "CGT": {
+        "aa": "R",
+        "fraction": 0.08,
+        "frequencyPerThousand": 4.5
+      },
+      "CGC": {
+        "aa": "R",
+        "fraction": 0.18,
+        "frequencyPerThousand": 10.4
+      },
+      "CGA": {
+        "aa": "R",
+        "fraction": 0.11,
+        "frequencyPerThousand": 6.2
+      },
+      "CGG": {
+        "aa": "R",
+        "fraction": 0.2,
+        "frequencyPerThousand": 11.4
+      },
+      "AGT": {
+        "aa": "S",
+        "fraction": 0.15,
+        "frequencyPerThousand": 12.1
+      },
+      "AGC": {
+        "aa": "S",
+        "fraction": 0.24,
+        "frequencyPerThousand": 19.5
+      },
+      "AGA": {
+        "aa": "R",
+        "fraction": 0.22,
+        "frequencyPerThousand": 12.2
+      },
+      "AGG": {
+        "aa": "R",
+        "fraction": 0.21,
+        "frequencyPerThousand": 12
+      },
+      "GGT": {
+        "aa": "G",
+        "fraction": 0.16,
+        "frequencyPerThousand": 10.8
+      },
+      "GGC": {
+        "aa": "G",
+        "fraction": 0.34,
+        "frequencyPerThousand": 22.2
+      },
+      "GGA": {
+        "aa": "G",
+        "fraction": 0.25,
+        "frequencyPerThousand": 16.5
+      },
+      "GGG": {
+        "aa": "G",
+        "fraction": 0.25,
+        "frequencyPerThousand": 16.5
+      }
+    },
+    "yeast": {
+      "TTT": {
+        "aa": "F",
+        "fraction": 0.59,
+        "frequencyPerThousand": 26.1
+      },
+      "TTC": {
+        "aa": "F",
+        "fraction": 0.41,
+        "frequencyPerThousand": 18.4
+      },
+      "TTA": {
+        "aa": "L",
+        "fraction": 0.28,
+        "frequencyPerThousand": 26.2
+      },
+      "TTG": {
+        "aa": "L",
+        "fraction": 0.29,
+        "frequencyPerThousand": 27.2
+      },
+      "CTT": {
+        "aa": "L",
+        "fraction": 0.13,
+        "frequencyPerThousand": 12.3
+      },
+      "CTC": {
+        "aa": "L",
+        "fraction": 0.06,
+        "frequencyPerThousand": 5.4
+      },
+      "CTA": {
+        "aa": "L",
+        "fraction": 0.14,
+        "frequencyPerThousand": 13.4
+      },
+      "CTG": {
+        "aa": "L",
+        "fraction": 0.11,
+        "frequencyPerThousand": 10.5
+      },
+      "ATT": {
+        "aa": "I",
+        "fraction": 0.46,
+        "frequencyPerThousand": 30.1
+      },
+      "ATC": {
+        "aa": "I",
+        "fraction": 0.26,
+        "frequencyPerThousand": 17.2
+      },
+      "ATA": {
+        "aa": "I",
+        "fraction": 0.27,
+        "frequencyPerThousand": 17.8
+      },
+      "ATG": {
+        "aa": "M",
+        "fraction": 1,
+        "frequencyPerThousand": 20.9
+      },
+      "GTT": {
+        "aa": "V",
+        "fraction": 0.39,
+        "frequencyPerThousand": 22.1
+      },
+      "GTC": {
+        "aa": "V",
+        "fraction": 0.21,
+        "frequencyPerThousand": 11.8
+      },
+      "GTA": {
+        "aa": "V",
+        "fraction": 0.21,
+        "frequencyPerThousand": 11.8
+      },
+      "GTG": {
+        "aa": "V",
+        "fraction": 0.19,
+        "frequencyPerThousand": 10.8
+      },
+      "TCT": {
+        "aa": "S",
+        "fraction": 0.26,
+        "frequencyPerThousand": 23.5
+      },
+      "TCC": {
+        "aa": "S",
+        "fraction": 0.16,
+        "frequencyPerThousand": 14.2
+      },
+      "TCA": {
+        "aa": "S",
+        "fraction": 0.21,
+        "frequencyPerThousand": 18.7
+      },
+      "TCG": {
+        "aa": "S",
+        "fraction": 0.1,
+        "frequencyPerThousand": 8.6
+      },
+      "CCT": {
+        "aa": "P",
+        "fraction": 0.31,
+        "frequencyPerThousand": 13.5
+      },
+      "CCC": {
+        "aa": "P",
+        "fraction": 0.15,
+        "frequencyPerThousand": 6.8
+      },
+      "CCA": {
+        "aa": "P",
+        "fraction": 0.42,
+        "frequencyPerThousand": 18.3
+      },
+      "CCG": {
+        "aa": "P",
+        "fraction": 0.12,
+        "frequencyPerThousand": 5.3
+      },
+      "ACT": {
+        "aa": "T",
+        "fraction": 0.35,
+        "frequencyPerThousand": 20.3
+      },
+      "ACC": {
+        "aa": "T",
+        "fraction": 0.22,
+        "frequencyPerThousand": 12.7
+      },
+      "ACA": {
+        "aa": "T",
+        "fraction": 0.3,
+        "frequencyPerThousand": 17.8
+      },
+      "ACG": {
+        "aa": "T",
+        "fraction": 0.14,
+        "frequencyPerThousand": 8
+      },
+      "GCT": {
+        "aa": "A",
+        "fraction": 0.38,
+        "frequencyPerThousand": 21.2
+      },
+      "GCC": {
+        "aa": "A",
+        "fraction": 0.22,
+        "frequencyPerThousand": 12.6
+      },
+      "GCA": {
+        "aa": "A",
+        "fraction": 0.29,
+        "frequencyPerThousand": 16.2
+      },
+      "GCG": {
+        "aa": "A",
+        "fraction": 0.11,
+        "frequencyPerThousand": 6.2
+      },
+      "TAT": {
+        "aa": "Y",
+        "fraction": 0.56,
+        "frequencyPerThousand": 18.8
+      },
+      "TAC": {
+        "aa": "Y",
+        "fraction": 0.44,
+        "frequencyPerThousand": 14.8
+      },
+      "TAA": {
+        "aa": "*",
+        "fraction": 0.48,
+        "frequencyPerThousand": 1.1
+      },
+      "TAG": {
+        "aa": "*",
+        "fraction": 0.22,
+        "frequencyPerThousand": 0.5
+      },
+      "CAT": {
+        "aa": "H",
+        "fraction": 0.64,
+        "frequencyPerThousand": 13.6
+      },
+      "CAC": {
+        "aa": "H",
+        "fraction": 0.36,
+        "frequencyPerThousand": 7.8
+      },
+      "CAA": {
+        "aa": "Q",
+        "fraction": 0.69,
+        "frequencyPerThousand": 27.3
+      },
+      "CAG": {
+        "aa": "Q",
+        "fraction": 0.31,
+        "frequencyPerThousand": 12.1
+      },
+      "AAT": {
+        "aa": "N",
+        "fraction": 0.59,
+        "frequencyPerThousand": 35.7
+      },
+      "AAC": {
+        "aa": "N",
+        "fraction": 0.41,
+        "frequencyPerThousand": 24.8
+      },
+      "AAA": {
+        "aa": "K",
+        "fraction": 0.58,
+        "frequencyPerThousand": 41.9
+      },
+      "AAG": {
+        "aa": "K",
+        "fraction": 0.42,
+        "frequencyPerThousand": 30.8
+      },
+      "GAT": {
+        "aa": "D",
+        "fraction": 0.65,
+        "frequencyPerThousand": 37.6
+      },
+      "GAC": {
+        "aa": "D",
+        "fraction": 0.35,
+        "frequencyPerThousand": 20.2
+      },
+      "GAA": {
+        "aa": "E",
+        "fraction": 0.7,
+        "frequencyPerThousand": 45.6
+      },
+      "GAG": {
+        "aa": "E",
+        "fraction": 0.3,
+        "frequencyPerThousand": 19.2
+      },
+      "TGT": {
+        "aa": "C",
+        "fraction": 0.63,
+        "frequencyPerThousand": 8.1
+      },
+      "TGC": {
+        "aa": "C",
+        "fraction": 0.37,
+        "frequencyPerThousand": 4.8
+      },
+      "TGA": {
+        "aa": "*",
+        "fraction": 0.3,
+        "frequencyPerThousand": 0.7
+      },
+      "TGG": {
+        "aa": "W",
+        "fraction": 1,
+        "frequencyPerThousand": 10.4
+      },
+      "CGT": {
+        "aa": "R",
+        "fraction": 0.14,
+        "frequencyPerThousand": 6.4
+      },
+      "CGC": {
+        "aa": "R",
+        "fraction": 0.06,
+        "frequencyPerThousand": 2.6
+      },
+      "CGA": {
+        "aa": "R",
+        "fraction": 0.07,
+        "frequencyPerThousand": 3
+      },
+      "CGG": {
+        "aa": "R",
+        "fraction": 0.04,
+        "frequencyPerThousand": 1.7
+      },
+      "AGT": {
+        "aa": "S",
+        "fraction": 0.16,
+        "frequencyPerThousand": 14.2
+      },
+      "AGC": {
+        "aa": "S",
+        "fraction": 0.11,
+        "frequencyPerThousand": 9.8
+      },
+      "AGA": {
+        "aa": "R",
+        "fraction": 0.48,
+        "frequencyPerThousand": 21.3
+      },
+      "AGG": {
+        "aa": "R",
+        "fraction": 0.21,
+        "frequencyPerThousand": 9.2
+      },
+      "GGT": {
+        "aa": "G",
+        "fraction": 0.47,
+        "frequencyPerThousand": 23.9
+      },
+      "GGC": {
+        "aa": "G",
+        "fraction": 0.19,
+        "frequencyPerThousand": 9.8
+      },
+      "GGA": {
+        "aa": "G",
+        "fraction": 0.22,
+        "frequencyPerThousand": 10.9
+      },
+      "GGG": {
+        "aa": "G",
+        "fraction": 0.12,
+        "frequencyPerThousand": 6
+      }
+    },
+    "insect": {
+      "TTT": {
+        "aa": "F",
+        "fraction": 0.27,
+        "frequencyPerThousand": 10.1
+      },
+      "TTC": {
+        "aa": "F",
+        "fraction": 0.73,
+        "frequencyPerThousand": 27.5
+      },
+      "TTA": {
+        "aa": "L",
+        "fraction": 0.09,
+        "frequencyPerThousand": 7.7
+      },
+      "TTG": {
+        "aa": "L",
+        "fraction": 0.2,
+        "frequencyPerThousand": 15.9
+      },
+      "CTT": {
+        "aa": "L",
+        "fraction": 0.12,
+        "frequencyPerThousand": 9.6
+      },
+      "CTC": {
+        "aa": "L",
+        "fraction": 0.21,
+        "frequencyPerThousand": 17
+      },
+      "CTA": {
+        "aa": "L",
+        "fraction": 0.09,
+        "frequencyPerThousand": 7
+      },
+      "CTG": {
+        "aa": "L",
+        "fraction": 0.3,
+        "frequencyPerThousand": 24.1
+      },
+      "ATT": {
+        "aa": "I",
+        "fraction": 0.3,
+        "frequencyPerThousand": 15.5
+      },
+      "ATC": {
+        "aa": "I",
+        "fraction": 0.54,
+        "frequencyPerThousand": 28.3
+      },
+      "ATA": {
+        "aa": "I",
+        "fraction": 0.16,
+        "frequencyPerThousand": 8.3
+      },
+      "ATG": {
+        "aa": "M",
+        "fraction": 1,
+        "frequencyPerThousand": 27
+      },
+      "GTT": {
+        "aa": "V",
+        "fraction": 0.2,
+        "frequencyPerThousand": 14.1
+      },
+      "GTC": {
+        "aa": "V",
+        "fraction": 0.29,
+        "frequencyPerThousand": 20.1
+      },
+      "GTA": {
+        "aa": "V",
+        "fraction": 0.17,
+        "frequencyPerThousand": 12
+      },
+      "GTG": {
+        "aa": "V",
+        "fraction": 0.34,
+        "frequencyPerThousand": 24.1
+      },
+      "TCT": {
+        "aa": "S",
+        "fraction": 0.18,
+        "frequencyPerThousand": 10.7
+      },
+      "TCC": {
+        "aa": "S",
+        "fraction": 0.21,
+        "frequencyPerThousand": 12.6
+      },
+      "TCA": {
+        "aa": "S",
+        "fraction": 0.17,
+        "frequencyPerThousand": 10.6
+      },
+      "TCG": {
+        "aa": "S",
+        "fraction": 0.13,
+        "frequencyPerThousand": 7.7
+      },
+      "CCT": {
+        "aa": "P",
+        "fraction": 0.29,
+        "frequencyPerThousand": 14.1
+      },
+      "CCC": {
+        "aa": "P",
+        "fraction": 0.28,
+        "frequencyPerThousand": 13.7
+      },
+      "CCA": {
+        "aa": "P",
+        "fraction": 0.28,
+        "frequencyPerThousand": 13.6
+      },
+      "CCG": {
+        "aa": "P",
+        "fraction": 0.16,
+        "frequencyPerThousand": 7.8
+      },
+      "ACT": {
+        "aa": "T",
+        "fraction": 0.27,
+        "frequencyPerThousand": 14.3
+      },
+      "ACC": {
+        "aa": "T",
+        "fraction": 0.32,
+        "frequencyPerThousand": 17.2
+      },
+      "ACA": {
+        "aa": "T",
+        "fraction": 0.23,
+        "frequencyPerThousand": 12.3
+      },
+      "ACG": {
+        "aa": "T",
+        "fraction": 0.18,
+        "frequencyPerThousand": 9.4
+      },
+      "GCT": {
+        "aa": "A",
+        "fraction": 0.35,
+        "frequencyPerThousand": 24.6
+      },
+      "GCC": {
+        "aa": "A",
+        "fraction": 0.29,
+        "frequencyPerThousand": 20.8
+      },
+      "GCA": {
+        "aa": "A",
+        "fraction": 0.18,
+        "frequencyPerThousand": 12.8
+      },
+      "GCG": {
+        "aa": "A",
+        "fraction": 0.18,
+        "frequencyPerThousand": 12.4
+      },
+      "TAT": {
+        "aa": "Y",
+        "fraction": 0.29,
+        "frequencyPerThousand": 10
+      },
+      "TAC": {
+        "aa": "Y",
+        "fraction": 0.71,
+        "frequencyPerThousand": 24.4
+      },
+      "TAA": {
+        "aa": "*",
+        "fraction": 0.62,
+        "frequencyPerThousand": 2.3
+      },
+      "TAG": {
+        "aa": "*",
+        "fraction": 0.19,
+        "frequencyPerThousand": 0.7
+      },
+      "CAT": {
+        "aa": "H",
+        "fraction": 0.36,
+        "frequencyPerThousand": 8.7
+      },
+      "CAC": {
+        "aa": "H",
+        "fraction": 0.64,
+        "frequencyPerThousand": 15.6
+      },
+      "CAA": {
+        "aa": "Q",
+        "fraction": 0.43,
+        "frequencyPerThousand": 16.1
+      },
+      "CAG": {
+        "aa": "Q",
+        "fraction": 0.57,
+        "frequencyPerThousand": 21.6
+      },
+      "AAT": {
+        "aa": "N",
+        "fraction": 0.32,
+        "frequencyPerThousand": 13.4
+      },
+      "AAC": {
+        "aa": "N",
+        "fraction": 0.68,
+        "frequencyPerThousand": 28.8
+      },
+      "AAA": {
+        "aa": "K",
+        "fraction": 0.35,
+        "frequencyPerThousand": 26.8
+      },
+      "AAG": {
+        "aa": "K",
+        "fraction": 0.65,
+        "frequencyPerThousand": 49.2
+      },
+      "GAT": {
+        "aa": "D",
+        "fraction": 0.4,
+        "frequencyPerThousand": 21.9
+      },
+      "GAC": {
+        "aa": "D",
+        "fraction": 0.6,
+        "frequencyPerThousand": 33.4
+      },
+      "GAA": {
+        "aa": "E",
+        "fraction": 0.45,
+        "frequencyPerThousand": 27.6
+      },
+      "GAG": {
+        "aa": "E",
+        "fraction": 0.55,
+        "frequencyPerThousand": 33.1
+      },
+      "TGT": {
+        "aa": "C",
+        "fraction": 0.39,
+        "frequencyPerThousand": 8.5
+      },
+      "TGC": {
+        "aa": "C",
+        "fraction": 0.61,
+        "frequencyPerThousand": 13.2
+      },
+      "TGA": {
+        "aa": "*",
+        "fraction": 0.19,
+        "frequencyPerThousand": 0.7
+      },
+      "TGG": {
+        "aa": "W",
+        "fraction": 1,
+        "frequencyPerThousand": 13.3
+      },
+      "CGT": {
+        "aa": "R",
+        "fraction": 0.24,
+        "frequencyPerThousand": 15.3
+      },
+      "CGC": {
+        "aa": "R",
+        "fraction": 0.24,
+        "frequencyPerThousand": 15.6
+      },
+      "CGA": {
+        "aa": "R",
+        "fraction": 0.08,
+        "frequencyPerThousand": 5.4
+      },
+      "CGG": {
+        "aa": "R",
+        "fraction": 0.06,
+        "frequencyPerThousand": 3.7
+      },
+      "AGT": {
+        "aa": "S",
+        "fraction": 0.14,
+        "frequencyPerThousand": 8.4
+      },
+      "AGC": {
+        "aa": "S",
+        "fraction": 0.18,
+        "frequencyPerThousand": 11.1
+      },
+      "AGA": {
+        "aa": "R",
+        "fraction": 0.19,
+        "frequencyPerThousand": 12.1
+      },
+      "AGG": {
+        "aa": "R",
+        "fraction": 0.19,
+        "frequencyPerThousand": 12.6
+      },
+      "GGT": {
+        "aa": "G",
+        "fraction": 0.34,
+        "frequencyPerThousand": 21.5
+      },
+      "GGC": {
+        "aa": "G",
+        "fraction": 0.31,
+        "frequencyPerThousand": 19.6
+      },
+      "GGA": {
+        "aa": "G",
+        "fraction": 0.28,
+        "frequencyPerThousand": 17.8
+      },
+      "GGG": {
+        "aa": "G",
+        "fraction": 0.07,
+        "frequencyPerThousand": 4.6
+      }
+    }
+  }
+}

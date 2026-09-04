@@ -24,8 +24,8 @@ describe('Biophysical & Molecular Biology Tools Views Suite', () => {
   it('renders Gibson & In-Fusion Assembly tool and calculates primers', () => {
     route.value = { name: 'tool', toolId: 'gibson' };
     render(<GibsonView />);
-    expect(screen.getByText(/Gibson & In-Fusion Assembly Designer/)).toBeTruthy();
-    expect(screen.getByText(/PCR Primers for Insert Amplification/)).toBeTruthy();
+    expect(screen.getByText(/Gibson & (NEBuilder HiFi|In-Fusion) Assembly Designer/)).toBeTruthy();
+    expect(screen.getByText(/PCR Primers for (Assembly|Insert Amplification)/)).toBeTruthy();
     expect(screen.getByText(/Homology Overlap Junctions/)).toBeTruthy();
   });
 

@@ -27,8 +27,11 @@ export const DEFAULT_COLONY_CATEGORIES: ColonyCategory[] = [
 
 export interface SizeDistributionBin {
   binLabel: string;
+  binLabelMm?: string;
   minRadius: number;
   maxRadius: number;
+  minRadiusMm?: number;
+  maxRadiusMm?: number;
   count: number;
   percentage: number;
 }
@@ -40,6 +43,101 @@ export interface SizeDistributionStats {
   stdDev: number;
   cvPercent: number;
   bins: SizeDistributionBin[];
+  meanRadiusMm?: number;
+  meanDiameterMm?: number;
+  stdDevMm?: number;
+}
+
+export interface ColonyPhysicalMetrics {
+  radiusMm: number;
+  diameterMm: number;
+  areaMm2: number;
+  distanceFromCenterMm: number;
+}
+
+export interface PlatePhysicalSummary {
+  dishDiameterMm: number;
+  dishAreaCm2: number;
+  pixelsPerMm: number;
+  mmPerPixel: number;
+  platingDensityCfuPerCm2: number;
+  meanDiameterMm: number;
+  meanAreaMm2: number;
+  densityStatus: 'sparse' | 'optimal' | 'dense' | 'confluent';
+}
+
+export interface PetriDishPreset {
+  label: string;
+  diameterMm: number;
+  description: string;
+}
+
+export const PETRI_DISH_PRESETS: PetriDishPreset[] = [
+  { label: '90 mm (Standard Petri)', diameterMm: 90, description: 'Standard 90 × 15 mm microbiology Petri dish' },
+  { label: '100 mm (Falcon / BD)', diameterMm: 100, description: '100 mm culture dish (approx. 78.5 cm² area)' },
+  { label: '60 mm (Contact / Grid)', diameterMm: 60, description: 'Small 60 mm grid/contact plate (approx. 28.3 cm² area)' },
+  { label: '150 mm (Bioassay / Mega)', diameterMm: 150, description: 'Large 150 mm bioassay/cloning plate (approx. 176.7 cm² area)' },
+];
+
+/** Calculate physical dimensions of a colony from pixel radius, position, and dish scale */
+export function calculateColonyPhysicalMetrics(
+  radiusPx: number,
+  x: number,
+  y: number,
+  dishCenter: { cx: number; cy: number },
+  mmPerPixel: number,
+): ColonyPhysicalMetrics {
+  const radiusMm = radiusPx * mmPerPixel;
+  const diameterMm = radiusMm * 2;
+  const areaMm2 = Math.PI * radiusMm * radiusMm;
+  const distPx = Math.hypot(x - dishCenter.cx, y - dishCenter.cy);
+  const distanceFromCenterMm = distPx * mmPerPixel;
+
+  return {
+    radiusMm,
+    diameterMm,
+    areaMm2,
+    distanceFromCenterMm,
+  };
+}
+
+/** Calculate overall plate physical summary and colony plating density */
+export function calculatePlatePhysicalSummary(
+  colonyCount: number,
+  meanRadiusPx: number,
+  dishDiameterMm: number,
+  dishRadiusPx: number,
+): PlatePhysicalSummary {
+  const safeDishR = dishRadiusPx > 0 ? dishRadiusPx : 215;
+  const dishRadiusMm = dishDiameterMm / 2;
+  const mmPerPixel = dishRadiusMm / safeDishR;
+  const pixelsPerMm = 1 / mmPerPixel;
+
+  const dishRadiusCm = dishDiameterMm / 20;
+  const dishAreaCm2 = Math.PI * dishRadiusCm * dishRadiusCm;
+
+  const platingDensityCfuPerCm2 = dishAreaCm2 > 0 ? colonyCount / dishAreaCm2 : 0;
+
+  const meanRadiusMm = meanRadiusPx * mmPerPixel;
+  const meanDiameterMm = meanRadiusMm * 2;
+  const meanAreaMm2 = Math.PI * meanRadiusMm * meanRadiusMm;
+
+  let densityStatus: 'sparse' | 'optimal' | 'dense' | 'confluent' = 'optimal';
+  if (colonyCount < 30) densityStatus = 'sparse';
+  else if (colonyCount <= 300) densityStatus = 'optimal';
+  else if (colonyCount <= 600) densityStatus = 'dense';
+  else densityStatus = 'confluent';
+
+  return {
+    dishDiameterMm,
+    dishAreaCm2,
+    pixelsPerMm,
+    mmPerPixel,
+    platingDensityCfuPerCm2,
+    meanDiameterMm,
+    meanAreaMm2,
+    densityStatus,
+  };
 }
 
 /** Calculate CFU per mL from colony count, volume plated, and dilution factor */
@@ -78,7 +176,10 @@ export function calculateCfu({
 }
 
 /** Compute size distribution statistics and histogram bins */
-export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributionStats {
+export function computeSizeDistribution(
+  colonies: ColonySpot[],
+  mmPerPixel?: number,
+): SizeDistributionStats {
   if (colonies.length === 0) {
     return {
       totalCount: 0,
@@ -87,6 +188,9 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
       stdDev: 0,
       cvPercent: 0,
       bins: [],
+      meanRadiusMm: 0,
+      meanDiameterMm: 0,
+      stdDevMm: 0,
     };
   }
 
@@ -102,6 +206,7 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
   const numBins = Math.min(6, Math.max(3, Math.ceil(Math.sqrt(n))));
   const binStep = Math.max(0.5, (maxR - minR) / numBins);
 
+  const scale = mmPerPixel ?? 1;
   const bins: SizeDistributionBin[] = [];
   for (let i = 0; i < numBins; i++) {
     const low = minR + i * binStep;
@@ -109,8 +214,11 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
     const inBin = radii.filter(r => r >= low && r < high).length;
     bins.push({
       binLabel: `${(low * 2).toFixed(1)}–${(high * 2).toFixed(1)} px`,
+      binLabelMm: mmPerPixel ? `${(low * 2 * scale).toFixed(2)}–${(high * 2 * scale).toFixed(2)} mm` : undefined,
       minRadius: low,
       maxRadius: high,
+      minRadiusMm: mmPerPixel ? low * scale : undefined,
+      maxRadiusMm: mmPerPixel ? high * scale : undefined,
       count: inBin,
       percentage: n > 0 ? (inBin / n) * 100 : 0,
     });
@@ -123,6 +231,9 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
     stdDev,
     cvPercent,
     bins,
+    meanRadiusMm: mmPerPixel ? meanRadius * mmPerPixel : undefined,
+    meanDiameterMm: mmPerPixel ? meanRadius * 2 * mmPerPixel : undefined,
+    stdDevMm: mmPerPixel ? stdDev * mmPerPixel : undefined,
   };
 }
 
@@ -342,13 +453,15 @@ export function autoDetectColonies(
       const cVal = getContrast(x, y);
       if (cVal <= 12) continue;
 
-      // Marker pen ink rejection (e.g. sharp red, blue, green Sharpie marks on petri dish)
+      // Marker pen ink rejection (only reject high-brightness saturated marker pen lines, e.g. sharp red, blue, green Sharpie)
       const pxIdx = (Math.floor(y) * width + Math.floor(x)) * 4;
       const rVal = data[pxIdx]!;
       const gVal = data[pxIdx + 1]!;
       const bVal = data[pxIdx + 2]!;
-      const colorSpread = Math.max(Math.abs(rVal - gVal), Math.abs(rVal - bVal), Math.abs(gVal - bVal));
-      if (colorSpread > 40 && (rVal > gVal * 1.35 || bVal > gVal * 1.35)) {
+      const maxChannel = Math.max(rVal, gVal, bVal);
+      const minChannel = Math.min(rVal, gVal, bVal);
+      const colorSpread = maxChannel - minChannel;
+      if (maxChannel > 160 && colorSpread > 80 && (rVal > gVal * 1.8 || bVal > gVal * 1.8 || gVal > rVal * 1.8)) {
         continue;
       }
 
@@ -465,8 +578,9 @@ export function autoDetectColonies(
     for (const existing of results) {
       const d = Math.hypot(existing.x - c.x, existing.y - c.y);
 
-      // If closer than minDistance, definitely merge/suppress duplicate peak
-      if (d < minDistance) {
+      // If closer than minDistance or within the same colony radius, suppress duplicate peak
+      const minColonyR = Math.min(existing.radius || 4, c.radius || 4);
+      if (d < minDistance || d < minColonyR * 0.85) {
         keep = false;
         break;
       }

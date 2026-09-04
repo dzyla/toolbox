@@ -973,6 +973,17 @@ export default function View() {
             />
           </label>
 
+          <a
+            href="#/tool/structure"
+            class="flex items-center justify-between p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/60 dark:border-indigo-900/50 dark:bg-indigo-950/20 text-xs font-semibold text-indigo-900 dark:text-indigo-300 transition"
+          >
+            <span class="flex items-center gap-1.5">
+              <span>🧊</span>
+              <span>Open 3D Structure Viewer &amp; Kabsch RMSD Superposition</span>
+            </span>
+            <span>→</span>
+          </a>
+
           <div class="grid gap-3 sm:grid-cols-2">
             <label for="protein-pka" class="block">
               <span class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">pKa scheme</span>

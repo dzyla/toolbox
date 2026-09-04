@@ -32,6 +32,15 @@ describe('core/protein', () => {
     expect(P.netCharge(s.counts, s.pI, 'bjellqvist', LYSOZYME)).toBeCloseTo(0, 6);
     const arr = P.perResidueCharge(LYSOZYME, 7.4);
     expect(arr.reduce((a, b) => a + b, 0)).toBeCloseTo(P.netCharge(s.counts, 7.4, 'bjellqvist', LYSOZYME), 6);
+
+    // Verify sequences ending in D and E (Bjellqvist C-terminal carboxyl adjustment)
+    for (const seq of ['ACDEFGD', 'MVHLTPEE', 'MKWVTFISLL']) {
+      const counts = P.countAA(seq);
+      const pI = P.isoelectricPoint(counts, 'bjellqvist', seq);
+      expect(P.netCharge(counts, pI, 'bjellqvist', seq)).toBeCloseTo(0, 6);
+      const rArr = P.perResidueCharge(seq, 7.0, 'bjellqvist');
+      expect(rArr.reduce((a, b) => a + b, 0)).toBeCloseTo(P.netCharge(counts, 7.0, 'bjellqvist', seq), 6);
+    }
   });
   it('denatured extinction coefficients', () => {
     const e = P.extinctionCoefficients(s.counts, s.mw, 'denatured');

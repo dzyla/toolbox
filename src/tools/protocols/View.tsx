@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useEffect } from 'preact/hooks';
 import {
   type Protocol,
   BUNDLED_PROTOCOLS,
@@ -37,6 +37,55 @@ Rules:
 3. Use "CRITICAL:" for steps requiring special care, temperature limits, or warnings.
 4. Output ONLY the markdown text, with no extra conversational commentary.`;
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function playAlarmChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.setValueAtTime(1174.66, now + 0.15);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.8);
+  } catch {
+    // blocked or unavailable
+  }
+}
+
+function notifyStepComplete(stepText: string) {
+  playAlarmChime();
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([300, 150, 300, 150, 500]);
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('⏱️ Protocol Timer Complete!', {
+        body: stepText,
+        icon: '/favicon.ico',
+      });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export default function ProtocolsView() {
   const [stateSig, shareUrl] = useUrlState<State>('protocols', DEFAULTS);
   const s = stateSig.value;
@@ -45,8 +94,29 @@ export default function ProtocolsView() {
   const [activeProtocol, setActiveProtocol] = useState<Protocol>(() => BUNDLED_PROTOCOLS[0]!);
   const [customMdInput, setCustomMdInput] = useState('');
   const [activeTimerStepId, setActiveTimerStepId] = useState<string | null>(null);
-  const [activeTimerSeconds, setActiveTimerSeconds] = useState<number>(0);
+  const [timerTotalSeconds, setTimerTotalSeconds] = useState<number>(0);
+  const [timerRemainingSeconds, setTimerRemainingSeconds] = useState<number>(0);
+  const [timerIsRunning, setTimerIsRunning] = useState<boolean>(false);
   const [promptCopied, setPromptCopied] = useState(false);
+
+  // Active step countdown interval ticker
+  useEffect(() => {
+    if (!activeTimerStepId || !timerIsRunning) return;
+
+    const interval = window.setInterval(() => {
+      setTimerRemainingSeconds(prev => {
+        if (prev <= 1) {
+          const finishedStep = activeProtocol.steps.find(st => st.id === activeTimerStepId);
+          notifyStepComplete(finishedStep?.text || 'Incubation complete!');
+          setTimerIsRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeTimerStepId, timerIsRunning, activeProtocol.steps]);
 
   function handleCopyAiPrompt() {
     navigator.clipboard?.writeText?.(AI_PROMPT_TEMPLATE);
@@ -58,8 +128,9 @@ export default function ProtocolsView() {
     set({ protocolId: id });
     const p = BUNDLED_PROTOCOLS.find(item => item.id === id);
     if (p) {
-      // Clone so user can toggle steps
       setActiveProtocol(JSON.parse(JSON.stringify(p)));
+      setActiveTimerStepId(null);
+      setTimerIsRunning(false);
     }
   }
 
@@ -83,12 +154,24 @@ export default function ProtocolsView() {
     if (p.steps.length > 0) {
       setActiveProtocol(p);
       set({ protocolId: 'custom' });
+      setActiveTimerStepId(null);
+      setTimerIsRunning(false);
     }
   }
 
   function handleStartStepTimer(stepId: string, mins: number) {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        Notification.requestPermission();
+      } catch {
+        // ignore
+      }
+    }
+    const total = Math.max(1, Math.round(mins * 60));
     setActiveTimerStepId(stepId);
-    setActiveTimerSeconds(Math.round(mins * 60));
+    setTimerTotalSeconds(total);
+    setTimerRemainingSeconds(total);
+    setTimerIsRunning(true);
   }
 
   const completedCount = useMemo(() => {
@@ -232,25 +315,51 @@ export default function ProtocolsView() {
             </div>
           </div>
 
-          {/* Active Step Timer Notification if running */}
+          {/* Active Step Timer Notification with Visual Progress */}
           {activeTimerStepId && (
-            <div class="rounded-xl border border-emerald-300 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/40 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="text-lg">⏱️</span>
-                <div>
-                  <strong class="text-xs text-emerald-950 dark:text-emerald-200 block">Active Incubation Timer</strong>
-                  <span class="text-[11px] text-emerald-800 dark:text-emerald-400">
-                    Step timer running: {Math.floor(activeTimerSeconds / 60)}m {activeTimerSeconds % 60}s remaining
-                  </span>
+            <div class={`rounded-xl border p-4 shadow-sm transition ${timerRemainingSeconds === 0 ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 ring-2 ring-emerald-400' : 'border-sky-300 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40'}`}>
+              <div class="flex items-center justify-between gap-3 mb-2.5">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-xl animate-pulse">{timerRemainingSeconds === 0 ? '🔔' : '⏱️'}</span>
+                  <div>
+                    <strong class="text-xs font-bold text-slate-900 dark:text-slate-100 block">
+                      {timerRemainingSeconds === 0 ? 'Incubation Timer Finished!' : 'Active Step Timer'}
+                    </strong>
+                    <span class="text-[11px] text-slate-600 dark:text-slate-400 font-mono">
+                      {formatTime(timerRemainingSeconds)} remaining of {formatTime(timerTotalSeconds)} ({Math.min(100, Math.round(((timerTotalSeconds - timerRemainingSeconds) / timerTotalSeconds) * 100))}% elapsed)
+                    </span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  {timerRemainingSeconds > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTimerIsRunning(r => !r)}
+                      class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                    >
+                      {timerIsRunning ? '⏸ Pause' : '▶ Resume'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTimerStepId(null);
+                      setTimerIsRunning(false);
+                    }}
+                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveTimerStepId(null)}
-                class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800"
-              >
-                Dismiss
-              </button>
+
+              {/* Progress bar */}
+              <div class="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  class={`h-full rounded-full transition-all duration-1000 ${timerRemainingSeconds === 0 ? 'bg-emerald-500' : 'bg-sky-500'}`}
+                  style={{ width: `${Math.min(100, ((timerTotalSeconds - timerRemainingSeconds) / timerTotalSeconds) * 100)}%` }}
+                />
+              </div>
             </div>
           )}
 
@@ -261,49 +370,105 @@ export default function ProtocolsView() {
             </h3>
 
             <div class="space-y-2">
-              {activeProtocol.steps.map((step, idx) => (
-                <div
-                  key={step.id}
-                  onClick={() => handleToggleStep(step.id)}
-                  class={`p-3 rounded-xl border transition flex items-start gap-3 cursor-pointer ${step.completed ? 'bg-slate-50/60 border-slate-200 dark:bg-slate-950/40 dark:border-slate-800 opacity-60' : step.critical ? 'border-amber-300 bg-amber-50/20 dark:border-amber-800 dark:bg-amber-950/20' : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={step.completed}
-                    onChange={() => handleToggleStep(step.id)}
-                    class="mt-1 w-4 h-4 rounded text-accent-600 accent-accent-600 cursor-pointer shrink-0"
-                  />
-                  <div class="flex-1 space-y-1">
-                    <div class="flex items-baseline gap-2">
-                      <strong class="font-mono text-xs text-slate-400">Step {idx + 1}</strong>
-                      {step.critical && (
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                          ⚠️ CRITICAL
-                        </span>
+              {activeProtocol.steps.map((step, idx) => {
+                const isStepTimerActive = activeTimerStepId === step.id;
+                const isFinished = isStepTimerActive && timerRemainingSeconds === 0;
+
+                return (
+                  <div
+                    key={step.id}
+                    onClick={() => handleToggleStep(step.id)}
+                    class={`p-3 rounded-xl border transition flex items-start gap-3 cursor-pointer ${
+                      step.completed
+                        ? 'bg-slate-50/60 border-slate-200 dark:bg-slate-950/40 dark:border-slate-800 opacity-60'
+                        : step.critical
+                        ? 'border-rose-500 bg-rose-50/50 dark:border-rose-600 dark:bg-rose-950/30'
+                        : step.warning
+                        ? 'border-amber-400 bg-amber-50/50 dark:border-amber-500 dark:bg-amber-950/30'
+                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={step.completed}
+                      onChange={() => handleToggleStep(step.id)}
+                      class="mt-1 w-4 h-4 rounded text-accent-600 accent-accent-600 cursor-pointer shrink-0"
+                    />
+                    <div class="flex-1 space-y-1">
+                      <div class="flex items-baseline gap-2">
+                        <strong class="font-mono text-xs text-slate-400">Step {idx + 1}</strong>
+                        {step.critical && (
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white shadow-2xs">
+                            🛑 CRITICAL
+                          </span>
+                        )}
+                        {step.warning && (
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-amber-950 shadow-2xs">
+                            ⚠️ WARNING
+                          </span>
+                        )}
+                      </div>
+                      <p class={`text-xs leading-relaxed ${step.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                        {step.text}
+                      </p>
+
+                      {step.timerMinutes && (
+                        <div class="pt-1">
+                          {isStepTimerActive ? (
+                            <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                              <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1">
+                                  <span>{isFinished ? '🔔 Finished!' : '⏱️ Running:'}</span>
+                                  <span>{formatTime(timerRemainingSeconds)}</span>
+                                </span>
+                                <div class="space-x-1">
+                                  {timerRemainingSeconds > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setTimerIsRunning(r => !r)}
+                                      class="px-2 py-0.5 text-[10px] rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    >
+                                      {timerIsRunning ? 'Pause' : 'Resume'}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveTimerStepId(null);
+                                      setTimerIsRunning(false);
+                                    }}
+                                    class="px-2 py-0.5 text-[10px] rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+                              </div>
+                              <div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  class={`h-full rounded-full transition-all duration-1000 ${isFinished ? 'bg-emerald-500' : 'bg-sky-500'}`}
+                                  style={{ width: `${Math.min(100, ((timerTotalSeconds - timerRemainingSeconds) / timerTotalSeconds) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartStepTimer(step.id, step.timerMinutes!);
+                              }}
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-accent-50 text-accent-700 hover:bg-accent-100 dark:bg-accent-950 dark:text-accent-300 border border-accent-200 dark:border-accent-800 transition shadow-2xs"
+                            >
+                              <span>⏱️</span>
+                              <span>Start Timer ({step.timerMinutes} min)</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <p class={`text-xs leading-relaxed ${step.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>
-                      {step.text}
-                    </p>
-
-                    {step.timerMinutes && (
-                      <div class="pt-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartStepTimer(step.id, step.timerMinutes!);
-                          }}
-                          class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-accent-50 text-accent-700 hover:bg-accent-100 dark:bg-accent-950 dark:text-accent-300 border border-accent-200 dark:border-accent-800 transition"
-                        >
-                          <span>⏱️</span>
-                          <span>Start Timer ({step.timerMinutes} min)</span>
-                        </button>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

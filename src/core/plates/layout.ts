@@ -451,3 +451,216 @@ export function plateToMarkdown(
   return lines.join('\n');
 }
 
+/**
+ * Parse an 8x12 (or any plate dimension) matrix from TSV/CSV copied from Excel or Google Sheets.
+ * Supports:
+ * - Direct 8x12 values without headers
+ * - Headers with row labels (A, B, C...) and column numbers (1, 2, 3...)
+ * - Cell values with embedded concentrations, e.g. "Sample 1 (100 µM)" or "Std 50 ng/mL" or just numbers/strings
+ */
+export function parseMatrixText(
+  text: string,
+  format: PlateFormat = 96,
+  existingGroups: SampleGroup[] = []
+): { wells: Record<string, WellData>; groups: SampleGroup[] } {
+  const dim = PLATE_DIMENSIONS[format];
+  const emptyWells = generateEmptyPlate(format);
+
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  if (lines.length === 0) {
+    return { wells: emptyWells, groups: existingGroups };
+  }
+
+  // Detect delimiter: tab, comma, or semicolon
+  const firstFew = lines.slice(0, 3).join('\n');
+  const tabCount = (firstFew.match(/\t/g) || []).length;
+  const commaCount = (firstFew.match(/,/g) || []).length;
+  const semiCount = (firstFew.match(/;/g) || []).length;
+
+  let delimiter = '\t';
+  if (commaCount > tabCount && commaCount > semiCount) delimiter = ',';
+  else if (semiCount > tabCount && semiCount > commaCount) delimiter = ';';
+
+  function parseLine(line: string): string[] {
+    if (delimiter === '\t') {
+      return line.split('\t').map(c => c.trim().replace(/^["']|["']$/g, ''));
+    }
+    const cells: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === delimiter && !inQuotes) {
+        cells.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
+
+  const rawGrid = lines.map(parseLine);
+  if (rawGrid.length === 0) return { wells: emptyWells, groups: existingGroups };
+
+  // Check if first row is a header row (e.g. contains 1, 2, 3... or "Row" / empty first cell followed by numbers)
+  let startRowIdx = 0;
+  let startColIdx = 0;
+
+  const firstRow = rawGrid[0]!;
+  const numericCellsInFirstRow = firstRow.filter(c => /^\d+$/.test(c)).length;
+  if (numericCellsInFirstRow >= Math.min(3, firstRow.length - 1)) {
+    startRowIdx = 1;
+  }
+
+  // Check if first column has row labels (A, B, C...)
+  let rowLabelsFound = 0;
+  for (let r = startRowIdx; r < rawGrid.length; r++) {
+    const firstCell = rawGrid[r]?.[0]?.toUpperCase();
+    if (firstCell && /^[A-P]$/.test(firstCell)) {
+      rowLabelsFound++;
+    }
+  }
+  if (rowLabelsFound >= Math.min(3, rawGrid.length - startRowIdx)) {
+    startColIdx = 1;
+  }
+
+  const groupMap = new Map<string, SampleGroup>();
+  for (const g of existingGroups) {
+    groupMap.set(g.name.toLowerCase(), g);
+  }
+
+  const paletteColors = [
+    '#3b82f6', '#ec4899', '#f59e0b', '#06b6d4', '#8b5cf6',
+    '#ef4444', '#10b981', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
+  ];
+  let colorIdx = existingGroups.length;
+
+  const wells: Record<string, WellData> = { ...emptyWells };
+
+  for (let r = startRowIdx; r < rawGrid.length && (r - startRowIdx) < dim.rows; r++) {
+    const rIdx = r - startRowIdx;
+    const rowChar = dim.rowLabels[rIdx]!;
+    const rowCells = rawGrid[r]!;
+
+    for (let c = startColIdx; c < rowCells.length && (c - startColIdx) < dim.cols; c++) {
+      const cIdx = c - startColIdx + 1;
+      const wellId = `${rowChar}${cIdx}`;
+      const cellText = rowCells[c]!.trim();
+
+      if (!cellText || cellText === '-' || cellText === '—' || cellText.toLowerCase() === 'empty') {
+        continue;
+      }
+
+      let sampleName = cellText;
+      let value: number | undefined;
+      let unit: string | undefined;
+
+      const numOnlyMatch = cellText.match(/^([0-9.eE+-]+)\s*([a-zA-Zµ/%]+)?$/);
+      const parenMatch = cellText.match(/^(.*?)\s*\(\s*([0-9.eE+-]+)\s*([a-zA-Zµ/%]+)?\s*\)$/);
+      const spaceMatch = cellText.match(/^(.*?)\s+([0-9.eE+-]+)\s+([a-zA-Zµ/%]+)$/);
+
+      if (parenMatch) {
+        sampleName = parenMatch[1]!.trim();
+        const parsedVal = parseFloat(parenMatch[2]!);
+        if (!isNaN(parsedVal)) value = parsedVal;
+        unit = parenMatch[3]?.trim();
+      } else if (numOnlyMatch) {
+        const parsedVal = parseFloat(numOnlyMatch[1]!);
+        if (!isNaN(parsedVal)) {
+          value = parsedVal;
+          unit = numOnlyMatch[2]?.trim();
+          sampleName = `Sample (${value}${unit ? ` ${unit}` : ''})`;
+        }
+      } else if (spaceMatch && isNaN(parseFloat(spaceMatch[1]!))) {
+        sampleName = spaceMatch[1]!.trim();
+        const parsedVal = parseFloat(spaceMatch[2]!);
+        if (!isNaN(parsedVal)) value = parsedVal;
+        unit = spaceMatch[3]?.trim();
+      }
+
+      const lowerName = sampleName.toLowerCase();
+      let group = groupMap.get(lowerName);
+      if (!group) {
+        let type: SampleGroup['type'] = 'sample';
+        let color = paletteColors[colorIdx % paletteColors.length]!;
+        colorIdx++;
+
+        if (lowerName.includes('blank') || lowerName.includes('media')) {
+          type = 'blank';
+          color = '#94a3b8';
+        } else if (lowerName.includes('pos')) {
+          type = 'pos-ctrl';
+          color = '#10b981';
+        } else if (lowerName.includes('neg')) {
+          type = 'neg-ctrl';
+          color = '#64748b';
+        } else if (lowerName.includes('std') || lowerName.includes('calibrator')) {
+          type = 'standard';
+          color = '#8b5cf6';
+        }
+
+        const newId = `grp-${Date.now()}-${colorIdx}`;
+        group = {
+          id: newId,
+          name: sampleName,
+          color,
+          type,
+        };
+        groupMap.set(lowerName, group);
+      }
+
+      wells[wellId] = {
+        id: wellId,
+        row: rowChar,
+        col: cIdx,
+        sampleGroupId: group.id,
+        sampleName: sampleName,
+        value,
+        unit,
+      };
+    }
+  }
+
+  return {
+    wells,
+    groups: Array.from(groupMap.values()),
+  };
+}
+
+/** Serialize plate data to TSV matrix format for direct pasting into Excel / Google Sheets */
+export function plateToMatrixTsv(format: PlateFormat, wells: Record<string, WellData>): string {
+  const dim = PLATE_DIMENSIONS[format];
+  const header = ['Row', ...Array.from({ length: dim.cols }, (_, i) => (i + 1).toString())];
+  const rows = [header.join('\t')];
+
+  for (let r = 0; r < dim.rows; r++) {
+    const rowChar = dim.rowLabels[r]!;
+    const rowCells = [rowChar];
+    for (let c = 1; c <= dim.cols; c++) {
+      const well = wells[`${rowChar}${c}`];
+      if (!well || (!well.sampleGroupId && !well.sampleName)) {
+        rowCells.push('');
+      } else {
+        const valStr = well.value !== undefined ? ` (${well.value}${well.unit ? ` ${well.unit}` : ''})` : '';
+        rowCells.push(`${well.sampleName || well.sampleGroupId}${valStr}`);
+      }
+    }
+    rows.push(rowCells.join('\t'));
+  }
+
+  return rows.join('\n');
+}
+

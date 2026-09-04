@@ -50,6 +50,23 @@ function playBeep() {
   }
 }
 
+function notifyTimerComplete(timerName: string) {
+  playBeep();
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([300, 150, 300, 150, 500]);
+    } catch {}
+  }
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('⏱️ Timer Complete!', {
+        body: `Timer "${timerName}" has finished!`,
+        icon: '/favicon.ico',
+      });
+    } catch {}
+  }
+}
+
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -81,7 +98,7 @@ export default function TimersView() {
       setTimers(prev => prev.map(t => {
         if (!t.isRunning) return t;
         if (t.remainingSeconds <= 1) {
-          playBeep();
+          notifyTimerComplete(t.name);
           return { ...t, remainingSeconds: 0, isRunning: false };
         }
         return { ...t, remainingSeconds: t.remainingSeconds - 1 };
@@ -106,6 +123,11 @@ export default function TimersView() {
   }, [isStopwatchRunning]);
 
   function handleToggleTimer(id: string) {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        Notification.requestPermission();
+      } catch {}
+    }
     setTimers(prev => prev.map(t => t.id === id ? { ...t, isRunning: !t.isRunning } : t));
   }
 
