@@ -33,6 +33,103 @@ export interface MrcData {
   header: MrcHeader;
   slices: Float32Array[];
   getOrthoslice(axis: 'xy' | 'xz' | 'yz', index: number): { width: number; height: number; data: Float32Array };
+  getMaxProjection(axis: 'xy' | 'xz' | 'yz', startIdx?: number, endIdx?: number): { width: number; height: number; data: Float32Array };
+}
+
+export function buildMrcData(header: MrcHeader, slices: Float32Array[]): MrcData {
+  const nx = header.nx;
+  const ny = header.ny;
+  const nz = slices.length;
+
+  const getOrthoslice = (axis: 'xy' | 'xz' | 'yz', index: number): { width: number; height: number; data: Float32Array } => {
+    if (axis === 'xy') {
+      const z = Math.max(0, Math.min(nz - 1, Math.floor(index)));
+      return { width: nx, height: ny, data: slices[z]! };
+    }
+    if (axis === 'xz') {
+      const y = Math.max(0, Math.min(ny - 1, Math.floor(index)));
+      const data = new Float32Array(nx * nz);
+      for (let z = 0; z < nz; z++) {
+        const slice = slices[z]!;
+        const zOffset = z * nx;
+        const sliceYOffset = y * nx;
+        for (let x = 0; x < nx; x++) {
+          data[zOffset + x] = slice[sliceYOffset + x]!;
+        }
+      }
+      return { width: nx, height: nz, data };
+    }
+    const x = Math.max(0, Math.min(nx - 1, Math.floor(index)));
+    const data = new Float32Array(ny * nz);
+    for (let z = 0; z < nz; z++) {
+      const slice = slices[z]!;
+      const zOffset = z * ny;
+      for (let y = 0; y < ny; y++) {
+        data[zOffset + y] = slice[y * nx + x]!;
+      }
+    }
+    return { width: ny, height: nz, data };
+  };
+
+  const getMaxProjection = (axis: 'xy' | 'xz' | 'yz', startIdx?: number, endIdx?: number): { width: number; height: number; data: Float32Array } => {
+    if (axis === 'xy') {
+      const s = Math.max(0, Math.min(nz - 1, Math.floor(startIdx ?? 0)));
+      const e = Math.max(s, Math.min(nz - 1, Math.floor(endIdx ?? (nz - 1))));
+      const data = new Float32Array(nx * ny);
+      if (nz > 0) {
+        data.set(slices[s]!);
+        for (let z = s + 1; z <= e; z++) {
+          const slice = slices[z]!;
+          for (let i = 0; i < nx * ny; i++) {
+            const v = slice[i]!;
+            if (v > data[i]!) data[i] = v;
+          }
+        }
+      }
+      return { width: nx, height: ny, data };
+    }
+    if (axis === 'xz') {
+      const s = Math.max(0, Math.min(ny - 1, Math.floor(startIdx ?? 0)));
+      const e = Math.max(s, Math.min(ny - 1, Math.floor(endIdx ?? (ny - 1))));
+      const data = new Float32Array(nx * nz).fill(-Infinity);
+      for (let z = 0; z < nz; z++) {
+        const slice = slices[z]!;
+        const zOffset = z * nx;
+        for (let y = s; y <= e; y++) {
+          const yOffset = y * nx;
+          for (let x = 0; x < nx; x++) {
+            const v = slice[yOffset + x]!;
+            const idx = zOffset + x;
+            if (v > data[idx]!) data[idx] = v;
+          }
+        }
+      }
+      return { width: nx, height: nz, data };
+    }
+    const s = Math.max(0, Math.min(nx - 1, Math.floor(startIdx ?? 0)));
+    const e = Math.max(s, Math.min(nx - 1, Math.floor(endIdx ?? (nx - 1))));
+    const data = new Float32Array(ny * nz).fill(-Infinity);
+    for (let z = 0; z < nz; z++) {
+      const slice = slices[z]!;
+      const zOffset = z * ny;
+      for (let y = 0; y < ny; y++) {
+        const yOffset = y * nx;
+        const destIdx = zOffset + y;
+        for (let x = s; x <= e; x++) {
+          const v = slice[yOffset + x]!;
+          if (v > data[destIdx]!) data[destIdx] = v;
+        }
+      }
+    }
+    return { width: ny, height: nz, data };
+  };
+
+  return {
+    header,
+    slices,
+    getOrthoslice,
+    getMaxProjection,
+  };
 }
 
 export function parseMrc(buffer: ArrayBuffer): MrcData {
@@ -164,48 +261,12 @@ export function parseMrc(buffer: ArrayBuffer): MrcData {
     is3DVolume,
   };
 
-  const getOrthoslice = (axis: 'xy' | 'xz' | 'yz', index: number): { width: number; height: number; data: Float32Array } => {
-    if (axis === 'xy') {
-      const z = Math.max(0, Math.min(readableNz - 1, Math.floor(index)));
-      return { width: nx, height: ny, data: slices[z]! };
-    }
-    if (axis === 'xz') {
-      // Y is fixed at index, X varies, Z varies
-      const y = Math.max(0, Math.min(ny - 1, Math.floor(index)));
-      const data = new Float32Array(nx * readableNz);
-      for (let z = 0; z < readableNz; z++) {
-        const slice = slices[z]!;
-        const zOffset = z * nx;
-        const sliceYOffset = y * nx;
-        for (let x = 0; x < nx; x++) {
-          data[zOffset + x] = slice[sliceYOffset + x]!;
-        }
-      }
-      return { width: nx, height: readableNz, data };
-    }
-    // 'yz': X is fixed at index, Y varies, Z varies
-    const x = Math.max(0, Math.min(nx - 1, Math.floor(index)));
-    const data = new Float32Array(ny * readableNz);
-    for (let z = 0; z < readableNz; z++) {
-      const slice = slices[z]!;
-      const zOffset = z * ny;
-      for (let y = 0; y < ny; y++) {
-        data[zOffset + y] = slice[y * nx + x]!;
-      }
-    }
-    return { width: ny, height: readableNz, data };
-  };
-
-  return {
-    header,
-    slices,
-    getOrthoslice,
-  };
+  return buildMrcData(header, slices);
 }
 
 /**
  * Creates synthetic Cryo-EM 2D class averages for demo / immediate testing
- * representing characteristic macromolecular projections (e.g. ribosome / proteasome / GroEL).
+ * representing characteristic macromolecular 2D projections.
  */
 export function generateDemoClasses(count = 12, size = 64): MrcData {
   const slices: Float32Array[] = [];
@@ -277,11 +338,7 @@ export function generateDemoClasses(count = 12, size = 64): MrcData {
     is3DVolume: false,
   };
 
-  return {
-    header,
-    slices,
-    getOrthoslice: (axis, idx) => ({ width: size, height: size, data: slices[Math.min(count - 1, Math.max(0, idx))]! }),
-  };
+  return buildMrcData(header, slices);
 }
 
 /**
@@ -346,38 +403,7 @@ export function generateDemo3DVolume(size = 48): MrcData {
     is3DVolume: true,
   };
 
-  const getOrthoslice = (axis: 'xy' | 'xz' | 'yz', index: number): { width: number; height: number; data: Float32Array } => {
-    if (axis === 'xy') {
-      const z = Math.max(0, Math.min(size - 1, Math.floor(index)));
-      return { width: size, height: size, data: slices[z]! };
-    }
-    if (axis === 'xz') {
-      const y = Math.max(0, Math.min(size - 1, Math.floor(index)));
-      const data = new Float32Array(size * size);
-      for (let z = 0; z < size; z++) {
-        const slice = slices[z]!;
-        for (let x = 0; x < size; x++) {
-          data[z * size + x] = slice[y * size + x]!;
-        }
-      }
-      return { width: size, height: size, data };
-    }
-    const x = Math.max(0, Math.min(size - 1, Math.floor(index)));
-    const data = new Float32Array(size * size);
-    for (let z = 0; z < size; z++) {
-      const slice = slices[z]!;
-      for (let y = 0; y < size; y++) {
-        data[z * size + y] = slice[y * size + x]!;
-      }
-    }
-    return { width: size, height: size, data };
-  };
-
-  return {
-    header,
-    slices,
-    getOrthoslice,
-  };
+  return buildMrcData(header, slices);
 }
 
 /**

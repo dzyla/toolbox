@@ -17,6 +17,7 @@ export const SCIENCE: Science = {
     'Underfocus (Δf > 0) creates positive phase contrast at intermediate frequencies.',
     'Fast Fourier Transforms (FFT) are fastest on dimensions that factor into small primes (2, 3, 5, 7), commonly called "good" box sizes (RELION / cryoSPARC standard).',
     'Dose calculations assume uniform flux over the sensor and perpendicular electron illumination. Typical cryo-EM sample tolerance is 30–60 e⁻/Å² before radiation damage destroys high-resolution features.',
+    'Research Preview: The 2D particle gallery and 3D MRC volume viewer are an active research preview. While many features are operational, they are undergoing ongoing work and all calculations, scale calibrations, and contrast levels should be evaluated by the researcher before using for actual laboratory or publication work.',
   ],
   references: [
     { text: 'Frank J (2006) Three-Dimensional Electron Microscopy of Macromolecular Assemblies. Oxford University Press, 2nd ed.' },

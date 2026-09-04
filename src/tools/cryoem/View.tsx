@@ -472,6 +472,7 @@ export default function CryoEmView() {
   const [state, shareUrl] = useUrlState<State>('cryoem', DEFAULTS);
   const s = state.value;
   const set = (patch: Partial<State>) => { state.value = { ...state.value, ...patch }; };
+  const [expandedViewer, setExpandedViewer] = useState(false);
 
   const boxComparison = useMemo(() => {
     try {
@@ -551,10 +552,12 @@ export default function CryoEmView() {
     <ToolLayout
       icon="❄️"
       title="Cryo-EM Geometry & Dose"
-      blurb="Pixel size, Nyquist resolution limits, electron dose, and relativistic CTF / Thon rings power spectrum simulation."
+      blurb="Pixel size, Nyquist resolution limits, electron dose, relativistic CTF / Thon rings power spectrum, and 2D/3D MRC particle stack viewer."
+      wide={true}
+      fullWidthResults={s.tab === 'classes' && expandedViewer}
       inputs={
         <div class="space-y-4">
-          <div class="flex gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
+          <div class="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2.5 dark:border-slate-700">
             {(
               [
                 ['box', 'Box & Sampling'],
@@ -567,20 +570,35 @@ export default function CryoEmView() {
               <button
                 key={id}
                 type="button"
-                class={`min-h-9 rounded-lg px-3 text-sm font-medium transition ${
+                class={`min-h-8 rounded-lg px-2.5 py-1 text-xs sm:text-sm font-medium transition flex items-center gap-1.5 ${
                   s.tab === id
-                    ? 'bg-accent-600 text-white'
+                    ? 'bg-accent-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                 }`}
                 onClick={() => set({ tab: id })}
               >
-                {label}
+                <span>{label}</span>
+                {id === 'classes' && (
+                  <span class={`text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${s.tab === id ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}`}>
+                    Preview
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
           {s.tab === 'classes' && (
             <div class="space-y-3 text-xs text-slate-600 dark:text-slate-400">
+              {/* Research Preview Disclaimer */}
+              <div class="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
+                <div class="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider">
+                  <span>🔬 Research Preview</span>
+                </div>
+                <p class="text-[11px] leading-relaxed">
+                  <strong>Notice:</strong> This is a research preview — a lot of features are here, but they need some work. All outputs, measurements, contrast settings, and projections should be evaluated by a researcher before using it for actual work.
+                </p>
+              </div>
+
               <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
                 <h4 class="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
                   📦 MRC / MRCS Format Specifications
@@ -590,8 +608,29 @@ export default function CryoEmView() {
                 </p>
                 <ul class="list-disc pl-4 space-y-1">
                   <li><strong>2D Stack (.mrcs)</strong>: Curate, select, and export publication-ready grids with calibrated scale bars and contrast leveling.</li>
-                  <li><strong>3D Volume (.mrc, .map)</strong>: Scrub synchronized orthogonal slices across XY (Axial), XZ (Coronal), and YZ (Sagittal) planes.</li>
+                  <li><strong>3D Volume (.mrc, .map)</strong>: Scrub synchronized orthogonal slices (XY, XZ, YZ) and compute Maximum Intensity Projections (MIP).</li>
                 </ul>
+              </div>
+
+              <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <h4 class="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
+                  🧪 Negative Stain vs. Cryo-EM
+                </h4>
+                <ul class="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                  <li>
+                    <strong class="text-slate-700 dark:text-slate-300">Cryo-EM:</strong> Vitreous ice matrix; proteins display as light density on darker vitreous ice background (standard contrast).
+                  </li>
+                  <li>
+                    <strong class="text-slate-700 dark:text-slate-300">Negative Stain (NS):</strong> Heavy metal salts (uranyl formate/acetate) accumulate around the particle envelope. Use <em>Invert Contrast</em> or the <em>NS Preset</em> to view dark particles on light background.
+                  </li>
+                </ul>
+              </div>
+
+              <div class="p-3 rounded-xl bg-accent-50/60 dark:bg-accent-950/30 border border-accent-200 dark:border-accent-800 text-accent-800 dark:text-accent-300 text-[11px] space-y-1">
+                <strong>💡 Publication Figure Tip:</strong>
+                <p>
+                  Click <em>Export Options</em> in the viewer to set the exact number of output columns and toggle class numbering (#1, #2) on or off for manuscript figures.
+                </p>
               </div>
             </div>
           )}
@@ -1205,7 +1244,10 @@ export default function CryoEmView() {
 
           {s.tab === 'classes' && (
             <div data-testid="cryo-classes-result">
-              <MrcViewer />
+              <MrcViewer
+                expanded={expandedViewer}
+                onToggleExpand={() => setExpandedViewer(v => !v)}
+              />
             </div>
           )}
         </div>

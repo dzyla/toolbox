@@ -41,6 +41,40 @@ describe('Cryo-EM MRC / MRCS Parser and Processor', () => {
     expect(yz.height).toBe(24);
   });
 
+  it('computes maximum intensity projection (MIP) across all planes for 3D volumes', () => {
+    const volume = generateDemo3DVolume(20);
+    const mipXy = volume.getMaxProjection('xy');
+    expect(mipXy.width).toBe(20);
+    expect(mipXy.height).toBe(20);
+    expect(mipXy.data.length).toBe(20 * 20);
+
+    const mipXz = volume.getMaxProjection('xz');
+    expect(mipXz.width).toBe(20);
+    expect(mipXz.height).toBe(20);
+    expect(mipXz.data.length).toBe(20 * 20);
+
+    const mipYz = volume.getMaxProjection('yz');
+    expect(mipYz.width).toBe(20);
+    expect(mipYz.height).toBe(20);
+    expect(mipYz.data.length).toBe(20 * 20);
+
+    // MIP value at each pixel must be >= any individual slice value at that pixel
+    for (let z = 0; z < 20; z++) {
+      const slice = volume.slices[z]!;
+      for (let i = 0; i < 20 * 20; i++) {
+        expect(mipXy.data[i]).toBeGreaterThanOrEqual(slice[i]!);
+      }
+    }
+
+    // Slab range MIP test
+    const slabMIP = volume.getMaxProjection('xy', 5, 10);
+    expect(slabMIP.width).toBe(20);
+    expect(slabMIP.height).toBe(20);
+    for (let i = 0; i < 20 * 20; i++) {
+      expect(mipXy.data[i]).toBeGreaterThanOrEqual(slabMIP.data[i]!);
+    }
+  });
+
   it('rejects corrupt or undersized buffers', () => {
     const tinyBuffer = new ArrayBuffer(500);
     expect(() => parseMrc(tinyBuffer)).toThrow('File too small');

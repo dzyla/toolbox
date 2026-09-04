@@ -11,6 +11,7 @@ export function ToolLayout({
   science,
   wide,
   embedded,
+  fullWidthResults,
   mobileDefaultTab = 'inputs',
   mobileResultSummary,
 }: {
@@ -23,6 +24,7 @@ export function ToolLayout({
   science: ComponentChildren;
   wide?: boolean;
   embedded?: boolean;
+  fullWidthResults?: boolean;
   mobileDefaultTab?: 'inputs' | 'results' | 'stacked';
   mobileResultSummary?: ComponentChildren;
 }) {
@@ -79,32 +81,34 @@ export function ToolLayout({
         )}
       </div>
 
-      <div class={`grid gap-6 ${wide ? 'lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'}`}>
-        <div class={`space-y-4 rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-700 dark:bg-slate-900 self-start lg:sticky lg:top-16 max-h-[calc(100vh-5rem)] overflow-y-auto lg:block ${mobileTab === 'results' ? 'hidden' : 'block'}`}>
-          {inputs}
+      <div class={fullWidthResults ? 'space-y-4' : `grid gap-6 ${wide ? 'lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'}`}>
+        {!fullWidthResults && (
+          <div class={`space-y-4 rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-700 dark:bg-slate-900 self-start lg:sticky lg:top-16 max-h-[calc(100vh-5rem)] overflow-y-auto lg:block ${mobileTab === 'results' ? 'hidden' : 'block'}`}>
+            {inputs}
 
-          {/* Quick Mobile Results Preview & Jump Button */}
-          {mobileTab === 'inputs' && (
-            <div class="lg:hidden pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-              {mobileResultSummary && (
-                <div class="rounded-xl border border-accent-200 bg-accent-50/70 p-3 text-xs dark:border-accent-800 dark:bg-accent-950/40 text-slate-800 dark:text-slate-200">
-                  <div class="text-[10px] font-semibold uppercase tracking-wider text-accent-700 dark:text-accent-400 mb-1">Live Result Preview</div>
-                  {mobileResultSummary}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => setMobileTab('results')}
-                class="w-full py-2 px-3 rounded-xl bg-accent-600 hover:bg-accent-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <span>View Full Results</span>
-                <span>➔</span>
-              </button>
-            </div>
-          )}
-        </div>
+            {/* Quick Mobile Results Preview & Jump Button */}
+            {mobileTab === 'inputs' && (
+              <div class="lg:hidden pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                {mobileResultSummary && (
+                  <div class="rounded-xl border border-accent-200 bg-accent-50/70 p-3 text-xs dark:border-accent-800 dark:bg-accent-950/40 text-slate-800 dark:text-slate-200">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-accent-700 dark:text-accent-400 mb-1">Live Result Preview</div>
+                    {mobileResultSummary}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('results')}
+                  class="w-full py-2 px-3 rounded-xl bg-accent-600 hover:bg-accent-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <span>View Full Results</span>
+                  <span>➔</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-        <div class={`space-y-4 min-w-0 lg:block ${mobileTab === 'inputs' ? 'hidden' : 'block'}`}>
+        <div class={`space-y-4 min-w-0 ${fullWidthResults ? 'w-full' : ''} lg:block ${mobileTab === 'inputs' ? 'hidden' : 'block'}`}>
           {/* Mobile Back to Inputs Button */}
           {mobileTab === 'results' && (
             <div class="lg:hidden flex items-center justify-between">
