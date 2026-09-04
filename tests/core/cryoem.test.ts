@@ -119,5 +119,15 @@ describe('CTF and Thon rings physics', () => {
     expect(matrix.length).toBe(64 * 64);
     // Center DC frequency
     expect(matrix[32 * 64 + 32]).toBeGreaterThanOrEqual(0);
+
+    // Diffraction artifact simulations (ice and graphene oxide)
+    const iceMatrix = generateThonRingsMatrix(64, 300, 2.7, 1.5, 1.5, 0, 1.0, 0.07, 50, 'ice');
+    expect(iceMatrix.length).toBe(64 * 64);
+    const grapheneMatrix = generateThonRingsMatrix(64, 300, 2.7, 1.5, 1.5, 0, 1.0, 0.07, 50, 'graphene');
+    expect(grapheneMatrix.length).toBe(64 * 64);
+
+    const iceProfile = generateCtfProfile(300, 2.7, 1.5, 1.0, 0.07, 50, 50, 'ice');
+    const peakAt3_66 = iceProfile.find(p => p.d >= 3.6 && p.d <= 3.75);
+    expect(peakAt3_66?.diffraction).toBeGreaterThan(0);
   });
 });

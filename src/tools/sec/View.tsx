@@ -13,6 +13,7 @@ import {
   fitSecCalibration,
   predictFromVe,
   predictVeFromMw,
+  estimatePeakSigmaMl,
 } from '@/core/sec';
 
 interface State {
@@ -625,48 +626,124 @@ export default function SecView() {
                     Elution Volume (mL)
                   </text>
 
-                  {/* Standard peaks (grey/blue) */}
+                  {/* Standard peaks (analytical Gaussian profiles, N ~ 15,000 plates) */}
                   {standards.filter(x => x.enabled).map((std, i) => {
                     const peakX = 50 + (std.elutionVolumeMl / s.vt) * 570;
-                    const peakW = 16;
-                    const peakH = 65 + (i % 3) * 15;
+                    const peakH = 110 + (i % 4) * 15; // Tall sharp peak
+                    const sigmaMl = estimatePeakSigmaMl(std.elutionVolumeMl, 15000);
+                    const sigmaPx = Math.max(3.0, sigmaMl * (570 / s.vt));
+                    const rangePx = 3.5 * sigmaPx;
+                    const steps = 24;
+
+                    let d = `M ${(peakX - rangePx).toFixed(1)} 220`;
+                    for (let step = -steps; step <= steps; step++) {
+                      const x = peakX + (step / steps) * rangePx;
+                      const u = (x - peakX) / sigmaPx;
+                      const y = 220 - peakH * Math.exp(-0.5 * u * u);
+                      d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+                    }
+                    d += ` L ${(peakX + rangePx).toFixed(1)} 220 Z`;
+
+                    const labelY = 220 - peakH - 5;
+
                     return (
-                      <g key={std.id} opacity="0.65">
+                      <g key={std.id} opacity="0.8">
                         <path
-                          d={`M ${peakX - peakW * 2} 220 Q ${peakX} ${220 - peakH * 2} ${peakX + peakW * 2} 220`}
-                          fill="rgba(59, 130, 246, 0.15)"
+                          d={d}
+                          fill="rgba(59, 130, 246, 0.18)"
                           stroke="#3b82f6"
-                          stroke-width="1.5"
+                          stroke-width="1.75"
                         />
-                        <text x={peakX} y={220 - peakH - 4} text-anchor="middle" font-size="9" fill="#2563eb" font-weight="600">
-                          {std.name.split(' ')[0]}
+                        <text
+                          x={peakX}
+                          y={labelY}
+                          text-anchor="middle"
+                          font-size="9"
+                          fill="#2563eb"
+                          font-weight="600"
+                          class="select-none"
+                        >
+                          {std.name.split(' ')[0]} ({Math.round(std.mwDa / 1000)}k)
                         </text>
                       </g>
                     );
                   })}
 
-                  {/* Unknown peak (Rose) */}
-                  {s.queryMode === 've_to_mw' && s.unknownVe > 0 && (
-                    (() => {
-                      const peakX = 50 + (s.unknownVe / s.vt) * 570;
-                      const peakW = 20;
-                      const peakH = 110;
-                      return (
-                        <g>
-                          <path
-                            d={`M ${peakX - peakW * 2} 220 Q ${peakX} ${220 - peakH * 2} ${peakX + peakW * 2} 220`}
-                            fill="rgba(244, 63, 94, 0.25)"
-                            stroke="#f43f5e"
-                            stroke-width="2.5"
-                          />
-                          <text x={peakX} y={220 - peakH - 8} text-anchor="middle" font-size="11" font-weight="bold" fill="#e11d48">
-                            ★ Unknown Peak ({s.unknownVe} mL)
-                          </text>
-                        </g>
-                      );
-                    })()
-                  )}
+                  {/* Unknown / Target Protein Peak (displayed in BOTH modes: Ve -> MW and MW -> Ve) */}
+                  {(() => {
+                    const targetVe = s.queryMode === 've_to_mw'
+                      ? (s.unknownVe > 0 ? s.unknownVe : 0)
+                      : (predictionVe?.elutionVolumeMl && predictionVe.elutionVolumeMl > 0 ? predictionVe.elutionVolumeMl : 0);
+
+                    if (targetVe <= 0) return null;
+
+                    const peakX = 50 + (targetVe / s.vt) * 570;
+                    const peakH = 150; // Prominent tall peak
+                    const sigmaMl = estimatePeakSigmaMl(targetVe, 15000);
+                    const sigmaPx = Math.max(3.5, sigmaMl * (570 / s.vt));
+                    const rangePx = 3.5 * sigmaPx;
+                    const steps = 28;
+
+                    let d = `M ${(peakX - rangePx).toFixed(1)} 220`;
+                    for (let step = -steps; step <= steps; step++) {
+                      const x = peakX + (step / steps) * rangePx;
+                      const u = (x - peakX) / sigmaPx;
+                      const y = 220 - peakH * Math.exp(-0.5 * u * u);
+                      d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+                    }
+                    d += ` L ${(peakX + rangePx).toFixed(1)} 220 Z`;
+
+                    const labelText = s.queryMode === 've_to_mw'
+                      ? `★ Unknown (${targetVe.toFixed(2)} mL, ~${predictionMw ? predictionMw.apparentMwkDa.toFixed(1) : '?'} kDa)`
+                      : `★ Target (${targetVe.toFixed(2)} mL, ${s.targetMwKDa} kDa)`;
+
+                    return (
+                      <g>
+                        <path
+                          d={d}
+                          fill="rgba(244, 63, 94, 0.28)"
+                          stroke="#f43f5e"
+                          stroke-width="2.5"
+                        />
+                        <line
+                          x1={peakX}
+                          y1={220 - peakH}
+                          x2={peakX}
+                          y2={220}
+                          stroke="#f43f5e"
+                          stroke-width="1.5"
+                          stroke-dasharray="2,2"
+                        />
+                        <circle cx={peakX} cy={220 - peakH} r="3" fill="#e11d48" />
+                        <text
+                          x={peakX}
+                          y={220 - peakH - 8}
+                          text-anchor="middle"
+                          font-size="11"
+                          font-weight="bold"
+                          fill="#e11d48"
+                          class="select-none"
+                        >
+                          {labelText}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </svg>
+
+                {/* Theoretical Plate Efficiency & Peak Width Justification */}
+                <div class="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+                  <div class="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>🔬</span>
+                    <span>Chromatographic Band Broadening &amp; Plate Theory (N ≈ 15,000 plates)</span>
+                  </div>
+                  <p>
+                    Simulated peaks use Gaussian band-broadening governed by theoretical plate count: <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">σ_V = V_e / √N</span>. Analytical monodisperse matrices (e.g. Superdex 200 Increase 10/300 GL with 8.6 µm beads) operate at N ≈ 15,000–25,000 plates/column, yielding tall, slender peaks with half-height width W₁/₂ = 2.355 σ ≈ 0.20–0.35 mL.
+                  </p>
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                    <em>Why are peaks sometimes broader in the lab?</em> Broad, tailing, or asymmetric peaks in wet-lab chromatography typically stem from: (1) conformational polydispersity or oligomer exchange kinetics, (2) non-spherical protein geometry (elevated frictional ratio f/f₀), (3) column dead volume / tubing dispersion, or (4) large injection loading volume (&gt;2–5% of bed volume).
+                  </p>
+                </div>
               </div>
             )}
           </div>

@@ -10,6 +10,8 @@ import {
   pixelSizeFromMag, magFromPixelSize,
   relativisticWavelength, firstCtfZero, generateCtfProfile, generateThonRingsMatrix,
   CtfPoint,
+  type DiffractionArtifactType,
+  DIFFRACTION_PRESETS,
 } from '@/core/cryoem';
 
 interface State {
@@ -32,6 +34,7 @@ interface State {
   astAngleDeg: number;
   amplitudeContrast: number;
   bFactor: number;
+  diffractionArtifact: DiffractionArtifactType;
 }
 
 const DEFAULTS: State = {
@@ -53,6 +56,7 @@ const DEFAULTS: State = {
   astAngleDeg: 30,
   amplitudeContrast: 0.07,
   bFactor: 50,
+  diffractionArtifact: 'none',
 };
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
@@ -66,6 +70,7 @@ function ThonRingsCanvas({
   pixelSize,
   amplitudeContrast,
   bFactor,
+  diffractionArtifact = 'none',
 }: {
   voltageKv: number;
   csMm: number;
@@ -75,9 +80,10 @@ function ThonRingsCanvas({
   pixelSize: number;
   amplitudeContrast: number;
   bFactor: number;
+  diffractionArtifact?: DiffractionArtifactType;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const size = 220;
+  const size = 420;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -94,7 +100,8 @@ function ThonRingsCanvas({
       astAngleDeg,
       pixelSize,
       amplitudeContrast,
-      bFactor
+      bFactor,
+      diffractionArtifact
     );
 
     const imgData = ctx.createImageData(size, size);
@@ -113,36 +120,85 @@ function ThonRingsCanvas({
 
     ctx.putImageData(imgData, 0, 0);
 
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    const cx = size / 2;
+    const cy = size / 2;
+
+    // Center crosshairs
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(size / 2, 0);
-    ctx.lineTo(size / 2, size);
-    ctx.moveTo(0, size / 2);
-    ctx.lineTo(size, size / 2);
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, size);
+    ctx.moveTo(0, cy);
+    ctx.lineTo(size, cy);
     ctx.stroke();
 
+    // 1/2 Nyquist ring (dashed rose)
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 4, 0, 2 * Math.PI);
-    ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+    ctx.arc(cx, cy, size / 4, 0, 2 * Math.PI);
+    ctx.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+    ctx.lineWidth = 1.25;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+
+    // Outer Nyquist boundary
+    ctx.beginPath();
+    ctx.arc(cx, cy, size / 2 - 1, 0, 2 * Math.PI);
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+    ctx.lineWidth = 1;
     ctx.setLineDash([2, 2]);
     ctx.stroke();
     ctx.setLineDash([]);
-  }, [voltageKv, csMm, dfU_um, dfV_um, astAngleDeg, pixelSize, amplitudeContrast, bFactor]);
+
+    // Structural diffraction artifact rings overlays
+    if (diffractionArtifact !== 'none') {
+      const preset = DIFFRACTION_PRESETS[diffractionArtifact];
+      if (preset) {
+        ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+        for (const ring of preset.rings) {
+          const rPx = (size * pixelSize) / ring.dSpacingA;
+          if (rPx > 6 && rPx <= size / 2) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)'; // Amber/gold
+            ctx.lineWidth = 1.25;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Label near top edge of circle
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+            ctx.fillText(ring.label, cx + 4, cy - rPx + 11);
+          }
+        }
+      }
+    }
+  }, [voltageKv, csMm, dfU_um, dfV_um, astAngleDeg, pixelSize, amplitudeContrast, bFactor, diffractionArtifact]);
+
+  const preset = DIFFRACTION_PRESETS[diffractionArtifact || 'none'];
 
   return (
-    <div class="flex flex-col items-center">
-      <canvas
-        ref={canvasRef}
-        width={size}
-        height={size}
-        class="rounded-xl border border-slate-700 bg-black shadow-lg"
-      />
-      <div class="flex items-center justify-between w-full max-w-[220px] text-[10px] text-slate-400 mt-1.5 font-mono">
-        <span>-Nyquist</span>
-        <span class="text-rose-400">½ Nyquist</span>
-        <span>+Nyquist</span>
+    <div class="flex flex-col items-center w-full max-w-[440px]">
+      <div class="relative w-full aspect-square max-w-[420px]">
+        <canvas
+          ref={canvasRef}
+          width={size}
+          height={size}
+          class="w-full h-full rounded-2xl border border-slate-700 bg-black shadow-xl select-none"
+        />
       </div>
+      <div class="flex items-center justify-between w-full max-w-[420px] text-[10.5px] text-slate-400 mt-2 font-mono">
+        <span>-Nyq ({(2 * pixelSize).toFixed(1)} Å)</span>
+        <span class="text-rose-400">½ Nyq ({(4 * pixelSize).toFixed(1)} Å)</span>
+        <span class="text-slate-500">DC (0)</span>
+        <span class="text-rose-400">½ Nyq</span>
+        <span>+Nyq ({(2 * pixelSize).toFixed(1)} Å)</span>
+      </div>
+      {diffractionArtifact !== 'none' && preset && (
+        <div class="mt-2 text-center text-xs text-amber-500 font-medium">
+          ⚡ {preset.name}: Bragg diffraction rings overlaid in gold
+        </div>
+      )}
     </div>
   );
 }
@@ -151,10 +207,12 @@ function CtfCurvePlot({
   profile,
   zeroD1,
   pixelSize,
+  diffractionArtifact = 'none',
 }: {
   profile: CtfPoint[];
   zeroD1: number;
   pixelSize: number;
+  diffractionArtifact?: DiffractionArtifactType;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -185,7 +243,7 @@ function CtfCurvePlot({
         <span class="font-bold text-slate-700 dark:text-slate-300">1D CTF Oscillation Curve &amp; First Zero</span>
         {hovered ? (
           <span class="font-mono font-semibold text-accent-600 dark:text-accent-400">
-            s: {hovered.s} Å⁻¹ | d: {hovered.d} Å | CTF: {hovered.ctf}
+            s: {hovered.s} Å⁻¹ | d: {hovered.d} Å | CTF: {hovered.ctf}{hovered.diffraction ? ` | Diff: +${hovered.diffraction}` : ''}
           </span>
         ) : (
           <span class="text-slate-400 text-[11px]">Hover over curve to inspect frequency &amp; resolution</span>
@@ -202,6 +260,7 @@ function CtfCurvePlot({
           <line x1={padLeft} y1={padTop} x2={w - padRight} y2={padTop} stroke="currentColor" class="text-slate-100 dark:text-slate-800" />
           <line x1={padLeft} y1={padTop + plotH} x2={w - padRight} y2={padTop + plotH} stroke="currentColor" class="text-slate-100 dark:text-slate-800" />
 
+          {/* First CTF Zero */}
           {zeroX !== null && zeroX >= padLeft && zeroX <= w - padRight && (
             <g>
               <line x1={zeroX} y1={padTop} x2={zeroX} y2={padTop + plotH} stroke="#f43f5e" stroke-dasharray="2,2" stroke-width="1.5" />
@@ -210,6 +269,21 @@ function CtfCurvePlot({
               </text>
             </g>
           )}
+
+          {/* Diffraction Artifact Markers */}
+          {diffractionArtifact !== 'none' && DIFFRACTION_PRESETS[diffractionArtifact]?.rings.map(ring => {
+            const s0 = 1 / ring.dSpacingA;
+            if (s0 > sMax) return null;
+            const x = padLeft + (s0 / sMax) * plotW;
+            return (
+              <g key={ring.label}>
+                <line x1={x} y1={padTop} x2={x} y2={padTop + plotH} stroke="#f59e0b" stroke-dasharray="2,2" stroke-width="1.2" />
+                <text x={x} y={padTop + 22} text-anchor="middle" fill="#d97706" class="text-[8.5px] font-mono font-bold">
+                  {ring.label}
+                </text>
+              </g>
+            );
+          })}
 
           <path d={pts} fill="none" stroke="#0284c7" stroke-width="2" />
 
@@ -300,7 +374,8 @@ export default function CryoEmView() {
         s.pixelSize,
         s.amplitudeContrast,
         s.bFactor,
-        200
+        200,
+        s.diffractionArtifact
       );
       const dfU_um = s.defocusUm + s.astigmatismUm / 2;
       const dfV_um = s.defocusUm - s.astigmatismUm / 2;
@@ -308,7 +383,7 @@ export default function CryoEmView() {
     } catch {
       return null;
     }
-  }, [s.voltageKv, s.csMm, s.defocusUm, s.astigmatismUm, s.pixelSize, s.amplitudeContrast, s.bFactor]);
+  }, [s.voltageKv, s.csMm, s.defocusUm, s.astigmatismUm, s.pixelSize, s.amplitudeContrast, s.bFactor, s.diffractionArtifact]);
 
   const copyText = () => {
     const lines = [
@@ -614,16 +689,32 @@ export default function CryoEmView() {
                 </label>
               </div>
 
-              <label class="block pt-1">
-                <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Pixel Size (Å/px)</span>
-                <DecimalInput
-                  class={FIELD}
-                  value={s.pixelSize}
-                  onChange={pixelSize => set({ pixelSize })}
-                  min={0.1}
-                  step={0.01}
-                />
-              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <label class="block">
+                  <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Pixel Size (Å/px)</span>
+                  <DecimalInput
+                    class={FIELD}
+                    value={s.pixelSize}
+                    onChange={pixelSize => set({ pixelSize })}
+                    min={0.1}
+                    step={0.01}
+                  />
+                </label>
+                <label class="block">
+                  <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Diffraction Artifact</span>
+                  <select
+                    class={FIELD}
+                    value={s.diffractionArtifact}
+                    onChange={e => set({ diffractionArtifact: (e.target as HTMLSelectElement).value as DiffractionArtifactType })}
+                  >
+                    <option value="none">Pure Vitreous (None)</option>
+                    <option value="ice">Crystalline Ice (3.66 Å, 2.25 Å)</option>
+                    <option value="graphene">Graphene Oxide (2.13 Å, 1.23 Å)</option>
+                    <option value="carbon">Amorphous Carbon (~4.2 Å)</option>
+                    <option value="gold">Gold Grid Foil (2.35 Å, 2.04 Å)</option>
+                  </select>
+                </label>
+              </div>
             </div>
           )}
 
@@ -844,18 +935,19 @@ export default function CryoEmView() {
                   profile={ctfResults.profile}
                   zeroD1={ctfResults.zero.d1}
                   pixelSize={s.pixelSize}
+                  diffractionArtifact={s.diffractionArtifact}
                 />
               </div>
 
               {/* 2D Simulated Power Spectrum / Thon Rings */}
-              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
+              <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
                   <div>
                     <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                       Simulated 2D Power Spectrum (Thon Rings)
                     </h3>
                     <p class="text-xs text-slate-500">
-                      Concentric interference rings displaying astigmatic ellipticity and defocus phase flips (|CTF|²).
+                      Concentric interference rings displaying astigmatic ellipticity, defocus phase flips (|CTF|²), and diffraction artifacts.
                     </p>
                   </div>
                   <span class="text-xs font-mono text-slate-400">
@@ -863,7 +955,8 @@ export default function CryoEmView() {
                   </span>
                 </div>
 
-                <div class="flex flex-col sm:flex-row items-center justify-around gap-4 pt-2">
+                {/* Enlarged Centered Canvas */}
+                <div class="flex flex-col items-center justify-center py-2">
                   <ThonRingsCanvas
                     voltageKv={s.voltageKv}
                     csMm={s.csMm}
@@ -873,15 +966,48 @@ export default function CryoEmView() {
                     pixelSize={s.pixelSize}
                     amplitudeContrast={s.amplitudeContrast}
                     bFactor={s.bFactor}
+                    diffractionArtifact={s.diffractionArtifact}
                   />
+                </div>
 
-                  <div class="space-y-2 text-xs text-slate-600 dark:text-slate-400 max-w-xs">
-                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
-                      <strong class="text-slate-700 dark:text-slate-300 block">Interpreting Thon Rings</strong>
-                      <p>• Bright rings mark maxima of |CTF|² (constructive phase contrast).</p>
-                      <p>• Dark concentric bands correspond to CTF zeros where information transfer drops to 0.</p>
-                      <p>• Oval / elliptical rings indicate astigmatism with major/minor axes along the {s.astAngleDeg}° angle.</p>
-                      <p>• Rings fade toward the perimeter due to the envelope B-factor decay ({s.bFactor} Å²).</p>
+                {/* Descriptive Guide & Physics Explanation (Moved BELOW graphics) */}
+                <div class="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 text-xs">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5 text-slate-600 dark:text-slate-400">
+                      <strong class="text-slate-800 dark:text-slate-200 block text-xs">
+                        🔬 Interpreting Thon Rings &amp; Astigmatism
+                      </strong>
+                      <p>• <strong>Bright rings</strong> correspond to maxima of |CTF|² where constructive wave phase interference transfers high-contrast image features.</p>
+                      <p>• <strong>Dark circular nodes</strong> mark CTF zero crossings where spatial frequency information transfer drops to 0.</p>
+                      <p>• <strong>Elliptical distortion</strong> indicates objective lens astigmatism with defocus disparity Δ = {(s.astigmatismUm * 1000).toFixed(0)} nm along {s.astAngleDeg}°.</p>
+                      <p>• <strong>Radial falloff</strong> reflects envelope B-factor decay ({s.bFactor} Å²) from beam partial coherence, energy spread, and motion.</p>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5 text-slate-600 dark:text-slate-400">
+                      <strong class="text-slate-800 dark:text-slate-200 block text-xs">
+                        ⚡ {DIFFRACTION_PRESETS[s.diffractionArtifact].name}
+                      </strong>
+                      <p>{DIFFRACTION_PRESETS[s.diffractionArtifact].description}</p>
+                      {s.diffractionArtifact === 'ice' && (
+                        <p class="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                          ⚠️ <strong>Single-Particle Impact:</strong> Hexagonal ice ($I_h$) rings at 3.66 Å, 2.25 Å, and 1.92 Å produce strong false correlation in 2D/3D classification and degrade high-resolution refinement. Enable ice ring rejection filters in RELION/CryoSPARC.
+                        </p>
+                      )}
+                      {s.diffractionArtifact === 'graphene' && (
+                        <p class="text-[11px] text-sky-600 dark:text-sky-400 font-medium">
+                          ℹ️ <strong>Single-Particle Impact:</strong> Monolayer or few-layer graphene oxide films reduce air-water interface denaturation but produce sharp carbon lattice powder rings at 2.13 Å and 1.23 Å.
+                        </p>
+                      )}
+                      {s.diffractionArtifact === 'carbon' && (
+                        <p class="text-[11px] text-slate-500 font-medium">
+                          ℹ️ <strong>Single-Particle Impact:</strong> Continuous amorphous carbon produces a diffuse scattering halo at ~4.2 Å. It increases background noise but provides isotropic power for CTF fitting at low doses.
+                        </p>
+                      )}
+                      {s.diffractionArtifact === 'gold' && (
+                        <p class="text-[11px] text-amber-500 font-medium">
+                          ℹ️ <strong>Single-Particle Impact:</strong> UltraAuFoil grids minimize beam-induced specimen motion. FCC gold reflections at 2.35 Å and 2.04 Å provide accurate internal magnification calibration.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

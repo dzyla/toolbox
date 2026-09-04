@@ -363,3 +363,15 @@ export function predictVeFromMw(
   const ve = model.v0 + kav * (model.vt - model.v0);
   return { elutionVolumeMl: ve, kav };
 }
+
+/**
+ * Calculates chromatographic peak standard deviation (sigma in mL) based on column efficiency.
+ * N = (Ve / sigma)^2 => sigma = Ve / sqrt(N).
+ * High-performance analytical columns (e.g. Superdex Increase) typically operate at N ≈ 10,000 to 25,000 plates.
+ * Default N = 15,000 plates yields realistic sharp analytical peaks.
+ */
+export function estimatePeakSigmaMl(ve: number, theoreticalPlates = 15000): number {
+  if (ve <= 0 || theoreticalPlates <= 0) return 0.15;
+  return Math.max(0.04, ve / Math.sqrt(theoreticalPlates));
+}
+

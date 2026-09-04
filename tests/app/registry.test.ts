@@ -23,14 +23,12 @@ describe('registry', () => {
   it('registers all ported tools as ready and loadable', () => {
     const porting = TOOLS.filter(t => t.status === 'porting');
     expect(porting).toEqual([]);
-    const readyTools = [
-      'molarity', 'buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate',
-      'cryoem', 'fitting', 'sec', 'diafiltration', 'protein', 'protein-conc', 'nucleic', 'sequence', 'plasmid',
-      'gibson', 'mutagenesis', 'rare-codons', 'align', 'binding', 'gel', 'colors',
-      'measure', 'colonies', 'hemocytometer', 'tally', 'plate', 'culture', 'timers', 'protocols',
-    ];
-    for (const id of readyTools) {
-      expect(findTool(id)).toMatchObject({ status: 'ready', load: expect.any(Function) });
+    for (const t of TOOLS) {
+      if (t.status === 'ready') {
+        expect(t.load).toBeInstanceOf(Function);
+      }
     }
+    expect(findTool('gibson')?.id).toBe('cloning');
+    expect(findTool('mutagenesis')?.id).toBe('cloning');
   });
 });

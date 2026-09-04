@@ -115,56 +115,47 @@ export default function ColoniesView() {
     ctx.fillStyle = '#cbd5e1';
     ctx.fill();
 
-    // Agar surface gradient
+    // Agar surface (uniform flat tone to eliminate false background gradients)
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    const grad = ctx.createRadialGradient(cx, cy, 30, cx, cy, r);
-    grad.addColorStop(0, '#fef08a');
-    grad.addColorStop(1, '#eab308');
-    ctx.fillStyle = grad;
+    ctx.fillStyle = '#fef08a';
     ctx.fill();
     ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Draw ~28 synthetic colonies of diverse sizes and contrasts for immediate testing
+    // Draw synthetic colonies with clean, uniform disc fills (no off-center sheens or fake drop shadows)
     const syntheticCoords = [
-      { x: 230, y: 160, r: 8, alpha: 0.95 },
-      { x: 280, y: 190, r: 10, alpha: 0.98 },
-      { x: 190, y: 220, r: 6, alpha: 0.90 },
-      { x: 330, y: 220, r: 9, alpha: 0.96 },
-      { x: 240, y: 250, r: 14, alpha: 0.99 },
-      { x: 290, y: 270, r: 7, alpha: 0.92 },
-      { x: 160, y: 280, r: 11, alpha: 0.97 },
-      { x: 370, y: 270, r: 8, alpha: 0.94 },
-      { x: 210, y: 310, r: 6, alpha: 0.88 },
-      { x: 270, y: 330, r: 12, alpha: 0.98 },
-      { x: 320, y: 340, r: 7, alpha: 0.91 },
-      { x: 180, y: 360, r: 9, alpha: 0.95 },
-      { x: 240, y: 390, r: 5, alpha: 0.86 },
-      { x: 150, y: 210, r: 5, alpha: 0.84 },
-      { x: 340, y: 160, r: 7, alpha: 0.89 },
-      { x: 210, y: 120, r: 6, alpha: 0.87 },
-      { x: 290, y: 130, r: 8, alpha: 0.93 },
-      { x: 370, y: 340, r: 6, alpha: 0.82 },
-      { x: 140, y: 330, r: 6, alpha: 0.83 },
-      { x: 220, y: 180, r: 4, alpha: 0.76 },
-      { x: 260, y: 210, r: 5, alpha: 0.79 },
-      { x: 300, y: 230, r: 4, alpha: 0.75 },
-      { x: 180, y: 160, r: 3, alpha: 0.72 },
-      { x: 350, y: 300, r: 4, alpha: 0.74 },
+      { x: 230, y: 160, r: 8 },
+      { x: 280, y: 190, r: 10 },
+      { x: 190, y: 220, r: 6 },
+      { x: 330, y: 220, r: 9 },
+      { x: 240, y: 250, r: 14 },
+      { x: 290, y: 270, r: 7 },
+      { x: 160, y: 280, r: 11 },
+      { x: 370, y: 270, r: 8 },
+      { x: 210, y: 310, r: 6 },
+      { x: 270, y: 330, r: 12 },
+      { x: 320, y: 340, r: 7 },
+      { x: 180, y: 360, r: 9 },
+      { x: 240, y: 390, r: 5 },
+      { x: 150, y: 210, r: 5 },
+      { x: 340, y: 160, r: 7 },
+      { x: 210, y: 120, r: 6 },
+      { x: 290, y: 130, r: 8 },
+      { x: 370, y: 340, r: 6 },
+      { x: 140, y: 330, r: 6 },
+      { x: 220, y: 180, r: 4 },
+      { x: 260, y: 210, r: 5 },
+      { x: 300, y: 230, r: 4 },
+      { x: 180, y: 160, r: 4 },
+      { x: 350, y: 300, r: 4 },
     ];
 
     for (const sc of syntheticCoords) {
       ctx.beginPath();
       ctx.arc(sc.x, sc.y, sc.r, 0, 2 * Math.PI);
-      ctx.fillStyle = `rgba(69, 26, 3, ${sc.alpha})`; // deep colony tone
-      ctx.fill();
-
-      // Soft center sheen
-      ctx.beginPath();
-      ctx.arc(sc.x - sc.r * 0.25, sc.y - sc.r * 0.25, sc.r * 0.4, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillStyle = '#451a03'; // Clean uniform dark colony disc
       ctx.fill();
     }
   }

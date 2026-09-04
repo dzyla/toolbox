@@ -64,6 +64,21 @@ describe('Cryo-EM tool', () => {
     // 15 * 2.3 / (0.83^2) ≈ 50.1 e⁻/Å²
     expect(screen.getByText('50.1')).toBeTruthy();
   });
+
+  it('renders CTF tab, Thon rings, and diffraction artifact selection', async () => {
+    route.value = { name: 'tool', toolId: 'cryoem' };
+    render(<CryoEmView />);
+
+    fireEvent.click(screen.getByRole('button', { name: /CTF & Thon Rings/ }));
+    expect(await screen.findByTestId('cryo-ctf-result')).toBeTruthy();
+    expect(screen.getAllByText(/First CTF Zero/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Simulated 2D Power Spectrum/)).toBeTruthy();
+
+    const artifactSelect = screen.getByLabelText(/Diffraction Artifact/) as HTMLSelectElement;
+    expect(artifactSelect).toBeTruthy();
+    fireEvent.change(artifactSelect, { target: { value: 'ice' } });
+    expect((await screen.findAllByText(/Crystalline Ice Rings/)).length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('Nucleic Acids tool', () => {

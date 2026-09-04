@@ -101,7 +101,8 @@ export interface CtfPoint {
   s: number;     // Spatial frequency (1/Å)
   d: number;     // Resolution (Å)
   ctf: number;   // CTF amplitude (-1 to 1)
-  power: number; // CTF^2 (0 to 1)
+  power: number; // CTF^2 or total power (0 to 1)
+  diffraction?: number; // Added diffraction intensity (0 to 1)
 }
 
 /**
@@ -230,8 +231,96 @@ export function firstCtfZero(
   return { s1: Math.round(s1 * 10000) / 10000, d1: Math.round(d1 * 100) / 100 };
 }
 
+export type DiffractionArtifactType = 'none' | 'ice' | 'graphene' | 'carbon' | 'gold';
+
+export interface DiffractionRing {
+  dSpacingA: number; // Resolution in Angstroms
+  label: string;
+  millerIndices?: string;
+  intensity: number; // 0 to 1
+  widthA: number;    // Radial width sigma in 1/Angstrom
+}
+
+export interface DiffractionPreset {
+  id: DiffractionArtifactType;
+  name: string;
+  description: string;
+  rings: DiffractionRing[];
+}
+
+export const DIFFRACTION_PRESETS: Record<DiffractionArtifactType, DiffractionPreset> = {
+  none: {
+    id: 'none',
+    name: 'Pure Vitreous Ice (No Artifacts)',
+    description: 'Ideal amorphous vitreous ice with pure CTF Thon ring modulation.',
+    rings: [],
+  },
+  ice: {
+    id: 'ice',
+    name: 'Crystalline Ice Rings (Hexagonal Ih)',
+    description: 'Hexagonal / cubic crystalline ice contamination exhibiting intense Bragg powder diffraction rings at 3.66 Å (100, strongest), 2.25 Å (102), 2.07 Å (103), and 1.92 Å (110). Corrupts high-resolution particle alignment.',
+    rings: [
+      { dSpacingA: 3.66, label: '3.66 Å (100)', millerIndices: '(100)', intensity: 0.95, widthA: 0.006 },
+      { dSpacingA: 2.25, label: '2.25 Å (102)', millerIndices: '(102)', intensity: 0.75, widthA: 0.007 },
+      { dSpacingA: 2.07, label: '2.07 Å (103)', millerIndices: '(103)', intensity: 0.45, widthA: 0.007 },
+      { dSpacingA: 1.92, label: '1.92 Å (110)', millerIndices: '(110)', intensity: 0.70, widthA: 0.008 },
+    ],
+  },
+  graphene: {
+    id: 'graphene',
+    name: 'Graphene Oxide (GO) Support',
+    description: 'Single/few-layer graphene oxide support grid generating sharp Debye-Scherrer carbon honeycomb lattice rings at 2.13 Å (10-10) and 1.23 Å (11-20).',
+    rings: [
+      { dSpacingA: 2.13, label: '2.13 Å (10-10)', millerIndices: '(10-10)', intensity: 0.85, widthA: 0.007 },
+      { dSpacingA: 1.23, label: '1.23 Å (11-20)', millerIndices: '(11-20)', intensity: 0.65, widthA: 0.008 },
+    ],
+  },
+  carbon: {
+    id: 'carbon',
+    name: 'Amorphous Carbon Support Halo',
+    description: 'Continuous or ultrathin carbon support film showing broad, diffuse scattering halos centered at ~4.2 Å and ~2.1 Å.',
+    rings: [
+      { dSpacingA: 4.20, label: '4.20 Å (diffuse halo)', intensity: 0.55, widthA: 0.035 },
+      { dSpacingA: 2.10, label: '2.10 Å (diffuse)', intensity: 0.30, widthA: 0.040 },
+    ],
+  },
+  gold: {
+    id: 'gold',
+    name: 'Gold (Au) Grid Foil / UltraAuFoil',
+    description: 'Gold grid substrate (UltraAuFoil) or fiducial gold beads exhibiting FCC crystalline lattice diffraction rings at 2.35 Å (111) and 2.04 Å (200).',
+    rings: [
+      { dSpacingA: 2.355, label: '2.35 Å (111)', millerIndices: '(111)', intensity: 0.90, widthA: 0.006 },
+      { dSpacingA: 2.039, label: '2.04 Å (200)', millerIndices: '(200)', intensity: 0.65, widthA: 0.007 },
+      { dSpacingA: 1.442, label: '1.44 Å (220)', millerIndices: '(220)', intensity: 0.50, widthA: 0.008 },
+    ],
+  },
+};
+
 /**
- * Generates 1D CTF oscillation curve from s = 0 up to Nyquist frequency.
+ * Computes extra diffraction intensity at spatial frequency s (in 1/Å)
+ * from Bragg lattice reflections or diffuse support scattering.
+ */
+export function computeDiffractionIntensity(
+  s: number,
+  diffractionType: DiffractionArtifactType = 'none'
+): number {
+  if (diffractionType === 'none' || s <= 0) return 0;
+  const preset = DIFFRACTION_PRESETS[diffractionType];
+  if (!preset || preset.rings.length === 0) return 0;
+
+  let total = 0;
+  for (const ring of preset.rings) {
+    const s0 = 1 / ring.dSpacingA;
+    const diff = s - s0;
+    const g = ring.intensity * Math.exp(-0.5 * (diff * diff) / (ring.widthA * ring.widthA));
+    total += g;
+  }
+  return total;
+}
+
+/**
+ * Generates 1D CTF oscillation curve from s = 0 up to Nyquist frequency,
+ * with optional diffraction artifact simulation.
  */
 export function generateCtfProfile(
   voltageKv: number,
@@ -240,7 +329,8 @@ export function generateCtfProfile(
   pixelSize: number,
   amplitudeContrast = 0.07,
   bFactor = 50,
-  points = 250
+  points = 250,
+  diffractionType: DiffractionArtifactType = 'none'
 ): CtfPoint[] {
   const lambdaA = relativisticWavelength(voltageKv);
   const dfA = defocusUm * 10000;
@@ -252,18 +342,22 @@ export function generateCtfProfile(
     const s = (i / points) * sNyquist;
     const d = s > 0 ? 1 / s : 999;
     const ctf = ctfValue(s, dfA, csA, lambdaA, amplitudeContrast, bFactor);
+    const diffInt = computeDiffractionIntensity(s, diffractionType);
+    const totalPower = Math.min(1.0, ctf * ctf + diffInt);
     result.push({
       s: Math.round(s * 10000) / 10000,
       d: Math.round(d * 100) / 100,
       ctf: Math.round(ctf * 10000) / 10000,
-      power: Math.round(ctf * ctf * 10000) / 10000,
+      power: Math.round(totalPower * 10000) / 10000,
+      diffraction: Math.round(diffInt * 10000) / 10000,
     });
   }
   return result;
 }
 
 /**
- * Generates 2D power spectrum matrix (Thon rings) for a square grid of size x size.
+ * Generates 2D power spectrum matrix (Thon rings) for a square grid of size x size,
+ * incorporating astigmatic defocus, phase envelope, and structural diffraction rings.
  * Returns normalized values (0 to 1) for direct rendering on an HTML Canvas.
  */
 export function generateThonRingsMatrix(
@@ -275,7 +369,8 @@ export function generateThonRingsMatrix(
   astAngleDeg: number,
   pixelSize: number,
   amplitudeContrast = 0.07,
-  bFactor = 50
+  bFactor = 50,
+  diffractionType: DiffractionArtifactType = 'none'
 ): Float32Array {
   const lambdaA = relativisticWavelength(voltageKv);
   const dfU_A = dfU_um * 10000;
@@ -303,7 +398,12 @@ export function generateThonRingsMatrix(
       }
 
       const ctf = ctf2D(sx, sy, dfU_A, dfV_A, astAngleRad, csA, lambdaA, amplitudeContrast, bFactor);
-      matrix[yOffset + x] = ctf * ctf;
+      let power = ctf * ctf;
+      if (diffractionType !== 'none') {
+        const diffInt = computeDiffractionIntensity(s, diffractionType);
+        power = Math.min(1.0, power + diffInt);
+      }
+      matrix[yOffset + x] = power;
     }
   }
 

@@ -137,29 +137,6 @@ export default function PlasmidView() {
     else if (val === 3) set({ viewMode: 'sequence' });
   }
 
-  function handleWheelZoom(e: WheelEvent) {
-    if (Math.abs(e.deltaY) < 20) return;
-    if (e.deltaY < 0) {
-      // Wheel up -> zoom in: circular -> linear -> sequence
-      if (s.viewMode === 'circular') {
-        e.preventDefault();
-        set({ viewMode: 'linear' });
-      } else if (s.viewMode === 'linear') {
-        e.preventDefault();
-        set({ viewMode: 'sequence' });
-      }
-    } else {
-      // Wheel down -> zoom out: sequence -> linear -> circular
-      if (s.viewMode === 'sequence' && (seqContainerRef.current?.scrollTop || 0) <= 0) {
-        e.preventDefault();
-        set({ viewMode: 'linear' });
-      } else if (s.viewMode === 'linear') {
-        e.preventDefault();
-        set({ viewMode: 'circular' });
-      }
-    }
-  }
-
   // Restriction sites
   const allRestrictionSites = useMemo(() => {
     return findRestrictionSites(plasmid.seq, plasmid.isCircular);
@@ -663,7 +640,7 @@ export default function PlasmidView() {
         </div>
       }
       results={
-        <div class="space-y-4" onWheel={handleWheelZoom}>
+        <div class="space-y-4">
           {/* Copy Toast Banner */}
           {copyNotice && (
             <div class="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold flex items-center justify-between">

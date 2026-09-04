@@ -64,12 +64,6 @@ export const TOOLS: ToolMeta[] = [
   { id: 'cloning', name: 'Cloning Suite', category: 'sequences', icon: '🧬',
     blurb: 'Unified cloning suite: Gibson/In-Fusion, Mutagenesis, Restriction & Ligation, Golden Gate', keywords: ['cloning', 'gibson', 'infusion', 'mutagenesis', 'restriction', 'ligation', 'golden gate', 'assembly'],
     status: 'ready', load: () => import('./cloning/View') },
-  { id: 'gibson', name: 'Gibson Assembly', category: 'sequences', icon: '🧬',
-    blurb: 'Homology overlap and PCR primer designer for isothermal assembly', keywords: ['gibson', 'in-fusion', 'assembly', 'cloning', 'isothermal', 'overlap', 'primers', 'homology', 'vector'],
-    status: 'ready', load: () => import('./gibson/View') },
-  { id: 'mutagenesis', name: 'Site-Directed Mutagenesis', category: 'sequences', icon: '🎯',
-    blurb: 'Back-to-back non-overlapping SDM primer designer (Q5/KLD protocol)', keywords: ['mutagenesis', 'sdm', 'nebasechanger', 'point mutation', 'primers', 'q5', 'kld', 'substitution', 'plasmid'],
-    status: 'ready', load: () => import('./mutagenesis/View') },
   { id: 'rare-codons', name: 'Rare Codon Optimizer', category: 'sequences', icon: '⚠️',
     blurb: 'Codon Adaptation Index (CAI), pause clusters, and Rosetta strain advisor', keywords: ['codon', 'rare codon', 'cai', 'expression', 'rosetta', 'bl21', 'synonymous', 'translation', 'pause'],
     status: 'ready', load: () => import('./rare-codons/View') },
@@ -111,7 +105,12 @@ export const TOOLS: ToolMeta[] = [
     status: 'ready', load: () => import('./colors/View') },
 ];
 
-export function findTool(id: string): ToolMeta | undefined { return TOOLS.find(t => t.id === id); }
+export function findTool(id: string): ToolMeta | undefined {
+  if (id === 'gibson' || id === 'mutagenesis') {
+    return TOOLS.find(t => t.id === 'cloning');
+  }
+  return TOOLS.find(t => t.id === id);
+}
 
 export function searchTools(query: string): ToolMeta[] {
   const q = query.trim().toLowerCase();
