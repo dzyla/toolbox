@@ -110,15 +110,44 @@ export default function PlasmidView() {
   }
 
   function handleFlipPlasmid() {
+    const len = plasmid.length;
     const flipped = flipPlasmid(plasmid);
     setPlasmid(flipped);
-    setDetectionNotice('Flipped plasmid orientation (reverse complement).');
+    if (s.selectedRange && len > 0) {
+      const newStart = ((len - s.selectedRange.end) % len) + 1;
+      const newEnd = ((len - s.selectedRange.start) % len) + 1;
+      set({
+        selectedRange: {
+          ...s.selectedRange,
+          start: Math.min(newStart, newEnd),
+          end: Math.max(newStart, newEnd),
+        },
+      });
+    }
+    setDetectionNotice('Flipped plasmid orientation: Generated reverse complement sequence (5′→3′ inverted) and transformed feature coordinates.');
   }
 
-  function handleSetOrigin() {
-    const reindexed = setPlasmidOrigin(plasmid, newOriginInput);
+  function handleSetOrigin(targetBp?: number) {
+    const origBp = targetBp ?? newOriginInput;
+    const len = plasmid.length;
+    if (len === 0) return;
+    const orig = Math.max(1, Math.min(len, Math.floor(origBp)));
+    const reindexed = setPlasmidOrigin(plasmid, orig);
     setPlasmid(reindexed);
-    setDetectionNotice(`Re-indexed plasmid: New origin at bp ${newOriginInput}.`);
+    if (s.selectedRange) {
+      const shift = (pos: number) => ((pos - orig + len) % len) + 1;
+      const newStart = shift(s.selectedRange.start);
+      const newEnd = shift(s.selectedRange.end);
+      set({
+        selectedRange: {
+          ...s.selectedRange,
+          start: newStart,
+          end: newEnd,
+        },
+      });
+    }
+    setNewOriginInput(1);
+    setDetectionNotice(`Re-indexed plasmid: Position ${orig} is now Position 1 (Origin).`);
   }
 
   function handleLinearize() {
@@ -155,6 +184,41 @@ export default function PlasmidView() {
   }, [plasmid.seq, s.minOrfAa, plasmid.isCircular]);
 
   const gcContent = useMemo(() => calculateGC(plasmid.seq), [plasmid.seq]);
+
+  const selectedFeature = useMemo(() => {
+    if (!s.selectedRange) return null;
+    if (s.selectedFeatureId) {
+      const found = plasmid.features.find(f => f.id === s.selectedFeatureId);
+      if (found) return found;
+    }
+    return plasmid.features.find(f => f.name === s.selectedRange?.name) || null;
+  }, [plasmid.features, s.selectedFeatureId, s.selectedRange]);
+
+  const selectedOrf = useMemo(() => {
+    if (!s.selectedRange) return null;
+    return detectedOrfs.find(orf => orf.start === s.selectedRange?.start && orf.end === s.selectedRange?.end) || null;
+  }, [detectedOrfs, s.selectedRange]);
+
+  const selDna = useMemo(() => {
+    if (!s.selectedRange || !plasmid.seq) return '';
+    const { start, end } = s.selectedRange;
+    if (start <= end) {
+      return plasmid.seq.slice(start - 1, end);
+    }
+    return plasmid.seq.slice(start - 1) + plasmid.seq.slice(0, end);
+  }, [s.selectedRange, plasmid.seq]);
+
+  const selProtein = useMemo(() => {
+    if (!selDna) return '';
+    const strand = selectedFeature?.strand ?? (selectedOrf?.strand ?? 1);
+    const codingDna = strand === -1 ? reverseComplement(selDna) : selDna;
+    return selectedFeature?.translation || selectedOrf?.protein || translateDNA(codingDna);
+  }, [selDna, selectedFeature, selectedOrf]);
+
+  const selProteinMwKda = useMemo(() => {
+    if (!selProtein) return 0;
+    return Math.round((selProtein.length * 110) / 100) / 10;
+  }, [selProtein]);
 
   function handleSelectPreset(id: string) {
     set({ presetId: id, selectedFeatureId: '', selectedRange: undefined });
@@ -224,6 +288,7 @@ export default function PlasmidView() {
       selectedFeatureId: featId || '',
       selectedRange: { start, end, name },
     });
+    setNewOriginInput(start);
   }
 
   function handleZoomToSequence(start: number, end: number, name: string) {
@@ -604,7 +669,7 @@ export default function PlasmidView() {
                   />
                   <button
                     type="button"
-                    onClick={handleSetOrigin}
+                    onClick={() => handleSetOrigin()}
                     class="flex-1 py-1 px-2 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 font-semibold transition"
                   >
                     📍 Set Origin
@@ -649,66 +714,119 @@ export default function PlasmidView() {
             </div>
           )}
 
-          {/* Synchronized Zoom Breadcrumb & Selected Feature Banner */}
+          {/* Synchronized Zoom Breadcrumb & Selected Feature Inspection Card */}
           {s.selectedRange && (
-            <div class="p-3 rounded-2xl bg-accent-50 dark:bg-accent-950/40 border border-accent-200 dark:border-accent-800 flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="text-base">📍</span>
-                <div>
-                  <strong class="text-xs text-accent-900 dark:text-accent-200 block">
-                    Selected: {s.selectedRange.name}
-                  </strong>
-                  <span class="mono text-[11px] text-accent-700 dark:text-accent-400">
-                    Position: {s.selectedRange.start}–{s.selectedRange.end} bp ({Math.abs(s.selectedRange.end - s.selectedRange.start) + 1} bp)
-                  </span>
+            <div class="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                  <span
+                    class="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
+                    style={{ backgroundColor: selectedFeature?.color || (selectedFeature ? FEATURE_COLORS[selectedFeature.type] : '#3b82f6') }}
+                  />
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <strong class="text-xs text-sky-950 dark:text-sky-100 font-bold">
+                        {s.selectedRange.name}
+                      </strong>
+                      {selectedFeature && (
+                        <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-sky-200/80 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300">
+                          {selectedFeature.type}
+                        </span>
+                      )}
+                      {selectedOrf && (
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                          Frame {selectedOrf.frame > 0 ? `+${selectedOrf.frame}` : selectedOrf.frame}
+                        </span>
+                      )}
+                    </div>
+                    <div class="mono text-[11px] text-sky-700 dark:text-sky-400 flex flex-wrap items-center gap-2 mt-0.5">
+                      <span>Coordinates: <strong>{s.selectedRange.start}–{s.selectedRange.end} bp</strong> ({selDna.length.toLocaleString()} bp)</span>
+                      <span>·</span>
+                      <span>Strand: <strong>{selectedFeature?.strand === -1 || (selectedOrf && selectedOrf.strand === -1) ? '3′←5′ (-)' : '5′→3′ (+)'}</strong></span>
+                      {selProtein.length >= 5 && (
+                        <>
+                          <span>·</span>
+                          <span class="text-emerald-700 dark:text-emerald-400">
+                            Protein: <strong>{selProtein.length} aa</strong> ({selProteinMwKda} kDa)
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleSetOrigin(s.selectedRange!.start)}
+                    class="px-2.5 py-1 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-lg text-xs font-semibold hover:bg-slate-800 dark:hover:bg-slate-200 transition shadow-2xs flex items-center gap-1"
+                    title="Set this start position as Origin (bp 1)"
+                  >
+                    <span>📍</span>
+                    <span>Set as Origin (bp {s.selectedRange.start})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyDna(s.selectedRange!.start, s.selectedRange!.end, selectedFeature?.strand || 1, s.selectedRange!.name)}
+                    class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-300 rounded-lg text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/60 transition shadow-2xs"
+                    title="Copy DNA sequence"
+                  >
+                    📋 Copy DNA
+                  </button>
+                  {selProtein.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyProtein(s.selectedRange!.start, s.selectedRange!.end, selectedFeature?.strand || 1, s.selectedRange!.name)}
+                      class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-300 rounded-lg text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/60 transition shadow-2xs"
+                      title="Copy Protein translation"
+                    >
+                      🧬 Copy Protein
+                    </button>
+                  )}
+                  {s.viewMode !== 'sequence' && (
+                    <button
+                      type="button"
+                      onClick={() => handleZoomToSequence(s.selectedRange!.start, s.selectedRange!.end, s.selectedRange!.name)}
+                      class="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition shadow-2xs"
+                    >
+                      🔬 Zoom to Sequence
+                    </button>
+                  )}
+                  {s.viewMode !== 'linear' && (
+                    <button
+                      type="button"
+                      onClick={() => set({ viewMode: 'linear' })}
+                      class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-300 rounded-lg text-xs font-semibold hover:bg-sky-100 transition"
+                    >
+                      📏 Zoom to Linear
+                    </button>
+                  )}
+                  {s.viewMode !== 'circular' && (
+                    <button
+                      type="button"
+                      onClick={() => set({ viewMode: 'circular' })}
+                      class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-300 rounded-lg text-xs font-semibold hover:bg-sky-100 transition"
+                    >
+                      🪐 Plasmid View
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => set({ selectedRange: undefined, selectedFeatureId: '' })}
+                    class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    title="Dismiss selection"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
 
-              <div class="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleCopyDna(s.selectedRange!.start, s.selectedRange!.end, 1, s.selectedRange!.name)}
-                  class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-accent-300 dark:border-accent-700 text-accent-700 dark:text-accent-300 rounded-lg text-xs font-semibold hover:bg-accent-100 transition shadow-2xs"
-                  title="Copy DNA sequence"
-                >
-                  📋 Copy DNA
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCopyProtein(s.selectedRange!.start, s.selectedRange!.end, 1, s.selectedRange!.name)}
-                  class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-accent-300 dark:border-accent-700 text-accent-700 dark:text-accent-300 rounded-lg text-xs font-semibold hover:bg-accent-100 transition shadow-2xs"
-                  title="Copy Protein translation"
-                >
-                  🧬 Copy Protein
-                </button>
-                {s.viewMode !== 'sequence' && (
-                  <button
-                    type="button"
-                    onClick={() => handleZoomToSequence(s.selectedRange!.start, s.selectedRange!.end, s.selectedRange!.name)}
-                    class="px-2.5 py-1 bg-accent-600 hover:bg-accent-700 text-white rounded-lg text-xs font-semibold transition"
-                  >
-                    🔬 Zoom to Sequence
-                  </button>
-                )}
-                {s.viewMode !== 'linear' && (
-                  <button
-                    type="button"
-                    onClick={() => set({ viewMode: 'linear' })}
-                    class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-accent-300 dark:border-accent-700 text-accent-700 dark:text-accent-300 rounded-lg text-xs font-semibold hover:bg-accent-100 transition"
-                  >
-                    📏 Zoom to Linear
-                  </button>
-                )}
-                {s.viewMode !== 'circular' && (
-                  <button
-                    type="button"
-                    onClick={() => set({ viewMode: 'circular' })}
-                    class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-accent-300 dark:border-accent-700 text-accent-700 dark:text-accent-300 rounded-lg text-xs font-semibold hover:bg-accent-100 transition"
-                  >
-                    🪐 Plasmid View
-                  </button>
-                )}
-              </div>
+              {selProtein.length > 0 && (
+                <div class="pt-1 border-t border-sky-200/60 dark:border-sky-800/60 text-[11px] font-mono text-slate-600 dark:text-slate-400 flex items-center gap-2 truncate">
+                  <span class="text-slate-400 uppercase font-semibold text-[10px]">Translation:</span>
+                  <span class="truncate">{selProtein.slice(0, 80)}{selProtein.length > 80 ? '…' : ''}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -964,7 +1082,6 @@ export default function PlasmidView() {
                         class="cursor-pointer"
                         onClick={() => {
                           handleSelectFeatureRange(feat.start, feat.end, feat.name, feat.id);
-                          handleCopyDna(feat.start, feat.end, feat.strand, feat.name);
                         }}
                       >
                         <rect
@@ -1000,7 +1117,6 @@ export default function PlasmidView() {
                         class="cursor-pointer"
                         onClick={() => {
                           handleSelectFeatureRange(orf.start, orf.end, `ORF (${orf.frame > 0 ? `+${orf.frame}` : orf.frame})`);
-                          handleCopyProtein(orf.start, orf.end, orf.strand, `ORF (${orf.frame > 0 ? `+${orf.frame}` : orf.frame})`);
                         }}
                       >
                         <rect
@@ -1130,63 +1246,118 @@ export default function PlasmidView() {
                   const chunk = plasmid.seq.slice(start, end);
                   const len = chunk.length;
 
-                  // Complement strand
+                  // Complement strand mapping
                   const compMap: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' };
-                  const compChunk = chunk.split('').map(b => compMap[b] || b).join('');
 
-                  // Translation alignment
-                  let transLine: string | null = null;
-                  if (s.translationMode !== 'none') {
-                    let frame = 0;
-                    if (s.translationMode === 'frame1') frame = 0;
-                    else if (s.translationMode === 'frame2') frame = 1;
-                    else if (s.translationMode === 'frame3') frame = 2;
-                    else if (s.translationMode === 'selected') {
-                      frame = s.selectedRange ? ((s.selectedRange.start - 1) % 3) : 0;
-                    }
-
-                    const chars = new Array(len).fill(' ');
-                    for (let i = 0; i < len; i++) {
-                      const absPos = start + i;
-                      if (((absPos - frame) % 3 === 0) && (absPos - frame >= 0) && (i + 3 <= len)) {
-                        const codon = chunk.slice(i, i + 3);
-                        if (codon.length === 3) {
-                          const aa = translateDNA(codon);
-                          chars[i + 1] = aa;
-                        }
-                      }
-                    }
-                    transLine = chars.join('');
+                  // Translation alignment frame offset
+                  let frame = 0;
+                  if (s.translationMode === 'frame1') frame = 0;
+                  else if (s.translationMode === 'frame2') frame = 1;
+                  else if (s.translationMode === 'frame3') frame = 2;
+                  else if (s.translationMode === 'selected') {
+                    frame = s.selectedRange ? ((s.selectedRange.start - 1) % 3) : 0;
                   }
 
-                  const isHighlighted = s.selectedRange && (
-                    (start + 1 <= s.selectedRange.end && end >= s.selectedRange.start)
-                  );
+                  // Group line chunk into codon units according to frame
+                  interface CodonCell {
+                    dna: string;
+                    comp: string;
+                    aa: string | null;
+                    startBp: number;
+                  }
+                  const codonCells: CodonCell[] = [];
+                  let cur = 0;
+
+                  // Offset of first base in chunk from frame
+                  const rem = ((start - frame) % 3 + 3) % 3;
+                  if (rem !== 0 && rem < len) {
+                    const leadLen = Math.min(len, 3 - rem);
+                    const leadDna = chunk.slice(0, leadLen);
+                    codonCells.push({
+                      dna: leadDna,
+                      comp: leadDna.split('').map(b => compMap[b] || b).join(''),
+                      aa: null,
+                      startBp: start + 1,
+                    });
+                    cur = leadLen;
+                  }
+
+                  while (cur < len) {
+                    const dnaTriplet = chunk.slice(cur, cur + 3);
+                    const isFull = dnaTriplet.length === 3;
+                    const aa = (isFull && s.translationMode !== 'none') ? translateDNA(dnaTriplet) : null;
+                    codonCells.push({
+                      dna: dnaTriplet,
+                      comp: dnaTriplet.split('').map(b => compMap[b] || b).join(''),
+                      aa,
+                      startBp: start + cur + 1,
+                    });
+                    cur += 3;
+                  }
 
                   return (
                     <div
                       key={idx}
                       id={`seq-line-${idx}`}
-                      class={`p-2 rounded-xl transition flex items-start gap-4 font-mono ${isHighlighted ? 'bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-400' : 'hover:bg-slate-100 dark:hover:bg-slate-900/60'}`}
+                      class="py-2 px-2.5 rounded-xl transition flex items-start gap-3 font-mono hover:bg-slate-100/70 dark:hover:bg-slate-900/50"
                     >
-                      <span class="text-slate-400 select-none w-14 text-right shrink-0 text-[11px] pt-4">
+                      <button
+                        type="button"
+                        onClick={() => handleSetOrigin(start + 1)}
+                        title={`Line starts at bp ${start + 1}. Click to set as Origin.`}
+                        class="text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 select-none w-14 text-right shrink-0 text-[11px] pt-4 font-mono font-semibold hover:underline"
+                      >
                         {(start + 1).toString().padStart(5, '0')}
-                      </span>
-                      <div class="flex-1 overflow-x-auto space-y-0.5 text-xs font-mono select-text">
-                        {/* Translation Amino Acid Track */}
-                        {transLine && (
-                          <div class="text-emerald-600 dark:text-emerald-400 font-bold tracking-widest text-[11px] whitespace-pre select-all">
-                            {transLine}
-                          </div>
-                        )}
-                        {/* Forward 5' -> 3' DNA */}
-                        <div class="font-bold text-slate-900 dark:text-slate-100 tracking-widest whitespace-pre select-all">
-                          {chunk}
-                        </div>
-                        {/* Complement 3' <- 5' DNA */}
-                        <div class="text-slate-400 dark:text-slate-500 tracking-widest whitespace-pre select-all text-[11px]">
-                          {compChunk}
-                        </div>
+                      </button>
+
+                      <div class="flex-1 overflow-x-auto select-text flex flex-wrap items-start gap-x-1.5 gap-y-2">
+                        {codonCells.map((cell, cIdx) => {
+                          const isCodonSelected = s.selectedRange && (
+                            cell.startBp <= s.selectedRange.end &&
+                            cell.startBp + cell.dna.length - 1 >= s.selectedRange.start
+                          );
+
+                          return (
+                            <div
+                              key={cIdx}
+                              onClick={() => handleSelectFeatureRange(cell.startBp, cell.startBp + cell.dna.length - 1, `bp ${cell.startBp}`)}
+                              title={`bp ${cell.startBp}–${cell.startBp + cell.dna.length - 1}${cell.aa ? ` (${cell.aa})` : ''} · Click to select / set origin`}
+                              class={`inline-flex flex-col items-center cursor-pointer px-1 py-0.5 rounded transition ${
+                                isCodonSelected
+                                  ? 'bg-amber-100/90 dark:bg-amber-950/80 ring-1 ring-amber-400'
+                                  : 'hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                              }`}
+                            >
+                              {/* Translation AA centered directly over the 3-base codon */}
+                              {s.translationMode !== 'none' && (
+                                <span class="h-4 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 w-full flex items-center justify-center select-all">
+                                  {cell.aa || ' '}
+                                </span>
+                              )}
+                              {/* Forward 5' -> 3' DNA */}
+                              <span class="font-bold text-xs tracking-wider text-slate-900 dark:text-slate-100 select-all">
+                                {cell.dna.split('').map((base, bIdx) => {
+                                  const baseBp = cell.startBp + bIdx;
+                                  const isBaseSelected = s.selectedRange && (
+                                    baseBp >= s.selectedRange.start && baseBp <= s.selectedRange.end
+                                  );
+                                  return (
+                                    <span
+                                      key={bIdx}
+                                      class={isBaseSelected ? 'bg-amber-300 dark:bg-amber-700 text-amber-950 dark:text-amber-100 px-px rounded-2xs' : ''}
+                                    >
+                                      {base}
+                                    </span>
+                                  );
+                                })}
+                              </span>
+                              {/* Complement 3' <- 5' DNA */}
+                              <span class="text-[11px] tracking-wider text-slate-400 dark:text-slate-500 select-all">
+                                {cell.comp}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );

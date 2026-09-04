@@ -369,3 +369,110 @@ export function designSiteDirectedMutagenesis(
     pcrProgram: flex.pcrProgram,
   };
 }
+
+export interface ParsedMutation {
+  raw: string;
+  wtAa: string;
+  position: number; // 1-indexed amino acid residue
+  mutAa: string;
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Parses mutation lists in standard biochemical formats:
+ * e.g. "A22Y", "S65T", "p.Ala22Tyr", "Y443H", separated by commas or spaces.
+ */
+export function parseMutationList(text: string): ParsedMutation[] {
+  if (!text) return [];
+  const tokens = text.split(/[\s,;]+/).filter(Boolean);
+  return tokens.map(token => {
+    // 1-letter code: e.g. A22Y, S65T, C123*
+    const m1 = token.trim().match(/^([A-Za-z*])(\d+)([A-Za-z*])$/);
+    if (m1) {
+      return {
+        raw: token,
+        wtAa: m1[1]!.toUpperCase(),
+        position: parseInt(m1[2]!, 10),
+        mutAa: m1[3]!.toUpperCase(),
+        valid: true,
+      };
+    }
+    // 3-letter code: e.g. Ala22Tyr or p.Ala22Tyr
+    const m3 = token.trim().replace(/^p\./, '').match(/^([A-Za-z]{3})(\d+)([A-Za-z]{3})$/);
+    if (m3) {
+      const codeTo1 = (code: string) => {
+        const c = code.toUpperCase();
+        for (const [one, name] of Object.entries(AA_NAMES)) {
+          if (name.toUpperCase().startsWith(c)) return one;
+        }
+        return code[0]!.toUpperCase();
+      };
+      return {
+        raw: token,
+        wtAa: codeTo1(m3[1]!),
+        position: parseInt(m3[2]!, 10),
+        mutAa: codeTo1(m3[3]!),
+        valid: true,
+      };
+    }
+    return {
+      raw: token,
+      wtAa: '',
+      position: 0,
+      mutAa: '',
+      valid: false,
+      error: 'Unrecognized mutation syntax (e.g. A22Y or S65T)',
+    };
+  });
+}
+
+/**
+ * Generates wild-type vs mutated DNA and translated protein sequences for visual comparison.
+ */
+export function generateMutatedSequence(
+  templateDna: string,
+  start0: number,
+  replaceLength: number,
+  replacementSeq: string,
+): {
+  mutatedDna: string;
+  mutatedProtein: string;
+  originalProtein: string;
+  mutationWindow: {
+    startBp: number;
+    endBp: number;
+    wtSegment: string;
+    mutSegment: string;
+  };
+} {
+  const clean = cleanDna(templateDna);
+  const safeStart = Math.max(0, Math.min(clean.length, start0));
+  const safeLen = Math.max(0, Math.min(clean.length - safeStart, replaceLength));
+  const cleanRepl = cleanDna(replacementSeq);
+
+  const before = clean.slice(0, safeStart);
+  const after = clean.slice(safeStart + safeLen);
+  const mutatedDna = before + cleanRepl + after;
+
+  const originalProtein = translateDna(clean);
+  const mutatedProtein = translateDna(mutatedDna);
+
+  // Focus window around the mutation (e.g. 25 bp before and after)
+  const winBefore = Math.max(0, safeStart - 24);
+  const winAfter = Math.min(clean.length, safeStart + safeLen + 24);
+  const wtSegment = clean.slice(winBefore, winAfter);
+  const mutSegment = mutatedDna.slice(winBefore, winBefore + (safeStart - winBefore) + cleanRepl.length + (winAfter - safeStart - safeLen));
+
+  return {
+    mutatedDna,
+    mutatedProtein,
+    originalProtein,
+    mutationWindow: {
+      startBp: winBefore + 1,
+      endBp: winAfter,
+      wtSegment,
+      mutSegment,
+    },
+  };
+}

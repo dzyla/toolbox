@@ -14,9 +14,9 @@ export function App() {
   useEffect(() => { initTheme(); }, []);
   const r = route.value;
   return (
-    <div class="flex min-h-screen flex-col">
+    <div class="flex min-h-screen flex-col w-full max-w-full overflow-x-hidden">
       <Nav />
-      <main class="flex-1">
+      <main class="flex-1 w-full max-w-full overflow-x-hidden">
         {r.name === 'home' && <Home />}
         {r.name === 'tool' && <ToolPage toolId={r.toolId} projectId={r.projectId} />}
         {r.name === 'notfound' && <NotFound />}

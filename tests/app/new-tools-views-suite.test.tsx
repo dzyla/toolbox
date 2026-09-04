@@ -33,7 +33,7 @@ describe('Biophysical & Molecular Biology Tools Views Suite', () => {
     route.value = { name: 'tool', toolId: 'mutagenesis' };
     render(<MutagenesisView />);
     expect(screen.getByText(/Site-Directed Mutagenesis Designer/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Point Mutation/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Codon Picker|Point Mutation/i }));
     expect(screen.getByText(/Target Codon to Mutate/)).toBeTruthy();
     expect(screen.getByText(/Non-Overlapping Primers for Whole-Plasmid PCR/)).toBeTruthy();
     expect(screen.getByText(/Recommended Q5 PCR & KLD Protocol/)).toBeTruthy();

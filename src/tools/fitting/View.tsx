@@ -231,6 +231,13 @@ export default function CurveFittingView() {
       title="Curve Fitting & Regression"
       blurb="Fit non-linear 4PL (EC50/IC50), Michaelis-Menten, exponential decay, and linear regression models with error bars and residuals."
       wide={true}
+      mobileResultSummary={
+        fitResult && !('error' in fitResult) ? (
+          <span><strong>{fitResult.modelName}</strong>: <strong class="font-mono text-accent-700 dark:text-accent-300">R² {fitResult.r2 !== undefined ? fitResult.r2.toFixed(4) : '—'}</strong> (RMSE {fitResult.rmse !== undefined ? fitResult.rmse.toFixed(3) : '—'})</span>
+        ) : fitResult && 'error' in fitResult ? (
+          <span class="text-rose-600 dark:text-rose-400 font-semibold">{fitResult.error}</span>
+        ) : null
+      }
       inputs={
         <div class="space-y-4">
           {/* Model Selector */}

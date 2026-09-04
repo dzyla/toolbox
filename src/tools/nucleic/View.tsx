@@ -150,6 +150,43 @@ export default function NucleicView() {
       icon="🧫"
       title="Nucleic Acids Calculator"
       blurb="Conversions between mass and molar concentration, A260 quantification, copy number, exact oligo mass and thermodynamic melting temperatures."
+      mobileResultSummary={
+        s.tab === 'convert' && convResults ? (
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block">Molar Concentration</span>
+              <strong class="font-mono text-base text-accent-700 dark:text-accent-300">
+                {convResults.calculatedMolar >= 1000 ? `${(convResults.calculatedMolar / 1000).toFixed(2)} µM` : `${convResults.calculatedMolar.toFixed(2)} nM`}
+              </strong>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-slate-500 block">Approx MW</span>
+              <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {convResults.mw >= 1e6 ? `${(convResults.mw / 1e6).toFixed(2)} MDa` : `${(convResults.mw / 1e3).toFixed(1)} kDa`}
+              </span>
+            </div>
+          </div>
+        ) : s.tab === 'a260' && a260Results ? (
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block">Calculated Concentration</span>
+              <strong class="font-mono text-base text-accent-700 dark:text-accent-300">{a260Results.conc.toFixed(2)} ng/µL</strong>
+            </div>
+            {a260Results.molar > 0 && (
+              <div class="text-right">
+                <span class="text-[10px] text-slate-500 block">Molar</span>
+                <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">{a260Results.molar.toFixed(2)} nM</span>
+              </div>
+            )}
+          </div>
+        ) : s.tab === 'copy' && copyResults ? (
+          <span>Copy count: <strong class="font-mono text-accent-700 dark:text-accent-300">{copyResults.num.toExponential(3)} copies</strong></span>
+        ) : s.tab === 'oligo' && oligoResults ? (
+          <span>Oligo MW: <strong class="font-mono">{oligoResults.mw.toFixed(1)} g/mol</strong> · <strong class="font-mono text-accent-700 dark:text-accent-300">{oligoResults.nmol.toFixed(2)} nmol</strong></span>
+        ) : s.tab === 'tm' && tmResults && tmResults.nn ? (
+          <span>Tm (Nearest Neighbor): <strong class="font-mono text-accent-700 dark:text-accent-300">{tmResults.nn.tm.toFixed(1)} °C</strong></span>
+        ) : null
+      }
       inputs={
         <div class="space-y-4">
           <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">

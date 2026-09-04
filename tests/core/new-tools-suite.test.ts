@@ -22,6 +22,8 @@ import {
   designSiteDirectedMutagenesis,
   GENETIC_CODE,
   PREFERRED_CODONS_ECOLI,
+  parseMutationList,
+  generateMutatedSequence,
 } from '@/core/mutagenesis';
 import {
   evaluateMwco,
@@ -172,6 +174,25 @@ describe('Site-Directed Mutagenesis Core Logic', () => {
 
     // Mutated plasmid has exact same length as original for single codon point mutation
     expect(result.mutantPlasmidSeq.length).toBe(seq.length);
+  });
+
+  it('parses biochemical mutation lists like A22Y and Ala22Tyr', () => {
+    const list = parseMutationList('A22Y, Y443H, p.Ala65Thr, S65T');
+    expect(list.length).toBe(4);
+    expect(list[0]).toEqual({ raw: 'A22Y', wtAa: 'A', position: 22, mutAa: 'Y', valid: true });
+    expect(list[1]).toEqual({ raw: 'Y443H', wtAa: 'Y', position: 443, mutAa: 'H', valid: true });
+    expect(list[2]).toEqual({ raw: 'p.Ala65Thr', wtAa: 'A', position: 65, mutAa: 'T', valid: true });
+    expect(list[3]).toEqual({ raw: 'S65T', wtAa: 'S', position: 65, mutAa: 'T', valid: true });
+  });
+
+  it('generates mutated DNA and protein sequence preview', () => {
+    const dna = 'ATGGTGAGCAAGGGC'; // MVskG
+    const res = generateMutatedSequence(dna, 6, 3, 'ACC'); // mutate codon 3 (AGC -> ACC, S -> T)
+    expect(res.mutatedDna).toBe('ATGGTGACCAAGGGC');
+    expect(res.originalProtein).toBe('MVSKG');
+    expect(res.mutatedProtein).toBe('MVTKG');
+    expect(res.mutationWindow.wtSegment).toContain('AGC');
+    expect(res.mutationWindow.mutSegment).toContain('ACC');
   });
 });
 

@@ -52,6 +52,7 @@ export default function View() {
   const [showContributeModal, setShowContributeModal] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [checkedComponents, setCheckedComponents] = useState<Record<string, boolean>>({});
 
   const s = state.value;
   const set = (patch: Partial<State>) => { state.value = { ...state.value, ...patch }; };
@@ -357,6 +358,13 @@ export default function View() {
       title="Buffer & Media Recipes"
       blurb="Build recipes from exact chemical forms, solids and liquid stocks with automated unit-safe solving."
       wide={true}
+      mobileResultSummary={
+        calculation.error ? (
+          <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+        ) : (
+          <span><strong>{calculation.rows.length} components</strong> for <strong class="text-accent-700 dark:text-accent-300 font-mono">{s.volume.value} {s.volume.unit}</strong> (pH {s.pH})</span>
+        )
+      }
       inputs={
         <div class="space-y-4">
           {/* Preset Selector & Action Buttons */}
@@ -600,32 +608,46 @@ export default function View() {
               <div class="divide-y divide-slate-100 dark:divide-slate-800">
                 {calculation.rows.map((row, idx) => {
                   const comp = s.components[idx];
+                  const isChecked = !!checkedComponents[row.name];
                   return (
-                    <div key={row.name} class="py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-lg px-2 transition">
-                      <div class="space-y-0.5">
-                        <h4 class="text-base font-bold text-slate-900 dark:text-slate-100">
-                          {row.name}
-                        </h4>
-                        <div class="flex items-center gap-2 text-xs text-slate-500">
-                          {comp && (
-                            <span>
-                              Target: <strong class="text-slate-700 dark:text-slate-300">{comp.target.value} {comp.target.unit}</strong>
-                            </span>
-                          )}
-                          {comp?.kind === 'solid' && comp.mw && (
-                            <span>· MW {comp.mw.toFixed(2)} g/mol</span>
-                          )}
-                          {comp?.kind === 'stock' && (
-                            <span>· Stock: {comp.stockConc} {comp.stockUnit}</span>
-                          )}
-                          {row.mass_g !== undefined && (
-                            <span class="text-slate-400">({Number(row.mass_g.toPrecision(4))} g by density)</span>
-                          )}
+                    <div
+                      key={row.name}
+                      onClick={() => setCheckedComponents(prev => ({ ...prev, [row.name]: !prev[row.name] }))}
+                      class={`py-3 flex flex-wrap items-center justify-between gap-3 rounded-xl px-2 transition cursor-pointer border ${isChecked ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60 opacity-60' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/30 border-transparent'}`}
+                    >
+                      <div class="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => setCheckedComponents(prev => ({ ...prev, [row.name]: !prev[row.name] }))}
+                          onClick={e => e.stopPropagation()}
+                          class="w-4 h-4 rounded accent-emerald-600 cursor-pointer shrink-0"
+                        />
+                        <div class="space-y-0.5">
+                          <h4 class={`text-base font-bold transition ${isChecked ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
+                            {row.name}
+                          </h4>
+                          <div class="flex items-center gap-2 text-xs text-slate-500">
+                            {comp && (
+                              <span>
+                                Target: <strong class="text-slate-700 dark:text-slate-300">{comp.target.value} {comp.target.unit}</strong>
+                              </span>
+                            )}
+                            {comp?.kind === 'solid' && comp.mw && (
+                              <span>· MW {comp.mw.toFixed(2)} g/mol</span>
+                            )}
+                            {comp?.kind === 'stock' && (
+                              <span>· Stock: {comp.stockConc} {comp.stockUnit}</span>
+                            )}
+                            {row.mass_g !== undefined && (
+                              <span class="text-slate-400">({Number(row.mass_g.toPrecision(4))} g by density)</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div class="text-right">
-                        <span class="inline-block rounded-xl border border-accent-200 bg-accent-50 px-3.5 py-1.5 font-mono text-base font-bold text-accent-700 dark:border-accent-800 dark:bg-accent-950/70 dark:text-accent-300 shadow-xs">
+                      <div class="text-right ml-auto">
+                        <span class={`inline-block rounded-xl border px-3.5 py-1.5 font-mono text-base font-bold shadow-xs transition ${isChecked ? 'border-emerald-200 bg-emerald-100/60 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : 'border-accent-200 bg-accent-50 text-accent-700 dark:border-accent-800 dark:bg-accent-950/70 dark:text-accent-300'}`}>
                           {displayAmount(row.amount, row.unit)}
                         </span>
                       </div>

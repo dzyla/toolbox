@@ -12,10 +12,12 @@ import {
   extractOrfCodons,
   designFlexibleMutagenesis,
   FlexibleMutationDesignResult,
+  parseMutationList,
+  generateMutatedSequence,
 } from '@/core/mutagenesis';
 
 interface State {
-  mode: 'free' | 'codon';
+  mode: 'free' | 'codon' | 'list';
   plasmidDna: string;
   targetPosition: number; // 1-indexed for user display
   replaceLength: number; // 0 for insertion, >0 for substitution/deletion
@@ -23,6 +25,8 @@ interface State {
   selectedCodonIdx: number;
   targetAa: string;
   targetPrimerTm: number;
+  mutationListInput: string;
+  activeListMutationIdx: number;
 }
 
 const DEMO_GFP = 'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAG';
@@ -36,6 +40,8 @@ const DEFAULTS: State = {
   selectedCodonIdx: 64, // S65 (0-indexed 64)
   targetAa: 'T', // Thr
   targetPrimerTm: 62,
+  mutationListInput: 'S65T, Y66H',
+  activeListMutationIdx: 0,
 };
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono';
@@ -65,6 +71,13 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
 
   const activeCodon = codons[s.selectedCodonIdx] || codons[0];
 
+  // Parse mutation list
+  const parsedMutations = useMemo(() => {
+    return parseMutationList(s.mutationListInput);
+  }, [s.mutationListInput]);
+
+  const activeListMutation = parsedMutations[s.activeListMutationIdx] || parsedMutations[0] || null;
+
   // Desired mutant codon in codon mode
   const codonModeReplacement = useMemo(() => {
     return PREFERRED_CODONS_ECOLI[s.targetAa] || 'GCG';
@@ -85,6 +98,18 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
           codonModeReplacement,
           s.targetPrimerTm
         );
+      } else if (s.mode === 'list') {
+        if (!activeListMutation || !activeListMutation.valid) return null;
+        const targetCodon = codons.find(c => c.aaPos === activeListMutation.position);
+        if (!targetCodon) return null;
+        const replCodon = PREFERRED_CODONS_ECOLI[activeListMutation.mutAa] || 'GCG';
+        return designFlexibleMutagenesis(
+          cleanP,
+          targetCodon.startBp,
+          3,
+          replCodon,
+          s.targetPrimerTm
+        );
       } else {
         const start0 = Math.max(0, Math.min(cleanP.length - 1, (s.targetPosition || 1) - 1));
         return designFlexibleMutagenesis(
@@ -98,7 +123,32 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
     } catch {
       return null;
     }
-  }, [s.mode, s.plasmidDna, s.targetPosition, s.replaceLength, s.replacementSeq, activeCodon, codonModeReplacement, s.targetPrimerTm]);
+  }, [s.mode, s.plasmidDna, s.targetPosition, s.replaceLength, s.replacementSeq, activeCodon, codonModeReplacement, activeListMutation, codons, s.targetPrimerTm]);
+
+  // Sequence & Translation preview comparing WT and mutant construct
+  const preview = useMemo(() => {
+    const cleanP = cleanDna(s.plasmidDna);
+    if (!cleanP) return null;
+
+    let start0 = Math.max(0, Math.min(cleanP.length - 1, (s.targetPosition || 1) - 1));
+    let rLen = Math.max(0, s.replaceLength || 0);
+    let rSeq = s.replacementSeq || '';
+
+    if (s.mode === 'codon' && activeCodon) {
+      start0 = activeCodon.startBp;
+      rLen = 3;
+      rSeq = codonModeReplacement;
+    } else if (s.mode === 'list' && activeListMutation && activeListMutation.valid) {
+      const c = codons.find(item => item.aaPos === activeListMutation.position);
+      if (c) {
+        start0 = c.startBp;
+        rLen = 3;
+        rSeq = PREFERRED_CODONS_ECOLI[activeListMutation.mutAa] || 'GCG';
+      }
+    }
+
+    return generateMutatedSequence(cleanP, start0, rLen, rSeq);
+  }, [s.plasmidDna, s.targetPosition, s.replaceLength, s.replacementSeq, s.mode, activeCodon, codonModeReplacement, activeListMutation, codons]);
 
   function handleCopyText(key: string, text: string) {
     navigator.clipboard?.writeText?.(text);
@@ -146,28 +196,39 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
       inputs={
         <div class="space-y-4">
           {/* Mode Switcher */}
-          <div class="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+          <div class="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800 gap-0.5">
             <button
               type="button"
               onClick={() => set({ mode: 'free' })}
-              class={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition ${
+              class={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg transition ${
                 s.mode === 'free'
                   ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-slate-100'
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              Sequence Freedom (Any Pos / Length)
+              Sequence Freedom
             </button>
             <button
               type="button"
               onClick={() => set({ mode: 'codon' })}
-              class={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition ${
+              class={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg transition ${
                 s.mode === 'codon'
                   ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-slate-100'
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              Point Mutation (Codon Picker)
+              Codon Picker
+            </button>
+            <button
+              type="button"
+              onClick={() => set({ mode: 'list' })}
+              class={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg transition ${
+                s.mode === 'list'
+                  ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-slate-100'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              Mutation List
             </button>
           </div>
 
@@ -190,7 +251,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
             />
           </div>
 
-          {/* Free Sequence Freedom Controls */}
+          {/* Controls based on active mode */}
           {s.mode === 'free' ? (
             <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
               <div class="flex items-center justify-between">
@@ -268,7 +329,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 </span>
               </div>
 
-              {/* Quick Tag Insert Buttons */}
+              {/* Quick Tag Insert Presets */}
               <div>
                 <label class="block text-[11px] text-slate-400 mb-1 font-medium">Quick Insert Presets:</label>
                 <div class="flex flex-wrap gap-1.5">
@@ -285,6 +346,76 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   ))}
                 </div>
               </div>
+            </div>
+          ) : s.mode === 'list' ? (
+            /* Mutation List Mode */
+            <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Mutation List (e.g. A22Y, Y443H)
+                </label>
+                <span class="text-[11px] text-accent-600 dark:text-accent-400 font-semibold font-mono">
+                  {parsedMutations.filter(m => m.valid).length} valid
+                </span>
+              </div>
+
+              <input
+                type="text"
+                value={s.mutationListInput}
+                onInput={(e) => set({ mutationListInput: (e.target as HTMLInputElement).value })}
+                placeholder="Enter mutations: A22Y, Y443H, S65T..."
+                class={FIELD}
+              />
+              <span class="text-[10px] text-slate-400 block">
+                Standard residue mutation notation: [WT][ResidueNumber][MUT] separated by comma or space.
+              </span>
+
+              {/* Mutation chips selector */}
+              {parsedMutations.length > 0 && (
+                <div class="space-y-1.5 pt-1">
+                  <span class="text-[11px] text-slate-500 font-medium block">Select Active Mutation:</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    {parsedMutations.map((m, idx) => {
+                      const isSelected = (s.activeListMutationIdx ?? 0) === idx;
+                      const targetC = codons.find(c => c.aaPos === m.position);
+                      const isMatch = targetC && targetC.wtAa === m.wtAa;
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            set({ activeListMutationIdx: idx });
+                            if (targetC) {
+                              set({
+                                targetPosition: targetC.startBp + 1,
+                                replaceLength: 3,
+                                replacementSeq: PREFERRED_CODONS_ECOLI[m.mutAa] || 'GCG',
+                              });
+                            }
+                          }}
+                          class={`px-2.5 py-1 text-xs rounded-lg font-mono font-semibold transition border flex items-center gap-1 ${
+                            isSelected
+                              ? 'bg-accent-600 text-white border-accent-600 shadow-2xs'
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>{m.raw}</span>
+                          {!m.valid ? (
+                            <span class="text-[10px] text-rose-500">✗</span>
+                          ) : !targetC ? (
+                            <span class="text-[10px] text-amber-500" title="Residue outside ORF bounds">⚠</span>
+                          ) : !isMatch ? (
+                            <span class="text-[10px] text-amber-500" title={`WT is ${targetC.wtAa}, not ${m.wtAa}`}>⚠</span>
+                          ) : (
+                            <span class="text-[10px] text-emerald-400">✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Codon Mode Controls */
@@ -406,6 +537,131 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   </div>
                 </div>
               </div>
+
+              {/* Sequence & Translation Mutation Preview */}
+              {preview && (
+                <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
+                  <div class="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+                    <div>
+                      <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <span>🧬 Sequence &amp; Translation Mutation Preview</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-mono font-normal bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300">
+                          Window: bp {preview.mutationWindow.startBp}–{preview.mutationWindow.endBp}
+                        </span>
+                      </h3>
+                      <p class="text-xs text-slate-500">
+                        Direct base-pair and amino acid translation comparison between wild-type template and engineered construct.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Side-by-side DNA comparison */}
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+                      <div class="flex items-center justify-between text-[11px] text-slate-400 font-sans font-semibold">
+                        <span>ORIGINAL TEMPLATE DNA (5' → 3')</span>
+                        <span>WT</span>
+                      </div>
+                      <div class="text-slate-700 dark:text-slate-300 font-bold break-all leading-relaxed select-text">
+                        {preview.mutationWindow.wtSegment.slice(0, Math.max(0, (s.targetPosition || 1) - preview.mutationWindow.startBp))}
+                        <span class="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 px-1 py-0.5 rounded line-through mx-0.5">
+                          {result?.replacedSequence || (s.replaceLength > 0 ? cleanDna(s.plasmidDna).slice((s.targetPosition || 1) - 1, (s.targetPosition || 1) - 1 + s.replaceLength) : '·')}
+                        </span>
+                        {preview.mutationWindow.wtSegment.slice(Math.max(0, (s.targetPosition || 1) - preview.mutationWindow.startBp) + (result?.replacedSequence?.length || s.replaceLength || 0))}
+                      </div>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-emerald-200 dark:border-emerald-900/60 space-y-1">
+                      <div class="flex items-center justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-sans font-semibold">
+                        <span>MUTATED CONSTRUCT DNA (5' → 3')</span>
+                        <span>MUTANT</span>
+                      </div>
+                      <div class="text-slate-700 dark:text-slate-300 font-bold break-all leading-relaxed select-text">
+                        {preview.mutationWindow.wtSegment.slice(0, Math.max(0, (s.targetPosition || 1) - preview.mutationWindow.startBp))}
+                        <span class="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-1 py-0.5 rounded font-black mx-0.5">
+                          {result?.replacementSequence || (s.replacementSeq ? cleanDna(s.replacementSeq) : '(deleted)')}
+                        </span>
+                        {preview.mutationWindow.wtSegment.slice(Math.max(0, (s.targetPosition || 1) - preview.mutationWindow.startBp) + (result?.replacedSequence?.length || s.replaceLength || 0))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Protein Translation Comparison */}
+                  <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="font-semibold text-slate-700 dark:text-slate-300">Translated Protein Comparison</span>
+                      <span class="text-[11px] font-mono text-slate-400">
+                        WT: {preview.originalProtein.length} aa · Mut: {preview.mutatedProtein.length} aa
+                      </span>
+                    </div>
+                    <div class="space-y-1.5 font-mono text-xs select-text overflow-x-auto">
+                      <div class="flex items-center gap-2">
+                        <span class="w-12 shrink-0 text-slate-400 text-[10px] uppercase font-sans">WT AA:</span>
+                        <span class="text-slate-700 dark:text-slate-300 tracking-wider">
+                          {preview.originalProtein.slice(0, 80)}{preview.originalProtein.length > 80 ? '…' : ''}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="w-12 shrink-0 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase font-sans font-bold">MUT AA:</span>
+                        <span class="text-emerald-700 dark:text-emerald-300 tracking-wider font-semibold">
+                          {preview.mutatedProtein.slice(0, 80)}{preview.mutatedProtein.length > 80 ? '…' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Interactive ORF Codon Strip (Mouse Click Codon Selection) */}
+              {codons.length > 0 && (
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Interactive ORF Codons Track ({codons.length} aa)
+                      </h4>
+                      <p class="text-[11px] text-slate-500">
+                        Click any amino acid / codon below with your mouse to target it for point mutation.
+                      </p>
+                    </div>
+                    {activeCodon && (
+                      <span class="text-xs font-mono font-semibold text-accent-600 dark:text-accent-400">
+                        Active: {activeCodon.wtAa}{activeCodon.aaPos} (bp {activeCodon.startBp + 1}–{activeCodon.endBp})
+                      </span>
+                    )}
+                  </div>
+
+                  <div class="flex flex-wrap gap-1 max-h-48 overflow-y-auto p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs select-none">
+                    {codons.map(c => {
+                      const isSelected = activeCodon?.index === c.index;
+                      return (
+                        <button
+                          key={c.index}
+                          type="button"
+                          onClick={() => {
+                            set({
+                              selectedCodonIdx: c.index,
+                              targetPosition: c.startBp + 1,
+                              replaceLength: 3,
+                              replacementSeq: PREFERRED_CODONS_ECOLI[s.targetAa] || 'GCG',
+                              mode: 'codon',
+                            });
+                          }}
+                          title={`Residue ${c.aaPos}: ${c.wtAa} (${c.wtCodon}) at bp ${c.startBp + 1}. Click to select.`}
+                          class={`px-1.5 py-0.5 rounded text-[11px] font-mono transition flex flex-col items-center ${
+                            isSelected
+                              ? 'bg-accent-600 text-white font-bold shadow-2xs ring-2 ring-accent-400'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                          }`}
+                        >
+                          <span class="text-[9px] opacity-70 leading-tight">{c.aaPos}</span>
+                          <span class="font-bold leading-tight">{c.wtAa}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Primers for Ordering */}
               <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">

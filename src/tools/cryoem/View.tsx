@@ -150,25 +150,72 @@ function ThonRingsCanvas({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Structural diffraction artifact rings overlays
+    // Structural diffraction artifact overlays
     if (diffractionArtifact !== 'none') {
       const preset = DIFFRACTION_PRESETS[diffractionArtifact];
       if (preset) {
         ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
-        for (const ring of preset.rings) {
-          const rPx = (size * pixelSize) / ring.dSpacingA;
-          if (rPx > 6 && rPx <= size / 2) {
-            ctx.beginPath();
-            ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)'; // Amber/gold
-            ctx.lineWidth = 1.25;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
+        if (diffractionArtifact === 'graphene') {
+          // 6-fold hexagonal Bragg reflection spots and hexagonal guideline
+          const theta0 = (15 * Math.PI) / 180;
+          for (let rIdx = 0; rIdx < preset.rings.length; rIdx++) {
+            const ring = preset.rings[rIdx]!;
+            const rPx = (size * pixelSize) / ring.dSpacingA;
+            if (rPx > 6 && rPx <= size / 2) {
+              const rotOffset = rIdx === 1 ? Math.PI / 6 : 0;
 
-            // Label near top edge of circle
-            ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
-            ctx.fillText(ring.label, cx + 4, cy - rPx + 11);
+              // Hexagon guideline
+              ctx.beginPath();
+              for (let k = 0; k <= 6; k++) {
+                const a = theta0 + rotOffset + (k * Math.PI) / 3;
+                const hx = cx + rPx * Math.cos(a);
+                const hy = cy + rPx * Math.sin(a);
+                if (k === 0) ctx.moveTo(hx, hy);
+                else ctx.lineTo(hx, hy);
+              }
+              ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3, 3]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              // Discrete hexagonal reflection spots
+              for (let k = 0; k < 6; k++) {
+                const a = theta0 + rotOffset + (k * Math.PI) / 3;
+                const spotX = cx + rPx * Math.cos(a);
+                const spotY = cy + rPx * Math.sin(a);
+                ctx.beginPath();
+                ctx.arc(spotX, spotY, 3.5, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              }
+
+              // Label
+              ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+              const labelAngle = theta0 + rotOffset;
+              ctx.fillText(ring.label, cx + rPx * Math.cos(labelAngle) + 7, cy + rPx * Math.sin(labelAngle) + 3);
+            }
+          }
+        } else {
+          // Continuous Debye-Scherrer powder rings (crystalline ice, carbon halo, gold)
+          for (const ring of preset.rings) {
+            const rPx = (size * pixelSize) / ring.dSpacingA;
+            if (rPx > 6 && rPx <= size / 2) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+              ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)'; // Amber/gold
+              ctx.lineWidth = 1.25;
+              ctx.setLineDash([4, 4]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              // Label near top edge of circle
+              ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+              ctx.fillText(ring.label, cx + 4, cy - rPx + 11);
+            }
           }
         }
       }
@@ -995,7 +1042,7 @@ export default function CryoEmView() {
                       )}
                       {s.diffractionArtifact === 'graphene' && (
                         <p class="text-[11px] text-sky-600 dark:text-sky-400 font-medium">
-                          ℹ️ <strong>Single-Particle Impact:</strong> Monolayer or few-layer graphene oxide films reduce air-water interface denaturation but produce sharp carbon lattice powder rings at 2.13 Å and 1.23 Å.
+                          ℹ️ <strong>Single-Particle Impact:</strong> Monolayer single-crystal graphene grids minimize air-water interface denaturation while producing sharp 6-fold hexagonal Bragg diffraction reflections at 2.13 Å {10-10} and 1.23 Å {11-20} without corrupting azimuths between spots.
                         </p>
                       )}
                       {s.diffractionArtifact === 'carbon' && (

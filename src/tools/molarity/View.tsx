@@ -46,6 +46,16 @@ function compute(s: State): { result: string; rows?: SerialDilutionRow[]; error?
   }
 }
 
+const MW_PRESETS = [
+  { name: 'NaCl', mw: 58.44 },
+  { name: 'KCl', mw: 74.55 },
+  { name: 'Tris', mw: 121.14 },
+  { name: 'HEPES', mw: 238.30 },
+  { name: 'EDTA', mw: 292.24 },
+  { name: 'DTT', mw: 154.25 },
+  { name: 'Glucose', mw: 180.16 },
+];
+
 export default function View() {
   const [state, shareUrl] = useUrlState<State>('molarity', DEFAULTS);
   const s = state.value;
@@ -54,25 +64,52 @@ export default function View() {
 
   const tabBtn = (t: State['tab'], label: string) => (
     <button type="button" onClick={() => set({ tab: t })} aria-pressed={s.tab === t}
-      class={`rounded-full px-3 py-1 text-sm ${s.tab === t ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}>{label}</button>
+      class={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition ${s.tab === t ? 'bg-accent-600 text-white shadow-xs' : 'border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{label}</button>
   );
   const dil = (k: Key, label: string, units: string[]) => (
     <div class="flex items-end gap-2">
       <div class="flex-1"><Quantity id={`mol-${k}`} label={label} value={s[k]} units={units} onChange={v => set({ [k]: v })} placeholder={s.blank === k ? 'solved' : ''} /></div>
-      <label class="mb-2 flex items-center gap-1 text-xs"><input type="radio" name="blank" checked={s.blank === k} onChange={() => set({ blank: k, [k]: { ...s[k], value: NaN } })} /> solve</label>
+      <label class={`mb-1.5 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold cursor-pointer border transition shrink-0 ${s.blank === k ? 'bg-accent-50 text-accent-700 border-accent-300 dark:bg-accent-950 dark:text-accent-300 dark:border-accent-700 shadow-2xs' : 'border-slate-300 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+        <input type="radio" name="blank" checked={s.blank === k} onChange={() => set({ blank: k, [k]: { ...s[k], value: NaN } })} class="accent-accent-600" />
+        <span>solve</span>
+      </label>
     </div>
   );
 
   return (
     <ToolLayout icon="⚖️" title="Molarity & Dilution" blurb="Mass to weigh for a solution, and C1V1 = C2V2 with any unknown."
+      mobileResultSummary={
+        error ? (
+          <span class="text-rose-600 dark:text-rose-400 font-semibold">{error}</span>
+        ) : s.tab === 'serial' && rows ? (
+          <span>Well 1: <strong class="text-accent-700 dark:text-accent-300">{rows[0]!.preparationVolume} {s.serialVolume.unit}</strong> · Transfer <strong class="text-accent-700 dark:text-accent-300">{rows[0]!.transferVolume} {s.serialVolume.unit}</strong></span>
+        ) : (
+          <span class="font-medium text-slate-900 dark:text-slate-100">{result}</span>
+        )
+      }
       inputs={<>
         <div class="flex flex-wrap gap-2">{tabBtn('mass', 'Mass for a solution')}{tabBtn('dilution', 'Dilution (C1V1 = C2V2)')}{tabBtn('serial', 'Serial dilution')}</div>
         {s.tab === 'mass' ? <>
           <Quantity id="mol-conc" label="Target concentration" value={s.conc} units={CONC} onChange={v => set({ conc: v })} />
           <Quantity id="mol-vol" label="Final volume" value={s.vol} units={VOL} onChange={v => set({ vol: v })} />
-          <label for="mol-mw" class="block"><span class="mb-1 block text-sm font-medium">Molecular weight (g/mol)</span>
-            <input id="mol-mw" type="number" step="any" value={s.mw} onInput={e => set({ mw: Number((e.target as HTMLInputElement).value) })}
-              class="mono w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900" /></label>
+          <div>
+            <label for="mol-mw" class="block"><span class="mb-1 block text-sm font-medium">Molecular weight (g/mol)</span>
+              <input id="mol-mw" type="number" step="any" value={s.mw} onInput={e => set({ mw: Number((e.target as HTMLInputElement).value) })}
+                class="mono w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900" /></label>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+              <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+              {MW_PRESETS.map(p => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => set({ mw: p.mw })}
+                  class={`rounded-md px-2 py-0.5 text-xs font-mono transition border ${s.mw === p.mw ? 'bg-accent-600 text-white border-accent-600' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                >
+                  {p.name} ({p.mw})
+                </button>
+              ))}
+            </div>
+          </div>
         </> : s.tab === 'dilution' ? <>
           {dil('c1', 'Stock concentration (C1)', CONC)}
           {dil('v1', 'Stock volume (V1)', VOL)}

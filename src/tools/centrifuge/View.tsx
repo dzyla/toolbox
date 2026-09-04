@@ -114,6 +114,24 @@ export default function View() {
       icon="🌀"
       title="Centrifuge & Rotor Calculator"
       blurb="Convert RPM and RCF, browse Beckman & ultracentrifuge rotors, estimate k-factor and pelleting time."
+      mobileResultSummary={
+        calculation.error ? (
+          <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+        ) : (
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] text-slate-500 block">{s.solve === 'rcf' ? 'Centrifugal Force' : 'Speed'}</span>
+              <strong class="font-mono text-base text-accent-700 dark:text-accent-300">{primaryText}</strong>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-slate-500 block">k-factor / Pelleting</span>
+              <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
+                k={Number(calculation.k!.toPrecision(3))} · {Number(calculation.time!.toPrecision(2))} h
+              </span>
+            </div>
+          </div>
+        )
+      }
       inputs={
         <>
           <div class="flex gap-2">
@@ -121,7 +139,7 @@ export default function View() {
               type="button"
               aria-pressed={s.solve === 'rcf'}
               onClick={() => set({ solve: 'rcf' })}
-              class={`rounded-full px-3 py-1 text-sm ${s.solve === 'rcf' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
+              class={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition ${s.solve === 'rcf' ? 'bg-accent-600 text-white shadow-xs' : 'border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             >
               Calculate RCF (× g)
             </button>
@@ -129,7 +147,7 @@ export default function View() {
               type="button"
               aria-pressed={s.solve === 'rpm'}
               onClick={() => set({ solve: 'rpm' })}
-              class={`rounded-full px-3 py-1 text-sm ${s.solve === 'rpm' ? 'bg-accent-600 text-white' : 'border border-slate-300 dark:border-slate-700'}`}
+              class={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition ${s.solve === 'rpm' ? 'bg-accent-600 text-white shadow-xs' : 'border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             >
               Calculate RPM
             </button>
@@ -186,29 +204,59 @@ export default function View() {
           <Quantity id="centrifuge-radius" label="Rotor radius (r_max or r_avg)" value={s.radius} units={['mm', 'cm']} onChange={radius => set({ radius })} />
 
           {s.solve === 'rcf' ? (
-            <label>
-              <span class="mb-1 block text-sm font-medium">Speed (RPM)</span>
-              <input
-                aria-label="Speed (RPM)"
-                type="number"
-                min="1"
-                value={s.speed}
-                onInput={event => set({ speed: Number((event.target as HTMLInputElement).value) })}
-                class={fieldClass}
-              />
-            </label>
+            <div>
+              <label class="block">
+                <span class="mb-1 block text-sm font-medium">Speed (RPM)</span>
+                <input
+                  aria-label="Speed (RPM)"
+                  type="number"
+                  min="1"
+                  value={s.speed}
+                  onInput={event => set({ speed: Number((event.target as HTMLInputElement).value) })}
+                  class={fieldClass}
+                />
+              </label>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                {[1000, 3000, 5000, 10000, 14000, 16000].map(rpmVal => (
+                  <button
+                    key={rpmVal}
+                    type="button"
+                    onClick={() => set({ speed: rpmVal })}
+                    class={`rounded-md px-2 py-0.5 text-xs font-mono transition border ${s.speed === rpmVal ? 'bg-accent-600 text-white border-accent-600' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  >
+                    {rpmVal.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
-            <label>
-              <span class="mb-1 block text-sm font-medium">Force (RCF / × g)</span>
-              <input
-                aria-label="Force (RCF / × g)"
-                type="number"
-                min="1"
-                value={s.force}
-                onInput={event => set({ force: Number((event.target as HTMLInputElement).value) })}
-                class={fieldClass}
-              />
-            </label>
+            <div>
+              <label class="block">
+                <span class="mb-1 block text-sm font-medium">Force (RCF / × g)</span>
+                <input
+                  aria-label="Force (RCF / × g)"
+                  type="number"
+                  min="1"
+                  value={s.force}
+                  onInput={event => set({ force: Number((event.target as HTMLInputElement).value) })}
+                  class={fieldClass}
+                />
+              </label>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                {[300, 1000, 3000, 10000, 14000, 20000].map(rcfVal => (
+                  <button
+                    key={rcfVal}
+                    type="button"
+                    onClick={() => set({ force: rcfVal })}
+                    class={`rounded-md px-2 py-0.5 text-xs font-mono transition border ${s.force === rcfVal ? 'bg-accent-600 text-white border-accent-600' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  >
+                    {rcfVal.toLocaleString()} × g
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {isOverSpeed && (

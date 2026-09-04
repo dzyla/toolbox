@@ -8,6 +8,7 @@ import {
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
+import { DecimalInput } from '@/app/components/DecimalInput';
 import { useUrlState } from '@/lib/url-state';
 import { SCIENCE } from './science';
 
@@ -95,6 +96,21 @@ export default function CultureView() {
       icon="🧫"
       title="Cell Culture & Passaging"
       blurb="Calculate seeding densities, vessel volume scaling, doubling time, and split ratios."
+      mobileResultSummary={
+        s.activeTab === 'passaging' ? (
+          'error' in seedingResult ? (
+            <span class="text-rose-600 dark:text-rose-400 font-semibold">{seedingResult.error}</span>
+          ) : (
+            <span>Seed <strong class="text-accent-700 dark:text-accent-300 font-mono">{(seedingResult.volumePerVesselMl * 1000).toFixed(1)} µL</strong> ({seedingResult.cellsPerVessel.toLocaleString()} cells) per vessel</span>
+          )
+        ) : (
+          'error' in doublingResult ? (
+            <span class="text-rose-600 dark:text-rose-400 font-semibold">{doublingResult.error}</span>
+          ) : (
+            <span>Doubling time: <strong class="text-accent-700 dark:text-accent-300 font-mono">{doublingResult.doublingTimeHours.toFixed(1)} h</strong> ({doublingResult.populationDoublings.toFixed(2)} gen)</span>
+          )
+        )
+      }
       inputs={
         <div class="space-y-4">
           <div class="flex gap-2">
@@ -137,14 +153,16 @@ export default function CultureView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Harvest Cell Concentration (cells / mL)
                 </label>
-                <input
-                  type="number"
-                  min="1000"
-                  step="50000"
+                <DecimalInput
+                  min={1}
                   value={s.harvestConc}
-                  onInput={(e) => set({ harvestConc: parseFloat((e.target as HTMLInputElement).value) || 1 })}
+                  onChange={(val) => set({ harvestConc: val || 1 })}
+                  placeholder="e.g. 1.3 10 6, 1.3e6, 1000000"
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
                 />
+                <span class="text-[10px] text-slate-400 mt-0.5 block">
+                  Supports scientific exponents, e.g. <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">1.3 10 6</code>, <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">1.3e6</code>, or standard numbers.
+                </span>
               </div>
 
               <div class="grid grid-cols-2 gap-2">
@@ -169,16 +187,15 @@ export default function CultureView() {
                   <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                     Target Seeding Density (cells / cm²)
                   </label>
-                  <input
-                    type="number"
-                    min="100"
-                    step="1000"
+                  <DecimalInput
+                    min={0}
                     value={s.targetDensity}
-                    onInput={(e) => set({ targetDensity: parseFloat((e.target as HTMLInputElement).value) || 0 })}
+                    onChange={(val) => set({ targetDensity: val || 0 })}
+                    placeholder="e.g. 2 10 4, 2e4, 20000"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
                   />
                   <span class="text-[11px] text-slate-400 mt-1 block">
-                    Typical: 10,000–30,000 cells/cm² for routine maintenance.
+                    Typical: 10,000–30,000 cells/cm² for routine maintenance. Exponents like <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">2 10 4</code> supported.
                   </span>
                 </div>
               ) : (
@@ -218,12 +235,11 @@ export default function CultureView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Initial Cell Count (N₀)
                 </label>
-                <input
-                  type="number"
-                  min="1000"
-                  step="10000"
+                <DecimalInput
+                  min={1}
                   value={s.initialCount}
-                  onInput={(e) => set({ initialCount: parseFloat((e.target as HTMLInputElement).value) || 1 })}
+                  onChange={(val) => set({ initialCount: val || 1 })}
+                  placeholder="e.g. 2 10 5, 2e5, 200000"
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
                 />
               </div>
@@ -231,12 +247,11 @@ export default function CultureView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Final Harvest Count (Nt)
                 </label>
-                <input
-                  type="number"
-                  min="1000"
-                  step="50000"
+                <DecimalInput
+                  min={1}
                   value={s.finalCount}
-                  onInput={(e) => set({ finalCount: parseFloat((e.target as HTMLInputElement).value) || 1 })}
+                  onChange={(val) => set({ finalCount: val || 1 })}
+                  placeholder="e.g. 1.6 10 6, 1.6e6, 1600000"
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
                 />
               </div>

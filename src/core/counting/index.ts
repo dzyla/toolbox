@@ -126,18 +126,139 @@ export function computeSizeDistribution(colonies: ColonySpot[]): SizeDistributio
   };
 }
 
+export interface DishBoundary {
+  cx: number;
+  cy: number;
+  radius: number;
+}
+
+/**
+ * Automatically estimates the circular petri dish boundary in an image
+ * by scanning outward from the image center for the circular plastic rim gradient.
+ */
+export function detectPetriDishBoundary(imageData: ImageData): DishBoundary {
+  const width = imageData.width;
+  const height = imageData.height;
+  const data = imageData.data;
+  const defaultCx = width / 2;
+  const defaultCy = height / 2;
+  const defaultR = Math.min(width, height) / 2;
+
+  const luma = (x: number, y: number): number => {
+    const px = Math.max(0, Math.min(width - 1, Math.floor(x)));
+    const py = Math.max(0, Math.min(height - 1, Math.floor(y)));
+    const idx = (py * width + px) * 4;
+    return 0.299 * data[idx]! + 0.587 * data[idx + 1]! + 0.114 * data[idx + 2]!;
+  };
+
+  const numRays = 36;
+  const edgePoints: Array<{ x: number; y: number; r: number }> = [];
+  const minSearchR = defaultR * 0.40;
+  const maxSearchR = defaultR * 0.98;
+
+  for (let i = 0; i < numRays; i++) {
+    const angle = (i / numRays) * 2 * Math.PI;
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+
+    let maxGrad = 0;
+    let bestR = defaultR * 0.85;
+
+    for (let r = minSearchR; r <= maxSearchR; r += 2) {
+      const x1 = defaultCx + (r - 4) * cosA;
+      const y1 = defaultCy + (r - 4) * sinA;
+      const x2 = defaultCx + (r + 4) * cosA;
+      const y2 = defaultCy + (r + 4) * sinA;
+
+      const grad = Math.abs(luma(x1, y1) - luma(x2, y2));
+      if (grad > maxGrad) {
+        maxGrad = grad;
+        bestR = r;
+      }
+    }
+
+    if (maxGrad > 15) {
+      edgePoints.push({
+        x: defaultCx + bestR * cosA,
+        y: defaultCy + bestR * sinA,
+        r: bestR,
+      });
+    }
+  }
+
+  if (edgePoints.length >= 12) {
+    const sortedR = [...edgePoints].map(p => p.r).sort((a, b) => a - b);
+    const medianR = sortedR[Math.floor(sortedR.length / 2)]!;
+    const inliers = edgePoints.filter(p => Math.abs(p.r - medianR) < medianR * 0.14);
+
+    if (inliers.length >= 8) {
+      // Algebraic circle fit (Kåsa least squares)
+      let sX = 0, sY = 0, sX2 = 0, sY2 = 0, sXY = 0;
+      let sZ = 0, sXZ = 0, sYZ = 0;
+      const n = inliers.length;
+
+      for (const p of inliers) {
+        const x = p.x;
+        const y = p.y;
+        const z = x * x + y * y;
+        sX += x; sY += y;
+        sX2 += x * x; sY2 += y * y; sXY += x * y;
+        sZ += z; sXZ += x * z; sYZ += y * z;
+      }
+
+      const a11 = sX2, a12 = sXY, a13 = sX, b1 = -sXZ;
+      const a21 = sXY, a22 = sY2, a23 = sY, b2 = -sYZ;
+      const a31 = sX, a32 = sY, a33 = n, b3 = -sZ;
+
+      const det = a11 * (a22 * a33 - a23 * a32) - a12 * (a21 * a33 - a23 * a31) + a13 * (a21 * a32 - a22 * a31);
+      if (Math.abs(det) > 1e-4) {
+        const detA = b1 * (a22 * a33 - a23 * a32) - a12 * (b2 * a33 - a23 * b3) + a13 * (b2 * a32 - a22 * b3);
+        const detB = a11 * (b2 * a33 - a23 * b3) - b1 * (a21 * a33 - a23 * a31) + a13 * (a21 * b3 - b2 * a31);
+        const detC = a11 * (a22 * b3 - b2 * a32) - a12 * (a21 * b3 - b2 * a31) + b1 * (a21 * a32 - a22 * b3);
+
+        const A = detA / det;
+        const B = detB / det;
+        const C = detC / det;
+
+        const fitCx = -A / 2;
+        const fitCy = -B / 2;
+        const rSq = fitCx * fitCx + fitCy * fitCy - C;
+
+        if (rSq > 0) {
+          const fitR = Math.sqrt(rSq);
+          if (
+            Math.abs(fitCx - defaultCx) < width * 0.22 &&
+            Math.abs(fitCy - defaultCy) < height * 0.22 &&
+            fitR > defaultR * 0.45 &&
+            fitR < defaultR * 1.15
+          ) {
+            return { cx: fitCx, cy: fitCy, radius: fitR };
+          }
+        }
+      }
+    }
+  }
+
+  return { cx: defaultCx, cy: defaultCy, radius: defaultR };
+}
+
 export interface ColonyDetectionOptions {
   minRadius?: number;
   maxRadius?: number;
   minCertainty?: number;
   minDistance?: number;    // minimum distance between colony centers in pixels
   dishRadiusFrac?: number; // rim exclusion fraction (e.g. 0.84 to exclude plastic rim glare)
+  dishCenterX?: number;
+  dishCenterY?: number;
+  dishRadius?: number;
 }
 
 /**
  * Automated computer-vision colony detection on ImageData.
  * Features:
  * - True centroid refinement (local intensity-weighted centroid, not edge)
+ * - Automatic petri dish boundary centering (prevents clipping near bottom/right rim)
+ * - Marker pen ink rejection
  * - Touching / doublet colony separation via saddle thresholding
  * - Configurable minimum separation distance
  * - Petri dish plastic rim glare exclusion
@@ -157,9 +278,15 @@ export function autoDetectColonies(
   const width = imageData.width;
   const height = imageData.height;
   const data = imageData.data;
-  const cx = width / 2;
-  const cy = height / 2;
-  const maxDishRadius = (Math.min(width, height) / 2) * dishRadiusFrac;
+
+  // Determine actual dish center and radius (auto-detected or provided)
+  const dish = (options.dishCenterX !== undefined && options.dishCenterY !== undefined && options.dishRadius !== undefined)
+    ? { cx: options.dishCenterX, cy: options.dishCenterY, radius: options.dishRadius }
+    : detectPetriDishBoundary(imageData);
+
+  const cx = dish.cx;
+  const cy = dish.cy;
+  const maxDishRadius = dish.radius * dishRadiusFrac;
 
   // Convert to grayscale luminance
   const gray = new Float32Array(width * height);
@@ -214,6 +341,16 @@ export function autoDetectColonies(
 
       const cVal = getContrast(x, y);
       if (cVal <= 12) continue;
+
+      // Marker pen ink rejection (e.g. sharp red, blue, green Sharpie marks on petri dish)
+      const pxIdx = (Math.floor(y) * width + Math.floor(x)) * 4;
+      const rVal = data[pxIdx]!;
+      const gVal = data[pxIdx + 1]!;
+      const bVal = data[pxIdx + 2]!;
+      const colorSpread = Math.max(Math.abs(rVal - gVal), Math.abs(rVal - bVal), Math.abs(gVal - bVal));
+      if (colorSpread > 40 && (rVal > gVal * 1.35 || bVal > gVal * 1.35)) {
+        continue;
+      }
 
       // Check if it is a local maximum compared to immediate neighbors
       let isLocalMax = true;
@@ -344,7 +481,7 @@ export function autoDetectColonies(
         const minPeakCont = Math.min(c1Cont, c2Cont);
 
         // If the midpoint between them is noticeably lower than both peaks, they are two distinct touching colonies!
-        if (midContrast < minPeakCont * 0.78 && d >= minDistance) {
+        if (midContrast < minPeakCont * 0.88 && d >= minDistance) {
           // Keep as doublet!
           continue;
         } else {

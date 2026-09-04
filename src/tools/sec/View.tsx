@@ -150,6 +150,13 @@ export default function SecView() {
       title="SEC Calibration & Stokes Radius"
       blurb="Size exclusion chromatography calibration curve, apparent molecular weight estimation, Stokes radius (Rh), and oligomeric state analysis."
       wide={true}
+      mobileResultSummary={
+        s.queryMode === 've_to_mw' && predictionMw ? (
+          <span>Apparent MW: <strong class="text-accent-700 dark:text-accent-300 font-mono">{predictionMw.apparentMwkDa.toFixed(1)} kDa</strong> (Rh {predictionMw.stokesRadiusAngstrom.toFixed(1)} Å)</span>
+        ) : s.queryMode === 'mw_to_ve' && predictionVe ? (
+          <span>Predicted Ve: <strong class="text-accent-700 dark:text-accent-300 font-mono">{predictionVe.elutionVolumeMl.toFixed(2)} mL</strong> (Kav {predictionVe.kav.toFixed(3)})</span>
+        ) : null
+      }
       inputs={
         <div class="space-y-4">
           {/* Column Presets */}

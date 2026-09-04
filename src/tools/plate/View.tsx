@@ -96,6 +96,7 @@ export default function PlateView() {
   const [hoveredWell, setHoveredWell] = useState<WellData | null>(null);
   const [dragStart, setDragStart] = useState<{ rowIdx: number; col: number } | null>(null);
   const [dragCurrent, setDragCurrent] = useState<{ rowIdx: number; col: number } | null>(null);
+  const [density, setDensity] = useState<'normal' | 'compact'>('normal');
 
   function handleRenameGroup(id: string, newName: string) {
     setGroups(prev => prev.map(g => g.id === id ? { ...g, name: newName } : g));
@@ -377,6 +378,9 @@ export default function PlateView() {
       title="Plate Layout Designer"
       blurb="Multi-well plate maps (6 to 384 wells), box drag selection, serial dilution color shades, and pipetting scheme generator."
       wide={true}
+      mobileResultSummary={
+        <span>{s.format}-well map · <strong class="text-accent-700 dark:text-accent-300 font-mono">{Object.values(wells).filter(w => !!w.sampleGroupId).length} / {s.format}</strong> wells filled</span>
+      }
       inputs={
         <div class="space-y-4">
           {/* Format Selector */}
@@ -649,21 +653,40 @@ export default function PlateView() {
               </div>
 
               {s.viewTab === 'map' && (
-                <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
-                  <button
-                    type="button"
-                    onClick={() => set({ displayMode: 'shading' })}
-                    class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode !== 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
-                  >
-                    Color Shading
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => set({ displayMode: 'labels' })}
-                    class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
-                  >
-                    Labels &amp; Values
-                  </button>
+                <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+                    <button
+                      type="button"
+                      onClick={() => set({ displayMode: 'shading' })}
+                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode !== 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    >
+                      Color Shading
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set({ displayMode: 'labels' })}
+                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    >
+                      Labels &amp; Values
+                    </button>
+                  </div>
+
+                  <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setDensity('normal')}
+                      class={`px-2 py-1 rounded-md text-xs font-medium transition ${density === 'normal' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    >
+                      Normal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDensity('compact')}
+                      class={`px-2 py-1 rounded-md text-xs font-medium transition ${density === 'compact' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    >
+                      📱 Compact
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -696,7 +719,7 @@ export default function PlateView() {
                       type="button"
                       onClick={() => handlePaintCol(c)}
                       title={`Fill column ${c}`}
-                      class={`${dim.format <= 96 ? 'w-14 sm:w-16' : 'w-7 sm:w-8'} h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
+                      class={`${density !== 'compact' && dim.format <= 96 ? 'w-14 sm:w-16' : 'w-7 sm:w-8'} h-6 mx-0.5 rounded text-[11px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
                     >
                       {c}
                     </button>
@@ -706,6 +729,7 @@ export default function PlateView() {
                 {/* Rows */}
                 {Array.from({ length: dim.rows }, (_, rIdx) => {
                   const rowChar = dim.rowLabels[rIdx]!;
+                  const isCompact = density === 'compact' || dim.format > 96;
                   return (
                     <div key={rowChar} class="flex items-center mb-1">
                       {/* Row Header */}
@@ -713,7 +737,7 @@ export default function PlateView() {
                         type="button"
                         onClick={() => handlePaintRow(rowChar)}
                         title={`Fill row ${rowChar}`}
-                        class={`w-8 ${dim.format <= 96 ? 'h-14 sm:h-16' : 'h-7 sm:h-8'} mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
+                        class={`w-8 ${!isCompact ? 'h-14 sm:h-16' : 'h-7 sm:h-8'} mr-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition shrink-0`}
                       >
                         {rowChar}
                       </button>
@@ -749,7 +773,7 @@ export default function PlateView() {
                           }
                         }
 
-                        const isLabelsMode = s.displayMode === 'labels' && dim.format <= 96;
+                        const isLabelsMode = s.displayMode === 'labels' && !isCompact;
 
                         return (
                           <button
@@ -764,7 +788,7 @@ export default function PlateView() {
                               backgroundColor: isOccupied ? group.color : 'transparent',
                               opacity: isOccupied ? opacity : 1,
                             }}
-                            class={`${dim.format <= 96 ? 'w-14 sm:w-16 h-14 sm:h-16 rounded-full flex flex-col justify-between py-1 px-0.5' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? `border-black/25 ${getWellTextColor(group.color, opacity)} shadow-xs` : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950 text-slate-400'}`}
+                            class={`${!isCompact ? 'w-14 sm:w-16 h-14 sm:h-16 rounded-full flex flex-col justify-between py-1 px-0.5' : 'w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center'} mx-0.5 border transition shrink-0 ${isDragSelected ? 'ring-2 ring-accent-500 scale-105' : ''} ${isOccupied ? `border-black/25 ${getWellTextColor(group.color, opacity)} shadow-xs` : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-950 text-slate-400'}`}
                           >
                             {isLabelsMode ? (
                               <>
@@ -779,7 +803,7 @@ export default function PlateView() {
                                 </div>
                               </>
                             ) : (
-                              isOccupied ? (dim.format <= 96 ? <span class="text-[10px] font-mono font-bold">{wellId}</span> : '') : ''
+                              isOccupied ? (dim.format <= 96 ? <span class={`${isCompact ? 'text-[8px]' : 'text-[10px]'} font-mono font-bold leading-none`}>{wellId}</span> : '') : ''
                             )}
                           </button>
                         );

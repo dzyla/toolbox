@@ -222,15 +222,21 @@ function BandQuantChart({
         </div>
       </div>
 
-      {hoveredBar && (
-        <div class="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4">
-          <span>Lane: <strong>L{hoveredBar.laneIdx + 1}</strong></span>
-          <span>Band: <strong>#{hoveredBar.bandNum}</strong></span>
-          {hoveredBar.size && <span>Est. MW: <strong class="text-accent-600 dark:text-accent-400">{hoveredBar.size}</strong></span>}
-          <span>Value: <strong>{Math.round(hoveredBar.val).toLocaleString()} {metric === 'share' ? '%' : 'OD'}</strong></span>
-          {hoveredBar.fold && <span>Relative Fold: <strong class="text-emerald-600 dark:text-emerald-400">{hoveredBar.fold}</strong></span>}
-        </div>
-      )}
+      <div class="min-h-[32px] flex items-center">
+        {hoveredBar ? (
+          <div class="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4 w-full shadow-2xs">
+            <span>Lane: <strong>L{hoveredBar.laneIdx + 1}</strong></span>
+            <span>Band: <strong>#{hoveredBar.bandNum}</strong></span>
+            {hoveredBar.size && <span>Est. MW: <strong class="text-accent-600 dark:text-accent-400">{hoveredBar.size}</strong></span>}
+            <span>Value: <strong>{Math.round(hoveredBar.val).toLocaleString()} {metric === 'share' ? '%' : 'OD'}</strong></span>
+            {hoveredBar.fold && <span>Relative Fold: <strong class="text-emerald-600 dark:text-emerald-400">{hoveredBar.fold}</strong></span>}
+          </div>
+        ) : (
+          <div class="text-xs text-slate-400 italic px-1">
+            Hover over any bar in the chart to inspect quantification details without layout shift.
+          </div>
+        )}
+      </div>
 
       <div class="overflow-x-auto">
         <svg viewBox={`0 0 ${chartW} ${chartH}`} class="w-full h-auto min-w-[500px] select-none">
@@ -1140,8 +1146,8 @@ export default function GelView() {
         // Normal click sets reference band
         set({ refBandId: existingBand.id });
       }
-    } else {
-      // Click on empty lane adds a new band at this position!
+    } else if (e.shiftKey) {
+      // Shift+Click on lane adds a new band at this position!
       const newBand: Band = {
         id: `band-${Date.now()}`,
         y0: Math.max(0, clickY - 8),
@@ -1206,16 +1212,24 @@ export default function GelView() {
 
   function handleAutoLanes() {
     if (!plane) return;
+    const currentIdx = lanes.findIndex(l => l.id === selectedLaneId);
     const detected = autoLanes(plane, { x: 0, y: 0, w: plane.width, h: plane.height }, s.polarity);
     setLanes(detected);
-    if (detected.length > 0) setSelectedLaneId(detected[0]!.id);
+    if (detected.length > 0) {
+      const keepIdx = currentIdx >= 0 && currentIdx < detected.length ? currentIdx : 0;
+      setSelectedLaneId(detected[keepIdx]!.id);
+    }
   }
 
   function handleEqualLanes() {
     if (!plane) return;
+    const currentIdx = lanes.findIndex(l => l.id === selectedLaneId);
     const eq = equalLanes(numLanesInput, { x: 0, y: 0, w: plane.width, h: plane.height });
     setLanes(eq);
-    if (eq.length > 0) setSelectedLaneId(eq[0]!.id);
+    if (eq.length > 0) {
+      const keepIdx = currentIdx >= 0 && currentIdx < eq.length ? currentIdx : 0;
+      setSelectedLaneId(eq[keepIdx]!.id);
+    }
   }
 
   function handleDeleteSelectedLane() {
@@ -1989,7 +2003,7 @@ export default function GelView() {
 
                 {/* Gesture hint banner */}
                 <div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
-                  <span>💡 <strong>Grab lane lines</strong> to move or resize width. <strong>Click</strong> in lane to add band line; <strong>Ctrl+Click</strong> on band to remove it.</span>
+                  <span>💡 <strong>Grab lane lines</strong> to move or resize width. <strong>Click</strong> to select lane. <strong>Shift+Click</strong> in lane to add band; <strong>Ctrl+Click</strong> on band to remove it.</span>
                   {selectedLane && (
                     <span class="text-accent-600 dark:text-accent-400 font-semibold">Active: L{selectedLaneIdx + 1}</span>
                   )}
@@ -2007,7 +2021,7 @@ export default function GelView() {
                       maxWidth: canvasZoom > 100 ? `${canvasZoom}%` : '100%',
                     }}
                     class="h-auto block select-none rounded shadow-2xs"
-                    title="Click or drag lanes. Click to add band, Ctrl+click to remove."
+                    title="Click or drag lanes. Shift+Click to add band, Ctrl+click to remove."
                   />
                 </div>
               </div>
@@ -2113,28 +2127,36 @@ export default function GelView() {
                               }
                             }}
                           >
-                            {/* Vertical alignment line through curve and lane strip */}
+                            {/* Vertical alignment line from curve down to top edge of lane strip (stops at y=201, DOES NOT cross the raw image) */}
                             <line
                               x1={px}
                               y1={py}
                               x2={px}
-                              y2="241"
+                              y2="201"
                               stroke={isRef ? '#10b981' : '#ef4444'}
                               stroke-width="1.2"
                               stroke-dasharray="2 2"
                               stroke-opacity="0.85"
                             />
 
-                            {/* Physical lane strip highlight bar */}
-                            <rect
-                              x={px - 2}
-                              y="203"
-                              width="4"
-                              height="38"
-                              fill={isRef ? '#10b981' : '#ef4444'}
-                              fill-opacity="0.3"
+                            {/* Top alignment tick line pointing to lane strip (does not cross image) */}
+                            <line
+                              x1={px}
+                              y1="197"
+                              x2={px}
+                              y2="202"
                               stroke={isRef ? '#10b981' : '#ef4444'}
-                              stroke-width="1"
+                              stroke-width="2"
+                            />
+
+                            {/* Bottom alignment tick line pointing from lane strip (does not cross image) */}
+                            <line
+                              x1={px}
+                              y1="242"
+                              x2={px}
+                              y2="247"
+                              stroke={isRef ? '#10b981' : '#ef4444'}
+                              stroke-width="2"
                             />
 
                             {/* Dot on curve */}

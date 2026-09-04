@@ -279,6 +279,13 @@ export default function BindingView() {
       icon="🧲"
       title="Binding Equilibrium Calculator"
       blurb="Equilibrium solvers for 1:1, n-mer, and cooperative multi-site binding with thermodynamics and kinetics."
+      mobileResultSummary={
+        eqResult?.type === 'single_step' && eqResult.res ? (
+          <span>Bound: <strong class="text-accent-700 dark:text-accent-300 font-mono">{(eqResult.res.fractionBound * 100).toFixed(1)}%</strong>{eqResult.dg?.total?.kcal !== undefined ? <span> · ΔG <strong class="font-mono">{eqResult.dg.total.kcal.toFixed(2)} kcal/mol</strong></span> : ''}</span>
+        ) : eqResult?.type === 'stepwise' && eqResult.res ? (
+          <span>Saturation: <strong class="text-accent-700 dark:text-accent-300 font-mono">{(eqResult.res.theta * 100).toFixed(1)}%</strong> ({eqResult.res.boundSites.toFixed(2)} / {s.n} sites)</span>
+        ) : null
+      }
       inputs={
         <div class="space-y-4">
           <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-700" open>

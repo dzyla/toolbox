@@ -365,6 +365,7 @@ function ProteinCard({
   const [featureSearch, setFeatureSearch] = useState('');
   const [featureZoom, setFeatureZoom] = useState<number>(1);
   const [hoveredFeature, setHoveredFeature] = useState<ProteinFeature | null>(null);
+  const [selectedFeature, setSelectedFeature] = useState<ProteinFeature | null>(null);
   const [peptideSearch, setPeptideSearch] = useState('');
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
 
@@ -672,13 +673,55 @@ function ProteinCard({
             </div>
           )}
 
+          {selectedFeature && (
+            <div class="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 flex flex-wrap items-center justify-between gap-3">
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full" style={{ backgroundColor: selectedFeature.color }} />
+                  <strong class="text-xs text-sky-950 dark:text-sky-100">{selectedFeature.name}</strong>
+                  <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300">
+                    {selectedFeature.kind}
+                  </span>
+                  {selectedFeature.identity !== undefined && (
+                    <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                      {(selectedFeature.identity * 100).toFixed(1)}% id
+                    </span>
+                  )}
+                </div>
+                <div class="text-[11px] font-mono text-sky-700 dark:text-sky-400">
+                  Residues {selectedFeature.start}–{selectedFeature.end} ({selectedFeature.end - selectedFeature.start + 1} aa)
+                </div>
+                <div class="text-[11px] font-mono text-slate-500 max-w-xl truncate">
+                  {analysis.seq.slice(selectedFeature.start - 1, selectedFeature.end)}
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopyFeatureSequence(selectedFeature)}
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-700 text-white transition shadow-2xs flex items-center gap-1"
+                >
+                  <span>📋</span>
+                  <span>Copy Sequence</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFeature(null)}
+                  class="px-2 py-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
           <FeatureMap
             features={shownFeatures}
             length={analysis.seq.length}
             zoom={featureZoom}
             hoveredFeature={hoveredFeature}
             onHoverFeature={setHoveredFeature}
-            onClickFeature={handleCopyFeatureSequence}
+            onClickFeature={(f) => setSelectedFeature(f)}
           />
 
           <div class="flex items-center justify-between gap-3 pt-2">
@@ -698,16 +741,19 @@ function ProteinCard({
             ) : (
               searchedFeatures.map((f, i) => {
                 const isHovered = hoveredFeature?.name === f.name && hoveredFeature?.start === f.start;
+                const isSelected = selectedFeature?.name === f.name && selectedFeature?.start === f.start;
                 return (
                   <div
                     key={`${f.name}-${f.start}-${i}`}
-                    onClick={() => handleCopyFeatureSequence(f)}
+                    onClick={() => setSelectedFeature(f)}
                     onMouseEnter={() => setHoveredFeature(f)}
                     onMouseLeave={() => setHoveredFeature(null)}
-                    title="Click to copy amino acid sequence"
+                    title="Click to view details and copy"
                     class={`p-2.5 flex items-center justify-between transition cursor-pointer ${
-                      isHovered
-                        ? 'bg-sky-50 dark:bg-sky-950/50 border-l-2 border-sky-500'
+                      isSelected
+                        ? 'bg-sky-100/70 dark:bg-sky-950/70 border-l-2 border-sky-500'
+                        : isHovered
+                        ? 'bg-sky-50 dark:bg-sky-950/50 border-l-2 border-sky-400'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
                     }`}
                   >

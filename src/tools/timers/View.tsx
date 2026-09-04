@@ -154,6 +154,10 @@ export default function TimersView() {
       icon="⏱️"
       title="Lab Timers & Stopwatch"
       blurb="Simultaneous concurrent incubation countdowns, alarm alerts, and lab stopwatch."
+      mobileDefaultTab="results"
+      mobileResultSummary={
+        <span>{timers.filter(t => t.isRunning).length} active · Next: <strong class="font-mono text-accent-700 dark:text-accent-300">{formatTime(Math.min(...timers.map(t => t.remainingSeconds)))}</strong></span>
+      }
       inputs={
         <div class="space-y-4">
           <div class="flex gap-2">
@@ -287,25 +291,32 @@ export default function TimersView() {
                     </div>
 
                     {/* Controls */}
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleToggleTimer(t.id)}
-                        class={`flex-1 py-1.5 rounded-lg text-xs font-bold text-white transition ${t.isRunning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent-600 hover:bg-accent-700'}`}
+                        class={`flex-1 min-h-[44px] rounded-xl text-xs font-bold text-white transition active:scale-95 shadow-xs ${t.isRunning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent-600 hover:bg-accent-700'}`}
                       >
                         {t.isRunning ? 'Pause' : isComplete ? 'Restart' : 'Start'}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleAddSeconds(t.id, 60)}
-                        class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition"
+                        class="px-3 min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition"
                       >
                         +1m
                       </button>
                       <button
                         type="button"
+                        onClick={() => handleAddSeconds(t.id, 300)}
+                        class="px-3 min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition"
+                      >
+                        +5m
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleResetTimer(t.id)}
-                        class="px-2 py-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition"
+                        class="px-2.5 min-h-[44px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition"
                         title="Reset"
                       >
                         ↺

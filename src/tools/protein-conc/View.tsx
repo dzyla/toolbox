@@ -134,11 +134,63 @@ export default function View() {
       icon="📏"
       title="Protein Concentration"
       blurb="Convert A280 with Beer–Lambert, support glycoprotein carbohydrate mass, or fit a local standard curve without sending data anywhere."
+      mobileResultSummary={
+        current.tab === 'a280' ? (
+          a280.value ? (
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <span class="text-[10px] text-slate-500 block">Concentration</span>
+                <strong class="font-mono text-base text-accent-700 dark:text-accent-300">
+                  {a280.value.gPerL >= 0.01 ? a280.value.gPerL.toFixed(3) : a280.value.gPerL.toExponential(2)} g/L
+                </strong>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-slate-500 block">Molar</span>
+                <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {(a280.value.molar * 1e6).toFixed(2)} µM
+                </span>
+              </div>
+            </div>
+          ) : a280.error ? (
+            <span class="text-rose-600 dark:text-rose-400 font-semibold">{a280.error}</span>
+          ) : null
+        ) : (
+          curve.fit ? (
+            <span>Standard curve: <strong class="font-mono">R² {curve.fit.r2.toFixed(4)}</strong> ({curve.unknowns.length} unknowns)</span>
+          ) : curve.error ? (
+            <span class="text-rose-600 dark:text-rose-400 font-semibold">{curve.error}</span>
+          ) : null
+        )
+      }
       inputs={
         <>
           <div class="flex flex-wrap gap-2">{tabButton('a280', 'A280')}{tabButton('curve', 'Standard curve')}</div>
           {current.tab === 'a280' ? (
             <>
+              {/* Protein Presets */}
+              <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                {[
+                  { name: 'BSA', mw: 66430, eps: 43824 },
+                  { name: 'IgG / Antibody', mw: 150000, eps: 210000 },
+                  { name: 'Lysozyme', mw: 14300, eps: 37900 },
+                  { name: 'GFP', mw: 26900, eps: 22000 },
+                ].map(p => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => set({
+                      molecularWeight: { value: p.mw, unit: 'Da' },
+                      epsilon: p.eps,
+                      useSequence: false,
+                    })}
+                    class="rounded-md px-2 py-0.5 text-xs font-mono transition border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+
               <label for="conc-absorbance" class="block">
                 <span class="mb-1 block text-sm font-medium">A280 absorbance</span>
                 <input id="conc-absorbance" class={FIELD} type="number" min="0" step="any" value={current.absorbance} onInput={event => set({ absorbance: Number((event.target as HTMLInputElement).value) })} />

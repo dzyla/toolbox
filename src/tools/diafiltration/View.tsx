@@ -135,6 +135,13 @@ export default function DiafiltrationView() {
       title="Ultrafiltration & Dialysis Simulator"
       blurb="Model centrifugal spin concentrator diafiltration volumes (DFV), dialysis equilibrium clearance, and membrane MWCO protein retention rules."
       wide={true}
+      mobileResultSummary={
+        s.mode === 'ultrafiltration' ? (
+          <span>Final: <strong class="font-mono text-accent-700 dark:text-accent-300">{ufSim.finalConc < 0.01 ? ufSim.finalConc.toExponential(2) : ufSim.finalConc.toFixed(2)} {s.unit}</strong> ({ufSim.cyclesToSafeTarget} cycles needed)</span>
+        ) : (
+          <span>Final: <strong class="font-mono text-accent-700 dark:text-accent-300">{dialSim.finalConc < 0.01 ? dialSim.finalConc.toExponential(2) : dialSim.finalConc.toFixed(2)} {s.unit}</strong> ({dialSim.changesToSafeTarget} bath changes)</span>
+        )
+      }
       inputs={
         <div class="space-y-4">
           {/* Method Selection */}

@@ -29,13 +29,41 @@ export default function View() {
     '', scienceText(SCIENCE),
   ].join('\n');
 
+  const CUT_PRESETS = [
+    { label: '0 → 30%', current: 0, target: 30 },
+    { label: '30 → 50%', current: 30, target: 50 },
+    { label: '50 → 70%', current: 50, target: 70 },
+    { label: '0 → 60%', current: 0, target: 60 },
+    { label: '0 → 70%', current: 0, target: 70 },
+  ];
+
   return <ToolLayout icon="🧂" title="Ammonium Sulfate" blurb="Calculate solid ammonium sulfate for a saturation cut."
+    mobileResultSummary={
+      calculation.error ? (
+        <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+      ) : (
+        <span>Add <strong class="text-accent-700 dark:text-accent-300 font-mono text-sm">{result}</strong> solid (NH₄)₂SO₄ ({s.current}% → {s.target}%)</span>
+      )
+    }
     inputs={<>
       <Quantity id="ammonium-volume" label="Starting volume" value={s.volume} units={['L', 'mL']} onChange={volume => set({ volume })} />
       <div class="grid gap-3 sm:grid-cols-2"><label><span class="mb-1 block text-sm font-medium">Current saturation (%)</span><input aria-label="Current saturation" type="number" min="0" max="99.9" step="any" value={s.current}
         onInput={event => set({ current: Number((event.target as HTMLInputElement).value) })} class={fieldClass} /></label>
         <label><span class="mb-1 block text-sm font-medium">Target saturation (%)</span><input aria-label="Target saturation" type="number" min="0" max="99.9" step="any" value={s.target}
           onInput={event => set({ target: Number((event.target as HTMLInputElement).value) })} class={fieldClass} /></label></div>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-[11px] text-slate-400 font-medium mr-0.5">Common cuts:</span>
+        {CUT_PRESETS.map(cut => (
+          <button
+            key={cut.label}
+            type="button"
+            onClick={() => set({ current: cut.current, target: cut.target })}
+            class={`rounded-md px-2 py-0.5 text-xs font-mono transition border ${s.current === cut.current && s.target === cut.target ? 'bg-accent-600 text-white border-accent-600' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+          >
+            {cut.label}
+          </button>
+        ))}
+      </div>
       <label><span class="mb-1 block text-sm font-medium">Temperature</span><select aria-label="Temperature" value={s.temperature}
         onChange={event => set({ temperature: Number((event.target as HTMLSelectElement).value) as 25 | 0 })} class={fieldClass}>
         <option value="25">25 °C (room temperature)</option><option value="0">0–4 °C (cold room)</option>

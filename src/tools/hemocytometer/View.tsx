@@ -85,6 +85,14 @@ export default function HemocytometerView() {
       icon="🔬"
       title="Hemocytometer & Cell Viability"
       blurb="Calculate cell concentration, Trypan Blue viability, and required seeding volumes."
+      mobileDefaultTab="results"
+      mobileResultSummary={
+        'error' in result ? (
+          <span class="text-rose-600 dark:text-rose-400 font-semibold">{result.error}</span>
+        ) : (
+          <span>Viable: <strong class="font-mono text-accent-700 dark:text-accent-300">{result.liveCellsPerMl >= 1e6 ? `${(result.liveCellsPerMl / 1e6).toFixed(2)} × 10⁶` : result.liveCellsPerMl.toLocaleString()}</strong> cells/mL · <strong>{result.viabilityPercent.toFixed(1)}%</strong> via</span>
+        )
+      }
       inputs={
         <div class="space-y-4">
           <div class="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -265,26 +273,48 @@ export default function HemocytometerView() {
                           </div>
                         </div>
 
-                        <div class="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'live', 1); }}
-                            class="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs transition"
-                          >
-                            + Live
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'dead', 1); }}
-                            class="flex-1 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-xs transition"
-                          >
-                            + Dead
-                          </button>
+                        <div class="flex items-center gap-1.5 pt-1">
+                          <div class="flex-1 flex gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'live', 1); }}
+                              class="flex-1 min-h-[38px] bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg font-bold text-xs transition flex items-center justify-center shadow-xs"
+                            >
+                              + Live
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'live', -1); }}
+                              disabled={sq.live <= 0}
+                              title="Decrement live"
+                              class="px-2 min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 font-bold text-xs disabled:opacity-30 transition"
+                            >
+                              −
+                            </button>
+                          </div>
+                          <div class="flex-1 flex gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'dead', 1); }}
+                              class="flex-1 min-h-[38px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg font-bold text-xs transition flex items-center justify-center shadow-xs"
+                            >
+                              + Dead
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'dead', -1); }}
+                              disabled={sq.dead <= 0}
+                              title="Decrement dead"
+                              class="px-2 min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 font-bold text-xs disabled:opacity-30 transition"
+                            >
+                              −
+                            </button>
+                          </div>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleResetSquare(sq.id); }}
                             title="Reset this square"
-                            class="px-2 py-1 text-slate-400 hover:text-rose-600 rounded text-xs transition"
+                            class="px-2 min-h-[38px] text-slate-400 hover:text-rose-600 rounded-lg text-xs transition"
                           >
                             ↺
                           </button>

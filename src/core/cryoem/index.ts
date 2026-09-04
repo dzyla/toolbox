@@ -268,11 +268,11 @@ export const DIFFRACTION_PRESETS: Record<DiffractionArtifactType, DiffractionPre
   },
   graphene: {
     id: 'graphene',
-    name: 'Graphene Oxide (GO) Support',
-    description: 'Single/few-layer graphene oxide support grid generating sharp Debye-Scherrer carbon honeycomb lattice rings at 2.13 Å (10-10) and 1.23 Å (11-20).',
+    name: 'Single-Crystal Graphene (Hexagonal Bragg Spots)',
+    description: 'Monolayer / few-layer single-crystal graphene support grid exhibiting characteristic 6-fold hexagonal Bragg reflection spots at 2.13 Å {10-10} and 1.23 Å {11-20} (rotated 30°).',
     rings: [
-      { dSpacingA: 2.13, label: '2.13 Å (10-10)', millerIndices: '(10-10)', intensity: 0.85, widthA: 0.007 },
-      { dSpacingA: 1.23, label: '1.23 Å (11-20)', millerIndices: '(11-20)', intensity: 0.65, widthA: 0.008 },
+      { dSpacingA: 2.13, label: '2.13 Å {10-10} (6-fold)', millerIndices: '{10-10}', intensity: 0.90, widthA: 0.007 },
+      { dSpacingA: 1.23, label: '1.23 Å {11-20} (6-fold)', millerIndices: '{11-20}', intensity: 0.70, widthA: 0.008 },
     ],
   },
   carbon: {
@@ -316,6 +316,54 @@ export function computeDiffractionIntensity(
     total += g;
   }
   return total;
+}
+
+/**
+ * Computes 2D diffraction intensity at reciprocal coordinates (sx, sy) in 1/Å.
+ * For crystalline single-crystal graphene, produces the characteristic 6-fold hexagonal
+ * Bragg diffraction spot pattern at 2.13 Å {10-10} and 1.23 Å {11-20}.
+ * For other materials (ice, gold, carbon), computes isotropic radial Debye-Scherrer rings/halos.
+ */
+export function compute2DDiffractionIntensity(
+  sx: number,
+  sy: number,
+  s: number,
+  diffractionType: DiffractionArtifactType = 'none'
+): number {
+  if (diffractionType === 'none' || s <= 0) return 0;
+  if (diffractionType !== 'graphene') {
+    return computeDiffractionIntensity(s, diffractionType);
+  }
+
+  const s1 = 1 / 2.13;
+  const s2 = 1 / 1.23;
+  const sigma = 0.012;
+  const sigmaSq2 = 2 * sigma * sigma;
+  const theta0 = (15 * Math.PI) / 180;
+  let total = 0;
+
+  for (let k = 0; k < 6; k++) {
+    const a = theta0 + (k * Math.PI) / 3;
+    const px = s1 * Math.cos(a);
+    const py = s1 * Math.sin(a);
+    const dSq = (sx - px) * (sx - px) + (sy - py) * (sy - py);
+    if (dSq < 9 * sigma * sigma) {
+      total += 0.95 * Math.exp(-dSq / sigmaSq2);
+    }
+  }
+
+  const theta1 = theta0 + Math.PI / 6;
+  for (let k = 0; k < 6; k++) {
+    const a = theta1 + (k * Math.PI) / 3;
+    const px = s2 * Math.cos(a);
+    const py = s2 * Math.sin(a);
+    const dSq = (sx - px) * (sx - px) + (sy - py) * (sy - py);
+    if (dSq < 9 * sigma * sigma) {
+      total += 0.70 * Math.exp(-dSq / sigmaSq2);
+    }
+  }
+
+  return Math.min(1.0, total);
 }
 
 /**
@@ -382,6 +430,25 @@ export function generateThonRingsMatrix(
   const matrix = new Float32Array(size * size);
   const half = size / 2;
 
+  // Precompute 2D hexagonal spots for graphene
+  const grapheneSpots: { px: number; py: number; intensity: number; sigmaSq2: number }[] = [];
+  if (diffractionType === 'graphene') {
+    const s1 = 1 / 2.13;
+    const s2 = 1 / 1.23;
+    const sigma = 0.012;
+    const sigmaSq2 = 2 * sigma * sigma;
+    const theta0 = (15 * Math.PI) / 180;
+    for (let k = 0; k < 6; k++) {
+      const a = theta0 + (k * Math.PI) / 3;
+      grapheneSpots.push({ px: s1 * Math.cos(a), py: s1 * Math.sin(a), intensity: 0.95, sigmaSq2 });
+    }
+    const theta1 = theta0 + Math.PI / 6;
+    for (let k = 0; k < 6; k++) {
+      const a = theta1 + (k * Math.PI) / 3;
+      grapheneSpots.push({ px: s2 * Math.cos(a), py: s2 * Math.sin(a), intensity: 0.70, sigmaSq2 });
+    }
+  }
+
   for (let y = 0; y < size; y++) {
     const ny = (y - half) / half; // -1 to 1
     const sy = ny * sNyquist;
@@ -399,7 +466,19 @@ export function generateThonRingsMatrix(
 
       const ctf = ctf2D(sx, sy, dfU_A, dfV_A, astAngleRad, csA, lambdaA, amplitudeContrast, bFactor);
       let power = ctf * ctf;
-      if (diffractionType !== 'none') {
+      if (diffractionType === 'graphene') {
+        let diffInt = 0;
+        for (let i = 0; i < grapheneSpots.length; i++) {
+          const spot = grapheneSpots[i]!;
+          const dx = sx - spot.px;
+          const dy = sy - spot.py;
+          const dSq = dx * dx + dy * dy;
+          if (dSq < 0.0014) {
+            diffInt += spot.intensity * Math.exp(-dSq / spot.sigmaSq2);
+          }
+        }
+        power = Math.min(1.0, power + diffInt);
+      } else if (diffractionType !== 'none') {
         const diffInt = computeDiffractionIntensity(s, diffractionType);
         power = Math.min(1.0, power + diffInt);
       }

@@ -112,6 +112,10 @@ export default function TallyView() {
       icon="🔢"
       title="Tally Counter"
       blurb="Multiple named counters with goals, frequency ratios, keyboard shortcuts, and export."
+      mobileDefaultTab="results"
+      mobileResultSummary={
+        <span>Total: <strong class="font-mono text-accent-700 dark:text-accent-300">{totalCount.toLocaleString()}</strong> ({counters.length} counters)</span>
+      }
       inputs={
         <div class="space-y-4">
           <div class="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -278,14 +282,14 @@ export default function TallyView() {
                       type="button"
                       onClick={() => handleIncrement(c.id, -s.stepSize)}
                       disabled={c.count <= 0}
-                      class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition"
+                      class="px-4 min-h-[48px] rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-base hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 active:scale-95 transition"
                     >
                       −
                     </button>
                     <button
                       type="button"
                       onClick={() => handleIncrement(c.id, s.stepSize)}
-                      class="flex-1 py-2 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-extrabold text-base hover:bg-slate-800 dark:hover:bg-white shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-1"
+                      class="flex-1 min-h-[48px] rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-extrabold text-lg hover:bg-slate-800 dark:hover:bg-white shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-1.5"
                     >
                       <span>+</span>
                       <span>{s.stepSize}</span>
@@ -293,7 +297,7 @@ export default function TallyView() {
                     <button
                       type="button"
                       onClick={() => handleReset(c.id)}
-                      class="px-2.5 py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                      class="px-3 min-h-[48px] text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
                       title="Reset counter"
                     >
                       ↺
