@@ -332,7 +332,6 @@ export function designSiteDirectedMutagenesis(
   targetPrimerTm = 62
 ): MutationDesignResult {
   const cleanPlasmid = cleanDna(plasmidDna);
-  const pLen = cleanPlasmid.length;
 
   const wtCodon = cleanPlasmid.slice(targetBpStart, targetBpStart + wtCodonLen);
   const wtAa = GENETIC_CODE[wtCodon] || '?';

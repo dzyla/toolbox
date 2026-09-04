@@ -8,7 +8,6 @@ import { SCIENCE } from './science';
 import {
   type SecStandard,
   PRESET_COLUMNS,
-  DEFAULT_STANDARDS_S200,
   getStandardsForColumn,
   fitSecCalibration,
   predictFromVe,

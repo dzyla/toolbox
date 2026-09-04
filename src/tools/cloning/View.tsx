@@ -1,4 +1,3 @@
-import { useState } from 'preact/hooks';
 import { useUrlState } from '@/lib/url-state';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';

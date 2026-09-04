@@ -250,7 +250,7 @@ export function generatePipettingScheme(
   });
 
   let totalStockNeededUl = 0;
-  let totalDiluentNeededUl = diluentVolPerWell * assigned.length;
+  const totalDiluentNeededUl = diluentVolPerWell * assigned.length;
 
   // For each non-blank sample group:
   for (const [gKey, sWells] of groupWells.entries()) {

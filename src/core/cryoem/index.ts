@@ -204,7 +204,7 @@ export function firstCtfZero(
   let sA = 0.001;
   let sB = 0.002;
   const step = 0.0005;
-  let valA = ctfValue(sA, dfA, csA, lambdaA, amplitudeContrast, 0);
+  const valA = ctfValue(sA, dfA, csA, lambdaA, amplitudeContrast, 0);
 
   for (let s = sA + step; s < 0.5; s += step) {
     const curVal = ctfValue(s, dfA, csA, lambdaA, amplitudeContrast, 0);
