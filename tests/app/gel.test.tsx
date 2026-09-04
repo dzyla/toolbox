@@ -115,4 +115,79 @@ describe('Gel and Blot analysis tool view', () => {
     fireEvent.click(omitCheckbox);
     expect(omitCheckbox.checked).toBe(true);
   });
+
+  it('supports clearing all lanes and re-detecting them', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    const clearBtn = screen.getByRole('button', { name: /Clear All Lanes/ });
+    expect(clearBtn).toBeTruthy();
+    fireEvent.click(clearBtn);
+
+    // After clearing, 0 lanes
+    expect(screen.queryByText(/Active: L1/)).toBeNull();
+
+    // Auto-Find Lanes restores lanes
+    const autoFindBtn = screen.getByRole('button', { name: 'Auto-Find Lanes' });
+    fireEvent.click(autoFindBtn);
+    expect(await screen.findByText(/Active: L1/)).toBeTruthy();
+  });
+
+  it('renders lane strip, detected peaks table, and supports removing peak row', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    // Physical lane strip text should be present in the SVG
+    expect(screen.getByText(/PHYSICAL LANE STRIP/)).toBeTruthy();
+
+    // Peak table with remove button
+    const removeButtons = screen.getAllByRole('button', { name: /Remove/ });
+    expect(removeButtons.length).toBeGreaterThan(0);
+
+    const initialRemoveCount = removeButtons.length;
+    fireEvent.click(removeButtons[0]!);
+
+    // Should remove one peak row
+    const afterRemoveButtons = screen.queryAllByRole('button', { name: /Remove/ });
+    expect(afterRemoveButtons.length).toBe(initialRemoveCount - 1);
+  });
+
+  it('supports Bio-Rad ladders and creating custom user ladders', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    // Check Bio-Rad ladder exists in options
+    expect(screen.getByText(/Precision Plus Protein Kaleidoscope/)).toBeTruthy();
+    expect(screen.getByText(/1 kb Plus DNA Ladder \(EZ Load\)/)).toBeTruthy();
+
+    // Open custom ladder modal
+    const openCustomBtn = screen.getByText(/Upload \/ Custom Ladder/);
+    fireEvent.click(openCustomBtn);
+
+    expect(screen.getByText(/Create \/ Upload Custom Ladder/)).toBeTruthy();
+    const nameInput = screen.getByPlaceholderText(/Lab Custom Protein Standard/);
+    fireEvent.input(nameInput, { target: { value: 'My Test Ladder' } });
+
+    const sizesInput = screen.getByPlaceholderText(/250, 150, 100/);
+    fireEvent.input(sizesInput, { target: { value: '200, 100, 50, 25' } });
+
+    const saveBtn = screen.getByRole('button', { name: /Save & Use Ladder/ });
+    fireEvent.click(saveBtn);
+
+    // Custom ladder is now available and selected
+    expect(screen.getByText(/My Test Ladder/)).toBeTruthy();
+  });
+
+  it('allows toggling between Side-by-Side and Large Image Stacked layout', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+
+    const stackedBtn = screen.getByRole('button', { name: /Large Image \(Stacked\)/ });
+    fireEvent.click(stackedBtn);
+    expect(stackedBtn.classList.contains('bg-accent-600')).toBe(true);
+
+    const splitBtn = screen.getByRole('button', { name: /Side-by-Side/ });
+    fireEvent.click(splitBtn);
+    expect(splitBtn.classList.contains('bg-accent-600')).toBe(true);
+  });
 });

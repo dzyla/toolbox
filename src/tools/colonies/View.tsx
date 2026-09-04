@@ -50,6 +50,7 @@ export default function ColoniesView() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Active colonies filtered by user certainty and size thresholds
   const activeColonies = useMemo(() => {
@@ -499,13 +500,32 @@ export default function ColoniesView() {
             </div>
           </div>
 
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              class="flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg bg-accent-600 text-white hover:bg-accent-700 transition flex items-center justify-center gap-1 shadow-xs"
+              title="Snap photo directly from mobile camera"
+            >
+              📸 Camera (Mobile)
+            </button>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hidden"
+              onChange={(e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) handleImageUpload(file);
+              }}
+            />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              class="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              class="flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1"
             >
-              📷 Upload Plate Photo
+              📁 Upload Photo
             </button>
             <input
               ref={fileInputRef}
@@ -519,10 +539,11 @@ export default function ColoniesView() {
             />
             <button
               type="button"
-              onClick={() => { setAllDetected([]); setManualSpots([]); }}
-              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              onClick={() => { setImageSrc(null); setAllDetected([]); setManualSpots([]); }}
+              class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              title="Reset to synthetic plate"
             >
-              Clear
+              Reset
             </button>
           </div>
         </div>

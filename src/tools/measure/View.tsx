@@ -61,9 +61,13 @@ export default function MeasureView() {
 
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canvasWidth = imageDimensions?.width ?? 640;
+  const canvasHeight = imageDimensions?.height ?? 480;
 
   // Redraw canvas
   useEffect(() => {
@@ -72,6 +76,8 @@ export default function MeasureView() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (imageSrc) {
@@ -108,7 +114,7 @@ export default function MeasureView() {
 
       drawAnnotations(ctx);
     }
-  }, [imageSrc, measurements, currentPoints, activeScale]);
+  }, [imageSrc, imageDimensions, measurements, currentPoints, activeScale, canvasWidth, canvasHeight]);
 
   function drawAnnotations(ctx: CanvasRenderingContext2D) {
     // Draw finalized measurements
@@ -249,8 +255,26 @@ export default function MeasureView() {
     reader.onload = (e) => {
       const src = e.target?.result as string;
       if (src) {
-        setImageSrc(src);
-        setMeasurements([]);
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 2400;
+          let w = img.naturalWidth || 640;
+          let h = img.naturalHeight || 480;
+          if (w > MAX_DIM || h > MAX_DIM) {
+            if (w >= h) {
+              h = Math.round((h * MAX_DIM) / w);
+              w = MAX_DIM;
+            } else {
+              w = Math.round((w * MAX_DIM) / h);
+              h = MAX_DIM;
+            }
+          }
+          setImageDimensions({ width: w, height: h });
+          setImageSrc(src);
+          setMeasurements([]);
+          setCurrentPoints([]);
+        };
+        img.src = src;
       }
     };
     reader.readAsDataURL(file);
@@ -395,7 +419,7 @@ export default function MeasureView() {
             />
             <button
               type="button"
-              onClick={() => { setMeasurements([]); setCurrentPoints([]); }}
+              onClick={() => { setImageSrc(null); setImageDimensions(null); setMeasurements([]); setCurrentPoints([]); }}
               class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
             >
               Clear
@@ -432,13 +456,14 @@ export default function MeasureView() {
               </button>
             </div>
 
-            <div class="flex justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden">
+            <div class="flex justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-auto max-h-[750px]">
               <canvas
                 ref={canvasRef}
-                width={640}
-                height={480}
+                width={canvasWidth}
+                height={canvasHeight}
                 onClick={handleCanvasClick}
-                class="cursor-crosshair max-w-full h-auto rounded-lg shadow-xs"
+                class="cursor-crosshair max-w-full h-auto object-contain rounded-lg shadow-xs"
+                style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
               />
             </div>
           </div>

@@ -21,6 +21,8 @@ interface StandardLadder {
   name: string;
   kind: 'protein' | 'dna';
   sizes: number[];
+  unit?: string;
+  supplier?: string;
 }
 
 const LADDERS = laddersData.ladders as unknown as StandardLadder[];
@@ -417,6 +419,26 @@ export default function GelView() {
   const [showLaneHeaders, setShowLaneHeaders] = useState<boolean>(true);
   const [stripLanePrefix, setStripLanePrefix] = useState<boolean>(false);
 
+  // Layout & Zoom
+  const [gelLayout, setGelLayout] = useState<'split' | 'stacked'>('split');
+  const [canvasZoom, setCanvasZoom] = useState<number>(100);
+
+  // Custom Ladders
+  const [customLadders, setCustomLadders] = useState<StandardLadder[]>(() => {
+    try {
+      const stored = localStorage.getItem('bio-bench-custom-ladders');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showCustomLadderModal, setShowCustomLadderModal] = useState<boolean>(false);
+  const [customLadderName, setCustomLadderName] = useState<string>('');
+  const [customLadderKind, setCustomLadderKind] = useState<'protein' | 'dna'>('protein');
+  const [customLadderSizesStr, setCustomLadderSizesStr] = useState<string>('');
+  const [customLadderError, setCustomLadderError] = useState<string>('');
+  const customLadderFileRef = useRef<HTMLInputElement>(null);
+
   // Geometry / deskew angle
   const [deskewAngle, setDeskewAngle] = useState<number>(0);
 
@@ -557,10 +579,87 @@ export default function GelView() {
     if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
   }
 
+  const allLadders = useMemo(() => {
+    return [...LADDERS, ...customLadders];
+  }, [customLadders]);
+
   // Active ladder preset
   const activeLadder = useMemo(() => {
-    return LADDERS.find(l => l.id === s.ladderId) || LADDERS[0]!;
-  }, [s.ladderId]);
+    return allLadders.find(l => l.id === s.ladderId) || allLadders[0]!;
+  }, [allLadders, s.ladderId]);
+
+  function handleSaveCustomLadder() {
+    setCustomLadderError('');
+    if (!customLadderName.trim()) {
+      setCustomLadderError('Please provide a name for this ladder.');
+      return;
+    }
+    const numbers = customLadderSizesStr
+      .split(/[\s,;]+/)
+      .map(v => parseFloat(v.trim()))
+      .filter(n => !isNaN(n) && n > 0);
+
+    if (numbers.length < 2) {
+      setCustomLadderError('Please enter at least 2 valid positive band sizes.');
+      return;
+    }
+
+    const sorted = Array.from(new Set(numbers)).sort((a, b) => b - a);
+    const newLadder: StandardLadder = {
+      id: `custom-${Date.now()}`,
+      name: customLadderName.trim(),
+      kind: customLadderKind,
+      sizes: sorted,
+      unit: customLadderKind === 'protein' ? 'kDa' : 'bp',
+      supplier: 'Custom',
+    };
+
+    const updated = [...customLadders, newLadder];
+    setCustomLadders(updated);
+    try {
+      localStorage.setItem('bio-bench-custom-ladders', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+    set({ ladderId: newLadder.id });
+    setShowCustomLadderModal(false);
+    setCustomLadderName('');
+    setCustomLadderSizesStr('');
+  }
+
+  function handleDeleteCustomLadder(id: string) {
+    const updated = customLadders.filter(l => l.id !== id);
+    setCustomLadders(updated);
+    try {
+      localStorage.setItem('bio-bench-custom-ladders', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+    if (s.ladderId === id) {
+      set({ ladderId: LADDERS[0]!.id });
+    }
+  }
+
+  function handleCustomLadderFileUpload(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      try {
+        const json = JSON.parse(text);
+        if (Array.isArray(json)) {
+          setCustomLadderSizesStr(json.join(', '));
+        } else if (json && typeof json === 'object') {
+          if (json.name) setCustomLadderName(json.name);
+          if (json.kind === 'dna' || json.kind === 'protein') setCustomLadderKind(json.kind);
+          if (Array.isArray(json.sizes)) setCustomLadderSizesStr(json.sizes.join(', '));
+        }
+      } catch {
+        setCustomLadderSizesStr(text.trim());
+      }
+    };
+    reader.readAsText(file);
+  }
 
   // Calibration from ladder lane
   const calibration: Calibration | null = useMemo(() => {
@@ -643,6 +742,75 @@ export default function GelView() {
   const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
   const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);
   const laneAnalysis = useMemo(() => allLanesAnalysis.find(a => a.lane.id === selectedLane?.id) || null, [allLanesAnalysis, selectedLane]);
+
+  // Sampled horizontal slice of the selected lane matching the profile x-axis (440px)
+  const laneStripDataUrl = useMemo(() => {
+    if (!plane || !selectedLane) return null;
+    const stripWidth = 440;
+    const stripHeight = 38;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = stripWidth;
+    offscreen.height = stripHeight;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return null;
+
+    const imgData = ctx.createImageData(stripWidth, stripHeight);
+    const data = imgData.data;
+
+    const laneY0 = selectedLane.y0;
+    const laneY1 = selectedLane.y1;
+    const laneLen = Math.max(1, laneY1 - laneY0);
+    const halfW = selectedLane.width / 2;
+
+    for (let c = 0; c < stripWidth; c++) {
+      const t = c / (stripWidth - 1);
+      const curY = laneY0 + t * laneLen;
+      const curCenterX = selectedLane.x + t * selectedLane.tilt;
+
+      for (let r = 0; r < stripHeight; r++) {
+        const v = (r / (stripHeight - 1) - 0.5) * 2;
+        const curX = curCenterX + v * halfW;
+
+        const gx = Math.max(0, Math.min(plane.width - 1, Math.round(curX)));
+        const gy = Math.max(0, Math.min(plane.height - 1, Math.round(curY)));
+        const rawVal = plane.data[gy * plane.width + gx] ?? 0;
+
+        let adj = (rawVal - 0.5) * s.contrast + 0.5;
+        adj = adj * s.brightness;
+        if (s.invertDisplay) adj = 1 - adj;
+        adj = Math.max(0, Math.min(1, adj));
+
+        const gray = Math.round(adj * 255);
+        const pIdx = (r * stripWidth + c) * 4;
+        data[pIdx] = gray;
+        data[pIdx + 1] = gray;
+        data[pIdx + 2] = gray;
+        data[pIdx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return offscreen.toDataURL();
+  }, [plane, selectedLane, s.brightness, s.contrast, s.invertDisplay]);
+
+  function removePeakFromLane(laneId: string, bandId: string) {
+    const laneItem = allLanesAnalysis.find(a => a.lane.id === laneId);
+    if (!laneItem) return;
+    const currentBands = bandMap[laneId] || laneItem.metrics.map((m, i) => {
+      const py = m.peakY ?? 0;
+      return {
+        id: m.bandId || `b-${Math.round(py)}-${i}`,
+        y0: Math.max(0, py - 5),
+        y1: py + 5,
+        peakY: py,
+      };
+    });
+    const updated = currentBands.filter(b => b.id !== bandId);
+    setBandMap(prev => ({ ...prev, [laneId]: updated }));
+    if (s.refBandId === bandId) {
+      set({ refBandId: '' });
+    }
+  }
 
   // Canvas helper: get gel pixel coordinates from mouse event
   function getCanvasCoords(e: MouseEvent): { x: number; y: number } {
@@ -1057,6 +1225,13 @@ export default function GelView() {
     if (updated.length > 0) setSelectedLaneId(updated[0]!.id);
   }
 
+  function handleClearAllLanes() {
+    setLanes([]);
+    setSelectedLaneId('');
+    setBandMap({});
+    set({ ladderLaneId: '', refBandId: '' });
+  }
+
   function updateSelectedLane(patch: Partial<Lane>) {
     if (!selectedLane) return;
     setLanes(lanes.map(l => l.id === selectedLane.id ? { ...l, ...patch } : l));
@@ -1064,8 +1239,9 @@ export default function GelView() {
 
   // Export CSV
   function handleExportCsv() {
+    const unit = activeLadder.kind === 'protein' ? 'kDa' : 'bp';
     const rows = [
-      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
+      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Estimated_Mass_Formatted', 'Size_Unit', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
       ...allLanesAnalysis.flatMap(item =>
         item.metrics.map(m => {
           let label = laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`;
@@ -1079,6 +1255,8 @@ export default function GelView() {
             m.number,
             m.peakY ? Number(m.peakY.toFixed(2)) : '',
             m.sizeEst ? Number(m.sizeEst.toFixed(1)) : '',
+            m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '',
+            unit,
             Number(m.raw.toFixed(1)),
             Number(m.background.toFixed(1)),
             Number(m.net.toFixed(1)),
@@ -1291,10 +1469,123 @@ export default function GelView() {
                 onChange={(e) => set({ ladderId: (e.target as HTMLSelectElement).value })}
                 class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
               >
-                {LADDERS.map(l => (
-                  <option key={l.id} value={l.id}>{l.name} [{l.kind.toUpperCase()}]</option>
-                ))}
+                <optgroup label="Built-in Standard Ladders">
+                  {LADDERS.map(l => (
+                    <option key={l.id} value={l.id}>{l.name} [{l.kind.toUpperCase()}]</option>
+                  ))}
+                </optgroup>
+                {customLadders.length > 0 && (
+                  <optgroup label="Custom Uploaded Ladders">
+                    {customLadders.map(l => (
+                      <option key={l.id} value={l.id}>⭐ {l.name} [{l.kind.toUpperCase()}]</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+
+              <div class="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomLadderModal(prev => !prev)}
+                  class="text-xs text-accent-600 dark:text-accent-400 hover:underline font-medium flex items-center gap-1"
+                >
+                  {showCustomLadderModal ? '▲ Close Custom Ladder' : '➕ Upload / Custom Ladder…'}
+                </button>
+                {s.ladderId.startsWith('custom-') && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCustomLadder(s.ladderId)}
+                    class="text-[11px] text-rose-600 hover:underline font-medium"
+                    title="Delete this custom ladder"
+                  >
+                    🗑️ Delete Custom Ladder
+                  </button>
+                )}
+              </div>
+
+              {showCustomLadderModal && (
+                <div class="mt-2 rounded-xl border border-accent-200 bg-accent-50/50 p-3 dark:border-accent-900/60 dark:bg-accent-950/20 space-y-2 text-xs">
+                  <span class="font-bold text-slate-800 dark:text-slate-200 block">Create / Upload Custom Ladder</span>
+                  <div>
+                    <label class="block text-[11px] text-slate-500 mb-0.5">Ladder Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Lab Custom Protein Standard"
+                      value={customLadderName}
+                      onInput={(e) => setCustomLadderName((e.target as HTMLInputElement).value)}
+                      class="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
+                    />
+                  </div>
+                  <div class="flex gap-4 pt-0.5">
+                    <label class="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="customKind"
+                        checked={customLadderKind === 'protein'}
+                        onChange={() => setCustomLadderKind('protein')}
+                      />
+                      <span>Protein (kDa)</span>
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="customKind"
+                        checked={customLadderKind === 'dna'}
+                        onChange={() => setCustomLadderKind('dna')}
+                      />
+                      <span>DNA (bp)</span>
+                    </label>
+                  </div>
+                  <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                      <label class="block text-[11px] text-slate-500">Band Sizes (descending)</label>
+                      <button
+                        type="button"
+                        onClick={() => customLadderFileRef.current?.click()}
+                        class="text-[10px] text-accent-600 hover:underline font-semibold"
+                      >
+                        📁 Import JSON/CSV
+                      </button>
+                      <input
+                        ref={customLadderFileRef}
+                        type="file"
+                        accept=".json,.csv,.txt"
+                        class="hidden"
+                        onChange={(e) => {
+                          const f = (e.target as HTMLInputElement).files?.[0];
+                          if (f) handleCustomLadderFileUpload(f);
+                        }}
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder={customLadderKind === 'protein' ? '250, 150, 100, 75, 50, 37, 25, 15, 10' : '10000, 8000, 6000, 5000, 4000, 3000, 2000, 1000, 500'}
+                      value={customLadderSizesStr}
+                      onInput={(e) => setCustomLadderSizesStr((e.target as HTMLTextAreaElement).value)}
+                      class="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-mono text-[11px]"
+                    />
+                  </div>
+                  {customLadderError && (
+                    <p class="text-[11px] text-rose-600 font-medium">{customLadderError}</p>
+                  )}
+                  <div class="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomLadder}
+                      class="flex-1 py-1 rounded bg-accent-600 text-white font-semibold hover:bg-accent-700 transition"
+                    >
+                      Save & Use Ladder
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomLadderModal(false)}
+                      class="px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1515,6 +1806,16 @@ export default function GelView() {
                     Delete L{selectedLaneIdx + 1}
                   </button>
                 )}
+                {lanes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllLanes}
+                    class="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg dark:hover:bg-rose-950/40 transition font-medium"
+                    title="Clear all lanes from image"
+                  >
+                    🗑️ Clear All Lanes
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1611,17 +1912,60 @@ export default function GelView() {
           </div>
 
           {/* TAB 1: Gel Image & Interactive Lane Profile */}
-          <div class={s.viewTab === 'gel' ? 'grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]' : 'hidden'}>
+          <div class={s.viewTab === 'gel' ? (gelLayout === 'stacked' ? 'space-y-4' : 'grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]') : 'hidden'}>
               {/* Gel Canvas Card */}
               <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between flex-wrap gap-2">
                   <div class="flex items-center gap-2">
                     <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">Gel Image & Annotations</h3>
                     <span class="text-xs text-slate-400 mono">
                       {plane ? `${plane.width} × ${plane.height} px` : ''}
                     </span>
                   </div>
-                  <div class="flex items-center gap-3 text-xs text-slate-500">
+                  <div class="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap">
+                    {/* Layout switcher */}
+                    <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setGelLayout('split')}
+                        class={`px-2 py-0.5 rounded font-medium transition ${
+                          gelLayout === 'split' ? 'bg-accent-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                        }`}
+                        title="Side-by-side view with lane profile"
+                      >
+                        🪟 Side-by-Side
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGelLayout('stacked')}
+                        class={`px-2 py-0.5 rounded font-medium transition ${
+                          gelLayout === 'stacked' ? 'bg-accent-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                        }`}
+                        title="Full width large image view"
+                      >
+                        📄 Large Image (Stacked)
+                      </button>
+                    </div>
+
+                    {/* Zoom selector */}
+                    <div class="flex items-center gap-1 text-[11px]">
+                      <span class="text-slate-400">Zoom:</span>
+                      {[100, 125, 150].map(z => (
+                        <button
+                          key={z}
+                          type="button"
+                          onClick={() => setCanvasZoom(z)}
+                          class={`px-1.5 py-0.5 rounded border text-[10px] ${
+                            canvasZoom === z
+                              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900'
+                              : 'border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {z}%
+                        </button>
+                      ))}
+                    </div>
+
                     <label class="flex items-center gap-1 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1651,14 +1995,18 @@ export default function GelView() {
                   )}
                 </div>
 
-                <div class="overflow-auto max-h-[700px] border border-slate-200 rounded-xl dark:border-slate-800 flex justify-center bg-slate-950/5">
+                <div class="overflow-auto max-h-[850px] border border-slate-200 rounded-xl dark:border-slate-800 flex justify-center bg-slate-950/5 p-2">
                   <canvas
                     ref={canvasRef}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
-                    style={{ cursor: canvasCursor }}
-                    class="max-w-full h-auto block select-none"
+                    style={{
+                      cursor: canvasCursor,
+                      width: canvasZoom !== 100 ? `${canvasZoom}%` : undefined,
+                      maxWidth: canvasZoom > 100 ? `${canvasZoom}%` : '100%',
+                    }}
+                    class="h-auto block select-none rounded shadow-2xs"
                     title="Click or drag lanes. Click to add band, Ctrl+click to remove."
                   />
                 </div>
@@ -1672,7 +2020,7 @@ export default function GelView() {
                       Densitometry Profile — Lane {selectedLaneIdx + 1}
                     </h3>
                     <p class="text-xs text-slate-500">
-                      Migration distance $Y$ (top → bottom) vs band optical density
+                      Migration distance $Y$ (top → bottom) vs band optical density & physical lane strip
                     </p>
                   </div>
                   <div class="flex items-center gap-3 text-xs">
@@ -1687,16 +2035,16 @@ export default function GelView() {
 
                 {laneAnalysis && laneAnalysis.profile.length > 0 ? (
                   <div class="space-y-3">
-                    <svg viewBox="0 0 500 240" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                    <svg viewBox="0 0 500 305" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none">
                       {/* Grid Lines */}
-                      <line x1="40" y1="20" x2="40" y2="200" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
-                      <line x1="40" y1="200" x2="480" y2="200" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
+                      <line x1="40" y1="20" x2="40" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
+                      <line x1="40" y1="180" x2="480" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
 
                       {/* Signal Curve */}
                       <path
                         d={laneAnalysis.profile.reduce((acc, val, i) => {
                           const x = 40 + (i / laneAnalysis.profile.length) * 440;
-                          const y = 200 - Math.min(1, Math.max(0, val)) * 170;
+                          const y = 180 - Math.min(1, Math.max(0, val)) * 155;
                           return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
                         }, '')}
                         fill="none"
@@ -1708,7 +2056,7 @@ export default function GelView() {
                       <path
                         d={laneAnalysis.baseline.reduce((acc, val, i) => {
                           const x = 40 + (i / laneAnalysis.baseline.length) * 440;
-                          const y = 200 - Math.min(1, Math.max(0, val)) * 170;
+                          const y = 180 - Math.min(1, Math.max(0, val)) * 155;
                           return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
                         }, '')}
                         fill="none"
@@ -1717,13 +2065,40 @@ export default function GelView() {
                         stroke-width="1.5"
                       />
 
-                      {/* Peak Markers */}
+                      {/* Physical Lane Strip Section */}
+                      <text x="40" y="197" font-size="8.5" font-weight="bold" fill="#64748b" letter-spacing="0.4">
+                        PHYSICAL LANE STRIP (GEL BANDS UNDER PROFILE)
+                      </text>
+
+                      {laneStripDataUrl && (
+                        <image
+                          x="40"
+                          y="203"
+                          width="440"
+                          height="38"
+                          href={laneStripDataUrl}
+                          preserveAspectRatio="none"
+                        />
+                      )}
+                      <rect
+                        x="40"
+                        y="203"
+                        width="440"
+                        height="38"
+                        fill="none"
+                        stroke="#94a3b8"
+                        stroke-width="1"
+                        stroke-opacity="0.5"
+                        rx="2"
+                      />
+
+                      {/* Peak Markers, Vertical Alignment Guides, and Tags */}
                       {laneAnalysis.metrics.map((m) => {
                         if (m.peakY === undefined) return null;
                         const frac = m.peakY / (laneAnalysis.lane.y1 - laneAnalysis.lane.y0 || 1);
                         const px = 40 + frac * 440;
                         const val = laneAnalysis.profile[Math.min(laneAnalysis.profile.length - 1, Math.round(frac * laneAnalysis.profile.length))] ?? 0;
-                        const py = 200 - Math.min(1, Math.max(0, val)) * 170;
+                        const py = 180 - Math.min(1, Math.max(0, val)) * 155;
                         const isRef = m.bandId === s.refBandId;
 
                         return (
@@ -1732,54 +2107,172 @@ export default function GelView() {
                             class="cursor-pointer"
                             onClick={(e) => {
                               if (e.ctrlKey || e.metaKey) {
-                                // remove
-                                const updated = (bandMap[selectedLane?.id || ''] || []).filter(b => b.id !== m.bandId);
-                                setBandMap(prev => ({ ...prev, [selectedLane!.id]: updated }));
+                                if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
                               } else {
                                 set({ refBandId: m.bandId });
                               }
                             }}
                           >
+                            {/* Vertical alignment line through curve and lane strip */}
+                            <line
+                              x1={px}
+                              y1={py}
+                              x2={px}
+                              y2="241"
+                              stroke={isRef ? '#10b981' : '#ef4444'}
+                              stroke-width="1.2"
+                              stroke-dasharray="2 2"
+                              stroke-opacity="0.85"
+                            />
+
+                            {/* Physical lane strip highlight bar */}
+                            <rect
+                              x={px - 2}
+                              y="203"
+                              width="4"
+                              height="38"
+                              fill={isRef ? '#10b981' : '#ef4444'}
+                              fill-opacity="0.3"
+                              stroke={isRef ? '#10b981' : '#ef4444'}
+                              stroke-width="1"
+                            />
+
+                            {/* Dot on curve */}
                             <circle cx={px} cy={py} r={isRef ? 5 : 4} fill={isRef ? '#10b981' : '#ef4444'} stroke="#ffffff" stroke-width="1.5" />
-                            <text x={px} y={py - 8} font-size="9" text-anchor="middle" fill="#64748b" font-weight="bold">
+
+                            {/* Number above curve */}
+                            <text x={px} y={py - 6} font-size="9" text-anchor="middle" fill="#64748b" font-weight="bold">
                               #{m.number}
+                            </text>
+
+                            {/* Tag below lane strip */}
+                            <text x={px} y="254" font-size="8.5" text-anchor="middle" fill="#334155" class="dark:fill-slate-200" font-weight="bold">
+                              #{m.number}
+                            </text>
+                            <text x={px} y="265" font-size="7.5" text-anchor="middle" fill="#0284c7" class="dark:fill-sky-400" font-weight="bold">
+                              {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : ''}
                             </text>
                           </g>
                         );
                       })}
+
+                      {/* Direction labels */}
+                      <text x="40" y="288" font-size="9" font-weight="bold" fill="#64748b">
+                        ⮜ Top / Well (y₀)
+                      </text>
+                      <text x="480" y="288" font-size="9" font-weight="bold" fill="#64748b" text-anchor="end">
+                        Bottom / Front (y₁) ⮞
+                      </text>
                     </svg>
 
-                    {/* Peak quick chips */}
-                    <div class="space-y-1.5">
-                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                        Detected Peaks in Lane {selectedLaneIdx + 1} ({laneAnalysis.metrics.length})
-                      </span>
-                      <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
-                        {laneAnalysis.metrics.map(m => (
-                          <div
-                            key={m.bandId}
-                            class={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border ${
-                              m.bandId === s.refBandId
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200'
-                                : 'bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
-                            }`}
+                    {/* Detected Peaks Table with Remove Option */}
+                    <div class="space-y-2 pt-2">
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                          Detected Peaks in Lane {selectedLaneIdx + 1} ({laneAnalysis.metrics.length})
+                        </span>
+                        {laneAnalysis.metrics.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!selectedLane) return;
+                              setBandMap(prev => ({ ...prev, [selectedLane.id]: [] }));
+                              if (s.refBandId) set({ refBandId: '' });
+                            }}
+                            class="text-[11px] text-rose-600 hover:underline font-medium"
+                            title="Remove all peaks in this lane"
                           >
-                            <span>#{m.number}: {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : `${Math.round(m.peakY ?? 0)}px`}</span>
-                            <span class="text-slate-400">({m.share.toFixed(1)}%)</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (bandMap[selectedLane?.id || ''] || []).filter(b => b.id !== m.bandId);
-                                setBandMap(prev => ({ ...prev, [selectedLane!.id]: updated }));
-                              }}
-                              class="text-slate-400 hover:text-red-600 ml-1"
-                              title="Delete band"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
+                            Clear All Peaks in Lane
+                          </button>
+                        )}
                       </div>
+
+                      {laneAnalysis.metrics.length > 0 ? (
+                        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                          <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider text-[10px]">
+                              <tr>
+                                <th class="px-3 py-2 font-semibold">Peak #</th>
+                                <th class="px-3 py-2 font-semibold">Position (Y)</th>
+                                <th class="px-3 py-2 font-semibold">Est. Mass / Size</th>
+                                <th class="px-3 py-2 font-semibold text-right">Peak OD</th>
+                                <th class="px-3 py-2 font-semibold text-right">Net Signal</th>
+                                <th class="px-3 py-2 font-semibold text-right">Lane Share</th>
+                                <th class="px-3 py-2 font-semibold text-center">Ref</th>
+                                <th class="px-3 py-2 font-semibold text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                              {laneAnalysis.metrics.map(m => {
+                                const isRef = m.bandId === s.refBandId;
+                                const peakIdx = Math.min(laneAnalysis.profile.length - 1, Math.round(m.peakY ?? 0));
+                                const peakVal = laneAnalysis.profile[peakIdx] ?? 0;
+                                return (
+                                  <tr
+                                    key={m.bandId}
+                                    class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
+                                      isRef ? 'bg-emerald-50/60 dark:bg-emerald-950/25' : ''
+                                    }`}
+                                  >
+                                    <td class="px-3 py-2 font-bold">
+                                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px]">
+                                        {m.number}
+                                      </span>
+                                    </td>
+                                    <td class="px-3 py-2 mono text-slate-600 dark:text-slate-400">
+                                      {m.peakY !== undefined ? `${m.peakY.toFixed(1)} px` : '-'}
+                                    </td>
+                                    <td class="px-3 py-2 font-bold text-accent-600 dark:text-accent-400">
+                                      {m.sizeEst ? (
+                                        formatSize(m.sizeEst, activeLadder.kind)
+                                      ) : (
+                                        <span class="text-slate-400 font-normal">Uncalibrated</span>
+                                      )}
+                                    </td>
+                                    <td class="px-3 py-2 mono text-right text-slate-600 dark:text-slate-400">
+                                      {peakVal.toFixed(3)}
+                                    </td>
+                                    <td class="px-3 py-2 mono text-right font-semibold text-slate-900 dark:text-slate-100">
+                                      {m.net.toFixed(1)}
+                                    </td>
+                                    <td class="px-3 py-2 mono text-right font-medium text-slate-700 dark:text-slate-300">
+                                      {m.share.toFixed(1)}%
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => set({ refBandId: isRef ? '' : m.bandId })}
+                                        class={`px-2 py-0.5 rounded text-[10px] font-semibold transition ${
+                                          isRef
+                                            ? 'bg-emerald-600 text-white shadow-2xs'
+                                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                        }`}
+                                        title={isRef ? 'Active Reference Band' : 'Set as Reference Band'}
+                                      >
+                                        {isRef ? '✓ Ref' : 'Set'}
+                                      </button>
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
+                                        }}
+                                        class="px-2 py-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition inline-flex items-center gap-1"
+                                        title="Remove peak from lane"
+                                      >
+                                        ✕ Remove
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p class="text-xs text-slate-400 italic py-2">No bands detected in this lane. Click on the gel image or lane strip to add bands.</p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -2053,7 +2546,27 @@ export default function GelView() {
         <div class="space-y-2">
           <ActionBar
             onCopy={() => {
-              const summary = `Gel & Blot Analysis Summary\nImage: ${imageName}\nLanes: ${lanes.length}`;
+              const unit = activeLadder.kind === 'protein' ? 'kDa' : 'bp';
+              const summary = [
+                `Gel & Blot Analysis Summary`,
+                `Image: ${imageName}`,
+                `Lanes: ${lanes.length}`,
+                `Ladder: ${activeLadder.name} (${unit})`,
+                `Calibration: ${calibration ? `${s.calibMethod} (R²=${calibration.r2?.toFixed(4) ?? 'N/A'})` : 'Uncalibrated'}`,
+                '',
+                ...allLanesAnalysis.flatMap(item => {
+                  const customName = laneLabels[item.lane.id];
+                  const title = customName ? `Lane ${item.laneIdx + 1} (${customName})` : `Lane ${item.laneIdx + 1}`;
+                  const bands = item.metrics.map(m => {
+                    const massStr = m.sizeEst ? ` | Mass: ${formatSize(m.sizeEst, activeLadder.kind)}` : '';
+                    return `    Band #${m.number}: Pos=${Math.round(m.peakY ?? 0)}px${massStr} | Net=${m.net.toFixed(1)} (${m.share.toFixed(1)}%)`;
+                  });
+                  return [
+                    `  ${title} [Total Net: ${item.totalNet.toFixed(1)}]:`,
+                    ...(bands.length > 0 ? bands : ['    (No detected bands)']),
+                  ];
+                }),
+              ].join('\n');
               return `${summary}\n\n${scienceText(SCIENCE)}`;
             }}
             shareUrl={shareUrl}
