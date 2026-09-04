@@ -1944,8 +1944,8 @@ export default function GelView() {
           </div>
 
           {/* Image Orientation, Crop & Deskew Card */}
-          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <div class="flex items-center justify-between">
+          <details class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3 group">
+            <summary class="cursor-pointer flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Orientation & Crop</span>
               <button
                 type="button"
@@ -1954,7 +1954,7 @@ export default function GelView() {
               >
                 Reset Image
               </button>
-            </div>
+            </summary>
 
             {/* Quick Rotate & Flip buttons */}
             <div class="grid grid-cols-4 gap-1.5">
@@ -2080,7 +2080,7 @@ export default function GelView() {
                 </button>
               </div>
             )}
-          </div>
+          </details>
 
           {/* Molecular Weight Calibration Presets */}
           <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
@@ -2250,12 +2250,12 @@ export default function GelView() {
           </div>
 
           {/* Densitometric Mass / Quantity Calibration Card */}
-          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <div class="flex items-center justify-between">
+          <details class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <summary class="cursor-pointer flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
                 Mass Densitometry
               </span>
-              <label class="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
+              <label class="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer" onClick={(e: Event) => e.stopPropagation()}>
                 <input
                   type="checkbox"
                   checked={s.showMassLabels}
@@ -2264,7 +2264,7 @@ export default function GelView() {
                 />
                 Show ng
               </label>
-            </div>
+            </summary>
 
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Standard Lane / Well</label>
@@ -2323,13 +2323,13 @@ export default function GelView() {
                 )}
               </>
             )}
-          </div>
+          </details>
 
           {/* Densitometry & Background Parameters */}
-          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+          <details class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <summary class="cursor-pointer text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Densitometry & Background
-            </span>
+            </summary>
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Baseline Method</label>
               <select
@@ -2383,13 +2383,13 @@ export default function GelView() {
                 class="w-full accent-accent-600"
               />
             </div>
-          </div>
+          </details>
 
           {/* Annotations & Titles Card */}
-          <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+          <details class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <summary class="cursor-pointer text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Gel Annotations
-            </span>
+            </summary>
             <div>
               <label class="text-xs font-medium text-slate-500 block mb-1">Gel Export Title</label>
               <input
@@ -2400,7 +2400,7 @@ export default function GelView() {
                 placeholder="e.g. SDS-PAGE 12% Tris-Glycine"
               />
             </div>
-          </div>
+          </details>
 
           {/* Display Adjustments */}
           <details class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
@@ -2563,50 +2563,58 @@ export default function GelView() {
                 >
                   ✨ Grid from Placed ({lanes.length})
                 </button>
+
+                <span class="text-slate-300 dark:text-slate-700 select-none">|</span>
+
                 <div class="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={handleEqualLanes}
-                    class="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg dark:bg-slate-800 dark:hover:bg-slate-700 transition"
-                  >
-                    Equal Lanes
-                  </button>
                   <input
                     type="number"
                     min="1"
                     max="50"
                     value={numLanesInput}
                     onInput={(e) => setNumLanesInput(Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1))}
-                    class="w-12 px-1.5 py-1 text-xs rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 mono"
+                    class="w-10 px-1 py-1 text-xs rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 mono text-center"
                     title="Number of equal lanes"
                   />
+                  <button
+                    type="button"
+                    onClick={handleEqualLanes}
+                    class="px-2 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg dark:bg-slate-800 dark:hover:bg-slate-700 transition"
+                  >
+                    Equal
+                  </button>
                 </div>
-                {selectedLane && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteSelectedLane}
-                    class="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-950/40 transition"
-                    title="Delete current lane"
-                  >
-                    Delete L{selectedLaneIdx + 1}
-                  </button>
-                )}
-                {lanes.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAllLanes}
-                    class="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg dark:hover:bg-rose-950/40 transition font-medium"
-                    title="Clear all lanes from image"
-                  >
-                    🗑️ Clear All Lanes
-                  </button>
+                {(selectedLane || lanes.length > 0) && (
+                  <>
+                    <span class="text-slate-300 dark:text-slate-700 select-none">|</span>
+                    {selectedLane && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteSelectedLane}
+                        class="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-950/40 transition"
+                        title="Delete current lane"
+                      >
+                        ✕ L{selectedLaneIdx + 1}
+                      </button>
+                    )}
+                    {lanes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllLanes}
+                        class="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg dark:hover:bg-rose-950/40 transition font-medium"
+                        title="Clear all lanes from image"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
 
             {/* Selected Lane Custom Label & Sliders */}
             {selectedLane && (
-              <div class="grid gap-3 sm:grid-cols-3 text-xs bg-slate-50 p-2.5 rounded-xl dark:bg-slate-800/50 items-center">
+              <div class="grid gap-2 sm:grid-cols-3 text-xs bg-slate-50 p-2 rounded-lg dark:bg-slate-800/50 items-center">
                 <div class="flex items-center gap-2">
                   <span class="text-slate-500 shrink-0 font-medium">L{selectedLaneIdx + 1} Label:</span>
                   <input
@@ -2772,11 +2780,11 @@ export default function GelView() {
                   </div>
                 </div>
 
-                {/* Gesture hint banner */}
-                <div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
-                  <span>💡 <strong>Shift+Click</strong> anywhere on gel to quickly place a new line (lane). Grab borders to resize, body to move. <strong>Shift+Click</strong> in lane to add band; <strong>Ctrl+Click</strong> on band to remove.</span>
+                {/* Compact gesture hints */}
+                <div class="flex items-center justify-between text-[10px] text-slate-400 px-1 py-0.5">
+                  <span><strong>Shift+Click</strong> = place lane · <strong>Shift+Click</strong> in lane = add band · <strong>Ctrl+Click</strong> band = remove</span>
                   {selectedLane && (
-                    <span class="text-accent-600 dark:text-accent-400 font-semibold">Active: L{selectedLaneIdx + 1}</span>
+                    <span class="text-accent-600 dark:text-accent-400 font-semibold text-[11px]">Active: L{selectedLaneIdx + 1}</span>
                   )}
                 </div>
 
@@ -2796,29 +2804,7 @@ export default function GelView() {
                   />
                 </div>
 
-                {/* Explicit Band Removal Buttons beneath gel image */}
-                {selectedLane && laneAnalysis && laneAnalysis.metrics.length > 0 && (
-                  <div class="flex flex-wrap items-center gap-1.5 pt-1 px-1 text-xs">
-                    <span class="text-[11px] font-semibold text-slate-500">Lane {selectedLaneIdx + 1} Bands:</span>
-                    {laneAnalysis.metrics.map(m => (
-                      <span
-                        key={m.bandId}
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs"
-                      >
-                        <span class="font-bold">#{m.number}</span>
-                        {m.sizeEst && <span class="text-accent-600 dark:text-accent-400 font-mono text-[10px]">({formatSize(m.sizeEst, activeLadder.kind)})</span>}
-                        <button
-                          type="button"
-                          onClick={() => removePeakFromLane(selectedLane.id, m.bandId)}
-                          class="text-rose-500 hover:text-rose-700 font-bold ml-1 text-xs"
-                          title={`Remove Band #${m.number} from Lane ${selectedLaneIdx + 1}`}
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+
               </div>
 
               {/* Densitometry Profile Card for Active Lane */}
@@ -2844,7 +2830,7 @@ export default function GelView() {
 
                 {laneAnalysis && laneAnalysis.profile.length > 0 ? (
                   <div class="space-y-3">
-                    <svg viewBox="0 0 500 320" onClick={handleProfileSvgClick} class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none cursor-crosshair">
+                    <svg viewBox="0 0 500 250" onClick={handleProfileSvgClick} class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none cursor-crosshair">
                       {/* Grid Lines */}
                       <line x1="40" y1="20" x2="40" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
                       <line x1="40" y1="180" x2="480" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
@@ -2963,66 +2949,15 @@ export default function GelView() {
                               #{m.number}
                             </text>
 
-                            {/* Tag below lane strip */}
-                            <text x={px} y="254" font-size="8.5" text-anchor="middle" fill="#334155" class="dark:fill-slate-200" font-weight="bold">
-                              #{m.number}
-                            </text>
-                            <text x={px} y="265" font-size="7.5" text-anchor="middle" fill="#0284c7" class="dark:fill-sky-400" font-weight="bold">
-                              {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : ''}
-                            </text>
 
-                            {/* Explicit remove button directly below #1, #2 */}
-                            <g
-                              class="cursor-pointer hover:opacity-80"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
-                              }}
-                              title={`Remove Band #${m.number}`}
-                            >
-                              <rect x={px - 8} y="271" width="16" height="13" rx="3" fill="#fee2e2" stroke="#f87171" stroke-width="0.8" />
-                              <text x={px} y="280.5" font-size="8.5" font-weight="bold" fill="#dc2626" text-anchor="middle">
-                                ✕
-                              </text>
-                            </g>
                           </g>
                         );
                       })}
 
-                      {/* Direction labels */}
-                      <text x="40" y="302" font-size="9" font-weight="bold" fill="#64748b">
-                        ⮜ Top / Well (y₀)
-                      </text>
-                      <text x="480" y="302" font-size="9" font-weight="bold" fill="#64748b" text-anchor="end">
-                        Bottom / Front (y₁) ⮞
-                      </text>
+
                     </svg>
 
-                    {/* Quick Band Action Badges directly below SVG */}
-                    {laneAnalysis.metrics.length > 0 && (
-                      <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span class="text-[11px] font-semibold text-slate-500">Lane {selectedLaneIdx + 1} Bands:</span>
-                        {laneAnalysis.metrics.map(m => (
-                          <div
-                            key={m.bandId}
-                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs"
-                          >
-                            <span class="font-bold">#{m.number}</span>
-                            {m.sizeEst && <span class="text-accent-600 dark:text-accent-400 font-mono text-[10px]">({formatSize(m.sizeEst, activeLadder.kind)})</span>}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
-                              }}
-                              class="w-4 h-4 rounded-full flex items-center justify-center text-rose-500 hover:text-white hover:bg-rose-600 transition text-[10px] font-bold ml-0.5"
-                              title={`Remove Band #${m.number}`}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+
 
                     {/* Detected Peaks Table with Remove Option */}
                     <div class="space-y-2 pt-2">

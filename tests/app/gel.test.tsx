@@ -120,7 +120,7 @@ describe('Gel and Blot analysis tool view', () => {
     route.value = { name: 'tool', toolId: 'gel' };
     render(<GelView />);
 
-    const clearBtn = screen.getByRole('button', { name: /Clear All Lanes/ });
+    const clearBtn = screen.getByRole('button', { name: 'Clear All' });
     expect(clearBtn).toBeTruthy();
     fireEvent.click(clearBtn);
 

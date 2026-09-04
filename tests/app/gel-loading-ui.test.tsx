@@ -123,14 +123,14 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
       fireEvent.click(profileSvg, { clientX: 250, clientY: 100 });
     }
 
-    // Check that explicit remove buttons exist beneath gel image or in SVG
-    const gelRemoveButtons = screen.getAllByTitle(/Remove Band #/i);
+    // Check that remove buttons exist in the detected peaks table
+    const gelRemoveButtons = screen.getAllByTitle(/Remove peak from lane/i);
     expect(gelRemoveButtons.length).toBeGreaterThan(0);
 
     const initialBtnCount = gelRemoveButtons.length;
     fireEvent.click(gelRemoveButtons[0]!);
 
-    const afterBtnCount = screen.getAllByTitle(/Remove Band #/i).length;
+    const afterBtnCount = screen.getAllByTitle(/Remove peak from lane/i).length;
     expect(afterBtnCount).toBeLessThan(initialBtnCount);
   });
 
