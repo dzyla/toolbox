@@ -3,9 +3,9 @@ import { useUrlState } from '@/lib/url-state';
 import { downloadText, downloadBlob, toCsv } from '@/lib/export';
 import { decodeImageFile } from '@/lib/image';
 import { demoGel } from '@/core/gel/synthetic';
-import { autoLanes, equalLanes } from '@/core/gel/lanes';
+import { autoLanes, equalLanes, gridLanesFromPlaced } from '@/core/gel/lanes';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
-import { rollingBaseline, valleyBaseline, sharedCrossLaneBaseline } from '@/core/gel/background';
+import { sharedCrossLaneBaseline, baselineFor, integrateLaneSignal } from '@/core/gel/background';
 import { quantifyBands, detectPolarity, type BandMetrics } from '@/core/gel/quant';
 import {
   fitCalibration,
@@ -18,7 +18,7 @@ import {
   type MassCalibrationModel,
   type MassCalibrationPoint,
 } from '@/core/gel/calibration';
-import { transformPlane, type Geometry } from '@/core/gel/transform';
+import { transformPlane, suggestGelCropAndTilt, type Geometry } from '@/core/gel/transform';
 import type { Plane, Polarity, Lane, Band } from '@/core/gel/types';
 import laddersData from '@/data/ladders.json';
 import { ToolLayout } from '@/app/components/ToolLayout';
@@ -41,6 +41,9 @@ interface State {
   polarity: Polarity;
   brightness: number;
   contrast: number;
+  minClip: number;
+  maxClip: number;
+  gamma: number;
   invertDisplay: boolean;
   bgMethod: 'shared' | 'rolling' | 'valley' | 'none';
   rollingRadius: number;
@@ -54,7 +57,9 @@ interface State {
   calibSubTab: 'mw' | 'mass';
   showMassLabels: boolean;
   refBandId: string;
+  loadingRefLaneId: string;
   viewTab: 'gel' | 'calib' | 'quant';
+  quantSubView: 'bands' | 'loading';
   tableMode: 'all' | 'selected';
 }
 
@@ -62,6 +67,9 @@ const DEFAULTS: State = {
   polarity: 'dark',
   brightness: 1,
   contrast: 1,
+  minClip: 0,
+  maxClip: 1,
+  gamma: 1,
   invertDisplay: false,
   bgMethod: 'shared',
   rollingRadius: 40,
@@ -75,7 +83,9 @@ const DEFAULTS: State = {
   calibSubTab: 'mw',
   showMassLabels: false,
   refBandId: '',
+  loadingRefLaneId: '',
   viewTab: 'gel',
+  quantSubView: 'bands',
   tableMode: 'all',
 };
 
@@ -86,8 +96,14 @@ interface LaneAnalysisItem {
   laneIdx: number;
   profile: Float32Array;
   baseline: Float32Array;
+  netProfile: Float32Array;
   metrics: (BandMetrics & { number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null })[];
   totalNet: number;
+  totalBandsSignal: number;
+  totalLaneSignal: number;
+  loadingRatio: number;
+  loadingDeviationPct: number;
+  normFactor: number;
 }
 
 function toBands(peaks: ReturnType<typeof detectBands>): Band[] {
@@ -99,37 +115,84 @@ function toBands(peaks: ReturnType<typeof detectBands>): Band[] {
   }));
 }
 
+/**
+ * Standard mass/size color-coding for densitometry plots.
+ * Maps molecular weight (or migration distance Rf if uncalibrated)
+ * to consistent scientific hues across all lanes and charts.
+ */
+export function getMassColor(
+  sizeEst: number | null | undefined,
+  ladderKind: 'protein' | 'dna' = 'protein',
+  migrationFrac = 0.5
+): string {
+  if (sizeEst !== null && sizeEst !== undefined && sizeEst > 0) {
+    if (ladderKind === 'protein') {
+      if (sizeEst >= 180) return '#581c87'; // Deep purple (>180 kDa)
+      if (sizeEst >= 130) return '#7c3aed'; // Purple (130-180 kDa)
+      if (sizeEst >= 95) return '#2563eb';  // Indigo/Blue (95-130 kDa)
+      if (sizeEst >= 68) return '#0284c7';  // Sky (68-95 kDa)
+      if (sizeEst >= 50) return '#0d9488';  // Teal (50-68 kDa)
+      if (sizeEst >= 38) return '#16a34a';  // Green (38-50 kDa)
+      if (sizeEst >= 28) return '#65a30d';  // Lime (28-38 kDa)
+      if (sizeEst >= 20) return '#d97706';  // Amber (20-28 kDa)
+      if (sizeEst >= 14) return '#ea580c';  // Orange (14-20 kDa)
+      return '#e11d48';                    // Rose/Red (<14 kDa)
+    } else {
+      if (sizeEst >= 8000) return '#581c87';
+      if (sizeEst >= 5000) return '#7c3aed';
+      if (sizeEst >= 3000) return '#2563eb';
+      if (sizeEst >= 1500) return '#0284c7';
+      if (sizeEst >= 1000) return '#0d9488';
+      if (sizeEst >= 700) return '#16a34a';
+      if (sizeEst >= 400) return '#65a30d';
+      if (sizeEst >= 200) return '#d97706';
+      return '#e11d48';
+    }
+  }
+  // Uncalibrated: map migration distance (0 = top/high mass to 1 = bottom/low mass)
+  const frac = Math.max(0, Math.min(1, migrationFrac));
+  const hue = Math.round(270 - frac * 270);
+  return `hsl(${hue}, 75%, 45%)`;
+}
+
 function BandQuantChart({
   analysis,
   ladderKind,
   laneLabels,
   selectedLaneId,
   onSelectLane,
+  loadingRefLaneId,
+  onSetLoadingRefLane,
+  initialMode = 'lane',
 }: {
   analysis: LaneAnalysisItem[];
   ladderKind: 'protein' | 'dna';
   laneLabels: Record<string, string>;
   selectedLaneId?: string;
   onSelectLane?: (laneId: string) => void;
+  loadingRefLaneId?: string;
+  onSetLoadingRefLane?: (laneId: string) => void;
+  initialMode?: 'lane' | 'mass' | 'loading';
 }) {
-  const [chartMode, setChartMode] = useState<'lane' | 'mass'>('lane');
+  const [chartMode, setChartMode] = useState<'lane' | 'mass' | 'loading'>(initialMode);
   const [targetBandIdx, setTargetBandIdx] = useState<number>(0);
   const [metric, setMetric] = useState<'net' | 'raw' | 'share'>('net');
   const [hoveredBar, setHoveredBar] = useState<{
     laneIdx: number;
-    bandNum: number;
+    bandNum?: number;
     val: number;
-    size: string;
-    share: number;
+    size?: string;
+    share?: number;
     fold?: string;
+    loadingRatio?: number;
+    loadingDev?: number;
   } | null>(null);
 
-  if (analysis.length === 0) return null;
+  useEffect(() => {
+    if (initialMode) setChartMode(initialMode);
+  }, [initialMode]);
 
-  const bandColors = [
-    '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6',
-    '#06b6d4', '#f97316', '#14b8a6', '#6366f1', '#e11d48',
-  ];
+  if (analysis.length === 0) return null;
 
   const maxBands = Math.max(1, ...analysis.map(a => a.metrics.length));
 
@@ -162,40 +225,81 @@ function BandQuantChart({
     return Math.max(0, m.share);
   };
 
-  // Compute maxVal
+  // Compute maxVal based on mode
   const maxVal = Math.max(
     1,
-    chartMode === 'mass'
-      ? Math.max(...analysis.map(a => getMetricVal(a.metrics[targetBandIdx])))
-      : Math.max(...analysis.flatMap(a => a.metrics.map(getMetricVal)))
+    chartMode === 'loading'
+      ? Math.max(...analysis.map(a => a.totalLaneSignal))
+      : chartMode === 'mass'
+        ? Math.max(...analysis.map(a => getMetricVal(a.metrics[targetBandIdx])))
+        : Math.max(...analysis.flatMap(a => a.metrics.map(getMetricVal)))
   );
 
   // Reference for fold-change in mass mode
   const refMetric = analysis[0]?.metrics[targetBandIdx];
   const refVal = refMetric ? getMetricVal(refMetric) : 0;
 
+  // Reference for loading comparison
+  const refLaneItem = (loadingRefLaneId ? analysis.find(a => a.lane.id === loadingRefLaneId) : null) || analysis[0];
+  const refLaneSignal = refLaneItem?.totalLaneSignal || 1;
+
+  // Mass legend bins
+  const proteinMassBins = [
+    { label: '>180', color: '#581c87' },
+    { label: '130-180', color: '#7c3aed' },
+    { label: '95-130', color: '#2563eb' },
+    { label: '68-95', color: '#0284c7' },
+    { label: '50-68', color: '#0d9488' },
+    { label: '38-50', color: '#16a34a' },
+    { label: '28-38', color: '#65a30d' },
+    { label: '20-28', color: '#d97706' },
+    { label: '14-20', color: '#ea580c' },
+    { label: '<14 kDa', color: '#e11d48' },
+  ];
+
+  const dnaMassBins = [
+    { label: '>8 kb', color: '#581c87' },
+    { label: '5-8 kb', color: '#7c3aed' },
+    { label: '3-5 kb', color: '#2563eb' },
+    { label: '1.5-3 kb', color: '#0284c7' },
+    { label: '1-1.5 kb', color: '#0d9488' },
+    { label: '700-1k', color: '#16a34a' },
+    { label: '400-700', color: '#65a30d' },
+    { label: '200-400', color: '#d97706' },
+    { label: '<200 bp', color: '#e11d48' },
+  ];
+
+  const legendBins = ladderKind === 'protein' ? proteinMassBins : dnaMassBins;
+
   return (
     <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
-            📊 Band Quantification &amp; Densitometry
+            📊 Quantification &amp; Densitometry Chart
           </span>
           {/* Mode toggle */}
           <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900 text-xs">
             <button
               type="button"
               onClick={() => setChartMode('lane')}
-              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'lane' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'lane' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              Per Lane (All Bands)
+              Per Lane (Mass Color-Coded)
             </button>
             <button
               type="button"
               onClick={() => setChartMode('mass')}
-              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'mass' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'mass' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
             >
               Per Target Mass (WB Mode)
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode('loading')}
+              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'loading' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              🧪 Line Loading (Total / Ponceau)
             </button>
           </div>
 
@@ -214,46 +318,71 @@ function BandQuantChart({
           )}
         </div>
 
-        <div class="flex items-center gap-2 text-xs">
-          <span class="text-slate-500">Metric:</span>
-          <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900">
-            <button
-              type="button"
-              onClick={() => setMetric('net')}
-              class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'net' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              Net OD
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetric('raw')}
-              class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'raw' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              Raw Volume
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetric('share')}
-              class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'share' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              % Share
-            </button>
+        {chartMode !== 'loading' ? (
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-slate-500">Metric:</span>
+            <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => setMetric('net')}
+                class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'net' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                Net OD
+              </button>
+              <button
+                type="button"
+                onClick={() => setMetric('raw')}
+                class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'raw' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                Raw Volume
+              </button>
+              <button
+                type="button"
+                onClick={() => setMetric('share')}
+                class={`px-2.5 py-0.5 rounded font-medium transition ${metric === 'share' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                % Share
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-slate-500">Ref Loading Lane:</span>
+            <select
+              value={refLaneItem?.lane.id || ''}
+              onChange={(e) => onSetLoadingRefLane?.((e.target as HTMLSelectElement).value)}
+              class="px-2 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold text-xs"
+            >
+              {analysis.map((a, i) => (
+                <option key={a.lane.id} value={a.lane.id}>
+                  L{i + 1}: {laneLabels[a.lane.id] || `Lane ${i + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
+      {/* Detail inspect bar */}
       <div class="min-h-[32px] flex items-center">
         {hoveredBar ? (
           <div class="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4 w-full shadow-2xs">
             <span>Lane: <strong>L{hoveredBar.laneIdx + 1}</strong></span>
-            <span>Band: <strong>#{hoveredBar.bandNum}</strong></span>
+            {hoveredBar.bandNum !== undefined && <span>Band: <strong>#{hoveredBar.bandNum}</strong></span>}
             {hoveredBar.size && <span>Est. MW: <strong class="text-accent-600 dark:text-accent-400">{hoveredBar.size}</strong></span>}
-            <span>Value: <strong>{Math.round(hoveredBar.val).toLocaleString()} {metric === 'share' ? '%' : 'OD'}</strong></span>
+            <span>Value: <strong>{Math.round(hoveredBar.val).toLocaleString()} {chartMode === 'loading' ? 'Total OD · px' : (metric === 'share' ? '%' : 'OD')}</strong></span>
             {hoveredBar.fold && <span>Relative Fold: <strong class="text-emerald-600 dark:text-emerald-400">{hoveredBar.fold}</strong></span>}
+            {hoveredBar.loadingRatio !== undefined && (
+              <span>Loading Ratio: <strong class={Math.abs((hoveredBar.loadingRatio - 1) * 100) > 20 ? 'text-rose-600' : 'text-emerald-600'}>
+                {hoveredBar.loadingRatio.toFixed(2)}× ({hoveredBar.loadingDev! > 0 ? `+${hoveredBar.loadingDev!.toFixed(1)}%` : `${hoveredBar.loadingDev!.toFixed(1)}%`})
+              </strong></span>
+            )}
           </div>
         ) : (
           <div class="text-xs text-slate-400 italic px-1">
-            Hover over any bar in the chart to inspect quantification details without layout shift.
+            {chartMode === 'loading'
+              ? 'Inspecting whole-lane total integrated protein signal to verify equal loading controls across lanes.'
+              : 'Hover over any bar in the chart to inspect quantification details without layout shift.'}
           </div>
         )}
       </div>
@@ -268,14 +397,54 @@ function BandQuantChart({
               <g key={frac}>
                 <line x1={padLeft} x2={chartW - padRight} y1={y} y2={y} stroke="#e2e8f0" stroke-dasharray="3,3" />
                 <text x={padLeft - 6} y={y + 4} font-size="9" text-anchor="end" fill="#94a3b8" font-family="monospace">
-                  {metric === 'share' ? `${Math.round(labelVal)}%` : Math.round(labelVal).toLocaleString()}
+                  {chartMode === 'loading' ? Math.round(labelVal).toLocaleString() : (metric === 'share' ? `${Math.round(labelVal)}%` : Math.round(labelVal).toLocaleString())}
                 </text>
               </g>
             );
           })}
 
+          {chartMode === 'loading' && (
+            /* Reference lane horizontal guideline and ±15% equal loading corridor */
+            (() => {
+              const refY = padTop + innerH - (refLaneSignal / maxVal) * innerH;
+              const topY = padTop + innerH - ((refLaneSignal * 1.15) / maxVal) * innerH;
+              const botY = padTop + innerH - ((refLaneSignal * 0.85) / maxVal) * innerH;
+              return (
+                <g>
+                  {/* Equal loading target corridor (±15%) */}
+                  <rect
+                    x={padLeft}
+                    y={Math.max(padTop, topY)}
+                    width={innerW}
+                    height={Math.max(1, botY - topY)}
+                    fill="rgba(16, 185, 129, 0.08)"
+                  />
+                  <line
+                    x1={padLeft}
+                    x2={chartW - padRight}
+                    y1={refY}
+                    y2={refY}
+                    stroke="#10b981"
+                    stroke-dasharray="4,3"
+                    stroke-width="1.5"
+                  />
+                  <text
+                    x={chartW - padRight - 4}
+                    y={refY - 4}
+                    font-size="8"
+                    font-weight="bold"
+                    text-anchor="end"
+                    fill="#059669"
+                  >
+                    100% Target Ref Loading (±15% Equal Band)
+                  </text>
+                </g>
+              );
+            })()
+          )}
+
           {chartMode === 'lane' ? (
-            /* Multi-band columns per lane */
+            /* Multi-band columns per lane with mass color coding */
             analysis.map((item, lIdx) => {
               const groupW = innerW / Math.max(1, analysis.length);
               const groupX = padLeft + lIdx * groupW;
@@ -294,7 +463,8 @@ function BandQuantChart({
                     const barH = (val / maxVal) * innerH;
                     const barX = groupX + (groupW - bCount * colW) / 2 + bIdx * colW;
                     const barY = padTop + innerH - barH;
-                    const color = bandColors[bIdx % bandColors.length]!;
+                    const laneH = item.lane.y1 - item.lane.y0 || 1;
+                    const color = getMassColor(m.sizeEst, ladderKind, (m.peakY ?? 0) / laneH);
                     const szText = m.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
 
                     return (
@@ -310,7 +480,7 @@ function BandQuantChart({
                           height={Math.max(2, barH)}
                           fill={color}
                           rx="2"
-                          opacity={hoveredBar && hoveredBar.laneIdx === lIdx && hoveredBar.bandNum === bIdx + 1 ? 1 : 0.85}
+                          opacity={hoveredBar && hoveredBar.laneIdx === lIdx && hoveredBar.bandNum === bIdx + 1 ? 1 : 0.88}
                         />
                         {barH > 22 && colW >= 12 && (
                           <text
@@ -340,7 +510,7 @@ function BandQuantChart({
                 </g>
               );
             })
-          ) : (
+          ) : chartMode === 'mass' ? (
             /* Target Mass mode (Western Blot cross-lane comparison) */
             analysis.map((item, lIdx) => {
               const groupW = innerW / Math.max(1, analysis.length);
@@ -355,6 +525,7 @@ function BandQuantChart({
               const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
               const foldStr = refVal > 0 && m ? `${(val / refVal).toFixed(2)}×` : '—';
               const szText = m?.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
+              const barColor = getMassColor(m?.sizeEst ?? targetBandOptions[targetBandIdx]?.avgSize, ladderKind);
 
               return (
                 <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
@@ -371,9 +542,9 @@ function BandQuantChart({
                         y={barY}
                         width={colW}
                         height={Math.max(2, barH)}
-                        fill="#0284c7"
+                        fill={barColor}
                         rx="3"
-                        opacity={hoveredBar && hoveredBar.laneIdx === lIdx ? 1 : 0.85}
+                        opacity={hoveredBar && hoveredBar.laneIdx === lIdx ? 1 : 0.88}
                       />
                       {/* Fold change label on top of bar */}
                       <text
@@ -382,7 +553,7 @@ function BandQuantChart({
                         font-size="9"
                         font-weight="bold"
                         text-anchor="middle"
-                        fill="#0369a1"
+                        fill={barColor}
                         font-family="monospace"
                       >
                         {foldStr}
@@ -413,9 +584,106 @@ function BandQuantChart({
                 </g>
               );
             })
+          ) : (
+            /* Line Loading Comparison mode (Ponceau S / Total integrated signal per lane) */
+            analysis.map((item, lIdx) => {
+              const groupW = innerW / Math.max(1, analysis.length);
+              const groupX = padLeft + lIdx * groupW;
+              const val = item.totalLaneSignal;
+              const barH = (val / maxVal) * innerH;
+              const colW = Math.min(50, Math.max(16, groupW - 14));
+              const barX = groupX + (groupW - colW) / 2;
+              const barY = padTop + innerH - barH;
+              const isSelectedLane = item.lane.id === selectedLaneId;
+              const isRefLane = item.lane.id === refLaneItem?.lane.id;
+              const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
+              const ratio = refLaneSignal > 0 ? val / refLaneSignal : 1;
+              const devPct = (ratio - 1) * 100;
+              const ratioStr = isRefLane ? '1.00× (Ref)' : `${ratio.toFixed(2)}×`;
+
+              // Color coding by loading quality relative to reference lane
+              const barColor = isRefLane
+                ? '#10b981' // Green for reference
+                : Math.abs(devPct) <= 15
+                  ? '#059669' // Good loading (within 15%)
+                  : Math.abs(devPct) <= 25
+                    ? '#d97706' // Moderate deviation (15-25%)
+                    : '#e11d48'; // High deviation (>25%)
+
+              return (
+                <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
+                  {isSelectedLane && (
+                    <rect x={groupX + 2} y={padTop} width={groupW - 4} height={innerH} fill="rgba(37, 99, 235, 0.08)" rx="4" />
+                  )}
+                  <g
+                    onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, val, loadingRatio: ratio, loadingDev: devPct })}
+                    onMouseLeave={() => setHoveredBar(null)}
+                  >
+                    <rect
+                      x={barX}
+                      y={barY}
+                      width={colW}
+                      height={Math.max(2, barH)}
+                      fill={barColor}
+                      rx="3"
+                      opacity={hoveredBar && hoveredBar.laneIdx === lIdx ? 1 : 0.88}
+                    />
+                    {/* Ratio on top */}
+                    <text
+                      x={barX + colW / 2}
+                      y={Math.max(padTop + 10, barY - 4)}
+                      font-size="8.5"
+                      font-weight="bold"
+                      text-anchor="middle"
+                      fill={barColor}
+                      font-family="monospace"
+                    >
+                      {ratioStr}
+                    </text>
+                  </g>
+                  <text
+                    x={groupX + groupW / 2}
+                    y={chartH - padBottom + 16}
+                    font-size="10"
+                    font-weight={isSelectedLane ? 'bold' : 'normal'}
+                    text-anchor="middle"
+                    fill={isSelectedLane ? '#2563eb' : '#64748b'}
+                  >
+                    {customLabel.length > 10 ? `${customLabel.slice(0, 9)}…` : customLabel}
+                  </text>
+                </g>
+              );
+            })
           )}
         </svg>
       </div>
+
+      {/* Mass color scale legend */}
+      {chartMode === 'lane' && (
+        <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-800/60 text-[11px]">
+          <span class="font-semibold text-slate-500 shrink-0">Mass Color Coding:</span>
+          <div class="flex flex-wrap items-center gap-1.5">
+            {legendBins.map(bin => (
+              <span key={bin.label} class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px]">
+                <span class="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: bin.color }}></span>
+                <span class="font-mono font-medium text-slate-600 dark:text-slate-300">{bin.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Loading overview note */}
+      {chartMode === 'loading' && (
+        <div class="rounded-lg bg-emerald-50/70 p-2.5 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center justify-between gap-2">
+          <span>
+            💡 <strong>Line Loading Analysis:</strong> Integrated optical density across each lane profile (baseline-subtracted). Green bars indicate uniform loading (within ±15% of reference), amber indicates moderate variance, and red indicates significant loading discrepancy.
+          </span>
+          <span class="font-mono font-bold">
+            Ref: L{analysis.findIndex(a => a.lane.id === refLaneItem?.lane.id) + 1} (1.00×)
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -481,9 +749,11 @@ export default function GelView() {
     startX: number;
     origX: number;
     origWidth: number;
+    fixedX?: number;
   } | null>(null);
   const hasDraggedRef = useRef<boolean>(false);
   const [canvasCursor, setCanvasCursor] = useState<string>('default');
+  const [quantLayoutMode, setQuantLayoutMode] = useState<'cards' | 'table'>('table');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -603,6 +873,41 @@ export default function GelView() {
     const newLanes = autoLanes(originalPlane, { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height }, s.polarity);
     setLanes(newLanes.length > 0 ? newLanes : equalLanes(5, { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height }));
     if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+  }
+
+  function handleApplySuggestion() {
+    if (!cropSuggestion || !basePlane) return;
+    const { rotation, crop } = cropSuggestion;
+    setDeskewAngle(rotation);
+    const rotated = transformPlane(basePlane, {
+      rotation,
+      flipH: false,
+      flipV: false,
+    });
+    const cropped = transformPlane(rotated, {
+      rotation: 0,
+      flipH: false,
+      flipV: false,
+      crop,
+    });
+    setBasePlane(cropped);
+    setPlane(cropped);
+    setDeskewAngle(0);
+    setIsCropping(false);
+    setCropBox(null);
+    setBandMap({});
+    const newLanes = autoLanes(cropped, { x: 0, y: 0, w: cropped.width, h: cropped.height }, s.polarity);
+    setLanes(newLanes.length > 0 ? newLanes : equalLanes(5, { x: 0, y: 0, w: cropped.width, h: cropped.height }));
+    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+  }
+
+  function handleGridFromPlaced() {
+    if (!plane || lanes.length < 2) return;
+    const generated = gridLanesFromPlaced(lanes, plane, s.polarity, { totalLanes: numLanesInput });
+    setLanes(generated);
+    if (generated.length > 0 && !generated.some(l => l.id === selectedLaneId)) {
+      setSelectedLaneId(generated[0]!.id);
+    }
   }
 
   const allLadders = useMemo(() => {
@@ -727,7 +1032,21 @@ export default function GelView() {
       const bands = bandMap[massLane.id] || toBands(detectBands(prof, { minProminence: s.prominence }));
       if (bands.length === 0) return null;
 
-      const baseline = rollingBaseline(prof, s.rollingRadius);
+      let sharedBase: Float32Array | null = null;
+      if (s.bgMethod === 'shared' && lanes.length > 0) {
+        try {
+          const allProfs = lanes.map(lane => laneProfile(sampleLane(plane, lane, s.polarity)));
+          sharedBase = sharedCrossLaneBaseline(allProfs, s.rollingRadius);
+        } catch {
+          sharedBase = null;
+        }
+      }
+
+      const baseline = baselineFor(s.bgMethod, prof, {
+        radius: s.rollingRadius,
+        bands,
+        sharedBaseline: sharedBase ?? undefined,
+      });
       const metrics = quantifyBands(dens, bands, baseline);
       const sortedMetrics = [...metrics].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
 
@@ -756,9 +1075,9 @@ export default function GelView() {
     } catch {
       return null;
     }
-  }, [plane, lanes, s.massLaneId, bandMap, s.prominence, s.polarity, s.rollingRadius, s.massCalibMethod, s.massPresetId, customMassMap]);
+  }, [plane, lanes, s.massLaneId, bandMap, s.prominence, s.polarity, s.bgMethod, s.rollingRadius, s.massCalibMethod, s.massPresetId, customMassMap]);
 
-  // Comprehensive analysis across ALL lanes
+  // Comprehensive analysis across ALL lanes with uniform baseline and loading comparison
   const allLanesAnalysis: LaneAnalysisItem[] = useMemo(() => {
     if (!plane) return [];
 
@@ -772,26 +1091,25 @@ export default function GelView() {
       }
     }
 
-    return lanes.map((lane, laneIdx) => {
+    const rawLanes = lanes.map((lane, laneIdx) => {
       try {
         const dens = sampleLane(plane, lane, s.polarity);
         const prof = laneProfile(dens);
         const bands = bandMap[lane.id] || toBands(detectBands(prof, { minProminence: s.prominence }));
 
-        let baseline: Float32Array;
-        if (s.bgMethod === 'shared' && sharedBase) {
-          baseline = sharedBase;
-        } else if (s.bgMethod === 'rolling') {
-          baseline = rollingBaseline(prof, s.rollingRadius);
-        } else if (s.bgMethod === 'valley') {
-          baseline = valleyBaseline(prof, bands);
-        } else {
-          baseline = new Float32Array(prof.length);
-        }
+        // Uniform background baseline across entire lane profile
+        const baseline = baselineFor(s.bgMethod, prof, {
+          radius: s.rollingRadius,
+          bands,
+          sharedBaseline: sharedBase ?? undefined,
+        });
 
+        const netProfile = Float32Array.from(prof, (v, i) => Math.max(0, v - (baseline[i] ?? 0)));
+        const totalLaneSignal = integrateLaneSignal(prof, baseline, lane.width);
         const metrics = quantifyBands(dens, bands, baseline);
-
         const totalNet = metrics.reduce((acc, m) => acc + Math.max(0, m.net), 0);
+        const totalBandsSignal = totalNet;
+
         const refBand = metrics.find(m => m.bandId === s.refBandId);
         const refNet = refBand && refBand.net > 0 ? refBand.net : (metrics[0]?.net ?? 1);
 
@@ -804,56 +1122,123 @@ export default function GelView() {
           return { ...m, number: i + 1, share, ratio, sizeEst, massEst };
         });
 
-        return { lane, laneIdx, profile: prof, baseline, metrics: enriched, totalNet };
+        return {
+          lane,
+          laneIdx,
+          profile: prof,
+          baseline,
+          netProfile,
+          metrics: enriched,
+          totalNet,
+          totalBandsSignal,
+          totalLaneSignal,
+          loadingRatio: 1,
+          loadingDeviationPct: 0,
+          normFactor: 1,
+        };
       } catch {
-        return { lane, laneIdx, profile: new Float32Array(0), baseline: new Float32Array(0), metrics: [], totalNet: 0 };
+        return {
+          lane,
+          laneIdx,
+          profile: new Float32Array(0),
+          baseline: new Float32Array(0),
+          netProfile: new Float32Array(0),
+          metrics: [],
+          totalNet: 0,
+          totalBandsSignal: 0,
+          totalLaneSignal: 0,
+          loadingRatio: 1,
+          loadingDeviationPct: 0,
+          normFactor: 1,
+        };
       }
     });
-  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, calibration, massCalibration]);
+
+    // Compute relative loading comparisons against reference lane
+    const refItem = (s.loadingRefLaneId ? rawLanes.find(l => l.lane.id === s.loadingRefLaneId) : null) || rawLanes[0];
+    const refTotal = refItem && refItem.totalLaneSignal > 0 ? refItem.totalLaneSignal : 1;
+
+    return rawLanes.map(item => {
+      const loadingRatio = refTotal > 0 ? item.totalLaneSignal / refTotal : 1;
+      const loadingDeviationPct = (loadingRatio - 1) * 100;
+      const normFactor = item.totalLaneSignal > 0 ? refTotal / item.totalLaneSignal : 1;
+      return {
+        ...item,
+        loadingRatio,
+        loadingDeviationPct,
+        normFactor,
+      };
+    });
+  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, massCalibration]);
 
   const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
   const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);
   const laneAnalysis = useMemo(() => allLanesAnalysis.find(a => a.lane.id === selectedLane?.id) || null, [allLanesAnalysis, selectedLane]);
 
-  // Sampled horizontal slice of the selected lane matching the profile x-axis (440px)
-  const laneStripDataUrl = useMemo(() => {
-    if (!plane || !selectedLane) return null;
-    const stripWidth = 440;
-    const stripHeight = 38;
+  // Whole-lane loading comparison statistics across all lanes
+  const loadingStats = useMemo(() => {
+    const valid = allLanesAnalysis.filter(a => a.totalLaneSignal > 0);
+    if (valid.length === 0) return { mean: 0, stdDev: 0, cvPct: 0, min: 0, max: 0 };
+    const mean = valid.reduce((acc, a) => acc + a.totalLaneSignal, 0) / valid.length;
+    const variance = valid.reduce((acc, a) => acc + Math.pow(a.totalLaneSignal - mean, 2), 0) / valid.length;
+    const stdDev = Math.sqrt(variance);
+    const cvPct = mean > 0 ? (stdDev / mean) * 100 : 0;
+    const min = Math.min(...valid.map(a => a.totalLaneSignal));
+    const max = Math.max(...valid.map(a => a.totalLaneSignal));
+    return { mean, stdDev, cvPct, min, max };
+  }, [allLanesAnalysis]);
+
+  // AI suggestion for automatic gel crop and tilt angle
+  const cropSuggestion = useMemo(() => {
+    if (!plane) return null;
+    return suggestGelCropAndTilt(plane, s.polarity);
+  }, [plane, s.polarity]);
+
+  // Helper to render extracted lane slice with min/max contrast clipping & display adjustments
+  function getLaneStripDataUrl(l: Lane | null, width = 440, height = 38): string | null {
+    if (!plane || !l) return null;
     const offscreen = document.createElement('canvas');
-    offscreen.width = stripWidth;
-    offscreen.height = stripHeight;
+    offscreen.width = width;
+    offscreen.height = height;
     const ctx = offscreen.getContext('2d');
     if (!ctx) return null;
 
-    const imgData = ctx.createImageData(stripWidth, stripHeight);
+    const imgData = ctx.createImageData(width, height);
     const data = imgData.data;
 
-    const laneY0 = selectedLane.y0;
-    const laneY1 = selectedLane.y1;
+    const laneY0 = l.y0;
+    const laneY1 = l.y1;
     const laneLen = Math.max(1, laneY1 - laneY0);
-    const halfW = selectedLane.width / 2;
+    const halfW = l.width / 2;
 
-    for (let c = 0; c < stripWidth; c++) {
-      const t = c / (stripWidth - 1);
+    const minC = s.minClip ?? 0;
+    const maxC = s.maxClip ?? 1;
+    const gamma = s.gamma ?? 1;
+    const clipRange = Math.max(0.01, maxC - minC);
+
+    for (let c = 0; c < width; c++) {
+      const t = c / (width - 1);
       const curY = laneY0 + t * laneLen;
-      const curCenterX = selectedLane.x + t * selectedLane.tilt;
+      const curCenterX = l.x + t * l.tilt;
 
-      for (let r = 0; r < stripHeight; r++) {
-        const v = (r / (stripHeight - 1) - 0.5) * 2;
+      for (let r = 0; r < height; r++) {
+        const v = (r / (height - 1) - 0.5) * 2;
         const curX = curCenterX + v * halfW;
 
         const gx = Math.max(0, Math.min(plane.width - 1, Math.round(curX)));
         const gy = Math.max(0, Math.min(plane.height - 1, Math.round(curY)));
         const rawVal = plane.data[gy * plane.width + gx] ?? 0;
 
-        let adj = (rawVal - 0.5) * s.contrast + 0.5;
+        // Display adjustments (visualization only, does not alter raw signal integration)
+        let adj = Math.max(0, Math.min(1, (rawVal - minC) / clipRange));
+        if (gamma !== 1) adj = Math.pow(adj, 1 / gamma);
+        adj = (adj - 0.5) * s.contrast + 0.5;
         adj = adj * s.brightness;
         if (s.invertDisplay) adj = 1 - adj;
         adj = Math.max(0, Math.min(1, adj));
 
         const gray = Math.round(adj * 255);
-        const pIdx = (r * stripWidth + c) * 4;
+        const pIdx = (r * width + c) * 4;
         data[pIdx] = gray;
         data[pIdx + 1] = gray;
         data[pIdx + 2] = gray;
@@ -863,7 +1248,12 @@ export default function GelView() {
 
     ctx.putImageData(imgData, 0, 0);
     return offscreen.toDataURL();
-  }, [plane, selectedLane, s.brightness, s.contrast, s.invertDisplay]);
+  }
+
+  // Sampled horizontal slice of the selected lane matching the profile x-axis (440px)
+  const laneStripDataUrl = useMemo(() => {
+    return getLaneStripDataUrl(selectedLane, 440, 38);
+  }, [plane, selectedLane, s.brightness, s.contrast, s.invertDisplay, s.minClip, s.maxClip, s.gamma]);
 
   function removePeakFromLane(laneId: string, bandId: string) {
     const laneItem = allLanesAnalysis.find(a => a.lane.id === laneId);
@@ -881,6 +1271,49 @@ export default function GelView() {
     setBandMap(prev => ({ ...prev, [laneId]: updated }));
     if (s.refBandId === bandId) {
       set({ refBandId: '' });
+    }
+  }
+
+  // Click on Profile SVG (curve or physical lane strip) to add/select/remove bands
+  function handleProfileSvgClick(e: MouseEvent) {
+    if (!selectedLane || !plane) return;
+    const svg = (e.currentTarget as SVGSVGElement);
+    const rect = svg.getBoundingClientRect();
+    const xRatio = (e.clientX - rect.left) / rect.width;
+    const yRatio = (e.clientY - rect.top) / rect.height;
+    const svgX = xRatio * 500;
+    const svgY = yRatio * 320;
+
+    // Interactive band addition area: x in [40, 480], y in [15, 248]
+    if (svgX >= 38 && svgX <= 482 && svgY >= 15 && svgY <= 248) {
+      const frac = Math.max(0, Math.min(1, (svgX - 40) / 440));
+      const laneLen = selectedLane.y1 - selectedLane.y0;
+      const targetY = Math.round(selectedLane.y0 + frac * laneLen);
+
+      const currentBands = bandMap[selectedLane.id] || (laneAnalysis?.metrics.map(m => ({
+        id: m.bandId,
+        y0: (m.peakY ?? targetY) - 8,
+        y1: (m.peakY ?? targetY) + 8,
+        peakY: m.peakY ?? targetY,
+      })) || []);
+
+      const existing = currentBands.find(b => Math.abs((b.peakY ?? 0) - targetY) <= 8);
+      if (existing) {
+        if (e.ctrlKey || e.metaKey || e.altKey) {
+          removePeakFromLane(selectedLane.id, existing.id);
+        } else {
+          set({ refBandId: existing.id });
+        }
+      } else {
+        const newBand: Band = {
+          id: `band-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          y0: Math.max(0, targetY - 8),
+          y1: Math.min(plane.height, targetY + 8),
+          peakY: targetY,
+        };
+        const updated = [...currentBands, newBand].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
+        setBandMap(prev => ({ ...prev, [selectedLane.id]: updated }));
+      }
     }
   }
 
@@ -913,9 +1346,16 @@ export default function GelView() {
     const b = s.brightness;
     const c = s.contrast;
     const inv = s.invertDisplay;
+    const minC = s.minClip ?? 0;
+    const maxC = s.maxClip ?? 1;
+    const gamma = s.gamma ?? 1;
+    const clipRange = Math.max(0.01, maxC - minC);
 
     for (let i = 0; i < raw.length; i++) {
       let val = raw[i]!;
+      // Contrast clipping (visualization only, unclipped data used for densitometry)
+      val = Math.max(0, Math.min(1, (val - minC) / clipRange));
+      if (gamma !== 1) val = Math.pow(val, 1 / gamma);
       val = (val - 0.5) * c + 0.5;
       val = val * b;
       val = Math.max(0, Math.min(1, val));
@@ -1052,9 +1492,9 @@ export default function GelView() {
       }
       ctx.restore();
     }
-  }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders, s.viewTab]);
+  }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.minClip, s.maxClip, s.gamma, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders, s.viewTab]);
 
-  // Mouse Interaction: Grab to move lines, resize lanes, band addition/removal, crop drag
+  // Mouse Interaction: Shift-click to add line, narrow border hitbox to resize, whole body to move
   function handleMouseDown(e: MouseEvent) {
     const coords = getCanvasCoords(e);
     hasDraggedRef.current = false;
@@ -1065,22 +1505,69 @@ export default function GelView() {
       return;
     }
 
-    // Check if mouse is on a lane border (resize) or lane center/body (move)
+    // Shift+Click on canvas: quick lane (line) placement!
+    if (e.shiftKey && plane) {
+      hasDraggedRef.current = true;
+      const defaultWidth = lanes.length > 0
+        ? Math.round(lanes.reduce((acc, l) => acc + l.width, 0) / lanes.length)
+        : 26;
+      const y0 = lanes.length > 0 ? lanes[0]!.y0 : Math.round(plane.height * 0.05);
+      const y1 = lanes.length > 0 ? lanes[0]!.y1 : Math.round(plane.height * 0.95);
+      const newLane: Lane = {
+        id: `lane-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        x: Math.round(coords.x),
+        y0,
+        y1,
+        width: defaultWidth,
+        tilt: lanes.length > 0 ? lanes[0]!.tilt : 0,
+      };
+      const nextLanes = [...lanes, newLane].sort((a, b) => a.x - b.x);
+      setLanes(nextLanes);
+      setSelectedLaneId(newLane.id);
+      return;
+    }
+
+    // Check if mouse is on a lane border (resize) or lane center/body/header (move)
     for (const lane of lanes) {
       const half = lane.width / 2;
       const leftBorder = lane.x - half;
       const rightBorder = lane.x + half;
-      const inY = coords.y >= Math.min(lane.y0, lane.y1) && coords.y <= Math.max(lane.y0, lane.y1);
+      const inY = coords.y >= Math.min(lane.y0, lane.y1) - 20 && coords.y <= Math.max(lane.y0, lane.y1);
 
       if (inY) {
-        if (Math.abs(coords.x - leftBorder) <= 8) {
+        // Dedicated header badge move handle (above lane.y0)
+        if (coords.y < Math.min(lane.y0, lane.y1) && Math.abs(coords.x - lane.x) <= Math.max(20, half)) {
           setSelectedLaneId(lane.id);
-          setDragState({ type: 'resize', laneId: lane.id, edge: 'left', startX: coords.x, origX: lane.x, origWidth: lane.width });
+          setDragState({ type: 'move', laneId: lane.id, startX: coords.x, origX: lane.x, origWidth: lane.width });
           return;
         }
-        if (Math.abs(coords.x - rightBorder) <= 8) {
+
+        // Narrow border hitbox for resize (3-5px) so it never covers the move zone!
+        const borderHitWidth = Math.min(5, Math.max(3, lane.width * 0.12));
+        if (Math.abs(coords.x - leftBorder) <= borderHitWidth) {
           setSelectedLaneId(lane.id);
-          setDragState({ type: 'resize', laneId: lane.id, edge: 'right', startX: coords.x, origX: lane.x, origWidth: lane.width });
+          setDragState({
+            type: 'resize',
+            laneId: lane.id,
+            edge: 'left',
+            startX: coords.x,
+            origX: lane.x,
+            origWidth: lane.width,
+            fixedX: lane.x + half,
+          });
+          return;
+        }
+        if (Math.abs(coords.x - rightBorder) <= borderHitWidth) {
+          setSelectedLaneId(lane.id);
+          setDragState({
+            type: 'resize',
+            laneId: lane.id,
+            edge: 'right',
+            startX: coords.x,
+            origX: lane.x,
+            origWidth: lane.width,
+            fixedX: lane.x - half,
+          });
           return;
         }
         if (coords.x >= leftBorder && coords.x <= rightBorder) {
@@ -1118,14 +1605,18 @@ export default function GelView() {
           setLanes(prev => prev.map(l => l.id === dragState.laneId ? { ...l, x: Math.round(newX) } : l));
         }
       } else if (dragState.type === 'resize') {
-        let newWidth = dragState.origWidth;
+        let newWidth: number;
+        let newX: number;
         if (dragState.edge === 'right') {
-          newWidth = dragState.origWidth + dx * 2;
+          const anchorLeft = dragState.fixedX ?? (dragState.origX - dragState.origWidth / 2);
+          newWidth = Math.max(8, Math.min(plane.width, coords.x - anchorLeft));
+          newX = anchorLeft + newWidth / 2;
         } else {
-          newWidth = dragState.origWidth - dx * 2;
+          const anchorRight = dragState.fixedX ?? (dragState.origX + dragState.origWidth / 2);
+          newWidth = Math.max(8, Math.min(plane.width, anchorRight - coords.x));
+          newX = anchorRight - newWidth / 2;
         }
-        newWidth = Math.max(12, Math.min(plane.width, newWidth));
-        setLanes(prev => prev.map(l => l.id === dragState.laneId ? { ...l, width: Math.round(newWidth) } : l));
+        setLanes(prev => prev.map(l => l.id === dragState.laneId ? { ...l, x: Math.round(newX), width: Math.round(newWidth) } : l));
       }
       return;
     }
@@ -1136,12 +1627,18 @@ export default function GelView() {
       return;
     }
 
+    if (e.shiftKey) {
+      setCanvasCursor('crosshair');
+      return;
+    }
+
     let nextCursor = 'default';
     for (const lane of lanes) {
       const half = lane.width / 2;
-      const inY = coords.y >= Math.min(lane.y0, lane.y1) && coords.y <= Math.max(lane.y0, lane.y1);
+      const inY = coords.y >= Math.min(lane.y0, lane.y1) - 20 && coords.y <= Math.max(lane.y0, lane.y1);
       if (inY) {
-        if (Math.abs(coords.x - (lane.x - half)) <= 8 || Math.abs(coords.x - (lane.x + half)) <= 8) {
+        const borderHitWidth = Math.min(5, Math.max(3, lane.width * 0.12));
+        if (Math.abs(coords.x - (lane.x - half)) <= borderHitWidth || Math.abs(coords.x - (lane.x + half)) <= borderHitWidth) {
           nextCursor = 'ew-resize';
           break;
         }
@@ -1226,10 +1723,10 @@ export default function GelView() {
         // Normal click sets reference band
         set({ refBandId: existingBand.id });
       }
-    } else if (e.shiftKey) {
-      // Shift+Click on lane adds a new band at this position!
+    } else {
+      // Click in lane adds a new band at this position!
       const newBand: Band = {
-        id: `band-${Date.now()}`,
+        id: `band-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         y0: Math.max(0, clickY - 8),
         y1: Math.min(plane.height, clickY + 8),
         peakY: Math.round(clickY),
@@ -1364,6 +1861,32 @@ export default function GelView() {
       ),
     ];
     downloadText(toCsv(rows), `${imageName.replace(/\.[^/.]+$/, '')}_all_lanes_quantification.csv`, 'text/csv;charset=utf-8');
+  }
+
+  // Export Whole-Lane Loading CSV
+  function handleExportLoadingCsv() {
+    const rows = [
+      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Total_Integrated_Signal_OD_px', 'Total_Bands_Signal_OD_px', 'Relative_Loading_Ratio', 'Loading_Deviation_Pct', 'TPN_Normalization_Factor', 'Is_Reference_Lane'],
+      ...allLanesAnalysis.map(item => {
+        let label = laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`;
+        if (stripLanePrefix) {
+          label = label.replace(/^(?:L\d+|Lane\s*\d+)[\s:\-_]*/i, '').trim() || label;
+        }
+        const isRef = item.lane.id === (s.loadingRefLaneId || allLanesAnalysis[0]?.lane.id);
+        return [
+          item.laneIdx + 1,
+          stripLanePrefix ? item.lane.id.replace(/^l/i, '') : item.lane.id,
+          label,
+          Number(item.totalLaneSignal.toFixed(1)),
+          Number(item.totalBandsSignal.toFixed(1)),
+          Number(item.loadingRatio.toFixed(3)),
+          Number(item.loadingDeviationPct.toFixed(2)),
+          Number(item.normFactor.toFixed(3)),
+          isRef ? 'YES' : 'NO',
+        ];
+      }),
+    ];
+    downloadText(toCsv(rows), `${imageName.replace(/\.[^/.]+$/, '')}_lane_loading_comparison.csv`, 'text/csv;charset=utf-8');
   }
 
   return (
@@ -1535,6 +2058,28 @@ export default function GelView() {
                 </div>
               )}
             </div>
+
+            {/* Auto Gel Straighten & Crop Suggestion */}
+            {cropSuggestion && (Math.abs(cropSuggestion.rotation) > 0.1 || cropSuggestion.crop.w < (plane?.width ?? 0) - 10 || cropSuggestion.crop.h < (plane?.height ?? 0) - 10) && (
+              <div class="rounded-lg bg-indigo-50 dark:bg-indigo-950/40 p-2.5 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1.5 mt-2">
+                <div class="flex items-center justify-between font-semibold text-indigo-900 dark:text-indigo-200">
+                  <span>🪄 Auto Alignment Suggestion</span>
+                  <span class="text-[10px] mono bg-indigo-200/60 dark:bg-indigo-900/60 px-1.5 py-0.5 rounded">
+                    {cropSuggestion.rotation >= 0 ? `+${cropSuggestion.rotation.toFixed(1)}°` : `${cropSuggestion.rotation.toFixed(1)}°`}
+                  </span>
+                </div>
+                <p class="text-[11px] text-indigo-700 dark:text-indigo-300 leading-tight">
+                  Suggested tilt: <span class="mono font-semibold">{cropSuggestion.rotation.toFixed(1)}°</span>. Suggested crop: <span class="mono font-semibold">{cropSuggestion.crop.w} × {cropSuggestion.crop.h} px</span>.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleApplySuggestion}
+                  class="w-full py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-2xs"
+                >
+                  🪄 Apply Auto Straighten & Crop
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Molecular Weight Calibration Presets */}
@@ -1862,10 +2407,11 @@ export default function GelView() {
             <summary class="cursor-pointer font-semibold text-xs uppercase tracking-wider text-slate-500">
               Display Adjustments
             </summary>
-            <div class="pt-2 space-y-2">
+            <div class="pt-2 space-y-2.5 text-xs">
               <div>
-                <div class="flex justify-between text-xs text-slate-500 mb-1">
-                  <span>Brightness: {s.brightness.toFixed(2)}×</span>
+                <div class="flex justify-between text-slate-500 mb-1">
+                  <span>Brightness</span>
+                  <span class="mono font-semibold">{s.brightness.toFixed(2)}×</span>
                 </div>
                 <input
                   type="range"
@@ -1878,8 +2424,9 @@ export default function GelView() {
                 />
               </div>
               <div>
-                <div class="flex justify-between text-xs text-slate-500 mb-1">
-                  <span>Contrast: {s.contrast.toFixed(2)}×</span>
+                <div class="flex justify-between text-slate-500 mb-1">
+                  <span>Contrast</span>
+                  <span class="mono font-semibold">{s.contrast.toFixed(2)}×</span>
                 </div>
                 <input
                   type="range"
@@ -1891,15 +2438,72 @@ export default function GelView() {
                   class="w-full"
                 />
               </div>
-              <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer pt-1">
+              <div>
+                <div class="flex justify-between text-slate-500 mb-1">
+                  <span>Min Contrast Clip (Black Level)</span>
+                  <span class="mono font-semibold">{Math.round((s.minClip ?? 0) * 100)}%</span>
+                </div>
                 <input
-                  type="checkbox"
-                  checked={s.invertDisplay}
-                  onChange={(e) => set({ invertDisplay: (e.target as HTMLInputElement).checked })}
-                  class="rounded border-slate-300"
+                  type="range"
+                  min="0.0"
+                  max="0.7"
+                  step="0.01"
+                  value={s.minClip ?? 0}
+                  onInput={(e) => set({ minClip: parseFloat((e.target as HTMLInputElement).value) })}
+                  class="w-full accent-accent-600"
                 />
-                Invert Display (Black/White)
-              </label>
+              </div>
+              <div>
+                <div class="flex justify-between text-slate-500 mb-1">
+                  <span>Max Contrast Clip (White Level)</span>
+                  <span class="mono font-semibold">{Math.round((s.maxClip ?? 1) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.3"
+                  max="1.0"
+                  step="0.01"
+                  value={s.maxClip ?? 1}
+                  onInput={(e) => set({ maxClip: parseFloat((e.target as HTMLInputElement).value) })}
+                  class="w-full accent-accent-600"
+                />
+              </div>
+              <div>
+                <div class="flex justify-between text-slate-500 mb-1">
+                  <span>Gamma Curve</span>
+                  <span class="mono font-semibold">{(s.gamma ?? 1).toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.4"
+                  max="2.5"
+                  step="0.05"
+                  value={s.gamma ?? 1}
+                  onInput={(e) => set({ gamma: parseFloat((e.target as HTMLInputElement).value) })}
+                  class="w-full accent-accent-600"
+                />
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <label class="flex items-center gap-2 text-slate-700 dark:text-slate-300 cursor-pointer font-medium">
+                  <input
+                    type="checkbox"
+                    checked={s.invertDisplay}
+                    onChange={(e) => set({ invertDisplay: (e.target as HTMLInputElement).checked })}
+                    class="rounded border-slate-300"
+                  />
+                  Invert Display
+                </label>
+                <button
+                  type="button"
+                  onClick={() => set({ brightness: 1, contrast: 1, minClip: 0, maxClip: 1, gamma: 1, invertDisplay: false })}
+                  class="px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] text-slate-500 font-medium"
+                >
+                  Reset Display
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400 italic pt-0.5 leading-normal">
+                Adjusts visualization &amp; strip contrast only without altering raw linear densitometry data.
+              </p>
             </div>
           </details>
         </div>
@@ -1949,6 +2553,15 @@ export default function GelView() {
                   class="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg dark:bg-slate-800 dark:hover:bg-slate-700 transition"
                 >
                   Auto-Find Lanes
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGridFromPlaced}
+                  disabled={lanes.length < 2}
+                  class="px-2.5 py-1 text-xs font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:hover:bg-indigo-900 dark:text-indigo-300 rounded-lg transition disabled:opacity-50"
+                  title="Detect lane pitch and interpolate grid based on 2 or more placed lanes"
+                >
+                  ✨ Grid from Placed ({lanes.length})
                 </button>
                 <div class="flex items-center gap-1">
                   <button
@@ -2161,7 +2774,7 @@ export default function GelView() {
 
                 {/* Gesture hint banner */}
                 <div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
-                  <span>💡 <strong>Grab lane lines</strong> to move or resize width. <strong>Click</strong> to select lane. <strong>Shift+Click</strong> in lane to add band; <strong>Ctrl+Click</strong> on band to remove it.</span>
+                  <span>💡 <strong>Shift+Click</strong> anywhere on gel to quickly place a new line (lane). Grab borders to resize, body to move. <strong>Shift+Click</strong> in lane to add band; <strong>Ctrl+Click</strong> on band to remove.</span>
                   {selectedLane && (
                     <span class="text-accent-600 dark:text-accent-400 font-semibold">Active: L{selectedLaneIdx + 1}</span>
                   )}
@@ -2182,6 +2795,30 @@ export default function GelView() {
                     title="Click or drag lanes. Shift+Click to add band, Ctrl+click to remove."
                   />
                 </div>
+
+                {/* Explicit Band Removal Buttons beneath gel image */}
+                {selectedLane && laneAnalysis && laneAnalysis.metrics.length > 0 && (
+                  <div class="flex flex-wrap items-center gap-1.5 pt-1 px-1 text-xs">
+                    <span class="text-[11px] font-semibold text-slate-500">Lane {selectedLaneIdx + 1} Bands:</span>
+                    {laneAnalysis.metrics.map(m => (
+                      <span
+                        key={m.bandId}
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs"
+                      >
+                        <span class="font-bold">#{m.number}</span>
+                        {m.sizeEst && <span class="text-accent-600 dark:text-accent-400 font-mono text-[10px]">({formatSize(m.sizeEst, activeLadder.kind)})</span>}
+                        <button
+                          type="button"
+                          onClick={() => removePeakFromLane(selectedLane.id, m.bandId)}
+                          class="text-rose-500 hover:text-rose-700 font-bold ml-1 text-xs"
+                          title={`Remove Band #${m.number} from Lane ${selectedLaneIdx + 1}`}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Densitometry Profile Card for Active Lane */}
@@ -2207,7 +2844,7 @@ export default function GelView() {
 
                 {laneAnalysis && laneAnalysis.profile.length > 0 ? (
                   <div class="space-y-3">
-                    <svg viewBox="0 0 500 305" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none">
+                    <svg viewBox="0 0 500 320" onClick={handleProfileSvgClick} class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none cursor-crosshair">
                       {/* Grid Lines */}
                       <line x1="40" y1="20" x2="40" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
                       <line x1="40" y1="180" x2="480" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
@@ -2278,6 +2915,7 @@ export default function GelView() {
                             key={m.bandId}
                             class="cursor-pointer"
                             onClick={(e) => {
+                              e.stopPropagation();
                               if (e.ctrlKey || e.metaKey) {
                                 if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
                               } else {
@@ -2332,18 +2970,59 @@ export default function GelView() {
                             <text x={px} y="265" font-size="7.5" text-anchor="middle" fill="#0284c7" class="dark:fill-sky-400" font-weight="bold">
                               {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : ''}
                             </text>
+
+                            {/* Explicit remove button directly below #1, #2 */}
+                            <g
+                              class="cursor-pointer hover:opacity-80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
+                              }}
+                              title={`Remove Band #${m.number}`}
+                            >
+                              <rect x={px - 8} y="271" width="16" height="13" rx="3" fill="#fee2e2" stroke="#f87171" stroke-width="0.8" />
+                              <text x={px} y="280.5" font-size="8.5" font-weight="bold" fill="#dc2626" text-anchor="middle">
+                                ✕
+                              </text>
+                            </g>
                           </g>
                         );
                       })}
 
                       {/* Direction labels */}
-                      <text x="40" y="288" font-size="9" font-weight="bold" fill="#64748b">
+                      <text x="40" y="302" font-size="9" font-weight="bold" fill="#64748b">
                         ⮜ Top / Well (y₀)
                       </text>
-                      <text x="480" y="288" font-size="9" font-weight="bold" fill="#64748b" text-anchor="end">
+                      <text x="480" y="302" font-size="9" font-weight="bold" fill="#64748b" text-anchor="end">
                         Bottom / Front (y₁) ⮞
                       </text>
                     </svg>
+
+                    {/* Quick Band Action Badges directly below SVG */}
+                    {laneAnalysis.metrics.length > 0 && (
+                      <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span class="text-[11px] font-semibold text-slate-500">Lane {selectedLaneIdx + 1} Bands:</span>
+                        {laneAnalysis.metrics.map(m => (
+                          <div
+                            key={m.bandId}
+                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs"
+                          >
+                            <span class="font-bold">#{m.number}</span>
+                            {m.sizeEst && <span class="text-accent-600 dark:text-accent-400 font-mono text-[10px]">({formatSize(m.sizeEst, activeLadder.kind)})</span>}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
+                              }}
+                              class="w-4 h-4 rounded-full flex items-center justify-center text-rose-500 hover:text-white hover:bg-rose-600 transition text-[10px] font-bold ml-0.5"
+                              title={`Remove Band #${m.number}`}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Detected Peaks Table with Remove Option */}
                     <div class="space-y-2 pt-2">
@@ -2817,42 +3496,97 @@ export default function GelView() {
             </div>
           )}
 
-          {/* TAB 3: Comprehensive Quantification & Amounts Across All Lanes */}
+          {/* TAB 3: Comprehensive Quantification & Line Loading Across All Lanes */}
           {s.viewTab === 'quant' && (
             <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
               <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
                 <div>
                   <h3 class="font-bold text-base text-slate-900 dark:text-slate-100">
-                    Band Quantification & Relative Amounts
+                    {s.quantSubView === 'loading'
+                      ? 'Whole-Lane Loading Comparison & Ponceau S / TPN Normalization'
+                      : 'Band Quantification & Relative Amounts'}
                   </h3>
                   <p class="text-xs text-slate-500">
-                    Background-subtracted optical densities, relative percentage shares, and calibrated molecular weights
+                    {s.quantSubView === 'loading'
+                      ? 'Total integrated optical density across all lines to verify equal sample loading, CV%, and compute TPN correction factors'
+                      : 'Background-subtracted optical densities, relative percentage shares, and calibrated molecular weights'}
                   </p>
                 </div>
 
-                <div class="flex items-center gap-2">
-                  <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs">
+                <div class="flex flex-wrap items-center gap-2">
+                  {/* Sub-view toggle: Bands vs Loading */}
+                  <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-950 text-xs">
                     <button
                       type="button"
-                      onClick={() => set({ tableMode: 'all' })}
-                      class={`px-3 py-1 rounded-md font-medium transition ${
-                        s.tableMode === 'all' ? 'bg-accent-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                      onClick={() => set({ quantSubView: 'bands' })}
+                      class={`px-3 py-1.5 font-semibold rounded-md transition ${
+                        s.quantSubView === 'bands' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
-                      All Lanes ({lanes.length})
+                      🎯 Band Quantification
                     </button>
                     <button
                       type="button"
-                      onClick={() => set({ tableMode: 'selected' })}
-                      class={`px-3 py-1 rounded-md font-medium transition ${
-                        s.tableMode === 'selected' ? 'bg-accent-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                      onClick={() => set({ quantSubView: 'loading' })}
+                      class={`px-3 py-1.5 font-semibold rounded-md transition ${
+                        s.quantSubView === 'loading' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
-                      Lane {selectedLaneIdx + 1} Only
+                      🧪 Line Loading (Ponceau S)
                     </button>
                   </div>
 
-                  <div class="flex items-center gap-3">
+                  {s.quantSubView === 'bands' && (
+                    <>
+                      {/* Lane Cards vs Unified Table toggle */}
+                      <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setQuantLayoutMode('cards')}
+                          class={`px-2.5 py-1 rounded-md font-medium transition ${
+                            quantLayoutMode === 'cards' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                          title="Show extracted gel strip alongside each lane table"
+                        >
+                          🖼️ Strips &amp; Tables
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuantLayoutMode('table')}
+                          class={`px-2.5 py-1 rounded-md font-medium transition ${
+                            quantLayoutMode === 'table' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                          title="Show unified flat table"
+                        >
+                          📄 Unified Table
+                        </button>
+                      </div>
+
+                      {/* All vs Selected lane filter */}
+                      <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => set({ tableMode: 'all' })}
+                          class={`px-2.5 py-1 rounded-md font-medium transition ${
+                            s.tableMode === 'all' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          All ({lanes.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => set({ tableMode: 'selected' })}
+                          class={`px-2.5 py-1 rounded-md font-medium transition ${
+                            s.tableMode === 'selected' ? 'bg-accent-600 text-white' : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          Lane {selectedLaneIdx + 1}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  <div class="flex items-center gap-2">
                     <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
                       <input
                         type="checkbox"
@@ -2862,6 +3596,16 @@ export default function GelView() {
                       />
                       <span>Omit L1/L2 prefix</span>
                     </label>
+
+                    {s.quantSubView === 'loading' && (
+                      <button
+                        type="button"
+                        onClick={handleExportLoadingCsv}
+                        class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition"
+                      >
+                        Export Loading CSV
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -2874,86 +3618,470 @@ export default function GelView() {
                 </div>
               </div>
 
-              {/* Band Quantification Chart */}
-              <BandQuantChart
-                analysis={allLanesAnalysis}
-                ladderKind={activeLadder.kind}
-                laneLabels={laneLabels}
-                selectedLaneId={selectedLane?.id}
-                onSelectLane={setSelectedLaneId}
-              />
+              {s.quantSubView === 'loading' ? (
+                /* LINE LOADING COMPARISON (PONCEAU S / TPN MODE) */
+                <div class="space-y-4">
+                  {/* KPI Summary Dashboard */}
+                  <div class="grid gap-3 sm:grid-cols-4">
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-3 space-y-1">
+                      <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Reference Line (Lane)</span>
+                      <select
+                        value={s.loadingRefLaneId || allLanesAnalysis[0]?.lane.id || ''}
+                        onChange={(e) => set({ loadingRefLaneId: (e.target as HTMLSelectElement).value })}
+                        class="w-full text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 font-semibold"
+                      >
+                        {allLanesAnalysis.map((item, idx) => (
+                          <option key={item.lane.id} value={item.lane.id}>
+                            Lane {idx + 1}{laneLabels[item.lane.id] ? ` (${laneLabels[item.lane.id]})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              {/* Table */}
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs text-left">
-                  <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider">
-                      {s.tableMode === 'all' && <th class="pb-2 font-semibold">Lane</th>}
-                      <th class="pb-2 font-semibold">Band #</th>
-                      <th class="pb-2 font-semibold">Migration Y</th>
-                      <th class="pb-2 font-semibold">Est. Size</th>
-                      <th class="pb-2 font-semibold text-right text-emerald-600 dark:text-emerald-400">Calibrated Mass</th>
-                      <th class="pb-2 font-semibold text-right">Raw Area</th>
-                      <th class="pb-2 font-semibold text-right">Baseline</th>
-                      <th class="pb-2 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity (Amount)</th>
-                      <th class="pb-2 font-semibold text-right">% of Lane</th>
-                      <th class="pb-2 font-semibold text-right">Ratio to Ref</th>
-                      <th class="pb-2 font-semibold text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                    {(s.tableMode === 'all' ? allLanesAnalysis : [laneAnalysis].filter(Boolean) as LaneAnalysisItem[]).flatMap((item) =>
-                      item.metrics.map(m => {
-                        const isRef = m.bandId === s.refBandId;
-                        const isSaturated = m.saturation >= SATURATION_WARN;
-                        const customName = laneLabels[item.lane.id];
-                        return (
-                          <tr
-                            key={`${item.lane.id}-${m.bandId}`}
-                            class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
-                              isRef ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''
-                            }`}
-                          >
-                            {s.tableMode === 'all' && (
-                              <td class="py-2.5 font-bold">
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-3 space-y-1">
+                      <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Mean Whole-Lane Signal</span>
+                      <div class="text-base font-bold text-slate-900 dark:text-slate-100 mono">
+                        {loadingStats.mean.toFixed(1)} <span class="text-xs text-slate-400 font-normal">OD · px</span>
+                      </div>
+                    </div>
+
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-3 space-y-1">
+                      <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Loading Variation (CV%)</span>
+                      <div class="flex items-center gap-2">
+                        <span class="text-base font-bold mono text-slate-900 dark:text-slate-100">
+                          {loadingStats.cvPct.toFixed(1)}%
+                        </span>
+                        <span
+                          class={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            loadingStats.cvPct <= 10
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                              : loadingStats.cvPct <= 20
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                          }`}
+                        >
+                          {loadingStats.cvPct <= 10 ? 'Equal (≤10%)' : loadingStats.cvPct <= 20 ? 'Moderate (10-20%)' : 'High Variation (>20%)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-3 space-y-1">
+                      <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Loading Quality</span>
+                      <div class="text-xs font-medium text-slate-700 dark:text-slate-300 pt-0.5">
+                        {loadingStats.cvPct <= 10
+                          ? '✅ Equal loading verified. Proceed to target quantification.'
+                          : loadingStats.cvPct <= 20
+                            ? '⚠️ Minor loading deviation. Apply TPN factor to correct bands.'
+                            : '❌ Significant variation detected. Normalize target bands using TPN factor.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Loading Chart */}
+                  <BandQuantChart
+                    analysis={allLanesAnalysis}
+                    ladderKind={activeLadder.kind}
+                    laneLabels={laneLabels}
+                    selectedLaneId={selectedLane?.id}
+                    onSelectLane={setSelectedLaneId}
+                  />
+
+                  {/* Whole-Lane Loading Table with Extracted Gel Strips */}
+                  <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <table class="w-full text-xs text-left">
+                      <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
+                        <tr>
+                          <th class="px-3 py-2 font-semibold">Lane</th>
+                          <th class="px-3 py-2 font-semibold min-w-[140px]">Physical Lane Strip</th>
+                          <th class="px-3 py-2 font-semibold text-right">Total Integrated Signal</th>
+                          <th class="px-3 py-2 font-semibold text-right">Bands Net Signal</th>
+                          <th class="px-3 py-2 font-semibold text-right">Relative Ratio</th>
+                          <th class="px-3 py-2 font-semibold text-right">Loading Deviation</th>
+                          <th class="px-3 py-2 font-semibold text-right text-indigo-600 dark:text-indigo-400">TPN Factor</th>
+                          <th class="px-3 py-2 font-semibold text-center">Status</th>
+                          <th class="px-3 py-2 font-semibold text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                        {allLanesAnalysis.map((item) => {
+                          const isRef = item.lane.id === (s.loadingRefLaneId || allLanesAnalysis[0]?.lane.id);
+                          const customName = laneLabels[item.lane.id];
+                          const dev = item.loadingDeviationPct;
+                          const stripUrl = getLaneStripDataUrl(item.lane, 220, 24);
+
+                          return (
+                            <tr
+                              key={item.lane.id}
+                              class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
+                                isRef ? 'bg-indigo-50/50 dark:bg-indigo-950/25' : ''
+                              }`}
+                            >
+                              <td class="px-3 py-2.5 font-bold">
                                 <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">
                                   {customName ? `L${item.laneIdx + 1}: ${customName}` : `L${item.laneIdx + 1}`}
                                 </span>
                               </td>
-                            )}
-                            <td class="py-2.5 font-medium">Band {m.number}</td>
-                            <td class="py-2.5 mono">{m.peakY ? m.peakY.toFixed(1) : '-'} px</td>
-                            <td class="py-2.5 font-bold text-accent-600 dark:text-accent-400">
-                              {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
-                            </td>
-                            <td class="py-2.5 mono text-right font-bold text-emerald-600 dark:text-emerald-400">
-                              {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
-                            </td>
-                            <td class="py-2.5 mono text-right text-slate-500">{m.raw.toFixed(1)}</td>
-                            <td class="py-2.5 mono text-right text-slate-500">{m.background.toFixed(1)}</td>
-                            <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">
-                              {m.net.toFixed(1)}
-                            </td>
-                            <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
-                            <td class="py-2.5 mono text-right">
-                              {isRef ? <span class="text-emerald-600 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
-                            </td>
-                            <td class="py-2.5 text-center">
-                              {isSaturated ? (
-                                <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-0.5 text-[10px] font-bold">
-                                  Saturated
+                              <td class="px-3 py-2">
+                                {stripUrl && (
+                                  <img
+                                    src={stripUrl}
+                                    alt={`Lane ${item.laneIdx + 1} strip`}
+                                    class="h-6 w-44 rounded border border-slate-300 dark:border-slate-700 object-cover"
+                                  />
+                                )}
+                              </td>
+                              <td class="px-3 py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100">
+                                {item.totalLaneSignal.toFixed(1)}
+                              </td>
+                              <td class="px-3 py-2.5 mono text-right text-slate-500">
+                                {item.totalBandsSignal.toFixed(1)}
+                              </td>
+                              <td class="px-3 py-2.5 mono text-right font-semibold">
+                                {isRef ? (
+                                  <span class="text-indigo-600 dark:text-indigo-400 font-bold">1.000 (Ref)</span>
+                                ) : (
+                                  `${item.loadingRatio.toFixed(3)}×`
+                                )}
+                              </td>
+                              <td class="px-3 py-2.5 mono text-right font-medium">
+                                {isRef ? (
+                                  <span class="text-slate-400">0.0%</span>
+                                ) : (
+                                  <span
+                                    class={
+                                      Math.abs(dev) <= 10
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : Math.abs(dev) <= 20
+                                          ? 'text-amber-600 dark:text-amber-400'
+                                          : 'text-rose-600 dark:text-rose-400'
+                                    }
+                                  >
+                                    {dev > 0 ? `+${dev.toFixed(1)}%` : `${dev.toFixed(1)}%`}
+                                  </span>
+                                )}
+                              </td>
+                              <td class="px-3 py-2.5 mono text-right font-bold text-indigo-600 dark:text-indigo-400">
+                                {item.normFactor.toFixed(3)}×
+                              </td>
+                              <td class="px-3 py-2.5 text-center">
+                                {isRef ? (
+                                  <span class="rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+                                    Reference Line
+                                  </span>
+                                ) : Math.abs(dev) <= 15 ? (
+                                  <span class="rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
+                                    Equal (±15%)
+                                  </span>
+                                ) : dev > 15 ? (
+                                  <span class="rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 px-2 py-0.5 text-[10px] font-bold">
+                                    Overloaded
+                                  </span>
+                                ) : (
+                                  <span class="rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-2 py-0.5 text-[10px] font-bold">
+                                    Underloaded
+                                  </span>
+                                )}
+                              </td>
+                              <td class="px-3 py-2.5 text-center">
+                                {isRef ? (
+                                  <span class="text-indigo-600 dark:text-indigo-400 font-bold text-xs">✓ Active Ref</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => set({ loadingRefLaneId: item.lane.id })}
+                                    class="px-2 py-1 rounded text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                                  >
+                                    Set as Ref
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Ponceau S & Total Protein Normalization (TPN) Guidance */}
+                  <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30 text-xs text-indigo-900 dark:text-indigo-200 space-y-1.5">
+                    <div class="font-bold flex items-center gap-1.5">
+                      <span>💡 Scientific Recommendation: Total Protein Normalization (Ponceau S / Coomassie)</span>
+                    </div>
+                    <p class="leading-relaxed">
+                      Leading journal guidelines (e.g. <em>Journal of Biological Chemistry</em>, <em>Nature</em>) mandate <strong>Total Protein Normalization (TPN)</strong> using reversible stains like Ponceau S or whole-lane Coomassie rather than single housekeeping genes (actin, tubulin, GAPDH). Housekeeping markers frequently saturate or vary under experimental treatments. Multiply your target protein band signal by the calculated <strong>TPN Factor</strong> to obtain rigorous, publication-grade normalized data.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* BAND QUANTIFICATION & AMOUNTS (WITH EXTRACTED LANE STRIPS) */
+                <div class="space-y-4">
+                  {/* Band Quantification Chart */}
+                  <BandQuantChart
+                    analysis={allLanesAnalysis}
+                    ladderKind={activeLadder.kind}
+                    laneLabels={laneLabels}
+                    selectedLaneId={selectedLane?.id}
+                    onSelectLane={setSelectedLaneId}
+                  />
+
+                  {quantLayoutMode === 'cards' ? (
+                    /* LANE CARDS WITH EXTRACTED GEL STRIPS CLOSE TO DATA TABLE */
+                    <div class="space-y-4">
+                      {(s.tableMode === 'all' ? allLanesAnalysis : [laneAnalysis].filter(Boolean) as LaneAnalysisItem[]).map((item) => {
+                        const isSelected = item.lane.id === selectedLane?.id;
+                        const isLadder = item.lane.id === s.ladderLaneId;
+                        const isLoadingRef = item.lane.id === (s.loadingRefLaneId || allLanesAnalysis[0]?.lane.id);
+                        const customName = laneLabels[item.lane.id];
+                        const stripUrl = getLaneStripDataUrl(item.lane, 560, 36);
+
+                        return (
+                          <div
+                            key={item.lane.id}
+                            class={`rounded-xl border bg-white dark:bg-slate-900 overflow-hidden shadow-2xs space-y-3 p-4 transition ${
+                              isSelected
+                                ? 'border-accent-400 dark:border-accent-600 ring-1 ring-accent-400/30'
+                                : 'border-slate-200 dark:border-slate-800'
+                            }`}
+                          >
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5 dark:border-slate-800">
+                              <div class="flex items-center gap-2">
+                                <span class="font-bold text-sm text-slate-900 dark:text-slate-100">
+                                  Lane {item.laneIdx + 1}{customName ? `: ${customName}` : ''}
                                 </span>
-                              ) : (
-                                <span class="text-slate-400 text-[10px]">Linear</span>
-                              )}
-                            </td>
-                          </tr>
+                                {isLadder && (
+                                  <span class="text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                                    Standard Ladder
+                                  </span>
+                                )}
+                                {isLoadingRef && (
+                                  <span class="text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 px-1.5 py-0.5 rounded">
+                                    Loading Ref (1.00×)
+                                  </span>
+                                )}
+                              </div>
+
+                              <div class="flex items-center gap-3 text-xs">
+                                <span class="text-slate-500">
+                                  Total Net OD: <strong class="text-slate-900 dark:text-slate-100 mono">{item.totalNet.toFixed(1)}</strong>
+                                </span>
+                                <span class="text-slate-500">
+                                  Bands: <strong class="text-slate-900 dark:text-slate-100">{item.metrics.length}</strong>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedLaneId(item.lane.id)}
+                                  class={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                                    isSelected
+                                      ? 'bg-accent-600 text-white'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {isSelected ? 'Active Lane' : 'Select'}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Extracted Lane Strip with Direct Alignment Band Flags */}
+                            <div class="space-y-1">
+                              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                                <span>Extracted Physical Lane Strip &amp; Band Position:</span>
+                                <span>Top / Well (y₀) → Bottom / Front (y₁)</span>
+                              </div>
+                              <div class="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950/20">
+                                <svg viewBox="0 0 560 56" class="w-full h-auto block select-none">
+                                  {stripUrl && (
+                                    <image x="0" y="16" width="560" height="36" href={stripUrl} preserveAspectRatio="none" />
+                                  )}
+                                  <rect x="0" y="16" width="560" height="36" fill="none" stroke="#94a3b8" stroke-width="0.8" stroke-opacity="0.5" />
+                                  {item.metrics.map(m => {
+                                    if (m.peakY === undefined) return null;
+                                    const frac = m.peakY / (item.lane.y1 - item.lane.y0 || 1);
+                                    const px = frac * 560;
+                                    const isBandRef = m.bandId === s.refBandId;
+                                    const szLabel = m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '';
+
+                                    return (
+                                      <g
+                                        key={m.bandId}
+                                        class="cursor-pointer"
+                                        onClick={() => set({ refBandId: isBandRef ? '' : m.bandId })}
+                                        title={`Band #${m.number}${szLabel ? ` (${szLabel})` : ''} - Click to set as reference band`}
+                                      >
+                                        <line x1={px} y1="0" x2={px} y2="52" stroke={isBandRef ? '#10b981' : '#ef4444'} stroke-width="1.5" stroke-dasharray="2 1" />
+                                        <rect x={px - 14} y="1" width="28" height="13" rx="2" fill={isBandRef ? '#10b981' : '#1e293b'} opacity="0.9" />
+                                        <text x={px} y="10.5" font-size="8" font-weight="bold" fill="#ffffff" text-anchor="middle">
+                                          #{m.number}
+                                        </text>
+                                        {szLabel && (
+                                          <text x={px} y="54" font-size="7" font-weight="bold" fill="#0284c7" text-anchor="middle">
+                                            {szLabel}
+                                          </text>
+                                        )}
+                                      </g>
+                                    );
+                                  })}
+                                </svg>
+                              </div>
+                            </div>
+
+                            {/* Band Data Table for this lane */}
+                            {item.metrics.length > 0 ? (
+                              <div class="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
+                                <table class="w-full text-xs text-left">
+                                  <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[10px]">
+                                    <tr>
+                                      <th class="px-2.5 py-1.5 font-semibold">Band #</th>
+                                      <th class="px-2.5 py-1.5 font-semibold">Migration Y</th>
+                                      <th class="px-2.5 py-1.5 font-semibold">Est. Size</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-right text-emerald-600 dark:text-emerald-400">Calibrated Mass</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-right">Raw Area</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-right">Baseline</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity (Amount)</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-right">% of Lane</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-right">Ratio to Ref</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-center">Status</th>
+                                      <th class="px-2.5 py-1.5 font-semibold text-center">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {item.metrics.map(m => {
+                                      const isBandRef = m.bandId === s.refBandId;
+                                      const isSaturated = m.saturation >= SATURATION_WARN;
+                                      return (
+                                        <tr
+                                          key={m.bandId}
+                                          class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
+                                            isBandRef ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''
+                                          }`}
+                                        >
+                                          <td class="px-2.5 py-2 font-bold">
+                                            <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">#{m.number}</span>
+                                          </td>
+                                          <td class="px-2.5 py-2 mono text-slate-600 dark:text-slate-400">
+                                            {m.peakY !== undefined ? `${m.peakY.toFixed(1)} px` : '-'}
+                                          </td>
+                                          <td class="px-2.5 py-2 font-bold text-accent-600 dark:text-accent-400">
+                                            {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
+                                          </td>
+                                          <td class="px-2.5 py-2 mono text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                            {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
+                                          </td>
+                                          <td class="px-2.5 py-2 mono text-right text-slate-500">{m.raw.toFixed(1)}</td>
+                                          <td class="px-2.5 py-2 mono text-right text-slate-500">{m.background.toFixed(1)}</td>
+                                          <td class="px-2.5 py-2 mono text-right font-bold text-slate-900 dark:text-slate-100">
+                                            {m.net.toFixed(1)}
+                                          </td>
+                                          <td class="px-2.5 py-2 mono text-right font-medium">{m.share.toFixed(1)}%</td>
+                                          <td class="px-2.5 py-2 mono text-right">
+                                            {isBandRef ? <span class="text-emerald-600 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
+                                          </td>
+                                          <td class="px-2.5 py-2 text-center">
+                                            {isSaturated ? (
+                                              <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-bold">
+                                                Saturated
+                                              </span>
+                                            ) : (
+                                              <span class="text-slate-400 text-[10px]">Linear</span>
+                                            )}
+                                          </td>
+                                          <td class="px-2.5 py-2 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={() => removePeakFromLane(item.lane.id, m.bandId)}
+                                              class="px-2 py-0.5 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition"
+                                              title="Remove peak from lane"
+                                            >
+                                              ✕ Remove
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p class="text-xs text-slate-400 italic py-1">No bands detected in this lane. Click on gel image or lane profile to add.</p>
+                            )}
+                          </div>
                         );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      })}
+                    </div>
+                  ) : (
+                    /* UNIFIED COMPACT FLAT DATA TABLE */
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-xs text-left">
+                        <thead>
+                          <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider">
+                            {s.tableMode === 'all' && <th class="pb-2 font-semibold">Lane</th>}
+                            <th class="pb-2 font-semibold">Band #</th>
+                            <th class="pb-2 font-semibold">Migration Y</th>
+                            <th class="pb-2 font-semibold">Est. Size</th>
+                            <th class="pb-2 font-semibold text-right text-emerald-600 dark:text-emerald-400">Calibrated Mass</th>
+                            <th class="pb-2 font-semibold text-right">Raw Area</th>
+                            <th class="pb-2 font-semibold text-right">Baseline</th>
+                            <th class="pb-2 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity (Amount)</th>
+                            <th class="pb-2 font-semibold text-right">% of Lane</th>
+                            <th class="pb-2 font-semibold text-right">Ratio to Ref</th>
+                            <th class="pb-2 font-semibold text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                          {(s.tableMode === 'all' ? allLanesAnalysis : [laneAnalysis].filter(Boolean) as LaneAnalysisItem[]).flatMap((item) =>
+                            item.metrics.map(m => {
+                              const isRef = m.bandId === s.refBandId;
+                              const isSaturated = m.saturation >= SATURATION_WARN;
+                              const customName = laneLabels[item.lane.id];
+                              return (
+                                <tr
+                                  key={`${item.lane.id}-${m.bandId}`}
+                                  class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
+                                    isRef ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''
+                                  }`}
+                                >
+                                  {s.tableMode === 'all' && (
+                                    <td class="py-2.5 font-bold">
+                                      <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">
+                                        {customName ? `L${item.laneIdx + 1}: ${customName}` : `L${item.laneIdx + 1}`}
+                                      </span>
+                                    </td>
+                                  )}
+                                  <td class="py-2.5 font-medium">Band {m.number}</td>
+                                  <td class="py-2.5 mono">{m.peakY ? `${m.peakY.toFixed(1)} px` : '-'}</td>
+                                  <td class="py-2.5 font-bold text-accent-600 dark:text-accent-400">
+                                    {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
+                                  </td>
+                                  <td class="py-2.5 mono text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                    {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
+                                  </td>
+                                  <td class="py-2.5 mono text-right text-slate-500">{m.raw.toFixed(1)}</td>
+                                  <td class="py-2.5 mono text-right text-slate-500">{m.background.toFixed(1)}</td>
+                                  <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">
+                                    {m.net.toFixed(1)}
+                                  </td>
+                                  <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
+                                  <td class="py-2.5 mono text-right">
+                                    {isRef ? <span class="text-emerald-600 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
+                                  </td>
+                                  <td class="py-2.5 text-center">
+                                    {isSaturated ? (
+                                      <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-0.5 text-[10px] font-bold">
+                                        Saturated
+                                      </span>
+                                    ) : (
+                                      <span class="text-slate-400 text-[10px]">Linear</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

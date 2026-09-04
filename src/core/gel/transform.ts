@@ -1,5 +1,5 @@
 /* Affine transforms between the raw image and the working frame (rotated, flipped, cropped view). */
-import type { Affine, Plane } from './types';
+import type { Affine, Plane, Polarity } from './types';
 
 export const IDENTITY: Affine = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
@@ -104,3 +104,149 @@ export function transformPlane(raw: Plane, g: Geometry): Plane {
   }
   return { width: w, height: h, data: out };
 }
+
+export interface GelCropSuggestion {
+  /** Suggested deskew rotation angle in degrees to straighten the gel. */
+  rotation: number;
+  /** Suggested crop box in pixels [x, y, w, h]. */
+  crop: { x: number; y: number; w: number; h: number };
+  /** Confidence score between 0 and 1. */
+  confidence: number;
+}
+
+/**
+ * Automatically analyzes the gel image plane to detect tilt angle and suggest centering and cropping.
+ * Uses Radon/projection variance to find optimal alignment angle for horizontal bands/vertical lanes,
+ * and profile energy/variance to locate the active gel boundary away from scanner borders.
+ */
+export function suggestGelCropAndTilt(plane: Plane, polarity: Polarity = 'dark'): GelCropSuggestion {
+  const w = plane.width;
+  const h = plane.height;
+  if (w < 10 || h < 10) {
+    return { rotation: 0, crop: { x: 0, y: 0, w, h }, confidence: 0 };
+  }
+
+  // 1. Detect tilt angle: scan angles -12° to +12° in 0.5° steps
+  // Testing horizontal projection variance across central region
+  const yStart = Math.round(h * 0.15);
+  const yEnd = Math.round(h * 0.85);
+  const xStart = Math.round(w * 0.15);
+  const xEnd = Math.round(w * 0.85);
+  const sampleW = xEnd - xStart;
+  const sampleH = yEnd - yStart;
+
+  let bestAngle = 0;
+  let maxVar = -1;
+
+  for (let deg = -12; deg <= 12; deg += 0.5) {
+    const rad = deg * Math.PI / 180;
+    const tan = Math.tan(rad);
+
+    let sumVals = 0;
+    let sumSqVals = 0;
+    let count = 0;
+
+    const rowStep = Math.max(1, Math.floor(sampleH / 60));
+    const colStep = Math.max(1, Math.floor(sampleW / 50));
+
+    for (let y = yStart; y < yEnd; y += rowStep) {
+      let rowSum = 0;
+      let rowK = 0;
+      for (let x = xStart; x < xEnd; x += colStep) {
+        const sampleY = y + (x - w / 2) * tan;
+        const val = sampleBilinear(plane, x, sampleY);
+        if (!Number.isNaN(val)) {
+          const sig = polarity === 'dark' ? 1 - val : val;
+          rowSum += sig;
+          rowK++;
+        }
+      }
+      if (rowK > 0) {
+        const rowAvg = rowSum / rowK;
+        sumVals += rowAvg;
+        sumSqVals += rowAvg * rowAvg;
+        count++;
+      }
+    }
+
+    if (count > 2) {
+      const meanVal = sumVals / count;
+      const variance = (sumSqVals / count) - (meanVal * meanVal);
+      if (variance > maxVar) {
+        maxVar = variance;
+        bestAngle = deg;
+      }
+    }
+  }
+
+  // Rotation to apply to straighten the gel
+  const suggestedRotation = Math.abs(bestAngle) >= 0.2 ? -bestAngle : 0;
+
+  // 2. Active Gel Boundary Detection (Row & Column Profile Variance)
+  const colVars = new Float32Array(w);
+  const colStep = Math.max(1, Math.floor(h / 80));
+  for (let x = 0; x < w; x++) {
+    let s = 0, sq = 0, k = 0;
+    for (let y = 0; y < h; y += colStep) {
+      const v = plane.data[y * w + x] ?? 0;
+      s += v; sq += v * v; k++;
+    }
+    if (k > 1) {
+      const m = s / k;
+      colVars[x] = Math.max(0, sq / k - m * m);
+    }
+  }
+
+  const rowVars = new Float32Array(h);
+  const rowStep = Math.max(1, Math.floor(w / 80));
+  for (let y = 0; y < h; y++) {
+    let s = 0, sq = 0, k = 0;
+    for (let x = 0; x < w; x += rowStep) {
+      const v = plane.data[y * w + x] ?? 0;
+      s += v; sq += v * v; k++;
+    }
+    if (k > 1) {
+      const m = s / k;
+      rowVars[y] = Math.max(0, sq / k - m * m);
+    }
+  }
+
+  let maxColVar = 0;
+  for (let i = 0; i < w; i++) if (colVars[i]! > maxColVar) maxColVar = colVars[i]!;
+  let maxRowVar = 0;
+  for (let i = 0; i < h; i++) if (rowVars[i]! > maxRowVar) maxRowVar = rowVars[i]!;
+
+  const colThresh = maxColVar * 0.12;
+  const rowThresh = maxRowVar * 0.12;
+
+  let x0 = 0, x1 = w - 1;
+  while (x0 < w - 1 && (colVars[x0] ?? 0) < colThresh) x0++;
+  while (x1 > x0 && (colVars[x1] ?? 0) < colThresh) x1--;
+
+  let y0 = 0, y1 = h - 1;
+  while (y0 < h - 1 && (rowVars[y0] ?? 0) < rowThresh) y0++;
+  while (y1 > y0 && (rowVars[y1] ?? 0) < rowThresh) y1--;
+
+  // Add 3% margin
+  const padX = Math.round(w * 0.03);
+  const padY = Math.round(h * 0.03);
+
+  const cropX = Math.max(0, x0 - padX);
+  const cropY = Math.max(0, y0 - padY);
+  const cropW = Math.min(w - cropX, (x1 - x0) + padX * 2);
+  const cropH = Math.min(h - cropY, (y1 - y0) + padY * 2);
+
+  const confidence = maxVar > 0 ? Math.min(1, Math.max(0.4, maxVar * 10)) : 0.5;
+
+  return {
+    rotation: Number(suggestedRotation.toFixed(1)),
+    crop: {
+      x: cropX,
+      y: cropY,
+      w: Math.max(20, cropW),
+      h: Math.max(20, cropH),
+    },
+    confidence,
+  };
+}
+

@@ -66,3 +66,126 @@ export function laneCentreAt(lane: Lane, y: number): number {
   const t = lane.y1 === lane.y0 ? 0 : Math.min(1, Math.max(0, (y - lane.y0) / (lane.y1 - lane.y0)));
   return lane.x + lane.tilt * t;
 }
+
+/**
+ * Auto-detect/extrapolate lanes based on 2 or more user-placed lanes.
+ * Uses pitch, width, vertical bounds, and tilt from the placed lanes,
+ * with optional peak-refinement using vertical projection.
+ */
+export function gridLanesFromPlaced(
+  placedLanes: Lane[],
+  plane: Plane,
+  polarity: Polarity,
+  opts: { totalLanes?: number; refineToPeaks?: boolean } = {}
+): Lane[] {
+  if (placedLanes.length < 2) return placedLanes;
+
+  const sorted = [...placedLanes].sort((a, b) => a.x - b.x);
+  const nPlaced = sorted.length;
+
+  const avgWidth = Math.round(sorted.reduce((acc, l) => acc + l.width, 0) / nPlaced);
+  const minY0 = Math.min(...sorted.map(l => l.y0));
+  const maxY1 = Math.max(...sorted.map(l => l.y1));
+  const avgTilt = sorted.reduce((acc, l) => acc + l.tilt, 0) / nPlaced;
+
+  const diffs: number[] = [];
+  for (let i = 1; i < nPlaced; i++) {
+    diffs.push(sorted[i]!.x - sorted[i - 1]!.x);
+  }
+
+  let pitch: number;
+  if (opts.totalLanes && opts.totalLanes > 1) {
+    const totalSpan = sorted[nPlaced - 1]!.x - sorted[0]!.x;
+    pitch = totalSpan / (opts.totalLanes - 1);
+  } else {
+    diffs.sort((a, b) => a - b);
+    const medianDiff = diffs[Math.floor(diffs.length / 2)]!;
+    if (nPlaced === 2 && medianDiff > avgWidth * 3.5) {
+      const approxCount = Math.max(2, Math.round(medianDiff / (avgWidth * 1.35)));
+      pitch = medianDiff / (approxCount - 1);
+    } else {
+      pitch = medianDiff;
+    }
+  }
+
+  if (pitch <= 5) pitch = Math.max(12, avgWidth * 1.3);
+
+  let proj: Float32Array | null = null;
+  if (opts.refineToPeaks !== false) {
+    try {
+      const region: Region = { x: 0, y: minY0, w: plane.width, h: Math.max(1, maxY1 - minY0) };
+      proj = verticalProjection(plane, region, polarity);
+    } catch {
+      proj = null;
+    }
+  }
+
+  const firstX = sorted[0]!.x;
+  const lastX = sorted[nPlaced - 1]!.x;
+
+  const newXCoords: number[] = [];
+
+  // Lanes to the left of firstX
+  const leftSlots = Math.max(0, Math.floor((firstX - avgWidth / 2) / pitch));
+  for (let s = leftSlots; s >= 1; s--) {
+    const x = firstX - s * pitch;
+    if (x - avgWidth / 2 >= 0) newXCoords.push(x);
+  }
+
+  // Intermediate lanes between firstX and lastX
+  const numInter = Math.max(1, Math.round((lastX - firstX) / pitch));
+  const adjustedPitch = (lastX - firstX) / numInter;
+  for (let i = 0; i <= numInter; i++) {
+    newXCoords.push(firstX + i * adjustedPitch);
+  }
+
+  // Lanes to the right of lastX
+  const rightSlots = Math.max(0, Math.floor((plane.width - (lastX + avgWidth / 2)) / pitch));
+  for (let s = 1; s <= rightSlots; s++) {
+    const x = lastX + s * pitch;
+    if (x + avgWidth / 2 <= plane.width) newXCoords.push(x);
+  }
+
+  return newXCoords.map(candX => {
+    let finalX = candX;
+    const closePlaced = sorted.find(p => Math.abs(p.x - candX) < pitch * 0.35);
+    if (closePlaced) {
+      return {
+        id: closePlaced.id,
+        x: Math.round(closePlaced.x),
+        y0: closePlaced.y0,
+        y1: closePlaced.y1,
+        width: closePlaced.width || avgWidth,
+        tilt: closePlaced.tilt ?? avgTilt,
+      };
+    }
+
+    if (proj) {
+      const searchRadius = Math.round(pitch * 0.25);
+      const startX = Math.max(0, Math.round(candX - searchRadius));
+      const endX = Math.min(plane.width - 1, Math.round(candX + searchRadius));
+      let maxVal = -Infinity;
+      let bestX = candX;
+      for (let px = startX; px <= endX; px++) {
+        const v = proj[px] ?? 0;
+        if (v > maxVal) {
+          maxVal = v;
+          bestX = px;
+        }
+      }
+      if (maxVal > 0) {
+        finalX = bestX;
+      }
+    }
+
+    return {
+      id: laneId(),
+      x: Math.round(finalX),
+      y0: minY0,
+      y1: maxY1,
+      width: avgWidth,
+      tilt: avgTilt,
+    };
+  });
+}
+
