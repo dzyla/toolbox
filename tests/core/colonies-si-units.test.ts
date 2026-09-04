@@ -4,7 +4,6 @@ import {
   calculatePlatePhysicalSummary,
   computeSizeDistribution,
   PETRI_DISH_PRESETS,
-  calculateCfu,
 } from '@/core/counting';
 
 describe('Colony Counting Physical SI Units & Spatial Calibration', () => {

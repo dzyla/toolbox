@@ -456,8 +456,8 @@ export function kabschSuperposition(coordsP: Vec3[], coordsQ: Vec3[]): Superposi
   const v1: [number, number, number] = [V[0]![1]!, V[1]![1]!, V[2]![1]!];
   const v2: [number, number, number] = [V[0]![2]!, V[1]![2]!, V[2]![2]!];
 
-  let u0 = sig0 > 1e-12 ? norm(multHv(v0)) : norm(v0);
-  let u1 = sig1 > 1e-12 ? norm(multHv(v1)) : norm(v1);
+  const u0 = sig0 > 1e-12 ? norm(multHv(v0)) : norm(v0);
+  const u1 = sig1 > 1e-12 ? norm(multHv(v1)) : norm(v1);
   let u2 = sig2 > 1e-12 ? norm(multHv(v2)) : norm(cross(u0, u1));
 
   // Ensure right-handed orthonormal basis for U

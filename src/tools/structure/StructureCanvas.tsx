@@ -38,11 +38,9 @@ export function StructureCanvas({
   const [zoom, setZoom] = useState(1.0);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
-  const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
 
   const isDraggingRef = useRef(false);
   const lastMouseRef = useRef<{ x: number; y: number; button: number }>({ x: 0, y: 0, button: 0 });
-  const touchDistRef = useRef<number | null>(null);
 
   // Compute common center of mass for all displayed structures
   const combinedCenter = useRef<Vec3>({ x: 0, y: 0, z: 0 });

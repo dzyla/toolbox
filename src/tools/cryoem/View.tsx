@@ -297,7 +297,6 @@ function CtfCurvePlot({
     if (diffractionArtifact === 'none') return '';
     const pts: string[] = [];
     let started = false;
-    let firstX = 0;
     let lastX = 0;
     const baseY = padTop + plotH;
 
@@ -310,7 +309,6 @@ function CtfCurvePlot({
       if ((p.diffraction ?? 0) > 0.01) {
         if (!started) {
           pts.push(`M ${x.toFixed(1)} ${pureSqY.toFixed(1)}`);
-          firstX = x;
           started = true;
         }
         pts.push(`L ${x.toFixed(1)} ${totalY.toFixed(1)}`);

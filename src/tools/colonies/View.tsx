@@ -91,7 +91,7 @@ export default function ColoniesView() {
   const [selectedColonyId, setSelectedColonyId] = useState<string | null>(null);
   const [interactionMode, setInteractionMode] = useState<'pick' | 'add' | 'remove'>('pick');
   const [hoveredColony, setHoveredColony] = useState<ColonySpot | null>(null);
-  const [categories, setCategories] = useState<ColonyCategory[]>(DEFAULT_COLONY_CATEGORIES);
+  const [categories] = useState<ColonyCategory[]>(DEFAULT_COLONY_CATEGORIES);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);

@@ -9,7 +9,6 @@ import {
   AA_NAMES,
   PREFERRED_CODONS_ECOLI,
   cleanDna,
-  revComp,
   extractOrfCodons,
   designFlexibleMutagenesis,
   FlexibleMutationDesignResult,

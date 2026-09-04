@@ -1300,7 +1300,7 @@ export function fitSprSensorgram(data: DataPoint[]): FitResult {
   };
 
   const optimal = nelderMead(cost, initial);
-  const [r0, req, kobs, koff, roffset, tdiss] = optimal;
+  const [r0, req, kobs, koff, _roffset, tdiss] = optimal;
   const predict = (x: number) => evalModel(x, optimal);
 
   let sse = 0, sst = 0;

@@ -114,7 +114,7 @@ describe('Plate Layout', () => {
       'B\tStd (100 µM)\tStd (50 µM)\tStd (25 µM)\tStd (12.5 µM)\t—\t—\t—\t—\t—\t—\t—\t—',
     ].join('\n');
 
-    const { wells, groups } = parseMatrixText(sampleTsv, 96);
+    const { wells } = parseMatrixText(sampleTsv, 96);
     expect(wells['A1']?.sampleName).toBe('Blank');
     expect(wells['A1']?.sampleGroupId).toBeDefined();
     expect(wells['A3']?.sampleName).toBe('PosCtrl');
