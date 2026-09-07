@@ -242,9 +242,9 @@ describe('Micelle Concentration & Particle Sizing', () => {
   });
 });
 
-describe('Complex MW & SEC Sizing', () => {
-  it('calculates monomeric membrane protein complex MW with DDM micelle', () => {
-    // 45 kDa target protein + 56 kDa DDM micelle = 101 kDa PDC
+describe('Illustrative PDC Mass Model & SEC Screening', () => {
+  it('calculates an illustrative one-micelle mass model for SEC screening', () => {
+    // 45 kDa target protein + 56 kDa DDM reference micelle = 101 kDa model.
     const proteinMw = 45.0;
     const micelleMw = 56.0;
 
@@ -256,9 +256,9 @@ describe('Complex MW & SEC Sizing', () => {
     expect(res.estimatedStokesRadiusNm).toBeGreaterThan(2.5);
     expect(res.estimatedStokesRadiusNm).toBeLessThan(4.5);
 
-    // Superdex 200 should be optimal for a 101 kDa complex
+    // Superdex 200 is a nominal mass-range match for a 101 kDa model.
     const s200 = res.secColumns.find(c => c.name.includes('Superdex 200'));
-    expect(s200?.suitability).toBe('optimal');
+    expect(s200?.suitability).toBe('mass_range_match');
   });
 
   it('calculates tetrameric ion channel complex with LMNG micelle', () => {
@@ -268,13 +268,13 @@ describe('Complex MW & SEC Sizing', () => {
     expect(res.complexMwKDa).toBe(210.0);
 
     const s200 = res.secColumns.find(c => c.name.includes('Superdex 200'));
-    expect(s200?.suitability).toBe('optimal');
+    expect(s200?.suitability).toBe('mass_range_match');
   });
 
-  it('correctly marks Superdex 75 unsuitable for large 300 kDa complex', () => {
+  it('marks a large mass model outside the Superdex 75 nominal range', () => {
     const res = calculateComplexMw(230.0, 70.0, 1);
     const s75 = res.secColumns.find(c => c.name.includes('Superdex 75'));
-    expect(s75?.suitability).toBe('unsuitable');
+    expect(s75?.suitability).toBe('outside_mass_range');
   });
 });
 
@@ -321,32 +321,32 @@ describe('Dialyzability Assessment', () => {
   });
 });
 
-describe('Detergent-to-Protein Stoichiometry', () => {
-  it('detects insufficient micelle coverage when micelles per protein < 1', () => {
+describe('Detergent-to-Protein Bulk Ratio', () => {
+  it('reports a bulk micelle-to-protein ratio without claiming PDC coverage', () => {
     // 50 kDa protein at 10 mg/mL = 0.2 mM (200 µM).
     // Total DDM = 0.5 mM, CMC = 0.17 mM -> micellar = 0.33 mM.
     // Nagg = 110 -> Micelle conc = 0.33 / 110 = 0.003 mM (3 µM).
-    // Micelles per protein = 0.003 / 0.2 = 0.015 (critical shortage!).
+    // Bulk micelle:protein estimate = 0.003 / 0.2 = 0.015; this is not PDC coverage.
     const res = calculateDetergentProteinRatio(50.0, 10.0, 0.5, 0.33, 110);
-    expect(res.status).toBe('insufficient_micelles');
-    expect(res.micellesPerProtein).toBeLessThan(1.0);
+    expect(res.bulkMicelleToProteinRatio).toBeLessThan(1.0);
+    expect(res.interpretation).toContain('cannot determine protein coverage');
   });
 
-  it('identifies optimal monodisperse regime when micelles per protein is 1 to 3', () => {
+  it('does not classify a bulk ratio as an optimal monodisperse regime', () => {
     // 50 kDa protein at 1 mg/mL = 0.02 mM (20 µM).
     // DDM micellar conc = 3.3 mM, Nagg = 110 -> Micelle conc = 0.03 mM (30 µM).
-    // Micelles per protein = 30 / 20 = 1.5 -> Optimal!
+    // Bulk micelle:protein estimate = 30 / 20 = 1.5; it has no stability classification.
     const res = calculateDetergentProteinRatio(50.0, 1.0, 3.47, 3.3, 110);
-    expect(res.status).toBe('optimal_monodisperse');
-    expect(res.micellesPerProtein).toBeCloseTo(1.5, 1);
+    expect(res.bulkMicelleToProteinRatio).toBeCloseTo(1.5, 1);
+    expect(res.interpretation).toContain('cannot determine protein coverage');
   });
 
-  it('flags excess micelles when micelles per protein > 3', () => {
+  it('reports high bulk micelle excess without treating it as a stability outcome', () => {
     // Very dilute protein: 0.1 mg/mL of 50 kDa = 2 µM.
-    // Micelle conc = 30 µM -> 15 micelles per protein.
+    // Bulk micelle:protein estimate = 30 / 2 = 15; it has no stability classification.
     const res = calculateDetergentProteinRatio(50.0, 0.1, 3.47, 3.3, 110);
-    expect(res.status).toBe('excess_micelles');
-    expect(res.micellesPerProtein).toBeGreaterThan(3.0);
+    expect(res.bulkMicelleToProteinRatio).toBeGreaterThan(3.0);
+    expect(res.interpretation).toContain('cannot determine protein coverage');
   });
 });
 

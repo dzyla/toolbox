@@ -11,7 +11,9 @@ describe('DetergentView UI', () => {
     expect(screen.getByText(/Detergent & Membrane Protein Calculator/)).toBeTruthy();
     expect(screen.getByText(/CMC Phase Partition/)).toBeTruthy();
     expect(screen.getByText(/Micelle Particle Count/)).toBeTruthy();
-    expect(screen.getByText(/Complex MW \(PDC\)/)).toBeTruthy();
+    expect(screen.getByText(/Illustrative PDC Mass Model/)).toBeTruthy();
+    expect(screen.getByText(/Bulk Detergent–Protein Estimate/)).toBeTruthy();
+    expect(screen.getByText(/Model-limited estimate/)).toBeTruthy();
     expect(screen.getByText(/Dialyzability/)).toBeTruthy();
   });
 

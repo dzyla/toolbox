@@ -397,13 +397,13 @@ export function calculateMicelles(
 }
 
 // ---------------------------------------------------------------------------
-// 4. Protein-Detergent Complex (PDC) MW and SEC Sizing
+// 4. Illustrative PDC Mass Model and Mass-Based SEC Screen
 // ---------------------------------------------------------------------------
 
 export interface SecColumnRecommendation {
   name: string;
   fractionationRangeKDa: [number, number];
-  suitability: 'optimal' | 'acceptable' | 'unsuitable';
+  suitability: 'mass_range_match' | 'near_mass_range' | 'outside_mass_range';
   notes: string;
 }
 
@@ -415,7 +415,7 @@ export interface ComplexMwResult {
   complexMwKDa: number;
   proteinMassFraction: number; // 0 to 1
   detergentMassFraction: number; // 0 to 1
-  estimatedStokesRadiusNm: number; // Approximate hydrodynamic radius Rh
+  estimatedStokesRadiusNm: number; // Globular-equivalent hydrodynamic radius Rh
   secColumns: SecColumnRecommendation[];
 }
 
@@ -429,9 +429,10 @@ const SEC_COLUMNS = [
 ];
 
 /**
- * Calculates protein-detergent complex (PDC) molecular weight and hydrodynamic properties.
- * PDC MW = (Protein MW * Stoichiometry) + Micelle MW
- * Critical for SEC column selection and cryo-EM contrast/particle picking.
+ * Calculates an illustrative one-reference-micelle PDC mass model and a
+ * mass-based SEC screening estimate. The detergent/lipid belt and PDC shape
+ * are protein- and condition-dependent; this is not a measured PDC mass,
+ * hydrodynamic radius, or SEC-elution prediction.
  */
 export function calculateComplexMw(
   proteinMwKDa: number,
@@ -447,29 +448,26 @@ export function calculateComplexMw(
   const proteinMassFraction = proteinTotalMwKDa / complexMwKDa;
   const detergentMassFraction = micelleMwKDa / complexMwKDa;
 
-  // Approximate Stokes radius Rh (nm) from complex MW (kDa):
-  // For typical globular complexes / PDCs: Rh ≈ 0.066 * (MW_Da)^(1/3) nm = 0.066 * (MW_kDa * 1000)^(1/3)
-  // le Maire et al. (2000) & Erickson HP (2009)
+  // Globular-equivalent Rh estimate (nm) from the illustrative mass model:
+  // Rh ≈ 0.066 * (MW_Da)^(1/3). PDC geometry can differ substantially.
   const complexMwDa = complexMwKDa * 1000;
   const estimatedStokesRadiusNm = 0.066 * Math.cbrt(complexMwDa);
 
   // Evaluate SEC column suitability
   const secColumns: SecColumnRecommendation[] = SEC_COLUMNS.map(col => {
-    let suitability: 'optimal' | 'acceptable' | 'unsuitable' = 'unsuitable';
+    let suitability: 'mass_range_match' | 'near_mass_range' | 'outside_mass_range' = 'outside_mass_range';
     let notes = '';
 
     if (complexMwKDa >= col.optimalMin && complexMwKDa <= col.optimalMax) {
-      suitability = 'optimal';
-      notes = `Complex MW (${complexMwKDa.toFixed(1)} kDa) falls perfectly in the linear separation range (${col.minKDa}–${col.maxKDa} kDa).`;
+      suitability = 'mass_range_match';
+      notes = `The illustrative mass model (${complexMwKDa.toFixed(1)} kDa) falls within this column's nominal mass range (${col.minKDa}–${col.maxKDa} kDa). Confirm with a pilot run because PDC shape and detergent/lipid binding affect elution.`;
     } else if (complexMwKDa >= col.minKDa && complexMwKDa <= col.maxKDa) {
-      suitability = 'acceptable';
-      notes = `Inside broad range (${col.minKDa}–${col.maxKDa} kDa), but close to column boundary.`;
+      suitability = 'near_mass_range';
+      notes = `The illustrative mass model is inside the nominal range (${col.minKDa}–${col.maxKDa} kDa), near a boundary. Confirm with a pilot run because PDC shape and detergent/lipid binding affect elution.`;
     } else if (complexMwKDa < col.minKDa) {
-      suitability = 'unsuitable';
-      notes = `Too small; elutes near total column volume (Vt).`;
+      notes = `The illustrative mass model is below this column's nominal range; it may elute near total column volume (Vt).`;
     } else {
-      suitability = 'unsuitable';
-      notes = `Excluded from pores; elutes in void volume (V0 > ${col.maxKDa} kDa).`;
+      notes = `The illustrative mass model exceeds this column's nominal range; it may elute near void volume (V0).`;
     }
 
     return {
@@ -569,23 +567,30 @@ export function assessDialyzability(cmcMm: number): DialyzabilityAssessment {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Detergent-to-Protein Molar & Micelle Ratio
+// 6. Detergent-to-Protein Bulk Concentration Estimate
 // ---------------------------------------------------------------------------
 
 export interface DetergentProteinRatioResult {
   proteinMolarConcMm: number;
   proteinMolarConcUm: number;
-  detergentMolarRatio: number; // C_total_det / C_protein
-  micellesPerProtein: number; // [Micelles] / C_protein
-  proteinsPerMicelle: number; // C_protein / [Micelles]
-  status: 'insufficient_micelles' | 'optimal_monodisperse' | 'excess_micelles';
-  message: string;
+  /** Total detergent monomers divided by protein molecules; not bound detergent. */
+  detergentMolarRatio: number;
+  /**
+   * Detergent-only pseudophase estimate of bulk micelle particles divided by
+   * protein molecules. This is not protein-detergent-complex (PDC) stoichiometry.
+   */
+  bulkMicelleToProteinRatio: number;
+  /** Reciprocal of bulkMicelleToProteinRatio when bulk micelles are present. */
+  proteinToBulkMicelleRatio: number;
+  /** Explanation of the model boundary and required experimental validation. */
+  interpretation: string;
 }
 
 /**
- * Calculates detergent-to-protein stoichiometry and assesses micellar coverage.
- * A membrane protein must be surrounded by at least ~1 micelle (micellesPerProtein >= 1)
- * to prevent aggregation and maintain monodispersity.
+ * Estimates concentration-derived detergent/protein ratios under a detergent-only
+ * pseudophase model. Protein- and lipid-bound detergent are not partitioned by
+ * this model, so the bulk micelle ratio cannot establish PDC coverage, solubility,
+ * activity, or monodispersity.
  */
 export function calculateDetergentProteinRatio(
   proteinMwKDa: number,
@@ -605,10 +610,9 @@ export function calculateDetergentProteinRatio(
       proteinMolarConcMm: 0,
       proteinMolarConcUm: 0,
       detergentMolarRatio: 0,
-      micellesPerProtein: 0,
-      proteinsPerMicelle: 0,
-      status: 'excess_micelles',
-      message: 'Zero protein concentration specified.',
+      bulkMicelleToProteinRatio: 0,
+      proteinToBulkMicelleRatio: 0,
+      interpretation: 'No protein concentration was specified, so a bulk micelle-to-protein ratio cannot be calculated.',
     };
   }
 
@@ -619,31 +623,17 @@ export function calculateDetergentProteinRatio(
 
   const detergentMolarRatio = totalDetergentMm / proteinMolarConcMm;
   const micelleConcMm = micellarDetergentMm / aggregationNumber;
-  const micellesPerProtein = micelleConcMm / proteinMolarConcMm;
-  const proteinsPerMicelle = micelleConcMm > 0 ? proteinMolarConcMm / micelleConcMm : 0;
-
-  let status: 'insufficient_micelles' | 'optimal_monodisperse' | 'excess_micelles' = 'optimal_monodisperse';
-  let message = '';
-
-  if (micellesPerProtein < 1.0) {
-    status = 'insufficient_micelles';
-    message = `Critical alert: Insufficient micelle coverage (${micellesPerProtein.toFixed(2)} micelles per protein molecule). Severe risk of protein aggregation and precipitation!`;
-  } else if (micellesPerProtein <= 3.0) {
-    status = 'optimal_monodisperse';
-    message = `Optimal monodisperse regime (${micellesPerProtein.toFixed(1)} micelles per protein molecule). Provides complete hydrophobic belt shielding without excessive empty micelle background.`;
-  } else {
-    status = 'excess_micelles';
-    message = `High micelle excess (${micellesPerProtein.toFixed(1)} micelles per protein molecule). Protein is safely solubilized, but abundant empty micelles may impede cryo-EM contrast or crystallization.`;
-  }
+  const bulkMicelleToProteinRatio = micelleConcMm / proteinMolarConcMm;
+  const proteinToBulkMicelleRatio = micelleConcMm > 0 ? proteinMolarConcMm / micelleConcMm : 0;
+  const interpretation = `The detergent-only pseudophase model estimates ${bulkMicelleToProteinRatio.toFixed(2)} bulk micelle particles per protein molecule. Protein- and lipid-bound detergent are not modeled, so this value cannot determine protein coverage, PDC stoichiometry, solubility, activity, or monodispersity. Validate the sample with SEC, DLS, and an activity or stability assay.`;
 
   return {
     proteinMolarConcMm,
     proteinMolarConcUm,
     detergentMolarRatio,
-    micellesPerProtein,
-    proteinsPerMicelle,
-    status,
-    message,
+    bulkMicelleToProteinRatio,
+    proteinToBulkMicelleRatio,
+    interpretation,
   };
 }
 

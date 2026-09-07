@@ -257,11 +257,11 @@ export default function DetergentView() {
         `Target Protein: ${s.proteinMw.value} ${s.proteinMw.unit} × ${s.stoichiometry} = ${complex.proteinTotalMwKDa} kDa`
       );
       lines.push(
-        `Protein-Detergent Complex (PDC) MW: ${complex.complexMwKDa.toFixed(1)} kDa (Protein: ${(complex.proteinMassFraction * 100).toFixed(1)}%, Micelle: ${(complex.detergentMassFraction * 100).toFixed(1)}%)`
+        `Illustrative one-micelle PDC mass model: ${complex.complexMwKDa.toFixed(1)} kDa (Protein input: ${(complex.proteinMassFraction * 100).toFixed(1)}%, reference micelle: ${(complex.detergentMassFraction * 100).toFixed(1)}%; not measured PDC mass)`
       );
       lines.push(`Stokes Radius Rh: ~${complex.estimatedStokesRadiusNm.toFixed(2)} nm`);
       lines.push(
-        `Micelle:Protein Stoichiometry: ${proteinRatio.micellesPerProtein.toFixed(2)} micelles/protein (${proteinRatio.status})`
+        `Estimated bulk micelle:protein ratio: ${proteinRatio.bulkMicelleToProteinRatio.toFixed(2)} (detergent-only pseudophase estimate; not PDC stoichiometry)`
       );
     }
 
@@ -278,11 +278,11 @@ export default function DetergentView() {
     <ToolLayout
       icon="🫧"
       title="Detergent & Membrane Protein Calculator"
-      blurb="Model critical micelle concentration (CMC) partitioning, free vs micellar detergent fractions, absolute micelle count, protein-detergent complex (PDC) MW, SEC sizing, and dialyzability."
+      blurb="Model critical micelle concentration (CMC) partitioning, free vs micellar detergent fractions, absolute micelle count, an illustrative PDC mass model, mass-based SEC screening, and dialyzability."
       wide={true}
       mobileResultSummary={
         <span>
-          PDC:{' '}
+          Mass model:{' '}
           <strong class="font-mono text-accent-700 dark:text-accent-300">
             {complex.complexMwKDa.toFixed(1)} kDa
           </strong>
@@ -594,7 +594,7 @@ export default function DetergentView() {
           {/* Below CMC Warning Banner */}
           {!partition.isAboveCmc && (
             <div class="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              ⚠️ <strong>Sub-CMC Alert:</strong> Detergent concentration ({totalConcMm.toFixed(3)} mM) is below the Critical Micelle Concentration ({activeDet.cmcMm} mM). No detergent micelles exist in solution; only free monomers are present. Membrane proteins will likely aggregate or precipitate!
+              ⚠️ <strong>Sub-CMC model boundary:</strong> Detergent concentration ({totalConcMm.toFixed(3)} mM) is below the Critical Micelle Concentration ({activeDet.cmcMm} mM), so the detergent-only pseudophase model assigns no bulk micellar detergent. Detergent can still bind membrane proteins below the CMC; do not infer solubility or stability from this calculation alone.
             </div>
           )}
 
@@ -676,32 +676,32 @@ export default function DetergentView() {
               </div>
             </div>
 
-            {/* Card 3: Complex MW (PDC) */}
+            {/* Card 3: Illustrative PDC mass model */}
             <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex flex-col justify-between">
               <div>
                 <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  Complex MW (PDC)
+                  Illustrative PDC Mass Model
                 </span>
                 <div class="mt-1 text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
                   {complex.complexMwKDa.toFixed(1)}{' '}
                   <span class="text-sm font-semibold text-slate-500">kDa</span>
                 </div>
                 <div class="mt-1 text-xs text-slate-500">
-                  Protein {complex.proteinTotalMwKDa} kDa + Micelle {complex.micelleMwKDa} kDa
+                  Protein {complex.proteinTotalMwKDa} kDa + reference micelle {complex.micelleMwKDa} kDa
                 </div>
               </div>
 
               <div class="mt-3 space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Protein Mass:</span>
+                  <span class="text-slate-500">Protein input:</span>
                   <span class="font-mono">{(complex.proteinMassFraction * 100).toFixed(1)}%</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Micelle Mass:</span>
+                  <span class="text-slate-500">Reference micelle:</span>
                   <span class="font-mono">{(complex.detergentMassFraction * 100).toFixed(1)}%</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Stokes Radius R<sub>h</sub>:</span>
+                  <span class="text-slate-500">Globular-equivalent R<sub>h</sub>:</span>
                   <span class="font-mono font-semibold">~{complex.estimatedStokesRadiusNm.toFixed(2)} nm</span>
                 </div>
               </div>
@@ -741,49 +741,37 @@ export default function DetergentView() {
             </div>
           </div>
 
-          {/* Section: Protein Stoichiometry & Micellar Coverage */}
+          {/* Section: Bulk detergent/protein estimate */}
           {s.includeProtein && (
             <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
               <div class="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-slate-800">
                 <div>
                   <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    Membrane Protein &amp; Micelle Stoichiometry
+                    Bulk Detergent–Protein Estimate
                   </h3>
                   <p class="text-xs text-slate-500">
-                    Calculated from {s.proteinMw.value} {s.proteinMw.unit} ({s.stoichiometry > 1 ? `${s.stoichiometry}-mer` : 'monomer'}) at {s.proteinConc.value} {s.proteinConc.unit}
+                    Detergent-only pseudophase calculation for {s.proteinMw.value} {s.proteinMw.unit} ({s.stoichiometry > 1 ? `${s.stoichiometry}-mer` : 'monomer'}) at {s.proteinConc.value} {s.proteinConc.unit}; not PDC stoichiometry
                   </p>
                 </div>
-                <span
-                  class={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                    proteinRatio.status === 'optimal_monodisperse'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      : proteinRatio.status === 'insufficient_micelles'
-                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                  }`}
-                >
-                  {proteinRatio.status === 'optimal_monodisperse'
-                    ? '✓ Optimal Monodisperse'
-                    : proteinRatio.status === 'insufficient_micelles'
-                    ? '⚠️ Insufficient Micelles'
-                    : 'ℹ️ High Micelle Excess'}
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  Model-limited estimate
                 </span>
               </div>
 
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-400 block text-[11px]">Micelles per Protein</span>
+                  <span class="text-slate-400 block text-[11px]">Bulk Micelles : Protein</span>
                   <span class="text-lg font-bold font-mono text-accent-600 dark:text-accent-400">
-                    {proteinRatio.micellesPerProtein.toFixed(2)}
+                    {proteinRatio.bulkMicelleToProteinRatio.toFixed(2)} : 1
                   </span>
-                  <span class="text-[10px] text-slate-400 block">Target: 1.0–3.0</span>
+                  <span class="text-[10px] text-slate-400 block">Not PDC coverage</span>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                   <span class="text-slate-400 block text-[11px]">Detergent : Protein Molar Ratio</span>
                   <span class="text-lg font-bold font-mono text-slate-800 dark:text-slate-200">
                     {proteinRatio.detergentMolarRatio.toFixed(0)} : 1
                   </span>
-                  <span class="text-[10px] text-slate-400 block">Total monomers vs protein</span>
+                  <span class="text-[10px] text-slate-400 block">Total monomers; not bound detergent</span>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                   <span class="text-slate-400 block text-[11px]">Protein Molarity</span>
@@ -802,7 +790,7 @@ export default function DetergentView() {
               </div>
 
               <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">
-                <p class="leading-relaxed">{proteinRatio.message}</p>
+                <p class="leading-relaxed">{proteinRatio.interpretation}</p>
               </div>
             </div>
           )}
@@ -815,7 +803,7 @@ export default function DetergentView() {
                   Size Exclusion Chromatography (SEC) Sizing
                 </h3>
                 <p class="text-xs text-slate-500">
-                  PDC behaves as a spherical particle of {complex.complexMwKDa.toFixed(1)} kDa (Stokes radius R<sub>h</sub> ≈ {complex.estimatedStokesRadiusNm.toFixed(2)} nm)
+                  Mass-based screen using the illustrative {complex.complexMwKDa.toFixed(1)} kDa model (globular-equivalent R<sub>h</sub> ≈ {complex.estimatedStokesRadiusNm.toFixed(2)} nm); confirm by pilot SEC because PDC shape and binding alter elution.
                 </p>
               </div>
             </div>
@@ -825,9 +813,9 @@ export default function DetergentView() {
                 <div
                   key={col.name}
                   class={`p-3.5 rounded-xl border transition ${
-                    col.suitability === 'optimal'
+                    col.suitability === 'mass_range_match'
                       ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30'
-                      : col.suitability === 'acceptable'
+                      : col.suitability === 'near_mass_range'
                       ? 'border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20'
                       : 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/20'
                   }`}
@@ -836,14 +824,18 @@ export default function DetergentView() {
                     <span class="font-bold text-xs text-slate-800 dark:text-slate-200">{col.name}</span>
                     <span
                       class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        col.suitability === 'optimal'
+                        col.suitability === 'mass_range_match'
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
-                          : col.suitability === 'acceptable'
+                          : col.suitability === 'near_mass_range'
                           ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
                           : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
                       }`}
                     >
-                      {col.suitability}
+                      {col.suitability === 'mass_range_match'
+                        ? 'mass-range match'
+                        : col.suitability === 'near_mass_range'
+                        ? 'near range edge'
+                        : 'outside mass range'}
                     </span>
                   </div>
                   <div class="text-[11px] font-mono text-slate-500 mb-2">
