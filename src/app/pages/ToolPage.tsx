@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import { findTool, type ToolProps } from '@/tools/registry';
+import { navigate } from '@/app/router';
+import { ToolErrorBoundary } from '@/app/components/ToolErrorBoundary';
 import { NotFound } from './NotFound';
 import { REPO } from '../components/Footer';
 
@@ -40,5 +42,9 @@ export function ToolPage({ toolId, projectId }: { toolId: string; projectId?: st
   }
   if (error) return <div role="alert" class="m-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">Failed to load tool: {error}</div>;
   if (!Comp) return <div class="p-6 text-slate-500">Loading {tool.name}…</div>;
-  return <Comp projectId={projectId} />;
+  return (
+    <ToolErrorBoundary resetKey={toolId} onReturnToTools={() => navigate({ name: 'home' })}>
+      <Comp projectId={projectId} />
+    </ToolErrorBoundary>
+  );
 }
