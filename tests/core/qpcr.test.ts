@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { mapQpcrColumns, parseQpcrTable } from '@/core/qpcr';
+import {
+  buildQpcrQc,
+  computeRelativeExpression,
+  fitQpcrStandardCurve,
+  mapQpcrColumns,
+  parseQpcrTable,
+  summarizeTechnicalReplicates,
+} from '@/core/qpcr';
 
 describe('qPCR table parser', () => {
   it('recognizes Sample Name, Target Name, Ct, Well and Quantity aliases', () => {
@@ -58,5 +65,115 @@ describe('qPCR table parser', () => {
       { sample: 'S1', target: 'ACTB', cq: 21.4, well: 'B2', standardQuantity: 250 },
     ]);
     expect(rows).toEqual([['S1', 'ACTB', '21.4', 'B2', '250']]);
+  });
+});
+
+describe('qPCR analysis core', () => {
+  it('fits a standard curve and calculates efficiency from its slope', () => {
+    const curve = fitQpcrStandardCurve([{ logQuantity: 0, cq: 30 }, { logQuantity: 1, cq: 26.678 }]);
+
+    expect(curve).not.toBeNull();
+    expect(curve!.efficiency).toBeCloseTo(1, 3);
+    expect(curve!.slope).toBeCloseTo(-3.322, 3);
+    expect(curve!.rSquared).toBeCloseTo(1);
+  });
+
+  it('calculates 2^-ΔΔCq when comparable efficiency is explicitly confirmed', () => {
+    const result = computeRelativeExpression({
+      targetCq: 24,
+      refCqs: [20, 20],
+      calibratorTargetCq: 26,
+      calibratorRefCqs: [20, 20],
+      method: 'delta-delta',
+      comparableEfficiencyConfirmed: true,
+    });
+
+    expect(result.status).toBe('derived');
+    expect(result.foldChange).toBeCloseTo(4);
+  });
+
+  it('requires explicit comparable-efficiency confirmation for 2^-ΔΔCq', () => {
+    expect(() => computeRelativeExpression({
+      targetCq: 24,
+      refCqs: [20],
+      calibratorTargetCq: 26,
+      calibratorRefCqs: [20],
+      method: 'delta-delta',
+      comparableEfficiencyConfirmed: false,
+    })).toThrow(/efficien/i);
+  });
+
+  it('uses a geometric mean for multiple reference genes', () => {
+    const result = computeRelativeExpression({
+      targetCq: 24,
+      refCqs: [20, 21],
+      calibratorTargetCq: 26,
+      calibratorRefCqs: [20, 20],
+      method: 'delta-delta',
+      comparableEfficiencyConfirmed: true,
+    });
+
+    expect(result.foldChange).toBeCloseTo(Math.sqrt(32));
+  });
+
+  it('calculates the efficiency-corrected relative-expression path', () => {
+    const result = computeRelativeExpression({
+      targetCq: 24,
+      refCqs: [20, 20],
+      calibratorTargetCq: 26,
+      calibratorRefCqs: [20, 20],
+      method: 'efficiency-corrected',
+      targetEfficiency: 2,
+      referenceEfficiencies: [2, 2],
+    });
+
+    expect(result.foldChange).toBeCloseTo(4);
+  });
+
+  it('returns a blocked result for invalid relative-expression inputs', () => {
+    expect(computeRelativeExpression({
+      targetCq: 24,
+      refCqs: [20],
+      calibratorTargetCq: 26,
+      calibratorRefCqs: [],
+      method: 'delta-delta',
+      comparableEfficiencyConfirmed: true,
+    })).toMatchObject({ status: 'blocked' });
+  });
+
+  it('summarizes included technical replicates and flags wide ranges without excluding them', () => {
+    const summaries = summarizeTechnicalReplicates([
+      { id: 'a', sample: 'S1', target: 'ACTB', cq: 20 },
+      { id: 'b', sample: 'S1', target: 'ACTB', cq: 20.8 },
+      { id: 'c', sample: 'S1', target: 'ACTB', cq: 40, excluded: true },
+    ], { technicalReplicateRangeThreshold: 0.5 });
+
+    expect(summaries[0]).toMatchObject({
+      sample: 'S1', target: 'ACTB', count: 2, mean: 20.4,
+      candidateFlags: [expect.stringMatching(/range/i)],
+    });
+    expect(summaries[0]!.range).toBeCloseTo(0.8);
+  });
+
+  it('reports no-template and no-RT control amplification as QC concerns', () => {
+    const qc = buildQpcrQc([
+      { id: 'ntc', sample: 'NTC', target: 'ACTB', cq: 34, role: 'no-template' },
+      { id: 'nort', sample: 'No RT', target: 'ACTB', cq: 32, role: 'no-rt' },
+    ], {});
+
+    expect(qc.status).toBe('blocked');
+    expect(qc.blockers.join(' ')).toMatch(/no.template/i);
+    expect(qc.warnings.join(' ')).toMatch(/no.rt/i);
+  });
+
+  it('reports insufficient standard points and preserves explicit exclusion decisions in QC', () => {
+    const qc = buildQpcrQc([
+      { id: 'standard', sample: 'std', target: 'ACTB', cq: 25, role: 'standard', standardQuantity: 10 },
+      { id: 'excluded', sample: 'S1', target: 'ACTB', cq: 19, excluded: true },
+    ], { minStandardPoints: 2 });
+
+    expect(qc.status).toBe('blocked');
+    expect(qc.blockers.join(' ')).toMatch(/standard/i);
+    expect(qc.exclusions).toEqual([{ id: 'excluded', decision: 'exclude' }]);
   });
 });
