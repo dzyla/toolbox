@@ -123,11 +123,27 @@ describe('qPCR analysis core', () => {
       calibratorTargetCq: 26,
       calibratorRefCqs: [20, 20],
       method: 'efficiency-corrected',
-      targetEfficiency: 2,
-      referenceEfficiencies: [2, 2],
+      targetEfficiency: 1,
+      referenceEfficiencies: [1, 1],
     });
 
     expect(result.foldChange).toBeCloseTo(4);
+  });
+
+  it('uses excess efficiencies returned from standard curves as relative-expression inputs', () => {
+    const targetCurve = fitQpcrStandardCurve([{ logQuantity: 0, cq: 30 }, { logQuantity: 1, cq: 26.678 }]);
+    const referenceCurve = fitQpcrStandardCurve([{ logQuantity: 0, cq: 28 }, { logQuantity: 1, cq: 24.678 }]);
+    const result = computeRelativeExpression({
+      targetCq: 24,
+      refCqs: [20],
+      calibratorTargetCq: 26,
+      calibratorRefCqs: [20],
+      method: 'efficiency-corrected',
+      targetEfficiency: targetCurve!.efficiency,
+      referenceEfficiencies: [referenceCurve!.efficiency],
+    });
+
+    expect(result.foldChange).toBeCloseTo(4, 3);
   });
 
   it('returns a blocked result for invalid relative-expression inputs', () => {
@@ -175,5 +191,20 @@ describe('qPCR analysis core', () => {
     expect(qc.status).toBe('blocked');
     expect(qc.blockers.join(' ')).toMatch(/standard/i);
     expect(qc.exclusions).toEqual([{ id: 'excluded', decision: 'exclude' }]);
+  });
+
+  it('retains invalid-only standard targets and reports zero valid standard points', () => {
+    const qc = buildQpcrQc([
+      { id: 'missing-cq', sample: 'std', target: 'MissingCq', cq: null, role: 'standard', standardQuantity: 10 },
+      { id: 'zero-quantity', sample: 'std', target: 'ZeroQuantity', cq: 25, role: 'standard', standardQuantity: 0 },
+    ], {});
+
+    expect(qc.status).toBe('blocked');
+    expect(qc.standardCurves).toMatchObject({ MissingCq: null, ZeroQuantity: null });
+    expect(qc.blockers.join(' ')).toMatch(/0 valid standard.*invalid/i);
+  });
+
+  it('rejects positive Cq-versus-log(quantity) standard-curve slopes', () => {
+    expect(fitQpcrStandardCurve([{ logQuantity: 0, cq: 20 }, { logQuantity: 1, cq: 24 }])).toBeNull();
   });
 });

@@ -67,7 +67,9 @@ export interface QpcrRelativeExpressionInput {
   calibratorRefCqs: number[];
   method: 'delta-delta' | 'efficiency-corrected';
   comparableEfficiencyConfirmed?: boolean;
+  /** Excess efficiency E from a standard curve; amplification base is 1 + E. */
   targetEfficiency?: number;
+  /** Excess efficiencies E from standard curves; amplification bases are 1 + E. */
   referenceEfficiencies?: number[];
 }
 
@@ -279,7 +281,7 @@ export function fitQpcrStandardCurve(points: QpcrStandardPoint[]): QpcrStandardC
   if (sumXX === 0) return null;
   const sumXY = valid.reduce((sum, point) => sum + (point.logQuantity - meanX) * (point.cq - meanY), 0);
   const slope = sumXY / sumXX;
-  if (!Number.isFinite(slope) || slope === 0) return null;
+  if (!Number.isFinite(slope) || slope >= 0) return null;
   const intercept = meanY - slope * meanX;
   const totalSumSquares = valid.reduce((sum, point) => sum + (point.cq - meanY) ** 2, 0);
   const residualSumSquares = valid.reduce((sum, point) => sum + (point.cq - (slope * point.logQuantity + intercept)) ** 2, 0);
@@ -314,16 +316,18 @@ export function computeRelativeExpression(input: QpcrRelativeExpressionInput): Q
     return { status: 'blocked', message: 'Relative expression requires finite target and matching reference Cq values.' };
   }
 
-  const targetBase = input.method === 'delta-delta' ? 2 : input.targetEfficiency;
+  const targetBase = input.method === 'delta-delta' ? 2 : input.targetEfficiency === undefined
+    ? undefined
+    : 1 + input.targetEfficiency;
   const referenceBases = input.method === 'delta-delta'
     ? input.refCqs.map(() => 2)
-    : input.referenceEfficiencies;
+    : input.referenceEfficiencies?.map(efficiency => 1 + efficiency);
   if (
     targetBase === undefined || !Number.isFinite(targetBase) || targetBase <= 0 ||
     referenceBases === undefined || referenceBases.length !== input.refCqs.length ||
     referenceBases.some(base => !Number.isFinite(base) || base <= 0)
   ) {
-    return { status: 'blocked', message: 'Efficiency-corrected expression requires positive target and reference efficiencies.' };
+    return { status: 'blocked', message: 'Efficiency-corrected expression requires excess efficiencies greater than -1 for target and references.' };
   }
 
   const targetFactor = targetBase ** (input.calibratorTargetCq - input.targetCq);
@@ -366,19 +370,30 @@ export function buildQpcrQc(observations: QpcrObservation[], settings: QpcrAnaly
   });
 
   const minimumStandardPoints = settings.minStandardPoints ?? 2;
-  const standardByTarget = new Map<string, QpcrStandardPoint[]>();
+  const standardByTarget = new Map<string, { points: QpcrStandardPoint[]; invalidCount: number }>();
   observations.forEach(observation => {
-    if (observation.excluded === true || !isFiniteCq(observation.cq) || normalizedRole(observation.role) !== 'standard') return;
-    if (observation.standardQuantity === undefined || !Number.isFinite(observation.standardQuantity) || observation.standardQuantity <= 0) return;
-    const points = standardByTarget.get(observation.target) ?? [];
-    points.push({ logQuantity: Math.log10(observation.standardQuantity), cq: observation.cq });
-    standardByTarget.set(observation.target, points);
+    if (normalizedRole(observation.role) !== 'standard') return;
+    const target = standardByTarget.get(observation.target) ?? { points: [], invalidCount: 0 };
+    standardByTarget.set(observation.target, target);
+    if (observation.excluded === true) return;
+    if (!isFiniteCq(observation.cq) || observation.standardQuantity === undefined ||
+      !Number.isFinite(observation.standardQuantity) || observation.standardQuantity <= 0) {
+      target.invalidCount += 1;
+      return;
+    }
+    target.points.push({ logQuantity: Math.log10(observation.standardQuantity), cq: observation.cq });
   });
   const standardCurves: Record<string, QpcrStandardCurve | null> = {};
-  standardByTarget.forEach((points, target) => {
-    const curve = points.length >= minimumStandardPoints ? fitQpcrStandardCurve(points) : null;
+  standardByTarget.forEach((standard, target) => {
+    const curve = standard.points.length >= minimumStandardPoints ? fitQpcrStandardCurve(standard.points) : null;
     standardCurves[target] = curve;
-    if (curve === null) blockers.push(`Standard curve for ${target} has insufficient valid standards.`);
+    if (standard.points.length === 0 && standard.invalidCount > 0) {
+      blockers.push(`Standard curve for ${target} has 0 valid standard points because ${standard.invalidCount} observation(s) have invalid Cq or quantity fields.`);
+    } else if (standard.points.length < minimumStandardPoints) {
+      blockers.push(`Standard curve for ${target} has insufficient valid standards.`);
+    } else if (curve === null) {
+      blockers.push(`Standard curve for ${target} has an invalid Cq-versus-log(quantity) slope or duplicate quantities.`);
+    }
   });
 
   return { status: blockers.length > 0 ? 'blocked' : 'ready', technicalReplicates, standardCurves, blockers, warnings, exclusions };
