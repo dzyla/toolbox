@@ -6,7 +6,6 @@ import {
   type Point,
   type CalibrationScale,
   type MeasurementItem,
-  type MeasurementType,
 } from '@/core/measure';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
@@ -286,20 +285,44 @@ export default function MeasureView() {
       return;
     }
 
-    if (s.tool === 'line' || s.tool === 'rect') {
+    if (s.tool === 'line') {
       if (nextPoints.length === 2) {
         const p1 = nextPoints[0]!;
         const p2 = nextPoints[1]!;
         const pxDist = distanceBetween(p1, p2);
-        const cal = applyCalibration(pxDist, s.tool, activeScale);
+        const cal = applyCalibration(pxDist, 'line', activeScale);
 
         const newM: MeasurementItem = {
           id: `m-${Date.now()}`,
-          type: s.tool as MeasurementType,
-          label: `${s.tool === 'line' ? 'Distance' : 'Area'} #${measurements.length + 1}`,
+          type: 'line',
+          label: `Distance #${measurements.length + 1}`,
           points: [p1, p2],
           color: '#2563eb',
           pixelValue: pxDist,
+          calibratedValue: cal.value,
+          unit: cal.unit,
+        };
+        setMeasurements(prev => [...prev, newM]);
+        setCurrentPoints([]);
+      } else {
+        setCurrentPoints(nextPoints);
+      }
+    } else if (s.tool === 'rect') {
+      if (nextPoints.length === 2) {
+        const p1 = nextPoints[0]!;
+        const p2 = nextPoints[1]!;
+        const w = Math.abs(p2.x - p1.x);
+        const h = Math.abs(p2.y - p1.y);
+        const areaPx = w * h;
+        const cal = applyCalibration(areaPx, 'rect', activeScale);
+
+        const newM: MeasurementItem = {
+          id: `m-${Date.now()}`,
+          type: 'rect',
+          label: `Area #${measurements.length + 1}`,
+          points: [p1, p2],
+          color: '#8b5cf6',
+          pixelValue: areaPx,
           calibratedValue: cal.value,
           unit: cal.unit,
         };
@@ -710,7 +733,9 @@ export default function MeasureView() {
                           <td data-testid={`meas-val-${idx}`} class="py-2 font-mono font-bold text-right text-accent-600 dark:text-accent-400">
                             {cal.value.toFixed(2)} {cal.unit}
                           </td>
-                          <td class="py-2 font-mono text-right text-slate-400">{m.pixelValue.toFixed(1)} px</td>
+                          <td class="py-2 font-mono text-right text-slate-400">
+                            {m.pixelValue.toFixed(1)} {m.type === 'rect' || m.type === 'circle' || m.type === 'polygon' ? 'px²' : m.type === 'angle' ? '°' : 'px'}
+                          </td>
                           <td class="py-2 text-center">
                             <button
                               type="button"

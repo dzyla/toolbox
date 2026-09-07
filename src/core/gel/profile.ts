@@ -59,3 +59,25 @@ export function detectBands(profile: ArrayLike<number>, opts: PeakOptions = {}):
   const o: PeakOptions = { minProminence: 0.05, relative: true, minWidth: 2, smoothing: 1, ...opts };
   return findPeaks(clean, o).map(p => ({ ...p, y0: p.valleyLeft ?? p.left, y1: (p.valleyRight ?? p.right) + 1 }));
 }
+
+/**
+ * Re-fit a single band at a target position: run peak detection and return the detected band whose
+ * apex is closest to `nearY`, or null if none is within `tolerance` samples. Used when the user drags
+ * or clicks a band to a new position so the band snaps to the real peak and re-derives its width
+ * (y0/y1) from the profile instead of keeping the stale width.
+ */
+export function refitBandNear(
+  profile: ArrayLike<number>,
+  nearY: number,
+  tolerance: number = 14,
+  opts: PeakOptions = {},
+): BandPeak | null {
+  const peaks = detectBands(profile, opts);
+  let best: BandPeak | null = null;
+  let bestD = Infinity;
+  for (const p of peaks) {
+    const d = Math.abs(p.index - nearY);
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best !== null && bestD <= tolerance ? best : null;
+}

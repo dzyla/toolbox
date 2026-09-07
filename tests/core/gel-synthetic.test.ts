@@ -19,6 +19,9 @@ const BANDS = [
   [{ y: 60, sigma: 3, amplitude: 0.5 }, { y: 150, sigma: 4, amplitude: 0.3 }, { y: 230.4, sigma: 3, amplitude: 0.6 }],
 ];
 function gel(polarity: Polarity = 'dark', noise = 0.01, edgeSoftness = 0) {
+  // Background is in "signal" space (bands positive). The renderer inverts for 'dark' polarity,
+  // so the SAME low background yields a BRIGHT plate (dark bands) for 'dark' and a DARK plate
+  // (light bands) for 'light' — physically correct in both cases, as detectPolarity expects.
   return renderSyntheticGel({ width: W, height: H, lanes: LANES.map((l, i) => ({ ...l, bands: BANDS[i]! })), backgroundTop: 0.05, backgroundBottom: 0.2, noise, polarity, seed: 3, edgeSoftness });
 }
 

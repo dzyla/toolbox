@@ -31,6 +31,18 @@ MKTIIALSYIFCLAAA
     expect(seqs[1]!.sequence).toBe('MKTIIALSYIFCLAAA');
   });
 
+  it('does not parse FASTA headers as sequence residues when sequence lines are missing', () => {
+    const emptyFasta = `
+>MeV
+
+>MuV
+
+>hPIV3
+    `.trim();
+    const seqs = parseFastaSequences(emptyFasta);
+    expect(seqs.length).toBe(0);
+  });
+
   it('detects molecule types correctly for DNA vs Protein', () => {
     const dnaSeqs = parseFastaSequences('>D1\nATGCGATCGATCGATC\n>D2\nATGCGATCGATCGATT');
     expect(detectMoleculeType(dnaSeqs)).toBe('dna');

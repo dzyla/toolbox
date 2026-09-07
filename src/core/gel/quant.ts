@@ -2,7 +2,7 @@
  * bands positive) summed over pixels. Relative only: compare within one gel, within the imager's linear range. */
 import type { Band, Plane, Polarity } from './types';
 import type { LaneSamples } from './profile';
-import { median, mean } from './filters';
+import { median } from './filters';
 
 export interface BandMetrics {
   bandId: string;
@@ -17,6 +17,10 @@ export interface BandMetrics {
   saturation: number;
   /** Sub-pixel peak position along the lane if known. */
   peakY?: number;
+  /** Start row of band in lane coordinates. */
+  y0?: number;
+  /** End row of band in lane coordinates. */
+  y1?: number;
 }
 
 export interface SaturationRange { low: number; high: number }
@@ -37,7 +41,7 @@ export function quantifyBands(s: LaneSamples, bands: Band[], baseline: ArrayLike
         if (rv >= sat.high || rv <= sat.low) clipped++;
       }
     }
-    return { bandId: b.id, raw, background: bg, net: raw - bg, area, saturation: area ? clipped / area : 0, peakY: b.peakY };
+    return { bandId: b.id, raw, background: bg, net: raw - bg, area, saturation: area ? clipped / area : 0, peakY: b.peakY, y0: b.y0, y1: b.y1 };
   });
 }
 
@@ -57,13 +61,31 @@ export function normalise(net: number, referenceNet: number): number {
 export const SATURATION_WARN = 0.01;
 
 /**
- * Detect polarity from the plane: bands are the minority of pixels, so with dark bands on a light background
- * the mean is pulled below the median; with light bands on dark, above it.
+ * Detect polarity from the plane using the scanner background plate.
+ *
+ * The outer border ring of the image is the unexposed background of the gel tray/plate (no lanes
+ * or bands reach the very edge). If that background is bright, the bands are the DARK feature
+ * ('dark' polarity — typical bright-field/fluorescence gels on a white or black background where the
+ * sample is darker than the plate); if it is dark, the bands are the light feature ('light').
+ *
+ * The previous heuristic (mean < median) was wrong for real gels: the gel matrix plus bands make up
+ * most of the frame, so the global mean and median sit inside the matrix and the test was effectively
+ * "is the matrix darker than the plate" — which misclassifies a dark-band gel whose background plate
+ * is bright. The border is the only part that reliably reflects the true background level.
  */
 export function detectPolarity(plane: Plane): Polarity {
-  const n = plane.width * plane.height;
-  const step = Math.max(1, Math.floor(n / 20000));
-  const sample: number[] = [];
-  for (let i = 0; i < n; i += step) sample.push(plane.data[i]!);
-  return mean(sample) < median(sample) ? 'dark' : 'light';
+  const w = plane.width, h = plane.height;
+  if (w < 8 || h < 8) return 'dark';
+  const rt = Math.max(1, Math.round(Math.min(w, h) * 0.02));
+  const ring: number[] = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (x < rt || x >= w - rt || y < rt || y >= h - rt) {
+        const v = plane.data[y * w + x]!;
+        if (!Number.isNaN(v)) ring.push(v);
+      }
+    }
+  }
+  const bg = median(ring);
+  return bg >= 0.5 ? 'dark' : 'light';
 }

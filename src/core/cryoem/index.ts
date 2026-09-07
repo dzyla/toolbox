@@ -489,5 +489,165 @@ export function generateThonRingsMatrix(
   return matrix;
 }
 
+export interface MultiDefocusCtfPoint {
+  s: number;
+  d: number;
+  combinedPower: number; // Average of |CTF_k|^2 across all defoci (0 to 1)
+  individualPowers: number[]; // Array of |CTF_k|^2 for each defocus
+  individualCtfs: number[];   // Array of CTF_k for each defocus
+  diffraction: number;
+}
+
+/**
+ * Generates combined multi-defocus CTF curves across a list of defoci (in µm).
+ * Demonstrates zero filling where nodes of one defocus are covered by another,
+ * showing how single-particle cryo-EM datasets achieve continuous spectral coverage.
+ */
+export function generateMultiDefocusProfile(
+  voltageKv: number,
+  csMm: number,
+  defociUm: number[],
+  pixelSize: number,
+  amplitudeContrast = 0.07,
+  bFactor = 50,
+  points = 250,
+  diffractionType: DiffractionArtifactType = 'none'
+): MultiDefocusCtfPoint[] {
+  const lambdaA = relativisticWavelength(voltageKv);
+  const csA = csMm * 1e7;
+  const sNyquist = 1 / (2 * pixelSize);
+
+  const dfAs = (defociUm.length > 0 ? defociUm : [1.5]).map(d => d * 10000);
+  const K = dfAs.length;
+
+  const result: MultiDefocusCtfPoint[] = [];
+  for (let i = 0; i <= points; i++) {
+    const s = (i / points) * sNyquist;
+    const d = s > 0 ? 1 / s : 999;
+    const diffInt = computeDiffractionIntensity(s, diffractionType);
+
+    const indCtfs: number[] = [];
+    const indPowers: number[] = [];
+    let sumPower = 0;
+
+    for (let k = 0; k < K; k++) {
+      const ctf = ctfValue(s, dfAs[k]!, csA, lambdaA, amplitudeContrast, bFactor);
+      const power = ctf * ctf;
+      indCtfs.push(Math.round(ctf * 10000) / 10000);
+      indPowers.push(Math.round(power * 10000) / 10000);
+      sumPower += power;
+    }
+
+    const avgPower = sumPower / K;
+    const combinedPower = Math.min(1.0, avgPower + diffInt);
+
+    result.push({
+      s: Math.round(s * 10000) / 10000,
+      d: Math.round(d * 100) / 100,
+      combinedPower: Math.round(combinedPower * 10000) / 10000,
+      individualPowers: indPowers,
+      individualCtfs: indCtfs,
+      diffraction: Math.round(diffInt * 10000) / 10000,
+    });
+  }
+  return result;
+}
+
+/**
+ * Generates an averaged 2D power spectrum matrix (Thon rings) across multiple defoci.
+ * Blends out the dark zero rings to demonstrate stable information transfer across datasets.
+ */
+export function generateMultiDefocusThonRingsMatrix(
+  size: number,
+  voltageKv: number,
+  csMm: number,
+  defociUm: number[],
+  astigmatismUm: number,
+  astAngleDeg: number,
+  pixelSize: number,
+  amplitudeContrast = 0.07,
+  bFactor = 50,
+  diffractionType: DiffractionArtifactType = 'none'
+): Float32Array {
+  const lambdaA = relativisticWavelength(voltageKv);
+  const astAngleRad = (astAngleDeg * Math.PI) / 180;
+  const csA = csMm * 1e7;
+  const sNyquist = 1 / (2 * pixelSize);
+
+  const cleanDefoci = defociUm.length > 0 ? defociUm : [1.5];
+  const K = cleanDefoci.length;
+  const dfPairs = cleanDefoci.map(df => ({
+    dfU_A: (df + astigmatismUm / 2) * 10000,
+    dfV_A: (df - astigmatismUm / 2) * 10000,
+  }));
+
+  const matrix = new Float32Array(size * size);
+  const half = size / 2;
+
+  // Precompute 2D hexagonal spots for graphene
+  const grapheneSpots: { px: number; py: number; intensity: number; sigmaSq2: number }[] = [];
+  if (diffractionType === 'graphene') {
+    const s1 = 1 / 2.13;
+    const s2 = 1 / 1.23;
+    const sigma = 0.012;
+    const sigmaSq2 = 2 * sigma * sigma;
+    const theta0 = (15 * Math.PI) / 180;
+    for (let k = 0; k < 6; k++) {
+      const a = theta0 + (k * Math.PI) / 3;
+      grapheneSpots.push({ px: s1 * Math.cos(a), py: s1 * Math.sin(a), intensity: 0.95, sigmaSq2 });
+    }
+    const theta1 = theta0 + Math.PI / 6;
+    for (let k = 0; k < 6; k++) {
+      const a = theta1 + (k * Math.PI) / 3;
+      grapheneSpots.push({ px: s2 * Math.cos(a), py: s2 * Math.sin(a), intensity: 0.70, sigmaSq2 });
+    }
+  }
+
+  for (let y = 0; y < size; y++) {
+    const ny = (y - half) / half;
+    const sy = ny * sNyquist;
+    const yOffset = y * size;
+
+    for (let x = 0; x < size; x++) {
+      const nx = (x - half) / half;
+      const sx = nx * sNyquist;
+
+      const s = Math.sqrt(sx * sx + sy * sy);
+      if (s > sNyquist) {
+        matrix[yOffset + x] = 0;
+        continue;
+      }
+
+      let sumPower = 0;
+      for (let k = 0; k < K; k++) {
+        const pair = dfPairs[k]!;
+        const ctf = ctf2D(sx, sy, pair.dfU_A, pair.dfV_A, astAngleRad, csA, lambdaA, amplitudeContrast, bFactor);
+        sumPower += ctf * ctf;
+      }
+      let power = sumPower / K;
+
+      if (diffractionType === 'graphene') {
+        let diffInt = 0;
+        for (let i = 0; i < grapheneSpots.length; i++) {
+          const spot = grapheneSpots[i]!;
+          const dx = sx - spot.px;
+          const dy = sy - spot.py;
+          const dSq = dx * dx + dy * dy;
+          if (dSq < 0.0014) {
+            diffInt += spot.intensity * Math.exp(-dSq / spot.sigmaSq2);
+          }
+        }
+        power = Math.min(1.0, power + diffInt);
+      } else if (diffractionType !== 'none') {
+        const diffInt = computeDiffractionIntensity(s, diffractionType);
+        power = Math.min(1.0, power + diffInt);
+      }
+      matrix[yOffset + x] = power;
+    }
+  }
+
+  return matrix;
+}
+
 export * from './mrc';
 

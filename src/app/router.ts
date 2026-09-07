@@ -9,7 +9,7 @@ export function parseRoute(hash: string): Route {
   const h = hash.replace(/^#/, '');
   if (h === '' || h === '/') return { name: 'home' };
   const [path, query = ''] = h.split('?') as [string, string?];
-  const m = path.match(/^\/t\/([a-z0-9-]+)(?:\/p\/([A-Za-z0-9_-]+))?\/?$/);
+  const m = path.match(/^\/(?:t|tool)\/([a-z0-9-]+)(?:\/p\/([A-Za-z0-9_-]+))?\/?$/);
   if (!m) return { name: 'notfound', hash };
   const r: Route = { name: 'tool', toolId: m[1]! };
   if (m[2]) r.projectId = m[2];

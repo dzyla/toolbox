@@ -123,6 +123,7 @@ export function analyzeCodonUsage(
 
   const evaluatedCodons: EvaluatedCodon[] = [];
   let logWSum = 0;
+  let caiSenseCodonCount = 0;
   let rareCount = 0;
   let gcCount = 0;
   let gc3Count = 0;
@@ -131,11 +132,16 @@ export function analyzeCodonUsage(
     const codon = clean.slice(i * 3, i * 3 + 3);
     const entry = usageTable[codon];
     const aa = entry?.aa || '?';
+    const isStop = aa === '*';
     const freq = entry?.frequencyPerThousand || 10;
     const maxFreq = maxFreqPerAa[aa] || 25;
     const wi = Math.max(0.01, freq / maxFreq);
 
-    logWSum += Math.log(wi);
+    // Standard Sharp & Li (1987) CAI excludes stop codons from elongation adaptation
+    if (!isStop) {
+      logWSum += Math.log(wi);
+      caiSenseCodonCount++;
+    }
 
     // GC metrics
     if (codon[0] === 'G' || codon[0] === 'C') gcCount++;
@@ -147,7 +153,9 @@ export function analyzeCodonUsage(
 
     // Status
     let status: EvaluatedCodon['status'] = 'optimal';
-    if (rareSet.has(codon) || freq < 6.0 || wi < 0.15) {
+    if (isStop) {
+      status = 'optimal';
+    } else if (rareSet.has(codon) || freq < 6.0 || wi < 0.15) {
       status = 'rare';
       rareCount++;
     } else if (freq < 12.0 || wi < 0.35) {
@@ -166,8 +174,8 @@ export function analyzeCodonUsage(
     });
   }
 
-  // CAI = exp( 1/L * sum(ln w_i) )
-  const cai = totalCodons > 0 ? Math.exp(logWSum / totalCodons) : 0;
+  // CAI = exp( 1/L * sum(ln w_i) ) over sense codons
+  const cai = caiSenseCodonCount > 0 ? Math.exp(logWSum / caiSenseCodonCount) : (totalCodons > 0 ? 1 : 0);
   const overallGc = totalCodons > 0 ? ((gcCount / (totalCodons * 3)) * 100) : 0;
   const gc3 = totalCodons > 0 ? ((gc3Count / totalCodons) * 100) : 0;
 

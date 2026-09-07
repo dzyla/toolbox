@@ -4,7 +4,7 @@ export const SCIENCE: Science = {
   title: 'Non-linear regression, 4PL sigmoidal curves, and goodness of fit',
   formulas: [
     'Linear: y = m·x + b',
-    '4PL (Sigmoidal): y = Bottom + (Top - Bottom) / [1 + (x / EC50)^HillSlope]',
+    '4PL (Sigmoidal Agonist): y = Bottom + (Top - Bottom) / [1 + (EC50 / x)^HillSlope]  (or 10^[(LogEC50 - Log(x))·HillSlope])',
     'Michaelis-Menten: v = (Vmax · [S]) / (Km + [S])',
     'Exponential Decay: y = (y0 - Plateau) · e^(-k·x) + Plateau,   t1/2 = ln(2) / k',
     'R² = 1 - (SSE / SST) = 1 - [∑(y_i - ŷ_i)² / ∑(y_i - ȳ)²]',

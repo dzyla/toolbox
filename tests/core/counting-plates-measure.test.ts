@@ -102,7 +102,10 @@ describe('Plate Layout', () => {
       pipetteType: '8-channel',
     });
     expect(plan.totalAssignedWells).toBe(8);
-    expect(plan.totalDiluentNeededUl).toBe(800);
+    expect(plan.totalDiluentNeededUl).toBe(600);
+    expect(plan.dilutionSeriesPlans.length).toBe(2);
+    expect(plan.dilutionSeriesPlans[0]?.wellsInOrder.map(w => w.wellId)).toEqual(['B1', 'B2', 'B3']);
+    expect(plan.dilutionSeriesPlans[1]?.wellsInOrder.map(w => w.wellId)).toEqual(['C1', 'C2', 'C3']);
     expect(plan.steps.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -159,13 +162,22 @@ describe('Image Measurements and Calibration', () => {
 });
 
 describe('Protocols Core', () => {
-  it('parses markdown checklists and detects timers', () => {
-    const md = `# My Protocol\n- [ ] Step 1: Add buffer\n- [ ] Step 2: Incubate for 15 min [timer: 15 min]\n- [x] Step 3: Spin down`;
+  it('parses markdown checklists and detects timers with various units', () => {
+    const md = `# My Protocol
+- [ ] Step 1: Add buffer
+- [ ] Step 2: Incubate for 15 min [timer: 15 min]
+- [ ] Step 3: Heat shock [timer: 45 s]
+- [ ] Step 4: Digest [timer: 2 hr]
+- [ ] Step 5: Incubate for 30 sec
+- [x] Step 6: Spin down`;
     const protocol = parseMarkdownProtocol(md);
     expect(protocol.title).toBe('My Protocol');
-    expect(protocol.steps.length).toBe(3);
+    expect(protocol.steps.length).toBe(6);
     expect(protocol.steps[1]!.timerMinutes).toBe(15);
-    expect(protocol.steps[2]!.completed).toBe(true);
+    expect(protocol.steps[2]!.timerMinutes).toBe(0.75);
+    expect(protocol.steps[3]!.timerMinutes).toBe(120);
+    expect(protocol.steps[4]!.timerMinutes).toBe(0.5);
+    expect(protocol.steps[5]!.completed).toBe(true);
   });
 
   it('loads bundled protocols with complete steps', () => {

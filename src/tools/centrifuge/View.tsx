@@ -212,7 +212,15 @@ export default function View() {
                   type="number"
                   min="1"
                   value={s.speed}
-                  onInput={event => set({ speed: Number((event.target as HTMLInputElement).value) })}
+                  onInput={event => {
+                    const val = Number((event.target as HTMLInputElement).value);
+                    try {
+                      const calculatedRcf = Math.round(rcf(val, mm(s.radius)));
+                      set({ speed: val, kSpeed: val, force: calculatedRcf });
+                    } catch {
+                      set({ speed: val, kSpeed: val });
+                    }
+                  }}
                   class={fieldClass}
                 />
               </label>
@@ -222,7 +230,14 @@ export default function View() {
                   <button
                     key={rpmVal}
                     type="button"
-                    onClick={() => set({ speed: rpmVal })}
+                    onClick={() => {
+                      try {
+                        const calculatedRcf = Math.round(rcf(rpmVal, mm(s.radius)));
+                        set({ speed: rpmVal, kSpeed: rpmVal, force: calculatedRcf });
+                      } catch {
+                        set({ speed: rpmVal, kSpeed: rpmVal });
+                      }
+                    }}
                     class={`rounded-md px-2 py-0.5 text-xs font-mono transition border ${s.speed === rpmVal ? 'bg-accent-600 text-white border-accent-600' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                   >
                     {rpmVal.toLocaleString()}
@@ -239,7 +254,15 @@ export default function View() {
                   type="number"
                   min="1"
                   value={s.force}
-                  onInput={event => set({ force: Number((event.target as HTMLInputElement).value) })}
+                  onInput={event => {
+                    const val = Number((event.target as HTMLInputElement).value);
+                    try {
+                      const calculatedRpm = Math.round(rpm(val, mm(s.radius)));
+                      set({ force: val, speed: calculatedRpm, kSpeed: calculatedRpm });
+                    } catch {
+                      set({ force: val });
+                    }
+                  }}
                   class={fieldClass}
                 />
               </label>
@@ -249,7 +272,14 @@ export default function View() {
                   <button
                     key={rcfVal}
                     type="button"
-                    onClick={() => set({ force: rcfVal })}
+                    onClick={() => {
+                      try {
+                        const calculatedRpm = Math.round(rpm(rcfVal, mm(s.radius)));
+                        set({ force: rcfVal, speed: calculatedRpm, kSpeed: calculatedRpm });
+                      } catch {
+                        set({ force: rcfVal });
+                      }
+                    }}
                     class={`rounded-md px-2 py-0.5 text-xs font-mono transition border ${s.force === rcfVal ? 'bg-accent-600 text-white border-accent-600' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                   >
                     {rcfVal.toLocaleString()} × g
@@ -270,8 +300,19 @@ export default function View() {
 
           <fieldset class="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
             <legend class="px-1 text-sm font-semibold">k-factor and pelleting time</legend>
-            <label>
-              <span class="mb-1 block text-sm font-medium">Rotor speed for k-factor (RPM)</span>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="block text-sm font-medium">Rotor speed for k-factor (RPM)</span>
+                {s.kSpeed !== s.speed && (
+                  <button
+                    type="button"
+                    onClick={() => set({ kSpeed: s.speed })}
+                    class="text-xs text-accent-600 hover:underline dark:text-accent-400 font-medium"
+                  >
+                    Use run speed ({s.speed.toLocaleString()} RPM)
+                  </button>
+                )}
+              </div>
               <input
                 type="number"
                 min="1"
@@ -279,7 +320,7 @@ export default function View() {
                 onInput={event => set({ kSpeed: Number((event.target as HTMLInputElement).value) })}
                 class={fieldClass}
               />
-            </label>
+            </div>
             <div class="grid gap-3 sm:grid-cols-2">
               <Quantity id="centrifuge-rmin" label="Minimum radius (r_min)" value={s.rmin} units={['mm', 'cm']} onChange={rmin => set({ rmin })} />
               <Quantity id="centrifuge-rmax" label="Maximum radius (r_max)" value={s.rmax} units={['mm', 'cm']} onChange={rmax => set({ rmax })} />
@@ -314,7 +355,7 @@ export default function View() {
               </div>
               <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
                 <p class="text-xs text-slate-500">Estimated pelleting time</p>
-                <p class="font-mono text-xl font-bold">{Number(calculation.time!.toPrecision(3))} h</p>
+                <p data-testid="pelleting-time" class="font-mono text-xl font-bold">{Number(calculation.time!.toPrecision(3))} h</p>
               </div>
             </div>
             {selectedRotor && (

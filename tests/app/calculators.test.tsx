@@ -35,6 +35,12 @@ describe('calculator tools', () => {
     expect(screen.getByTestId('centrifuge-result').textContent).toMatch(/11,?180/);
     expect(screen.getByTestId('k-result').textContent).toMatch(/95/);
     expect(screen.getByText(/0\.95\d* h/)).toBeTruthy();
+
+    // Changing speed must change k-factor and pelleting time proportionally to 1/RPM^2
+    const speedInput = screen.getByLabelText('Speed (RPM)');
+    fireEvent.input(speedInput, { target: { value: '25000' } });
+    expect(screen.getByTestId('k-result').textContent).toMatch(/380\.5/);
+    expect(screen.getByTestId('pelleting-time').textContent).toMatch(/3\.8\s*h/);
   });
 
   it('loads Beckman ultracentrifuge rotor presets and updates radii and max speeds', () => {

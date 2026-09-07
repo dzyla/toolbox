@@ -27,14 +27,35 @@ export interface Residue {
   resName: string;
   oneLetter: string;
   chain: string;
+  isLigand?: boolean;
+  isWater?: boolean;
+  isNucleic?: boolean;
+  fullName?: string;
   caAtom?: AtomRecord;
   atoms: AtomRecord[];
   secondary?: 'H' | 'E' | 'C'; // Helix, Sheet, Coil/Loop
 }
 
+export type ChainType = 'protein' | 'rna' | 'dna' | 'mixed' | 'ligand';
+
 export interface Chain {
   id: string;
   residues: Residue[];
+  polymerResidues: Residue[];
+  ligands: Residue[];
+  waters: Residue[];
+  isLigandOnly: boolean;
+  chainType: ChainType;
+  description?: string;
+}
+
+export interface StructureLigand {
+  id: string;
+  name: string;
+  chain: string;
+  resSeq: number;
+  atomCount: number;
+  center: Vec3;
 }
 
 export interface ParsedStructure {
@@ -46,6 +67,7 @@ export interface ParsedStructure {
   center: Vec3;
   radiusOfGyration: number;
   bounds: { min: Vec3; max: Vec3 };
+  ligands: StructureLigand[];
 }
 
 export interface SuperpositionResult {
@@ -79,8 +101,119 @@ export const AA_3TO1: Record<string, string> = {
   MSE: 'M', PTR: 'Y', SEP: 'S', TPO: 'T',
 };
 
+export const COMMON_PDB_LIGANDS: Record<string, string> = {
+  HEM: 'Heme (Protoporphyrin IX with Fe)',
+  HEA: 'Heme A',
+  HEB: 'Heme B',
+  HEC: 'Heme C',
+  ATP: 'Adenosine-5\'-triphosphate',
+  ADP: 'Adenosine-5\'-diphosphate',
+  AMP: 'Adenosine-5\'-monophosphate',
+  GTP: 'Guanosine-5\'-triphosphate',
+  GDP: 'Guanosine-5\'-diphosphate',
+  GMP: 'Guanosine-5\'-monophosphate',
+  CTP: 'Cytidine-5\'-triphosphate',
+  UTP: 'Uridine-5\'-triphosphate',
+  NAG: 'N-acetylglucosamine',
+  NDG: '2-acetamido-2-deoxy-alpha-D-glucopyranose',
+  BMA: 'beta-D-mannopyranose',
+  MAN: 'alpha-D-mannopyranose',
+  FAD: 'Flavin-adenine dinucleotide',
+  FMN: 'Flavin mononucleotide',
+  NAD: 'Nicotinamide-adenine-dinucleotide',
+  NAP: 'NADP',
+  NDP: 'NADPH',
+  SAM: 'S-adenosylmethionine',
+  SAH: 'S-adenosylhomocysteine',
+  COA: 'Coenzyme A',
+  PLP: 'Pyridoxal-5\'-phosphate',
+  TPP: 'Thiamine diphosphate',
+  ZN: 'Zinc ion (Zn²⁺)',
+  MG: 'Magnesium ion (Mg²⁺)',
+  CA: 'Calcium ion (Ca²⁺)',
+  FE: 'Iron ion (Fe³⁺/Fe²⁺)',
+  FE2: 'Iron (II) ion (Fe²⁺)',
+  MN: 'Manganese ion (Mn²⁺)',
+  CU: 'Copper ion (Cu²⁺)',
+  NI: 'Nickel ion (Ni²⁺)',
+  CO: 'Cobalt ion (Co²⁺)',
+  NA: 'Sodium ion (Na⁺)',
+  K: 'Potassium ion (K⁺)',
+  CL: 'Chloride ion (Cl⁻)',
+  PO4: 'Phosphate ion',
+  SO4: 'Sulfate ion',
+  ACT: 'Acetate ion',
+  CIT: 'Citrate',
+  EDO: '1,2-ethanediol (Ethylene glycol)',
+  PEG: 'Di(hydroxyethyl)ether (PEG)',
+  GOL: 'Glycerol',
+  DMS: 'Dimethyl sulfoxide (DMSO)',
+  TRS: 'Tris buffer',
+  IMD: 'Imidazole',
+  BME: 'beta-mercaptoethanol',
+  DTT: 'Dithiothreitol',
+  HOH: 'Water (H₂O)',
+  WAT: 'Water (H₂O)',
+  DOD: 'Deuterated water',
+  OXY: 'Oxygen (O₂)',
+  CO2: 'Carbon dioxide (CO₂)',
+  NO: 'Nitric oxide',
+  STI: 'Imatinib (Gleevec)',
+};
+
+export const NUCLEIC_TO1: Record<string, string> = {
+  // Standard RNA nucleotides
+  A: 'A',
+  C: 'C',
+  G: 'G',
+  U: 'U',
+  I: 'I',
+  ADE: 'A',
+  CYT: 'C',
+  GUA: 'G',
+  URA: 'U',
+  URI: 'U',
+  // Standard DNA nucleotides
+  DA: 'A',
+  DC: 'C',
+  DG: 'G',
+  DT: 'T',
+  DI: 'I',
+  DU: 'U',
+  THY: 'T',
+  // Modified ribonucleotides commonly in rRNA & tRNA
+  PSU: 'U', // Pseudouridine (Ψ)
+  '5MC': 'C', // 5-methylcytidine
+  '2MG': 'G', // N2-methylguanosine
+  '7MG': 'G', // 7-methylguanosine
+  H2U: 'U', // Dihydrouridine (D)
+  OMC: 'C', // 2'-O-methylcytidine
+  OMG: 'G', // 2'-O-methylguanosine
+  '1MA': 'A', // 1-methyladenosine
+  '2MA': 'A', // 2-methyladenosine
+  '6MA': 'A', // N6-methyladenosine
+  '1MG': 'G', // 1-methylguanosine
+  M2G: 'G', // N2,N2-dimethylguanosine
+  '5MU': 'U', // 5-methyluridine
+  '4SU': 'U', // 4-thiouridine
+  MIA: 'A', // 2-methylthio-N6-isopentenyladenosine
+  YYG: 'G', // Wybutosine
+  YG: 'G',  // Wybutosine derivative
+};
+
+export function getLigandFullName(hetId: string, hetNamMap?: Map<string, string>): string {
+  const upper = hetId.trim().toUpperCase();
+  if (hetNamMap?.has(upper)) return hetNamMap.get(upper)!;
+  if (COMMON_PDB_LIGANDS[upper]) return COMMON_PDB_LIGANDS[upper];
+  return upper;
+}
+
 export function threeToOne(three: string): string {
-  return AA_3TO1[three.toUpperCase()] || 'X';
+  const upper = three.trim().toUpperCase();
+  if (AA_3TO1[upper]) return AA_3TO1[upper];
+  if (NUCLEIC_TO1[upper]) return NUCLEIC_TO1[upper];
+  // Render the actual name from the PDB enclosed in brackets instead of 'X'
+  return `[${upper}]`;
 }
 
 export function dist3d(a: Vec3, b: Vec3): number {
@@ -97,7 +230,43 @@ export function parsePdb(pdbText: string, name = 'Structure'): ParsedStructure {
   const lines = pdbText.split(/\r?\n/);
   const allAtoms: AtomRecord[] = [];
   const caAtoms: AtomRecord[] = [];
-  const chainMap = new Map<string, Map<number, Residue>>();
+  const chainMap = new Map<string, Map<string, Residue>>();
+  const hetNamMap = new Map<string, string>();
+  const chainDescriptions = new Map<string, string>();
+
+  // Extract COMPND headers (standard format has MOL_ID, MOLECULE: <desc>, CHAIN: <chains>)
+  const compndText = lines
+    .filter(l => l.startsWith('COMPND'))
+    .map(l => l.substring(10).trim())
+    .join(' ');
+
+  if (compndText) {
+    const molBlocks = compndText.split(/MOL_ID:\s*\d+;?/i);
+    for (const block of molBlocks) {
+      if (!block.trim()) continue;
+      const molMatch = block.match(/MOLECULE:\s*([^;]+);?/i);
+      const chainMatch = block.match(/CHAIN:\s*([^;]+);?/i);
+      if (molMatch?.[1] && chainMatch?.[1]) {
+        const molName = molMatch[1].trim();
+        const chains = chainMatch[1].split(',').map(c => c.trim().replace(/;$/, '').toUpperCase());
+        for (const ch of chains) {
+          if (ch) chainDescriptions.set(ch, molName);
+        }
+      }
+    }
+  }
+
+  // First pass: capture HETNAM headers
+  for (const line of lines) {
+    if (line.startsWith('HETNAM')) {
+      const hetId = line.substring(11, 15).trim().toUpperCase();
+      const text = line.substring(15).trim();
+      if (hetId && text) {
+        const existing = hetNamMap.get(hetId);
+        hetNamMap.set(hetId, existing ? `${existing} ${text}` : text);
+      }
+    }
+  }
 
   for (const line of lines) {
     const record = line.substring(0, 6).trim();
@@ -134,25 +303,41 @@ export function parsePdb(pdbText: string, name = 'Structure'): ParsedStructure {
 
     let chainResMap = chainMap.get(chain);
     if (!chainResMap) {
-      chainResMap = new Map<number, Residue>();
+      chainResMap = new Map<string, Residue>();
       chainMap.set(chain, chainResMap);
     }
 
-    let residue = chainResMap.get(resSeq);
+    const upperRes = resName.toUpperCase();
+    const isStandardAa = upperRes in AA_3TO1;
+    const isNucleic = upperRes in NUCLEIC_TO1 || (record === 'ATOM' && ['A', 'C', 'G', 'U', 'T', 'I'].includes(upperRes));
+    const isWater = upperRes === 'HOH' || upperRes === 'WAT' || upperRes === 'DOD' || upperRes === 'TIP';
+    const isPolymer = isStandardAa || isNucleic || (record === 'ATOM' && !isWater);
+    const isLigand = !isPolymer && !isWater;
+    const resKey = isPolymer ? `poly_${resSeq}` : `${record}_${resSeq}_${upperRes}`;
+
+    let residue = chainResMap.get(resKey);
     if (!residue) {
       residue = {
         resSeq,
         resName,
         oneLetter: threeToOne(resName),
         chain,
+        isLigand,
+        isWater,
+        isNucleic,
+        fullName: isLigand ? getLigandFullName(upperRes, hetNamMap) : undefined,
         atoms: [],
       };
-      chainResMap.set(resSeq, residue);
+      chainResMap.set(resKey, residue);
     }
 
     residue.atoms.push(atom);
 
     if (atomName === 'CA') {
+      atom.coord = { x, y, z };
+      residue.caAtom = atom;
+      caAtoms.push(atom);
+    } else if (!residue.caAtom && (isNucleic || (record === 'ATOM' && !isStandardAa && !isWater)) && (atomName === 'P' || atomName === "C4'" || atomName === 'C4*')) {
       atom.coord = { x, y, z };
       residue.caAtom = atom;
       caAtoms.push(atom);
@@ -229,8 +414,68 @@ export function parsePdb(pdbText: string, name = 'Structure'): ParsedStructure {
   let seq = '';
   for (const [id, resMap] of chainMap) {
     const residues = Array.from(resMap.values()).sort((a, b) => a.resSeq - b.resSeq);
-    chains.push({ id, residues });
-    for (const r of residues) seq += r.oneLetter;
+    const polymerResidues = residues.filter(r => !r.isLigand && !r.isWater);
+    const ligands = residues.filter(r => r.isLigand);
+    const waters = residues.filter(r => r.isWater);
+    const isLigandOnly = polymerResidues.length === 0 && (ligands.length > 0 || waters.length > 0);
+
+    let chainType: ChainType = 'ligand';
+    if (polymerResidues.length > 0) {
+      const nucleicCount = polymerResidues.filter(r => r.isNucleic).length;
+      const nucleicRatio = nucleicCount / polymerResidues.length;
+      if (nucleicRatio > 0.6) {
+        const hasU = polymerResidues.some(r => r.oneLetter === 'U' || r.resName === 'U' || r.resName === 'URA');
+        const hasDtOrDa = polymerResidues.some(r => r.resName.startsWith('D') || r.resName === 'DT' || r.resName === 'THY');
+        if (hasDtOrDa && !hasU) {
+          chainType = 'dna';
+        } else {
+          chainType = 'rna';
+        }
+      } else if (nucleicRatio < 0.2) {
+        chainType = 'protein';
+      } else {
+        chainType = 'mixed';
+      }
+    }
+
+    const description = chainDescriptions.get(id.toUpperCase()) || chainDescriptions.get(id);
+
+    chains.push({
+      id,
+      residues,
+      polymerResidues,
+      ligands,
+      waters,
+      isLigandOnly,
+      chainType,
+      description,
+    });
+    for (const r of residues) {
+      if (!r.isWater) {
+        seq += r.oneLetter;
+      }
+    }
+  }
+
+  const allLigands: StructureLigand[] = [];
+  for (const c of chains) {
+    for (const lig of c.ligands) {
+      let lx = 0, ly = 0, lz = 0;
+      for (const a of lig.atoms) {
+        lx += a.coord.x;
+        ly += a.coord.y;
+        lz += a.coord.z;
+      }
+      const aCount = lig.atoms.length || 1;
+      allLigands.push({
+        id: lig.resName,
+        name: lig.fullName || getLigandFullName(lig.resName, hetNamMap),
+        chain: lig.chain,
+        resSeq: lig.resSeq,
+        atomCount: lig.atoms.length,
+        center: { x: lx / aCount, y: ly / aCount, z: lz / aCount },
+      });
+    }
   }
 
   return {
@@ -245,6 +490,7 @@ export function parsePdb(pdbText: string, name = 'Structure'): ParsedStructure {
       min: { x: minX, y: minY, z: minZ },
       max: { x: maxX, y: maxY, z: maxZ },
     },
+    ligands: allLigands,
   };
 }
 
@@ -576,14 +822,21 @@ export function superimposeStructures(
     };
   }
 
-  const transformedChains: Chain[] = structA.chains.map(ch => ({
-    id: ch.id,
-    residues: ch.residues.map(res => ({
+  const transformedChains: Chain[] = structA.chains.map(ch => {
+    const residues = ch.residues.map(res => ({
       ...res,
       caAtom: res.caAtom ? { ...res.caAtom, coord: transformCoord(res.caAtom.coord) } : undefined,
       atoms: res.atoms.map(atom => ({ ...atom, coord: transformCoord(atom.coord) })),
-    })),
-  }));
+    }));
+    return {
+      ...ch,
+      residues,
+      polymerResidues: residues.filter(r => !r.isLigand && !r.isWater),
+      ligands: residues.filter(r => r.isLigand),
+      waters: residues.filter(r => r.isWater),
+      isLigandOnly: ch.isLigandOnly,
+    };
+  });
 
   const transformedAllAtoms = structA.allAtoms.map(atom => ({
     ...atom,

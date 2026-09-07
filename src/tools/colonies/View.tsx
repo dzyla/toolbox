@@ -457,7 +457,7 @@ export default function ColoniesView() {
     URL.revokeObjectURL(url);
   }
 
-  const copyText = 'error' in cfuResult ? cfuResult.error! : [
+  const copyText = !cfuResult || 'error' in cfuResult ? (cfuResult?.error ?? 'Invalid calculation') : [
     `Automated Colony Count: ${activeColonies.length} colonies (Min Certainty: ${(s.minCertainty * 100).toFixed(0)}%)`,
     `Size Stats: Mean Diameter = ${sizeStats.meanDiameter.toFixed(1)} px (CV: ${sizeStats.cvPercent.toFixed(1)}%)`,
     `Estimated CFU/mL: ${cfuResult.cfuPerMl.toExponential(3)} CFU/mL`,
@@ -774,8 +774,8 @@ export default function ColoniesView() {
       }
       results={
         <div class="space-y-4">
-          {'error' in cfuResult ? (
-            <p role="alert" class="text-sm text-red-600">{cfuResult.error}</p>
+          {!cfuResult || 'error' in cfuResult ? (
+            <p role="alert" class="text-sm text-red-600">{cfuResult?.error ?? 'Calculation error'}</p>
           ) : (
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">

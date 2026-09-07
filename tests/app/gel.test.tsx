@@ -8,11 +8,15 @@ describe('Gel and Blot analysis tool view', () => {
     route.value = { name: 'tool', toolId: 'gel' };
     render(<GelView />);
 
-    expect(await screen.findByText(/Gel & Blot Analysis/)).toBeTruthy();
+    // Title appears in the page header and (when an image is loaded) in the print/PDF export root
+    expect((await screen.findAllByText(/Gel & Blot Analysis/)).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Image Source/)).toBeTruthy();
     expect(screen.getByText(/Molecular Weight Calibration/)).toBeTruthy();
     expect(screen.getByText(/Densitometry Profile/)).toBeTruthy();
     expect(screen.getByText(/Band Quantification/)).toBeTruthy();
+    // New spec §6 export affordances
+    expect(screen.getByRole('button', { name: /Export SVG/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Print \/ PDF/ })).toBeTruthy();
   });
 
   it('allows clicking Auto-Find Lanes and Reload Demo Gel', async () => {

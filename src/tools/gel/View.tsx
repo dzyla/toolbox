@@ -4,7 +4,7 @@ import { downloadText, downloadBlob, toCsv } from '@/lib/export';
 import { decodeImageFile } from '@/lib/image';
 import { demoGel } from '@/core/gel/synthetic';
 import { autoLanes, equalLanes, gridLanesFromPlaced } from '@/core/gel/lanes';
-import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
+import { sampleLane, laneProfile, detectBands, refitBandNear } from '@/core/gel/profile';
 import { sharedCrossLaneBaseline, baselineFor, integrateLaneSignal } from '@/core/gel/background';
 import { quantifyBands, detectPolarity, type BandMetrics } from '@/core/gel/quant';
 import {
@@ -14,11 +14,13 @@ import {
   formatMass,
   MASS_STANDARD_PRESETS,
   type Calibration,
+  type CalibrationPoint,
   type MassCalibration,
   type MassCalibrationModel,
   type MassCalibrationPoint,
 } from '@/core/gel/calibration';
 import { transformPlane, suggestGelCropAndTilt, type Geometry } from '@/core/gel/transform';
+import { applyDisplayTransform, buildGelSvg, type BandAnnotation } from '@/core/gel/svg-export';
 import type { Plane, Polarity, Lane, Band } from '@/core/gel/types';
 import laddersData from '@/data/ladders.json';
 import { ToolLayout } from '@/app/components/ToolLayout';
@@ -71,11 +73,16 @@ const DEFAULTS: State = {
   maxClip: 1,
   gamma: 1,
   invertDisplay: false,
-  bgMethod: 'shared',
+  // Default to per-lane rolling-ball baseline: it adapts to each lane's local background, so dense
+  // bands are corrected per-lane (a single shared baseline subtracts the same background from every
+  // lane — including the reference — which under-corrects dense samples).
+  bgMethod: 'rolling',
   rollingRadius: 40,
   prominence: 0.05,
   ladderLaneId: '',
-  ladderId: 'broad-protein',
+  // Valid built-in ladder id (was 'broad-protein', which does not exist in ladders.json — the preset
+  // dropdown rendered blank and activeLadder silently fell back to LADDERS[0]).
+  ladderId: 'biorad-precision-plus',
   calibMethod: 'piecewise',
   massLaneId: '',
   massCalibMethod: 'linear',
@@ -105,6 +112,8 @@ interface LaneAnalysisItem {
   loadingDeviationPct: number;
   normFactor: number;
 }
+
+type QuantBandMetric = LaneAnalysisItem['metrics'][number];
 
 function toBands(peaks: ReturnType<typeof detectBands>): Band[] {
   return peaks.map((p, i) => ({
@@ -155,27 +164,333 @@ export function getMassColor(
   return `hsl(${hue}, 75%, 45%)`;
 }
 
+/**
+ * Compact horizontal preview of a whole lane (migration left→right) for the Western-blot chart.
+ * The strip is `w` px of migration × `h` px of lane width; a marker is drawn at the target band's
+ * migration position so the reader can see which band the bar refers to, in the context of the whole
+ * lane. Reuses the same display adjustments (clip/gamma/contrast/brightness/invert) as the workbench
+ * lane strips so the preview matches what is on the gel canvas.
+ */
+/**
+ * Render an aligned vertical blot window slice for Western blot mode.
+ * The window is centered on the target band's migration position (targetY) so all bands
+ * line up horizontally across lanes in a natural vertical orientation.
+ */
+function westernBlotSliceDataUrl(opts: {
+  plane: Plane;
+  lane: Lane;
+  targetY: number;
+  windowHeightPx?: number;
+  stripWidthPx?: number;
+  display: { minClip: number; maxClip: number; gamma: number; contrast: number; brightness: number; invert: boolean };
+}): string | null {
+  const { plane, lane, targetY, windowHeightPx = 96, stripWidthPx = 44, display } = opts;
+  const canvas = document.createElement('canvas');
+  canvas.width = stripWidthPx;
+  canvas.height = windowHeightPx;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const img = ctx.createImageData(stripWidthPx, windowHeightPx);
+  const data = img.data;
+  const halfH = windowHeightPx / 2;
+  const halfW = lane.width / 2;
+  const laneLen = Math.max(1, lane.y1 - lane.y0);
+  const clipRange = Math.max(0.01, display.maxClip - display.minClip);
+
+  for (let r = 0; r < windowHeightPx; r++) {
+    const curY = lane.y0 + targetY - halfH + r;
+    const t = Math.max(0, Math.min(1, (curY - lane.y0) / laneLen));
+    const curX = lane.x + t * lane.tilt;
+
+    for (let c = 0; c < stripWidthPx; c++) {
+      const v = (c / (stripWidthPx - 1) - 0.5) * 2;
+      const gx = Math.max(0, Math.min(plane.width - 1, Math.round(curX + v * halfW)));
+      const gy = Math.max(0, Math.min(plane.height - 1, Math.round(curY)));
+
+      let val = 0;
+      if (curY >= 0 && curY < plane.height) {
+        val = plane.data[gy * plane.width + gx] ?? 0;
+      }
+      let adj = Math.max(0, Math.min(1, (val - display.minClip) / clipRange));
+      if (display.gamma !== 1) adj = Math.pow(adj, 1 / display.gamma);
+      adj = (adj - 0.5) * display.contrast + 0.5;
+      adj = adj * display.brightness;
+      if (display.invert) adj = 1 - adj;
+      adj = Math.max(0, Math.min(1, adj));
+      const g = Math.round(adj * 255);
+      const i = (r * stripWidthPx + c) * 4;
+      data[i] = g; data[i + 1] = g; data[i + 2] = g; data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // Center alignment guide tick marks on the edges (without crossing the band)
+  ctx.fillStyle = '#10b981';
+  ctx.fillRect(0, halfH - 1, 3, 2);
+  ctx.fillRect(stripWidthPx - 3, halfH - 1, 3, 2);
+
+  return canvas.toDataURL();
+}
+
+export interface TargetBandCluster {
+  id: string;
+  avgSize: number | null; // in kDa or bp
+  avgRf: number;          // 0..1
+  medianPeakY: number;    // pixel
+  matchingLanesCount: number;
+  label: string;
+}
+
+export function computeTargetBandClusters(
+  analysis: LaneAnalysisItem[],
+  marginPct: number,
+  ladderKind: 'protein' | 'dna',
+  ladderSizes: number[] = [],
+): TargetBandCluster[] {
+  // Gather all detected bands across all lanes
+  const allBands: {
+    sizeEst: number | null;
+    peakY: number;
+    rf: number;
+    laneId: string;
+    net: number;
+  }[] = [];
+
+  for (const item of analysis) {
+    const laneHeight = Math.max(1, (item.lane.y1 - item.lane.y0) || 100);
+    for (const m of item.metrics) {
+      const peakY = m.peakY ?? 0;
+      const rf = peakY / laneHeight;
+      allBands.push({
+        sizeEst: typeof m.sizeEst === 'number' && m.sizeEst > 0 ? m.sizeEst : null,
+        peakY,
+        rf,
+        laneId: item.lane.id,
+        net: m.net,
+      });
+    }
+  }
+
+  const isCalibrated = allBands.some(b => b.sizeEst !== null);
+
+  if (isCalibrated) {
+    const validBands = allBands
+      .filter((b): b is typeof b & { sizeEst: number } => b.sizeEst !== null)
+      .sort((a, b) => b.sizeEst - a.sizeEst);
+
+    const clusters: {
+      sizes: number[];
+      peakYs: number[];
+      rfs: number[];
+      laneIds: Set<string>;
+    }[] = [];
+
+    for (const b of validBands) {
+      const matchedCluster = clusters.find(c => {
+        const avg = c.sizes.reduce((sum, s) => sum + s, 0) / c.sizes.length;
+        return Math.abs(b.sizeEst - avg) / avg <= marginPct / 100;
+      });
+
+      if (matchedCluster) {
+        matchedCluster.sizes.push(b.sizeEst);
+        matchedCluster.peakYs.push(b.peakY);
+        matchedCluster.rfs.push(b.rf);
+        matchedCluster.laneIds.add(b.laneId);
+      } else {
+        clusters.push({
+          sizes: [b.sizeEst],
+          peakYs: [b.peakY],
+          rfs: [b.rf],
+          laneIds: new Set([b.laneId]),
+        });
+      }
+    }
+
+    // Also include nominal ladder sizes if present and not near any cluster
+    for (const lSize of ladderSizes) {
+      const near = clusters.some(c => {
+        const avg = c.sizes.reduce((sum, s) => sum + s, 0) / c.sizes.length;
+        return Math.abs(lSize - avg) / avg <= marginPct / 100;
+      });
+      if (!near) {
+        const matchingLanes = new Set<string>();
+        const matchedPeakYs: number[] = [];
+        const matchedRfs: number[] = [];
+        for (const item of analysis) {
+          const laneH = Math.max(1, (item.lane.y1 - item.lane.y0) || 100);
+          for (const m of item.metrics) {
+            if (m.sizeEst && Math.abs(m.sizeEst - lSize) / lSize <= marginPct / 100) {
+              matchingLanes.add(item.lane.id);
+              matchedPeakYs.push(m.peakY ?? 0);
+              matchedRfs.push((m.peakY ?? 0) / laneH);
+            }
+          }
+        }
+        clusters.push({
+          sizes: [lSize],
+          peakYs: matchedPeakYs.length > 0 ? matchedPeakYs : [50],
+          rfs: matchedRfs.length > 0 ? matchedRfs : [0.5],
+          laneIds: matchingLanes,
+        });
+      }
+    }
+
+    clusters.sort((a, b) => {
+      const avgA = a.sizes.reduce((s, x) => s + x, 0) / a.sizes.length;
+      const avgB = b.sizes.reduce((s, x) => s + x, 0) / b.sizes.length;
+      return avgB - avgA;
+    });
+
+    if (clusters.length === 0) {
+      return [{
+        id: 'target-default',
+        avgSize: 50,
+        avgRf: 0.5,
+        medianPeakY: 50,
+        matchingLanesCount: 0,
+        label: `~50 ${ladderKind === 'protein' ? 'kDa' : 'bp'} (no bands detected)`,
+      }];
+    }
+
+    return clusters.map((c, idx) => {
+      const avgSize = c.sizes.reduce((s, x) => s + x, 0) / c.sizes.length;
+      const avgRf = c.rfs.reduce((s, x) => s + x, 0) / c.rfs.length;
+      const sortedYs = [...c.peakYs].sort((x, y) => x - y);
+      const medianPeakY = sortedYs[Math.floor(sortedYs.length / 2)] ?? 50;
+      const sizeStr = formatSize(avgSize, ladderKind);
+      return {
+        id: `target-${idx}-${Math.round(avgSize)}`,
+        avgSize,
+        avgRf,
+        medianPeakY,
+        matchingLanesCount: c.laneIds.size,
+        label: `~${sizeStr} (${c.laneIds.size}/${analysis.length} lanes)`,
+      };
+    });
+  } else {
+    // Uncalibrated: cluster by relative migration Rf
+    const sortedBands = [...allBands].sort((a, b) => a.rf - b.rf);
+    const maxRfTol = Math.max(0.03, (marginPct / 100) * 0.45);
+
+    const clusters: {
+      peakYs: number[];
+      rfs: number[];
+      laneIds: Set<string>;
+    }[] = [];
+
+    for (const b of sortedBands) {
+      const matchedCluster = clusters.find(c => {
+        const avgRf = c.rfs.reduce((sum, s) => sum + s, 0) / c.rfs.length;
+        return Math.abs(b.rf - avgRf) <= maxRfTol;
+      });
+
+      if (matchedCluster) {
+        matchedCluster.peakYs.push(b.peakY);
+        matchedCluster.rfs.push(b.rf);
+        matchedCluster.laneIds.add(b.laneId);
+      } else {
+        clusters.push({
+          peakYs: [b.peakY],
+          rfs: [b.rf],
+          laneIds: new Set([b.laneId]),
+        });
+      }
+    }
+
+    if (clusters.length === 0) {
+      return [{
+        id: 'target-default',
+        avgSize: null,
+        avgRf: 0.5,
+        medianPeakY: 50,
+        matchingLanesCount: 0,
+        label: 'No bands detected',
+      }];
+    }
+
+    return clusters.map((c, idx) => {
+      const avgRf = c.rfs.reduce((s, x) => s + x, 0) / c.rfs.length;
+      const sortedYs = [...c.peakYs].sort((x, y) => x - y);
+      const medianPeakY = sortedYs[Math.floor(sortedYs.length / 2)] ?? 50;
+      return {
+        id: `target-rf-${idx}-${Math.round(avgRf * 1000)}`,
+        avgSize: null,
+        avgRf,
+        medianPeakY,
+        matchingLanesCount: c.laneIds.size,
+        label: `Rf ${avgRf.toFixed(2)} (${c.laneIds.size}/${analysis.length} lanes)`,
+      };
+    });
+  }
+}
+
+export function findTargetBandInLane(
+  item: LaneAnalysisItem,
+  targetSize: number | null,
+  targetRf: number | null,
+  marginPct: number,
+): QuantBandMetric | null {
+  if (!item.metrics || item.metrics.length === 0) return null;
+
+  let bestMatch: QuantBandMetric | null = null;
+  let minDiff = Infinity;
+
+  const laneHeight = Math.max(1, (item.lane.y1 - item.lane.y0) || 100);
+
+  for (const m of item.metrics) {
+    if (targetSize !== null && typeof m.sizeEst === 'number' && m.sizeEst > 0) {
+      const relDiff = Math.abs(m.sizeEst - targetSize) / targetSize;
+      if (relDiff <= marginPct / 100 && relDiff < minDiff) {
+        minDiff = relDiff;
+        bestMatch = m;
+      }
+    } else if (targetRf !== null) {
+      const bandRf = (m.peakY ?? 0) / laneHeight;
+      const diffRf = Math.abs(bandRf - targetRf);
+      const maxRfTol = Math.max(0.03, (marginPct / 100) * 0.45);
+      if (diffRf <= maxRfTol && diffRf < minDiff) {
+        minDiff = diffRf;
+        bestMatch = m;
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
 function BandQuantChart({
   analysis,
   ladderKind,
   laneLabels,
   selectedLaneId,
   onSelectLane,
+  ladderLaneId,
+  ladderSizes = [],
   loadingRefLaneId,
   onSetLoadingRefLane,
   initialMode = 'lane',
+  plane,
+  display,
 }: {
   analysis: LaneAnalysisItem[];
   ladderKind: 'protein' | 'dna';
   laneLabels: Record<string, string>;
   selectedLaneId?: string;
   onSelectLane?: (laneId: string) => void;
+  ladderLaneId?: string;
+  ladderSizes?: number[];
   loadingRefLaneId?: string;
   onSetLoadingRefLane?: (laneId: string) => void;
   initialMode?: 'lane' | 'mass' | 'loading';
+  /** Gel plane + display settings, used to render the whole-lane preview strips in WB (mass) mode. */
+  plane?: Plane;
+  display?: { minClip: number; maxClip: number; gamma: number; contrast: number; brightness: number; invert: boolean };
 }) {
   const [chartMode, setChartMode] = useState<'lane' | 'mass' | 'loading'>(initialMode);
-  const [targetBandIdx, setTargetBandIdx] = useState<number>(0);
+  const [selectedTargetId, setSelectedTargetId] = useState<string>('');
+  const [detectionMarginPct, setDetectionMarginPct] = useState<number>(15);
+  const [massRefLaneId, setMassRefLaneId] = useState<string>('');
   const [metric, setMetric] = useState<'net' | 'raw' | 'share'>('net');
   const [hoveredBar, setHoveredBar] = useState<{
     laneIdx: number;
@@ -192,22 +507,69 @@ function BandQuantChart({
     if (initialMode) setChartMode(initialMode);
   }, [initialMode]);
 
+  const targetBandClusters = useMemo(() => {
+    return computeTargetBandClusters(analysis, detectionMarginPct, ladderKind, ladderSizes);
+  }, [analysis, detectionMarginPct, ladderKind, ladderSizes]);
+
+  const activeTarget = useMemo<TargetBandCluster | null>(() => {
+    if (targetBandClusters.length === 0) return null;
+    if (selectedTargetId) {
+      const found = targetBandClusters.find(c => c.id === selectedTargetId);
+      if (found) return found;
+    }
+    // Default to the cluster that appears in the most lanes
+    const sorted = [...targetBandClusters].sort((a, b) => b.matchingLanesCount - a.matchingLanesCount);
+    return sorted[0] || targetBandClusters[0] || null;
+  }, [targetBandClusters, selectedTargetId]);
+
+  const matchedBandsPerLane = useMemo<Record<string, QuantBandMetric | null>>(() => {
+    const map: Record<string, QuantBandMetric | null> = {};
+    if (!activeTarget) return map;
+    for (const item of analysis) {
+      map[item.lane.id] = findTargetBandInLane(
+        item,
+        activeTarget.avgSize,
+        activeTarget.avgRf,
+        detectionMarginPct,
+      );
+    }
+    return map;
+  }, [analysis, activeTarget, detectionMarginPct]);
+
+  // WB (mass) mode whole-lane strip previews, memoised per (plane, lanes, target band, display).
+  const disp = display;
+  const wbStripUrls = useMemo<Record<string, string>>(() => {
+    const urls: Record<string, string> = {};
+    if (chartMode !== 'mass' || !plane || !disp || !activeTarget) return urls;
+
+    // Find median targetY across lanes that have this band detected
+    const validTargetYs = analysis
+      .map(a => matchedBandsPerLane[a.lane.id]?.peakY)
+      .filter((y): y is number => typeof y === 'number' && Number.isFinite(y));
+    const medianTargetY = validTargetYs.length > 0
+      ? validTargetYs.slice().sort((a, b) => a - b)[Math.floor(validTargetYs.length / 2)]!
+      : activeTarget.medianPeakY;
+
+    for (const item of analysis) {
+      const matched = matchedBandsPerLane[item.lane.id];
+      const targetY = matched?.peakY !== undefined
+        ? matched.peakY
+        : medianTargetY;
+
+      const url = westernBlotSliceDataUrl({
+        plane,
+        lane: item.lane,
+        targetY,
+        windowHeightPx: 96,
+        stripWidthPx: 44,
+        display: disp,
+      });
+      if (url) urls[item.lane.id] = url;
+    }
+    return urls;
+  }, [chartMode, plane, analysis, activeTarget, matchedBandsPerLane, disp?.minClip, disp?.maxClip, disp?.gamma, disp?.contrast, disp?.brightness, disp?.invert]);
+
   if (analysis.length === 0) return null;
-
-  const maxBands = Math.max(1, ...analysis.map(a => a.metrics.length));
-
-  // Build target band list with average MW
-  const targetBandOptions = Array.from({ length: maxBands }, (_, bIdx) => {
-    const sizes = analysis
-      .map(a => a.metrics[bIdx]?.sizeEst)
-      .filter((s): s is number => typeof s === 'number' && s > 0);
-    const avgSize = sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) / sizes.length : null;
-    return {
-      idx: bIdx,
-      label: `Band #${bIdx + 1}${avgSize ? ` (~${formatSize(avgSize, ladderKind)})` : ''}`,
-      avgSize,
-    };
-  });
 
   const chartW = 750;
   const chartH = 260;
@@ -231,12 +593,21 @@ function BandQuantChart({
     chartMode === 'loading'
       ? Math.max(...analysis.map(a => a.totalLaneSignal))
       : chartMode === 'mass'
-        ? Math.max(...analysis.map(a => getMetricVal(a.metrics[targetBandIdx])))
-        : Math.max(...analysis.flatMap(a => a.metrics.map(getMetricVal)))
+        ? Math.max(1, ...analysis.map(a => getMetricVal(matchedBandsPerLane[a.lane.id] ?? undefined)))
+        : Math.max(1, ...analysis.flatMap(a => a.metrics.map(getMetricVal)))
   );
 
-  // Reference for fold-change in mass mode
-  const refMetric = analysis[0]?.metrics[targetBandIdx];
+  // Reference for fold-change in mass mode (defaults to first non-ladder lane with matched band)
+  const defaultRefLane = (loadingRefLaneId ? analysis.find(a => a.lane.id === loadingRefLaneId) : null)
+    || analysis.find(a => a.lane.id !== ladderLaneId && matchedBandsPerLane[a.lane.id] !== null)
+    || analysis.find(a => matchedBandsPerLane[a.lane.id] !== null)
+    || analysis[0];
+
+  const activeRefLaneId = massRefLaneId && analysis.some(a => a.lane.id === massRefLaneId)
+    ? massRefLaneId
+    : (defaultRefLane?.lane.id || '');
+
+  const refMetric = matchedBandsPerLane[activeRefLaneId];
   const refVal = refMetric ? getMetricVal(refMetric) : 0;
 
   // Reference for loading comparison
@@ -304,17 +675,56 @@ function BandQuantChart({
           </div>
 
           {chartMode === 'mass' && (
-            <select
-              value={targetBandIdx}
-              onChange={(e) => setTargetBandIdx(parseInt((e.target as HTMLSelectElement).value) || 0)}
-              class="text-xs px-2 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
-            >
-              {targetBandOptions.map(opt => (
-                <option key={opt.idx} value={opt.idx}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-500 font-medium">Target:</span>
+                <select
+                  value={activeTarget?.id || ''}
+                  onChange={(e) => setSelectedTargetId((e.target as HTMLSelectElement).value)}
+                  class="text-xs px-2 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold max-w-[210px] truncate"
+                  title="Target band to compare across all wells"
+                >
+                  {targetBandClusters.map(opt => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-500 font-medium">Margin:</span>
+                <select
+                  value={String(detectionMarginPct)}
+                  onChange={(e) => setDetectionMarginPct(parseInt((e.target as HTMLSelectElement).value) || 15)}
+                  class="text-xs px-1.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-mono font-medium"
+                  title="Margin of detection / tolerance window for matching target band across lanes"
+                >
+                  <option value="5">±5% (Strict)</option>
+                  <option value="10">±10%</option>
+                  <option value="15">±15% (Std)</option>
+                  <option value="20">±20%</option>
+                  <option value="25">±25%</option>
+                  <option value="30">±30% (Permissive)</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-500 font-medium">Ref:</span>
+                <select
+                  value={activeRefLaneId}
+                  onChange={(e) => setMassRefLaneId((e.target as HTMLSelectElement).value)}
+                  class="text-xs px-1.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-medium max-w-[130px] truncate"
+                  title="Reference lane for relative fold change"
+                >
+                  {analysis.map((item, idx) => (
+                    <option key={item.lane.id} value={item.lane.id}>
+                      {laneLabels[item.lane.id] || `Lane ${idx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           )}
         </div>
 
@@ -515,8 +925,8 @@ function BandQuantChart({
             analysis.map((item, lIdx) => {
               const groupW = innerW / Math.max(1, analysis.length);
               const groupX = padLeft + lIdx * groupW;
-              const m = item.metrics[targetBandIdx];
-              const val = getMetricVal(m);
+              const m = matchedBandsPerLane[item.lane.id];
+              const val = getMetricVal(m ?? undefined);
               const barH = (val / maxVal) * innerH;
               const colW = Math.min(45, Math.max(14, groupW - 16));
               const barX = groupX + (groupW - colW) / 2;
@@ -524,8 +934,8 @@ function BandQuantChart({
               const isSelectedLane = item.lane.id === selectedLaneId;
               const customLabel = laneLabels[item.lane.id] || `L${lIdx + 1}`;
               const foldStr = refVal > 0 && m ? `${(val / refVal).toFixed(2)}×` : '—';
-              const szText = m?.sizeEst ? formatSize(m.sizeEst, ladderKind) : '';
-              const barColor = getMassColor(m?.sizeEst ?? targetBandOptions[targetBandIdx]?.avgSize, ladderKind);
+              const szText = m?.sizeEst ? formatSize(m.sizeEst, ladderKind) : (activeTarget?.avgSize ? `~${formatSize(activeTarget.avgSize, ladderKind)}` : '');
+              const barColor = getMassColor(m?.sizeEst ?? activeTarget?.avgSize, ladderKind);
 
               return (
                 <g key={item.lane.id} onClick={() => onSelectLane?.(item.lane.id)} class="cursor-pointer">
@@ -534,7 +944,7 @@ function BandQuantChart({
                   )}
                   {m ? (
                     <g
-                      onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, bandNum: targetBandIdx + 1, val, size: szText, share: m.share, fold: foldStr })}
+                      onMouseEnter={() => setHoveredBar({ laneIdx: lIdx, bandNum: m.number, val, size: szText, share: m.share, fold: foldStr })}
                       onMouseLeave={() => setHoveredBar(null)}
                     >
                       <rect
@@ -658,6 +1068,82 @@ function BandQuantChart({
         </svg>
       </div>
 
+      {/* Western-blot (target mass) publication preview: each lane shown as an aligned vertical strip
+          centered on the target band, with a dashed alignment guideline across all lanes. */}
+      {chartMode === 'mass' && plane && display && (
+        <div class="rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-600 text-white">
+                Western Blot Mode
+              </span>
+              <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Target Mass Alignment &bull; {activeTarget?.label || 'Target Band'}
+              </span>
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="w-3 h-0.5 bg-emerald-500 inline-block"></span>
+                Horizontally Aligned Center Line
+              </span>
+            </div>
+          </div>
+
+          <div class="relative overflow-x-auto py-2">
+            {/* Dashed green horizontal alignment reference line running across all lane strips right through vertical center (y = 70px) */}
+            <div class="absolute left-0 right-0 top-[70px] h-0 border-t border-dashed border-emerald-500/70 pointer-events-none z-10" />
+
+            <div class="flex items-start gap-4 min-w-max">
+              {analysis.map((item, lIdx) => {
+                const strip = wbStripUrls[item.lane.id];
+                const m = matchedBandsPerLane[item.lane.id];
+                const sz = m?.sizeEst ? formatSize(m.sizeEst, ladderKind) : (activeTarget?.avgSize ? `~${formatSize(activeTarget.avgSize, ladderKind)}` : '');
+                const label = laneLabels[item.lane.id] || `L${lIdx + 1}`;
+                const val = m ? getMetricVal(m) : 0;
+                const fold = refVal > 0 && val > 0 ? (val / refVal).toFixed(2) : undefined;
+                const isSelected = item.lane.id === selectedLaneId;
+
+                return (
+                  <div
+                    key={item.lane.id}
+                    onClick={() => onSelectLane?.(item.lane.id)}
+                    class={`flex flex-col items-center gap-1.5 p-2 rounded-xl transition cursor-pointer border ${isSelected ? 'border-accent-500 bg-white dark:bg-slate-800 shadow-sm ring-1 ring-accent-400' : 'border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white/60 dark:bg-slate-900/60'}`}
+                  >
+                    <span class="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {label}
+                    </span>
+
+                    {/* Vertical Publication Blot Strip */}
+                    <div class="relative rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700 shadow-2xs">
+                      <img
+                        src={strip ?? undefined}
+                        alt={`${label} target band`}
+                        class="w-11 h-24 object-cover block"
+                      />
+                    </div>
+
+                    <div class="text-center space-y-0.5">
+                      <span class="block text-[11px] font-mono font-bold text-accent-700 dark:text-accent-300">
+                        {sz || '—'}
+                      </span>
+                      {val > 0 ? (
+                        <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                          {fold ? `${fold}×` : `${Math.round(val)} OD`}
+                        </span>
+                      ) : (
+                        <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800">
+                          n/d
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mass color scale legend */}
       {chartMode === 'lane' && (
         <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-800/60 text-[11px]">
@@ -730,6 +1216,17 @@ export default function GelView() {
   const [customLadderName, setCustomLadderName] = useState<string>('');
   const [customLadderKind, setCustomLadderKind] = useState<'protein' | 'dna'>('protein');
   const [customLadderSizesStr, setCustomLadderSizesStr] = useState<string>('');
+
+  // Keep the MW-calibration ladder lane valid. Lanes are regenerated (new ids) by load, crop,
+  // rotate/flip, deskew and auto-align — after which the stored ladderLaneId points at a lane that
+  // no longer exists, so `calibration` returns null and every size label freezes. When that happens,
+  // fall back to the first lane so the calibration recomputes instead of going stale. On first load
+  // this also auto-assigns lane 1 as the ladder, which is why sizes appear "set immediately".
+  useEffect(() => {
+    if (lanes.length === 0) return;
+    const valid = lanes.some((l) => l.id === s.ladderLaneId);
+    if (!valid) set({ ladderLaneId: lanes[0]!.id });
+  }, [lanes, s.ladderLaneId]);
   const [customLadderError, setCustomLadderError] = useState<string>('');
   const customLadderFileRef = useRef<HTMLInputElement>(null);
 
@@ -756,6 +1253,7 @@ export default function GelView() {
   const [quantLayoutMode, setQuantLayoutMode] = useState<'cards' | 'table'>('table');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const printCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load demo gel on initial mount
@@ -779,6 +1277,9 @@ export default function GelView() {
 
     const initialLanes = autoLanes(demo.plane, { x: 0, y: 0, w: demo.plane.width, h: demo.plane.height }, detectedPolarity);
     setLanes(initialLanes);
+    // Clean slate: drop any band annotations / reference from a previous gel.
+    setBandMap({});
+    set({ refBandId: '' });
     if (initialLanes.length > 0) {
       setSelectedLaneId(initialLanes[0]!.id);
       set({ ladderLaneId: initialLanes[0]!.id });
@@ -802,6 +1303,8 @@ export default function GelView() {
       const detected = autoLanes(newPlane, { x: 0, y: 0, w: newPlane.width, h: newPlane.height }, pol);
       setLanes(detected);
       setBandMap({});
+      // Clean slate: a newly loaded gel starts with no band annotations or reference.
+      set({ refBandId: '' });
       if (detected.length > 0) {
         setSelectedLaneId(detected[0]!.id);
         set({ ladderLaneId: detected[0]!.id });
@@ -820,9 +1323,16 @@ export default function GelView() {
     setPlane(rotated);
     setDeskewAngle(0);
     setBandMap({});
-    const newLanes = autoLanes(rotated, { x: 0, y: 0, w: rotated.width, h: rotated.height }, s.polarity);
-    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: rotated.width, h: rotated.height }));
-    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+    set({ refBandId: '' });
+    setCustomMassMap({});
+    // Disabled automatic lane detection after modification: use clean equal lanes
+    const laneCount = Math.max(1, lanes.length || 5);
+    const newLanes = equalLanes(laneCount, { x: 0, y: 0, w: rotated.width, h: rotated.height });
+    setLanes(newLanes);
+    if (newLanes.length > 0) {
+      setSelectedLaneId(newLanes[0]!.id);
+      set({ ladderLaneId: newLanes[0]!.id });
+    }
   }
 
   function applyFlip(horizontal: boolean) {
@@ -833,9 +1343,16 @@ export default function GelView() {
     setPlane(flipped);
     setDeskewAngle(0);
     setBandMap({});
-    const newLanes = autoLanes(flipped, { x: 0, y: 0, w: flipped.width, h: flipped.height }, s.polarity);
-    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: flipped.width, h: flipped.height }));
-    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+    set({ refBandId: '' });
+    setCustomMassMap({});
+    // Disabled automatic lane detection after modification: use clean equal lanes
+    const laneCount = Math.max(1, lanes.length || 5);
+    const newLanes = equalLanes(laneCount, { x: 0, y: 0, w: flipped.width, h: flipped.height });
+    setLanes(newLanes);
+    if (newLanes.length > 0) {
+      setSelectedLaneId(newLanes[0]!.id);
+      set({ ladderLaneId: newLanes[0]!.id });
+    }
   }
 
   function handleDeskewChange(angle: number) {
@@ -844,22 +1361,38 @@ export default function GelView() {
     const g: Geometry = { rotation: angle, flipH: false, flipV: false };
     const transformed = transformPlane(basePlane, g);
     setPlane(transformed);
-    const newLanes = autoLanes(transformed, { x: 0, y: 0, w: transformed.width, h: transformed.height }, s.polarity);
-    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: transformed.width, h: transformed.height }));
+    // Disabled automatic lane detection on deskew: keep user's lanes intact
   }
 
   function handleApplyCrop() {
     if (!plane || !cropBox || cropBox.w < 10 || cropBox.h < 10) return;
-    const cropped = transformPlane(plane, { rotation: 0, flipH: false, flipV: false, crop: cropBox });
+    const cb = cropBox;
+    const cropped = transformPlane(plane, { rotation: 0, flipH: false, flipV: false, crop: cb });
     setBasePlane(cropped);
     setPlane(cropped);
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
     setBandMap({});
-    const newLanes = autoLanes(cropped, { x: 0, y: 0, w: cropped.width, h: cropped.height }, s.polarity);
-    setLanes(newLanes.length > 0 ? newLanes : equalLanes(lanes.length || 5, { x: 0, y: 0, w: cropped.width, h: cropped.height }));
-    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+    set({ refBandId: '' });
+    setCustomMassMap({});
+    // Transform existing lanes by offsetting to the new crop boundaries
+    const croppedLanes = lanes
+      .map(l => ({
+        ...l,
+        x: l.x - cb.x,
+        y0: Math.max(0, l.y0 - cb.y),
+        y1: Math.min(cropped.height, l.y1 - cb.y),
+      }))
+      .filter(l => l.x >= 0 && l.x <= cropped.width && l.y1 > l.y0 + 10);
+    const resolvedLanes = croppedLanes.length > 0
+      ? croppedLanes
+      : equalLanes(Math.max(1, lanes.length || 5), { x: 0, y: 0, w: cropped.width, h: cropped.height });
+    setLanes(resolvedLanes);
+    if (resolvedLanes.length > 0) {
+      setSelectedLaneId(resolvedLanes[0]!.id);
+      set({ ladderLaneId: resolvedLanes[0]!.id });
+    }
   }
 
   function handleResetAllTransforms() {
@@ -870,9 +1403,15 @@ export default function GelView() {
     setIsCropping(false);
     setCropBox(null);
     setBandMap({});
-    const newLanes = autoLanes(originalPlane, { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height }, s.polarity);
-    setLanes(newLanes.length > 0 ? newLanes : equalLanes(5, { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height }));
-    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+    set({ refBandId: '' });
+    setCustomMassMap({});
+    // Reset to clean equal lanes without autoLanes
+    const eq = equalLanes(Math.max(1, lanes.length || 5), { x: 0, y: 0, w: originalPlane.width, h: originalPlane.height });
+    setLanes(eq);
+    if (eq.length > 0) {
+      setSelectedLaneId(eq[0]!.id);
+      set({ ladderLaneId: eq[0]!.id });
+    }
   }
 
   function handleApplySuggestion() {
@@ -896,17 +1435,33 @@ export default function GelView() {
     setIsCropping(false);
     setCropBox(null);
     setBandMap({});
-    const newLanes = autoLanes(cropped, { x: 0, y: 0, w: cropped.width, h: cropped.height }, s.polarity);
-    setLanes(newLanes.length > 0 ? newLanes : equalLanes(5, { x: 0, y: 0, w: cropped.width, h: cropped.height }));
-    if (newLanes.length > 0) setSelectedLaneId(newLanes[0]!.id);
+    set({ refBandId: '' });
+    setCustomMassMap({});
+    const resolvedLanes = equalLanes(Math.max(1, lanes.length || 5), { x: 0, y: 0, w: cropped.width, h: cropped.height });
+    setLanes(resolvedLanes);
+    if (resolvedLanes.length > 0) {
+      setSelectedLaneId(resolvedLanes[0]!.id);
+      set({ ladderLaneId: resolvedLanes[0]!.id });
+    }
   }
 
   function handleGridFromPlaced() {
     if (!plane || lanes.length < 2) return;
+    const ladderIdx = lanes.findIndex(l => l.id === s.ladderLaneId);
+    const loadingRefIdx = s.loadingRefLaneId ? lanes.findIndex(l => l.id === s.loadingRefLaneId) : -1;
+    const massLaneIdx = s.massLaneId ? lanes.findIndex(l => l.id === s.massLaneId) : -1;
     const generated = gridLanesFromPlaced(lanes, plane, s.polarity, { totalLanes: numLanesInput });
     setLanes(generated);
-    if (generated.length > 0 && !generated.some(l => l.id === selectedLaneId)) {
-      setSelectedLaneId(generated[0]!.id);
+    if (generated.length > 0) {
+      if (!generated.some(l => l.id === selectedLaneId)) {
+        setSelectedLaneId(generated[0]!.id);
+      }
+      const keepLadderIdx = ladderIdx >= 0 && ladderIdx < generated.length ? ladderIdx : 0;
+      set({
+        ladderLaneId: generated[keepLadderIdx]!.id,
+        loadingRefLaneId: loadingRefIdx >= 0 && loadingRefIdx < generated.length ? generated[loadingRefIdx]!.id : '',
+        massLaneId: massLaneIdx >= 0 && massLaneIdx < generated.length ? generated[massLaneIdx]!.id : '',
+      });
     }
   }
 
@@ -992,10 +1547,16 @@ export default function GelView() {
     reader.readAsText(file);
   }
 
+  // Effective ladder lane: robust fallback so calibration never breaks if ladderLaneId is unset
+  const effectiveLadderLaneId = useMemo(() => {
+    if (s.ladderLaneId && lanes.some(l => l.id === s.ladderLaneId)) return s.ladderLaneId;
+    return lanes[0]?.id || '';
+  }, [s.ladderLaneId, lanes]);
+
   // Calibration from ladder lane
   const calibration: Calibration | null = useMemo(() => {
-    if (!plane || !s.ladderLaneId) return null;
-    const ladderLane = lanes.find(l => l.id === s.ladderLaneId);
+    if (!plane || !effectiveLadderLaneId) return null;
+    const ladderLane = lanes.find(l => l.id === effectiveLadderLaneId);
     if (!ladderLane) return null;
 
     try {
@@ -1007,16 +1568,21 @@ export default function GelView() {
       const sortedBands = [...bands].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
       const sortedSizes = [...activeLadder.sizes].sort((a, b) => b - a);
 
-      const pairs = sortedBands.slice(0, sortedSizes.length).map((b, i) => ({
-        y: b.peakY ?? (b.y0 + b.y1) / 2,
-        size: sortedSizes[i]!,
-      }));
+      const pairs: CalibrationPoint[] = [];
+      for (let i = 0; i < Math.min(sortedBands.length, sortedSizes.length); i++) {
+        const b = sortedBands[i]!;
+        const y = b.peakY ?? (b.y0 + b.y1) / 2;
+        if (pairs.length === 0 || y > pairs[pairs.length - 1]!.y + 0.1) {
+          pairs.push({ y, size: sortedSizes[i]! });
+        }
+      }
 
+      if (pairs.length < 2) return null;
       return fitCalibration(pairs, s.calibMethod);
     } catch {
       return null;
     }
-  }, [plane, lanes, s.ladderLaneId, bandMap, s.prominence, s.polarity, activeLadder, s.calibMethod]);
+  }, [plane, lanes, effectiveLadderLaneId, bandMap, s.prominence, s.polarity, activeLadder, s.calibMethod]);
 
   // Densitometric Mass Calibration
   const [customMassMap, setCustomMassMap] = useState<Record<string, number>>({});
@@ -1113,11 +1679,18 @@ export default function GelView() {
         const refBand = metrics.find(m => m.bandId === s.refBandId);
         const refNet = refBand && refBand.net > 0 ? refBand.net : (metrics[0]?.net ?? 1);
 
+        const ladderLane = lanes.find(l => l.id === effectiveLadderLaneId);
+        const ladderTop = ladderLane?.y0 ?? 0;
+        const isLadderLane = lane.id === effectiveLadderLaneId;
+        const sortedLadderSizes = [...activeLadder.sizes].sort((a, b) => b - a);
+
         const enriched = metrics.map((m, i) => {
           const share = totalNet > 0 ? (Math.max(0, m.net) / totalNet) * 100 : 0;
           const ratio = refNet > 0 ? Math.max(0, m.net) / refNet : 1;
           const peakY = m.peakY ?? 0;
-          const sizeEst = calibration ? calibration.sizeAt(peakY) : null;
+          const effMigrationY = (lane.y0 ?? 0) + peakY - ladderTop;
+          const nominalLadderSize = (isLadderLane && i < sortedLadderSizes.length) ? sortedLadderSizes[i]! : null;
+          const sizeEst = nominalLadderSize ?? (calibration ? calibration.sizeAt(effMigrationY) : null);
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
           return { ...m, number: i + 1, share, ratio, sizeEst, massEst };
         });
@@ -1169,7 +1742,7 @@ export default function GelView() {
         normFactor,
       };
     });
-  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, massCalibration]);
+  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, massCalibration, effectiveLadderLaneId, activeLadder]);
 
   const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
   const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);
@@ -1262,8 +1835,8 @@ export default function GelView() {
       const py = m.peakY ?? 0;
       return {
         id: m.bandId || `b-${Math.round(py)}-${i}`,
-        y0: Math.max(0, py - 5),
-        y1: py + 5,
+        y0: m.y0 ?? Math.max(0, py - 5),
+        y1: m.y1 ?? py + 5,
         peakY: py,
       };
     });
@@ -1274,6 +1847,56 @@ export default function GelView() {
     }
   }
 
+  /**
+   * Add or move a band at a lane-relative position `relTarget` (0 at the lane top → laneLen at the
+   * bottom), auto-fitting it to the real peak. Band peakY/y0/y1 are stored lane-relative, matching
+   * detectBands/toBands and the profile card. With `moveId` the band with that id is repositioned
+   * (width re-derived from the profile); without it a fresh band is inserted. If a detected peak
+   * sits near `relTarget` the band snaps to it; otherwise it keeps a small default width.
+   */
+  function placeBandAt(laneId: string, relTarget: number, moveId?: string) {
+    if (!plane) return;
+    const lane = lanes.find(l => l.id === laneId);
+    if (!lane) return;
+    const laneLen = Math.max(1, lane.y1 - lane.y0);
+    const rel = Math.max(0, Math.min(laneLen, relTarget));
+    let peakY = Math.round(rel);
+    let y0 = Math.max(0, peakY - 8);
+    let y1 = Math.min(laneLen, peakY + 8);
+    try {
+      const prof = laneProfile(sampleLane(plane, lane, s.polarity));
+      const fit = refitBandNear(prof, rel, 14, { minProminence: s.prominence });
+      if (fit) { peakY = Math.round(fit.index); y0 = Math.round(fit.y0); y1 = Math.round(fit.y1); }
+    } catch { /* keep the default width if profile sampling fails */ }
+
+    const laneItem = allLanesAnalysis.find(a => a.lane.id === laneId);
+    const currentBands = bandMap[laneId] || (laneItem?.metrics.map((m, i) => ({
+      id: m.bandId || `b-${Math.round(m.peakY ?? 0)}-${i}`,
+      y0: m.y0 ?? Math.max(0, (m.peakY ?? 0) - 5),
+      y1: m.y1 ?? (m.peakY ?? 0) + 5,
+      peakY: m.peakY ?? 0,
+    })) || []);
+
+    const updated = moveId
+      ? currentBands.map(b => (b.id === moveId ? { ...b, peakY, y0, y1 } : b))
+      : [...currentBands.filter(b => Math.abs((b.peakY ?? 0) - peakY) > 2), {
+          id: `band-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          peakY, y0, y1,
+        }];
+    setBandMap(prev => ({ ...prev, [laneId]: updated.sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0)) }));
+  }
+
+  /** Re-run band detection on the selected lane (replaces the current band set). */
+  function handleAutoFindBands() {
+    if (!selectedLane || !plane) return;
+    const prof = laneProfile(sampleLane(plane, selectedLane, s.polarity));
+    const peaks = detectBands(prof, { minProminence: s.prominence });
+    setBandMap(prev => ({
+      ...prev,
+      [selectedLane.id]: toBands(peaks).sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0)),
+    }));
+  }
+
   // Click on Profile SVG (curve or physical lane strip) to add/select/remove bands
   function handleProfileSvgClick(e: MouseEvent) {
     if (!selectedLane || !plane) return;
@@ -1281,42 +1904,42 @@ export default function GelView() {
     const rect = svg.getBoundingClientRect();
     const xRatio = (e.clientX - rect.left) / rect.width;
     const yRatio = (e.clientY - rect.top) / rect.height;
+    // viewBox is "0 0 500 280" — map client Y by the viewBox height (was 320, which offset every click).
     const svgX = xRatio * 500;
-    const svgY = yRatio * 320;
+    const svgY = yRatio * 280;
 
-    // Interactive band addition area: x in [40, 480], y in [15, 248]
-    if (svgX >= 38 && svgX <= 482 && svgY >= 15 && svgY <= 248) {
+    // Interactive band area: x in [40, 480], y in [15, 195] (the curve region above the lane strip).
+    if (svgX >= 38 && svgX <= 482 && svgY >= 15 && svgY <= 195) {
       const frac = Math.max(0, Math.min(1, (svgX - 40) / 440));
       const laneLen = selectedLane.y1 - selectedLane.y0;
-      const targetY = Math.round(selectedLane.y0 + frac * laneLen);
+      const relTarget = frac * laneLen; // lane-relative (0 = top, laneLen = bottom)
 
       const currentBands = bandMap[selectedLane.id] || (laneAnalysis?.metrics.map(m => ({
         id: m.bandId,
-        y0: (m.peakY ?? targetY) - 8,
-        y1: (m.peakY ?? targetY) + 8,
-        peakY: m.peakY ?? targetY,
+        y0: Math.max(0, (m.peakY ?? relTarget) - 8),
+        y1: (m.peakY ?? relTarget) + 8,
+        peakY: m.peakY ?? relTarget,
       })) || []);
+      const existing = currentBands.find(b => Math.abs((b.peakY ?? 0) - relTarget) <= 8);
 
-      const existing = currentBands.find(b => Math.abs((b.peakY ?? 0) - targetY) <= 8);
+      // Ctrl/Cmd/Alt + click: remove the band (matches the ✕ badge and table).
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        if (existing) removePeakFromLane(selectedLane.id, existing.id);
+        return;
+      }
+      // Shift + click: always ADD a new band at this position (auto-fitted to the nearest peak).
+      if (e.shiftKey) {
+        placeBandAt(selectedLane.id, relTarget);
+        return;
+      }
+      // Plain click: if on a band, MOVE it here (auto-fit to the real peak); otherwise ADD one.
       if (existing) {
-        if (e.ctrlKey || e.metaKey || e.altKey) {
-          removePeakFromLane(selectedLane.id, existing.id);
-        } else {
-          set({ refBandId: existing.id });
-        }
+        placeBandAt(selectedLane.id, relTarget, existing.id);
       } else {
-        const newBand: Band = {
-          id: `band-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          y0: Math.max(0, targetY - 8),
-          y1: Math.min(plane.height, targetY + 8),
-          peakY: targetY,
-        };
-        const updated = [...currentBands, newBand].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
-        setBandMap(prev => ({ ...prev, [selectedLane.id]: updated }));
+        placeBandAt(selectedLane.id, relTarget);
       }
     }
   }
-
   // Canvas helper: get gel pixel coordinates from mouse event
   function getCanvasCoords(e: MouseEvent): { x: number; y: number } {
     const canvas = canvasRef.current;
@@ -1416,19 +2039,28 @@ export default function GelView() {
 
       bList.forEach((band) => {
         if (band.peakY !== undefined) {
-          ctx.strokeStyle = isSelected ? '#2563eb' : isLadder ? '#d97706' : '#94a3b8';
-          ctx.lineWidth = isSelected ? 2 : 1.5;
+          const drawY = (l.y0 ?? 0) + band.peakY;
+          const isRef = band.bandId === s.refBandId || (band as { id?: string }).id === s.refBandId;
+          ctx.strokeStyle = isRef ? '#10b981' : isSelected ? '#2563eb' : isLadder ? '#d97706' : '#94a3b8';
+          ctx.lineWidth = isRef ? 2.5 : isSelected ? 2 : 1.5;
           ctx.setLineDash([]);
           ctx.beginPath();
-          ctx.moveTo(l.x - half, band.peakY);
-          ctx.lineTo(l.x + half, band.peakY);
+          ctx.moveTo(l.x - half, drawY);
+          ctx.lineTo(l.x + half, drawY);
           ctx.stroke();
 
           // Band peak handle dot
-          ctx.fillStyle = isSelected ? '#2563eb' : '#64748b';
+          ctx.fillStyle = isRef ? '#10b981' : isSelected ? '#2563eb' : '#64748b';
           ctx.beginPath();
-          ctx.arc(l.x, band.peakY, isSelected ? 3 : 2, 0, 2 * Math.PI);
+          ctx.arc(l.x, drawY, isRef ? 3.5 : isSelected ? 3 : 2, 0, 2 * Math.PI);
           ctx.fill();
+
+          // If this is the active reference band, show a neat [Ref] tag
+          if (isRef) {
+            ctx.font = 'bold 9px sans-serif';
+            ctx.fillStyle = '#10b981';
+            ctx.fillText('Ref', l.x - half - 20, drawY + 3);
+          }
 
           // MW annotation text if calibrated
           if (showMwLabels && calibration) {
@@ -1436,11 +2068,11 @@ export default function GelView() {
             if (sz !== null) {
               const text = formatSize(sz, activeLadder.kind);
               ctx.font = 'bold 10px sans-serif';
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+              ctx.fillStyle = isRef ? 'rgba(6, 78, 59, 0.85)' : 'rgba(0, 0, 0, 0.75)';
               const txtW = ctx.measureText(text).width;
-              ctx.fillRect(l.x + half + 2, band.peakY - 7, txtW + 4, 14);
+              ctx.fillRect(l.x + half + 2, drawY - 7, txtW + 4, 14);
               ctx.fillStyle = '#ffffff';
-              ctx.fillText(text, l.x + half + 4, band.peakY + 4);
+              ctx.fillText(text, l.x + half + 4, drawY + 4);
             }
           }
 
@@ -1452,9 +2084,9 @@ export default function GelView() {
               ctx.font = 'bold 9px sans-serif';
               ctx.fillStyle = 'rgba(5, 150, 105, 0.85)';
               const txtW = ctx.measureText(text).width;
-              ctx.fillRect(l.x - half - txtW - 6, band.peakY - 7, txtW + 4, 14);
+              ctx.fillRect(l.x - half - txtW - 6, drawY - 7, txtW + 4, 14);
               ctx.fillStyle = '#ffffff';
-              ctx.fillText(text, l.x - half - txtW - 4, band.peakY + 4);
+              ctx.fillText(text, l.x - half - txtW - 4, drawY + 4);
             }
           }
         }
@@ -1493,6 +2125,19 @@ export default function GelView() {
       ctx.restore();
     }
   }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.minClip, s.maxClip, s.gamma, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders, s.viewTab]);
+
+  // Print root mirror: identical render into the print-only canvas (PDF export via print stylesheet).
+  // Runs exactly when the on-screen canvas is redrawn — never on unrelated re-renders.
+  useEffect(() => {
+    const src = canvasRef.current;
+    const dst = printCanvasRef.current;
+    if (!src || !dst || !plane) return;
+    dst.width = src.width;
+    dst.height = src.height;
+    const ctx = dst.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(src, 0, 0);
+  }, [plane, lanes, selectedLane, allLanesAnalysis, s.brightness, s.contrast, s.invertDisplay, s.minClip, s.maxClip, s.gamma, s.ladderLaneId, calibration, activeLadder, isCropping, cropBox, laneLabels, showMwLabels, showLaneHeaders]);
 
   // Mouse Interaction: Shift-click to add line, narrow border hitbox to resize, whole body to move
   function handleMouseDown(e: MouseEvent) {
@@ -1699,40 +2344,39 @@ export default function GelView() {
 
     setSelectedLaneId(clickedLane.id);
 
+    // Lane-relative click position (band peakY/y0/y1 are stored relative to the lane top).
+    const relClick = Math.max(0, Math.min(clickedLane.y1 - clickedLane.y0, clickY - clickedLane.y0));
+
     // Current bands for this lane
     const currentBands = bandMap[clickedLane.id] || (() => {
       const analysisItem = allLanesAnalysis.find(a => a.lane.id === clickedLane!.id);
       return analysisItem?.metrics.map(m => ({
         id: m.bandId,
-        y0: (m.peakY ?? clickY) - 8,
-        y1: (m.peakY ?? clickY) + 8,
-        peakY: m.peakY ?? clickY,
+        y0: m.y0 ?? Math.max(0, (m.peakY ?? relClick) - 8),
+        y1: m.y1 ?? (m.peakY ?? relClick) + 8,
+        peakY: m.peakY ?? relClick,
       })) || [];
     })();
 
     // Check if clicked near an existing band peak
-    const existingBandIdx = currentBands.findIndex(b => Math.abs((b.peakY ?? (b.y0 + b.y1) / 2) - clickY) <= 8);
+    const existingBandIdx = currentBands.findIndex(b => Math.abs((b.peakY ?? (b.y0 + b.y1) / 2) - relClick) <= 8);
 
     if (existingBandIdx !== -1) {
       const existingBand = currentBands[existingBandIdx]!;
-      // Ctrl+click or Alt+click removes band
       if (e.ctrlKey || e.metaKey || e.altKey) {
-        const updated = currentBands.filter((_, idx) => idx !== existingBandIdx);
-        setBandMap(prev => ({ ...prev, [clickedLane!.id]: updated }));
+        // Ctrl/Cmd/Alt + click: remove the band.
+        setBandMap(prev => ({ ...prev, [clickedLane!.id]: currentBands.filter((_, idx) => idx !== existingBandIdx) }));
+        if (s.refBandId === existingBand.id) set({ refBandId: '' });
+      } else if (e.shiftKey) {
+        // Shift + click: add a NEW band here (auto-fitted to the real peak).
+        placeBandAt(clickedLane!.id, relClick);
       } else {
-        // Normal click sets reference band
-        set({ refBandId: existingBand.id });
+        // Plain click on an existing band: set or toggle reference band (synced with profile curve)
+        set({ refBandId: s.refBandId === existingBand.id ? '' : existingBand.id });
       }
     } else {
-      // Click in lane adds a new band at this position!
-      const newBand: Band = {
-        id: `band-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        y0: Math.max(0, clickY - 8),
-        y1: Math.min(plane.height, clickY + 8),
-        peakY: Math.round(clickY),
-      };
-      const updated = [...currentBands, newBand].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
-      setBandMap(prev => ({ ...prev, [clickedLane!.id]: updated }));
+      // No band here: add one at this position (auto-fitted).
+      placeBandAt(clickedLane!.id, relClick);
     }
   }
 
@@ -1770,50 +2414,158 @@ export default function GelView() {
     }, 'image/png');
   }
 
+  /** Rasterise the raw plane through the same display pipeline as the on-screen renderer. */
+  function rasterizeDisplay(): HTMLCanvasElement | null {
+    if (!plane) return null;
+    const out = applyDisplayTransform(plane.data, {
+      brightness: s.brightness,
+      contrast: s.contrast,
+      minClip: s.minClip ?? 0,
+      maxClip: s.maxClip ?? 1,
+      gamma: s.gamma ?? 1,
+      invert: s.invertDisplay,
+    });
+    const cnv = document.createElement('canvas');
+    cnv.width = plane.width;
+    cnv.height = plane.height;
+    const ctx = cnv.getContext('2d');
+    if (!ctx) return null;
+    const img = ctx.createImageData(plane.width, plane.height);
+    for (let i = 0; i < out.length; i++) {
+      const byte = Math.round(out[i]! * 255);
+      img.data[i * 4] = byte;
+      img.data[i * 4 + 1] = byte;
+      img.data[i * 4 + 2] = byte;
+      img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return cnv;
+  }
+
+  /** Resolved band annotations (formatted text) shared by the SVG and print exports. */
+  function resolvedBands(): BandAnnotation[] {
+    const out: BandAnnotation[] = [];
+    for (const item of allLanesAnalysis) {
+      for (const m of item.metrics) {
+        if (m.peakY === undefined) continue;
+        out.push({
+          laneId: item.lane.id,
+          y: (item.lane.y0 ?? 0) + m.peakY,
+          sizeText: showMwLabels && calibration && m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : null,
+          massText: s.showMassLabels && massCalibration && m.massEst !== null ? formatMass(m.massEst, massCalibration.unit) : null,
+        });
+      }
+    }
+    return out;
+  }
+
+  /** SVG export: embedded image + every annotation as vector text (spec §6). */
+  function handleExportSvg() {
+    if (!plane) return;
+    const cnv = rasterizeDisplay();
+    if (!cnv) return;
+    const method = activeLadder.kind === 'protein' ? 'protein' : 'DNA';
+    const subtitle = `${plane.width} × ${plane.height} px · Bio-Bench vector export · ${new Date().toISOString().slice(0, 10)}`;
+    const svg = buildGelSvg({
+      width: plane.width,
+      height: plane.height,
+      imageDataUrl: cnv.toDataURL('image/png'),
+      display: { brightness: s.brightness, contrast: s.contrast, minClip: s.minClip ?? 0, maxClip: s.maxClip ?? 1, gamma: s.gamma ?? 1, invert: s.invertDisplay },
+      lanes,
+      laneLabels,
+      ladderLaneId: s.ladderLaneId,
+      selectedLaneId: selectedLane?.id ?? null,
+      showHeaders: showLaneHeaders,
+      showMwLabels,
+      showMassLabels: s.showMassLabels,
+      bands: resolvedBands(),
+      title: gelTitle,
+      subtitle,
+      footnote: `Quantification: raw-pixel densitometry with ${s.bgMethod} baseline; ${method} ladder calibration (${s.calibMethod}); compare bands within one gel only.`,
+    });
+    downloadText(svg, `${imageName.replace(/\.[^/.]+$/, '')}_annotated.svg`, 'image/svg+xml;charset=utf-8');
+  }
+
+  /** PDF export via the print stylesheet (spec §6): the print root renders the annotated image at 100 %. */
+  function handlePrintGel() {
+    window.print();
+  }
+
   // Lane Management
   function handleAddLane() {
     if (!plane) return;
-    const lastLane = lanes[lanes.length - 1];
-    const newX = lastLane ? Math.min(plane.width - 25, lastLane.x + 50) : 50;
+    const refLane = lanes[lanes.length - 1] || lanes[0];
+    const newX = refLane ? Math.min(plane.width - 25, refLane.x + (refLane.width || 50)) : Math.round(plane.width / 4);
     const newLane: Lane = {
       id: `lane-${Date.now()}`,
       x: newX,
-      width: lastLane ? lastLane.width : 50,
-      y0: 0,
-      y1: plane.height,
-      tilt: 0,
+      width: refLane ? refLane.width : Math.max(20, Math.round(plane.width / 8)),
+      y0: refLane ? refLane.y0 : 0,
+      y1: refLane ? refLane.y1 : plane.height,
+      tilt: refLane ? refLane.tilt : 0,
     };
-    setLanes([...lanes, newLane]);
+    const updated = [...lanes, newLane];
+    setLanes(updated);
     setSelectedLaneId(newLane.id);
+    if (!s.ladderLaneId || !lanes.some(l => l.id === s.ladderLaneId)) {
+      set({ ladderLaneId: newLane.id });
+    }
   }
 
   function handleAutoLanes() {
     if (!plane) return;
     const currentIdx = lanes.findIndex(l => l.id === selectedLaneId);
+    const ladderIdx = lanes.findIndex(l => l.id === s.ladderLaneId);
+    const loadingRefIdx = s.loadingRefLaneId ? lanes.findIndex(l => l.id === s.loadingRefLaneId) : -1;
+    const massLaneIdx = s.massLaneId ? lanes.findIndex(l => l.id === s.massLaneId) : -1;
     const detected = autoLanes(plane, { x: 0, y: 0, w: plane.width, h: plane.height }, s.polarity);
     setLanes(detected);
+    // Lanes get new ids, so drop stale per-lane band annotations (they re-detect on the fly).
+    setBandMap({});
     if (detected.length > 0) {
       const keepIdx = currentIdx >= 0 && currentIdx < detected.length ? currentIdx : 0;
       setSelectedLaneId(detected[keepIdx]!.id);
+      const keepLadderIdx = ladderIdx >= 0 && ladderIdx < detected.length ? ladderIdx : 0;
+      set({
+        ladderLaneId: detected[keepLadderIdx]!.id,
+        loadingRefLaneId: loadingRefIdx >= 0 && loadingRefIdx < detected.length ? detected[loadingRefIdx]!.id : '',
+        massLaneId: massLaneIdx >= 0 && massLaneIdx < detected.length ? detected[massLaneIdx]!.id : '',
+      });
     }
   }
 
   function handleEqualLanes() {
     if (!plane) return;
     const currentIdx = lanes.findIndex(l => l.id === selectedLaneId);
+    const ladderIdx = lanes.findIndex(l => l.id === s.ladderLaneId);
+    const loadingRefIdx = s.loadingRefLaneId ? lanes.findIndex(l => l.id === s.loadingRefLaneId) : -1;
+    const massLaneIdx = s.massLaneId ? lanes.findIndex(l => l.id === s.massLaneId) : -1;
     const eq = equalLanes(numLanesInput, { x: 0, y: 0, w: plane.width, h: plane.height });
     setLanes(eq);
     if (eq.length > 0) {
       const keepIdx = currentIdx >= 0 && currentIdx < eq.length ? currentIdx : 0;
       setSelectedLaneId(eq[keepIdx]!.id);
+      const keepLadderIdx = ladderIdx >= 0 && ladderIdx < eq.length ? ladderIdx : 0;
+      set({
+        ladderLaneId: eq[keepLadderIdx]!.id,
+        loadingRefLaneId: loadingRefIdx >= 0 && loadingRefIdx < eq.length ? eq[loadingRefIdx]!.id : '',
+        massLaneId: massLaneIdx >= 0 && massLaneIdx < eq.length ? eq[massLaneIdx]!.id : '',
+      });
     }
   }
 
   function handleDeleteSelectedLane() {
-    if (!selectedLane || lanes.length <= 1) return;
+    if (!selectedLane) return;
     const updated = lanes.filter(l => l.id !== selectedLane.id);
     setLanes(updated);
-    if (updated.length > 0) setSelectedLaneId(updated[0]!.id);
+    if (updated.length > 0) {
+      setSelectedLaneId(updated[0]!.id);
+      if (s.ladderLaneId === selectedLane.id) set({ ladderLaneId: updated[0]!.id });
+    } else {
+      setSelectedLaneId('');
+      setBandMap({});
+      set({ ladderLaneId: '', refBandId: '', loadingRefLaneId: '', massLaneId: '' });
+    }
   }
 
   function handleClearAllLanes() {
@@ -1890,6 +2642,7 @@ export default function GelView() {
   }
 
   return (
+    <>
     <ToolLayout
       icon="🧬"
       title="Gel & Blot Analysis"
@@ -2371,7 +3124,9 @@ export default function GelView() {
             <div>
               <div class="flex justify-between text-xs text-slate-500 mb-1">
                 <span>Band Sensitivity</span>
-                <span>{(s.prominence * 100).toFixed(0)}%</span>
+                <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">
+                  {s.prominence <= 0.03 ? 'Very High (Faint bands)' : s.prominence <= 0.08 ? 'Standard' : 'Strict (Major bands)'} ({(s.prominence * 100).toFixed(0)}%)
+                </span>
               </div>
               <input
                 type="range"
@@ -2379,9 +3134,18 @@ export default function GelView() {
                 max="0.30"
                 step="0.01"
                 value={s.prominence}
-                onInput={(e) => set({ prominence: parseFloat((e.target as HTMLInputElement).value) })}
-                class="w-full accent-accent-600"
+                onInput={(e) => {
+                  const val = parseFloat((e.target as HTMLInputElement).value);
+                  set({ prominence: val });
+                  setBandMap({});
+                }}
+                class="w-full accent-accent-600 cursor-pointer"
+                title="Slide left for high sensitivity (faint bands), right for strict (strong bands only)"
               />
+              <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                <span>◀ High Sensitivity (Faint)</span>
+                <span>Strict (Strong Only) ▶</span>
+              </div>
             </div>
           </details>
 
@@ -2518,6 +3282,7 @@ export default function GelView() {
                 {lanes.map((l, i) => {
                   const isSel = l.id === selectedLane?.id;
                   const isLadder = l.id === s.ladderLaneId;
+                  const isLoadingRef = l.id === s.loadingRefLaneId;
                   const customName = laneLabels[l.id];
                   return (
                     <button
@@ -2529,10 +3294,12 @@ export default function GelView() {
                           ? 'bg-accent-600 text-white shadow-xs'
                           : isLadder
                             ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                            : isLoadingRef
+                              ? 'bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-200'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                       }`}
                     >
-                      {customName ? `L${i + 1}: ${customName}` : `L${i + 1}`}{isLadder ? ' 🏷️' : ''}
+                      {customName ? `L${i + 1}: ${customName}` : `L${i + 1}`}{isLadder ? ' 🏷️' : ''}{isLoadingRef ? ' ⚖️' : ''}
                     </button>
                   );
                 })}
@@ -2553,6 +3320,23 @@ export default function GelView() {
                   class="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg dark:bg-slate-800 dark:hover:bg-slate-700 transition"
                 >
                   Auto-Find Lanes
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAutoFindBands}
+                  disabled={!selectedLane}
+                  class="px-2.5 py-1 text-xs font-medium bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 rounded-lg transition disabled:opacity-50"
+                  title="Re-detect bands in the selected lane using the current prominence"
+                >
+                  ✨ Auto-Find Bands
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBandMap({})}
+                  class="px-2.5 py-1 text-xs font-medium bg-amber-100/60 hover:bg-amber-200/60 text-amber-800 dark:bg-amber-900/40 dark:hover:bg-amber-800/50 dark:text-amber-200 rounded-lg transition"
+                  title="Reset manually edited bands and re-detect across all lanes using current prominence"
+                >
+                  ✨ Re-detect All Bands
                 </button>
                 <button
                   type="button"
@@ -2702,6 +3486,22 @@ export default function GelView() {
             >
               📥 Export Annotated Gel (PNG)
             </button>
+            <button
+              type="button"
+              onClick={handleExportSvg}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
+              title="Vector export: annotations stay crisp text at any zoom"
+            >
+              📐 Export SVG
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintGel}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
+              title="Print or save as PDF via the print stylesheet"
+            >
+              🖨️ Print / PDF
+            </button>
           </div>
 
           {/* TAB 1: Gel Image & Interactive Lane Profile */}
@@ -2809,28 +3609,94 @@ export default function GelView() {
 
               {/* Densitometry Profile Card for Active Lane */}
               <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
-                  <div>
-                    <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                      Densitometry Profile — Lane {selectedLaneIdx + 1}
-                    </h3>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2.5 dark:border-slate-800">
+                  <div class="space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        Densitometry Profile — Lane {selectedLaneIdx + 1}
+                      </h3>
+                      {selectedLane && selectedLane.id === s.ladderLaneId && (
+                        <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          🏷️ Standard Ladder Lane
+                        </span>
+                      )}
+                      {selectedLane && selectedLane.id === s.loadingRefLaneId && (
+                        <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                          ⚖️ Loading Ref
+                        </span>
+                      )}
+                      {selectedLane && selectedLane.id === s.massLaneId && (
+                        <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                          📊 Mass Std
+                        </span>
+                      )}
+                    </div>
                     <p class="text-xs text-slate-500">
                       Migration distance $Y$ (top → bottom) vs band optical density & physical lane strip
                     </p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500">
+                      Click a band to set ref/move · <kbd class="font-mono">Shift</kbd>+Click to add ·{' '}
+                      <kbd class="font-mono">Ctrl</kbd>/<kbd class="font-mono">Cmd</kbd>+Click to remove — bands auto-fit to the real peak
+                    </p>
                   </div>
-                  <div class="flex items-center gap-3 text-xs">
-                    <span class="flex items-center gap-1.5 font-medium text-accent-600">
-                      <span class="w-3 h-0.5 bg-accent-600 rounded"></span> Signal
-                    </span>
-                    <span class="flex items-center gap-1.5 font-medium text-amber-500">
-                      <span class="w-3 h-0.5 bg-amber-500 rounded border-t border-dashed"></span> Baseline
-                    </span>
+
+                  <div class="flex flex-wrap items-center gap-3 text-xs">
+                    {selectedLane && (
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        {selectedLane.id === s.ladderLaneId ? (
+                          <button
+                            type="button"
+                            onClick={() => set({ ladderLaneId: '' })}
+                            class="px-2 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+                            title="Unset standard ladder designation"
+                          >
+                            ✕ Unset Ladder
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => set({ ladderLaneId: selectedLane.id })}
+                            class="px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition shadow-2xs"
+                            title="Set this lane as the Molecular Weight Standard Ladder"
+                          >
+                            ⭐ Set as Standard Ladder
+                          </button>
+                        )}
+                        {selectedLane.id === s.loadingRefLaneId ? (
+                          <button
+                            type="button"
+                            onClick={() => set({ loadingRefLaneId: '' })}
+                            class="px-2 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+                            title="Unset loading reference designation"
+                          >
+                            ✕ Unset Loading Ref
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => set({ loadingRefLaneId: selectedLane.id })}
+                            class="px-2 py-1 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition shadow-2xs"
+                            title="Set this lane as the Loading Reference"
+                          >
+                            ⚖️ Set as Loading Ref
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-2">
+                      <span class="flex items-center gap-1.5 font-medium text-accent-600">
+                        <span class="w-3 h-0.5 bg-accent-600 rounded"></span> Signal
+                      </span>
+                      <span class="flex items-center gap-1.5 font-medium text-amber-500">
+                        <span class="w-3 h-0.5 bg-amber-500 rounded border-t border-dashed"></span> Baseline
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {laneAnalysis && laneAnalysis.profile.length > 0 ? (
                   <div class="space-y-3">
-                    <svg viewBox="0 0 500 250" onClick={handleProfileSvgClick} class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none cursor-crosshair">
+                    <svg viewBox="0 0 500 280" onClick={handleProfileSvgClick} class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 select-none cursor-crosshair">
                       {/* Grid Lines */}
                       <line x1="40" y1="20" x2="40" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
                       <line x1="40" y1="180" x2="480" y2="180" stroke="#94a3b8" stroke-width="1" stroke-opacity="0.3" />
@@ -2931,12 +3797,12 @@ export default function GelView() {
                               stroke-width="2"
                             />
 
-                            {/* Bottom alignment tick line pointing from lane strip (does not cross image) */}
+                            {/* Bottom alignment tick line pointing from lane strip down to the remove badge (does not cross image) */}
                             <line
                               x1={px}
                               y1="242"
                               x2={px}
-                              y2="247"
+                              y2="257"
                               stroke={isRef ? '#10b981' : '#ef4444'}
                               stroke-width="2"
                             />
@@ -2949,7 +3815,38 @@ export default function GelView() {
                               #{m.number}
                             </text>
 
-
+                            {/* Remove-band (✕) badge in a dedicated row beneath the physical lane strip,
+                                centred on this band's peak. Kept off the strip itself so the gel bands
+                                stay clean and easy to read; click to remove the band (Ctrl/Cmd+Click on
+                                the marker above still works). */}
+                            <g
+                              class="cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (selectedLane) removePeakFromLane(selectedLane.id, m.bandId);
+                              }}
+                              title={`Remove Band #${m.number} from Lane ${selectedLaneIdx + 1}`}
+                            >
+                              <circle
+                                cx={px}
+                                cy="265"
+                                r="8.5"
+                                fill="rgba(15, 23, 42, 0.72)"
+                                stroke={isRef ? '#10b981' : '#f87171'}
+                                stroke-width="1.2"
+                              />
+                              <text
+                                x={px}
+                                y="268.6"
+                                font-size="10"
+                                font-weight="bold"
+                                text-anchor="middle"
+                                fill={isRef ? '#a7f3d0' : '#fecaca'}
+                                class="pointer-events-none"
+                              >
+                                ✕
+                              </text>
+                            </g>
                           </g>
                         );
                       })}
@@ -2997,32 +3894,53 @@ export default function GelView() {
                               </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                              {laneAnalysis.metrics.map(m => {
-                                const isRef = m.bandId === s.refBandId;
-                                const peakIdx = Math.min(laneAnalysis.profile.length - 1, Math.round(m.peakY ?? 0));
-                                const peakVal = laneAnalysis.profile[peakIdx] ?? 0;
-                                return (
-                                  <tr
-                                    key={m.bandId}
-                                    class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
-                                      isRef ? 'bg-emerald-50/60 dark:bg-emerald-950/25' : ''
-                                    }`}
-                                  >
-                                    <td class="px-3 py-2 font-bold">
-                                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px]">
-                                        {m.number}
-                                      </span>
-                                    </td>
-                                    <td class="px-3 py-2 mono text-slate-600 dark:text-slate-400">
-                                      {m.peakY !== undefined ? `${m.peakY.toFixed(1)} px` : '-'}
-                                    </td>
-                                    <td class="px-3 py-2 font-bold text-accent-600 dark:text-accent-400">
-                                      {m.sizeEst ? (
-                                        formatSize(m.sizeEst, activeLadder.kind)
-                                      ) : (
-                                        <span class="text-slate-400 font-normal">Uncalibrated</span>
-                                      )}
-                                    </td>
+                              {(() => {
+                                const isLadderLane = selectedLane?.id === s.ladderLaneId;
+                                const sortedLadderSizes = [...activeLadder.sizes].sort((a, b) => b - a);
+                                const sortedLaneMetrics = isLadderLane
+                                  ? [...laneAnalysis.metrics].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0))
+                                  : [];
+                                return laneAnalysis.metrics.map(m => {
+                                  const isRef = m.bandId === s.refBandId;
+                                  const peakIdx = Math.min(laneAnalysis.profile.length - 1, Math.round(m.peakY ?? 0));
+                                  const peakVal = laneAnalysis.profile[peakIdx] ?? 0;
+                                  const ladderBandIdx = isLadderLane ? sortedLaneMetrics.findIndex(p => p.bandId === m.bandId) : -1;
+                                  const nominalStdSize = (isLadderLane && ladderBandIdx >= 0 && ladderBandIdx < sortedLadderSizes.length)
+                                    ? sortedLadderSizes[ladderBandIdx]
+                                    : null;
+                                  return (
+                                    <tr
+                                      key={m.bandId}
+                                      class={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition ${
+                                        isRef ? 'bg-emerald-50/60 dark:bg-emerald-950/25' : ''
+                                      }`}
+                                    >
+                                      <td class="px-3 py-2 font-bold">
+                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px]">
+                                          {m.number}
+                                        </span>
+                                      </td>
+                                      <td class="px-3 py-2 mono text-slate-600 dark:text-slate-400">
+                                        {m.peakY !== undefined ? `${m.peakY.toFixed(1)} px` : '-'}
+                                      </td>
+                                      <td class="px-3 py-2">
+                                        {nominalStdSize != null ? (
+                                          <div class="flex items-center gap-1.5">
+                                            <span class="font-bold text-accent-600 dark:text-accent-400">
+                                              {formatSize(nominalStdSize, activeLadder.kind)}
+                                            </span>
+                                            <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                              Std Ladder
+                                            </span>
+                                          </div>
+                                        ) : m.sizeEst ? (
+                                          <span class="font-bold text-accent-600 dark:text-accent-400">
+                                            {formatSize(m.sizeEst, activeLadder.kind)}
+                                          </span>
+                                        ) : (
+                                          <span class="text-slate-400 font-normal">Uncalibrated</span>
+                                        )}
+                                      </td>
                                     <td class="px-3 py-2 mono text-right text-slate-600 dark:text-slate-400">
                                       {peakVal.toFixed(3)}
                                     </td>
@@ -3057,10 +3975,11 @@ export default function GelView() {
                                       >
                                         ✕ Remove
                                       </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
                             </tbody>
                           </table>
                         </div>
@@ -3128,7 +4047,73 @@ export default function GelView() {
               </div>
 
               {s.calibSubTab === 'mw' ? (
-                <>
+                <div class="space-y-4">
+                  <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <div>
+                        <span class="text-slate-500 font-medium mr-1.5">Ladder Lane:</span>
+                        <select
+                          value={s.ladderLaneId}
+                          onChange={(e) => set({ ladderLaneId: (e.target as HTMLSelectElement).value })}
+                          class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
+                        >
+                          <option value="">Select standard ladder lane…</option>
+                          {lanes.map((l, i) => (
+                            <option key={l.id} value={l.id}>
+                              Lane {i + 1}{laneLabels[l.id] ? ` (${laneLabels[l.id]})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span class="text-slate-500 font-medium mr-1.5">Ladder Preset:</span>
+                        <select
+                          value={s.ladderId}
+                          onChange={(e) => set({ ladderId: (e.target as HTMLSelectElement).value })}
+                          class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
+                        >
+                          <optgroup label="Built-in Standard Ladders">
+                            {LADDERS.map(l => (
+                              <option key={l.id} value={l.id}>{l.name} [{l.kind.toUpperCase()}]</option>
+                            ))}
+                          </optgroup>
+                          {customLadders.length > 0 && (
+                            <optgroup label="Custom Uploaded Ladders">
+                              {customLadders.map(l => (
+                                <option key={l.id} value={l.id}>⭐ {l.name} [{l.kind.toUpperCase()}]</option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span class="text-slate-500 font-medium mr-1.5">Regression Model:</span>
+                        <select
+                          value={s.calibMethod}
+                          onChange={(e) => set({ calibMethod: (e.target as HTMLSelectElement).value as 'linear' | 'piecewise' | 'spline' })}
+                          class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
+                        >
+                          <option value="piecewise">Piecewise Log-Linear</option>
+                          <option value="linear">Global Log-Linear (y = mx + b)</option>
+                          <option value="spline">Monotonic Cubic Spline</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {calibration && (
+                      <div class="flex items-center gap-3 font-mono">
+                        <span class="text-slate-600 dark:text-slate-400 font-semibold">
+                          {calibration.points.length} standards paired
+                        </span>
+                        {calibration.r2 !== undefined && (
+                          <span class="text-emerald-600 font-bold">R² = {calibration.r2.toFixed(4)}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {calibration && calibration.points.length >= 2 ? (
                     <div class="space-y-4">
                       <svg viewBox="0 0 600 320" class="w-full h-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
@@ -3228,7 +4213,7 @@ export default function GelView() {
                       Please select a standard ladder lane with at least 2 detected bands in the left sidebar to plot the molecular weight calibration curve.
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 /* Mass / Densitometry Sub-Tab */
                 <div class="space-y-4">
@@ -3612,13 +4597,21 @@ export default function GelView() {
                     </div>
                   </div>
 
-                  {/* Loading Chart */}
+                  {/* Loading Chart — wired to the shared reference lane so the chart, its own
+                      "Ref Loading Lane" dropdown, and the table below all stay in sync. */}
                   <BandQuantChart
                     analysis={allLanesAnalysis}
                     ladderKind={activeLadder.kind}
                     laneLabels={laneLabels}
                     selectedLaneId={selectedLane?.id}
                     onSelectLane={setSelectedLaneId}
+                    ladderLaneId={effectiveLadderLaneId}
+                    ladderSizes={activeLadder.sizes}
+                    initialMode="loading"
+                    loadingRefLaneId={s.loadingRefLaneId}
+                    onSetLoadingRefLane={(laneId) => set({ loadingRefLaneId: laneId })}
+                    plane={plane ?? undefined}
+                    display={plane ? { minClip: s.minClip, maxClip: s.maxClip, gamma: s.gamma, contrast: s.contrast, brightness: s.brightness, invert: s.invertDisplay } : undefined}
                   />
 
                   {/* Whole-Lane Loading Table with Extracted Gel Strips */}
@@ -3757,6 +4750,10 @@ export default function GelView() {
                     laneLabels={laneLabels}
                     selectedLaneId={selectedLane?.id}
                     onSelectLane={setSelectedLaneId}
+                    ladderLaneId={effectiveLadderLaneId}
+                    ladderSizes={activeLadder.sizes}
+                    plane={plane ?? undefined}
+                    display={plane ? { minClip: s.minClip, maxClip: s.maxClip, gamma: s.gamma, contrast: s.contrast, brightness: s.brightness, invert: s.invertDisplay } : undefined}
                   />
 
                   {quantLayoutMode === 'cards' ? (
@@ -4072,5 +5069,25 @@ export default function GelView() {
       }
       science={<SciencePanel science={SCIENCE} />}
     />
+      {/* Print/PDF export root: visible only in print, shows the annotated image at 100 % with title + method.
+          The inline display:none is a belt-and-suspenders guard: even a stale or partial stylesheet that
+          lacks the `.print-only { display: none }` rule can never render this mirrored canvas on screen.
+          The @media print rule (display:block !important) still wins over the inline style when printing. */}
+      <div class="print-only" style={{ display: 'none' }}>
+        {plane && (
+          <div style="margin: 0 auto; text-align: center; font-family: Helvetica, Arial, sans-serif;">
+            <div style="font-size: 18px; font-weight: bold; margin: 12px 0 4px;">{gelTitle || 'Gel export'}</div>
+            <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
+              {plane.width} × {plane.height} px · {new Date().toISOString().slice(0, 10)} · Bio-Bench
+            </div>
+            <canvas ref={printCanvasRef} style="max-width: 100%; height: auto; border: 1px solid #e2e8f0;" />
+            <div style="font-size: 10px; color: #475569; margin-top: 8px;">
+              Quantification: raw-pixel densitometry with {s.bgMethod} baseline; {activeLadder.kind === 'protein' ? 'protein' : 'DNA'} ladder
+              calibration ({s.calibMethod}); compare bands within one gel only.
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

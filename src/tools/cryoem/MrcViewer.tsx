@@ -394,14 +394,11 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
       {/* Top Action Bar & File Loader */}
       <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div>
+          <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
-                Cryo-EM / NS MRC Particle &amp; Volume Viewer
+                MRC Particle &amp; Volume Viewer
               </h2>
-              <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
-                Research Preview
-              </span>
               {onToggleExpand && (
                 <button
                   type="button"
@@ -413,12 +410,12 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                   }`}
                   title={expanded ? "Collapse full width to restore sidebar" : "Expand viewer across full width"}
                 >
-                  {expanded ? "⤢ Collapse Sidebar" : "⤢ Expand Fullscreen"}
+                  {expanded ? "⤡ Collapse" : "⤢ Full width"}
                 </button>
               )}
             </div>
-            <p class="text-xs text-slate-500">
-              Curate 2D class average stacks (.mrcs), inspect 3D orthogonal slices, and generate 3D Maximum Intensity Projections (MIP).
+            <p class="mt-0.5 text-xs text-slate-500">
+              2D class stacks (.mrcs), 3D orthogonal slices, and maximum intensity projections (MIP).
             </p>
           </div>
 
@@ -457,122 +454,87 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           </div>
         </div>
 
-        {/* Research Preview Notice Banner */}
-        <div class="p-3 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
-          <span class="text-base leading-none">⚠️</span>
-          <div class="space-y-0.5">
-            <div class="font-bold text-xs">Research Preview — Active Development</div>
-            <p class="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
-              This is a research preview: a lot of things are here, but they need some work. All outputs, scale bars, contrast adjustments, and 3D projections should be evaluated by a researcher before using it for actual work.
-            </p>
-          </div>
-        </div>
-
         {loadingError && (
           <div role="alert" class="p-3 text-xs rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
             <strong>Error loading file:</strong> {loadingError}
           </div>
         )}
 
-        {/* Header Metadata Badges */}
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-          <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-            <span class="text-slate-400 block text-[11px]">Dimensions (X×Y×Z)</span>
-            <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-              {mrcData.header.nx} × {mrcData.header.ny} × {mrcData.header.nz}
-            </span>
-          </div>
-
-          <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-            <span class="text-slate-400 block text-[11px]">Pixel Size</span>
-            <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-              {mrcData.header.pixelSize.toFixed(3)} Å/px
-            </span>
-          </div>
-
-          <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-            <span class="text-slate-400 block text-[11px]">Mode / Data Type</span>
-            <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-              Mode {mrcData.header.mode} ({mrcData.header.mode === 2 ? "Float32" : mrcData.header.mode === 0 ? "Int8" : "Int16"})
-            </span>
-          </div>
-
-          <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-            <span class="text-slate-400 block text-[11px]">Density Range</span>
-            <span class="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
-              {mrcData.header.dmin.toFixed(2)} to {mrcData.header.dmax.toFixed(2)}
-            </span>
-          </div>
-
-          <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-            <span class="text-slate-400 block text-[11px]">Type Classification</span>
-            <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-              {mrcData.header.is3DVolume ? "3D Density Map" : "2D Particle Stack"}
-            </span>
-          </div>
+        {/* Header metadata — single line, low visual weight */}
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+          <span class="font-mono text-slate-700 dark:text-slate-300">
+            {mrcData.header.nx}×{mrcData.header.ny}×{mrcData.header.nz}
+          </span>
+          <span>{mrcData.header.pixelSize.toFixed(3)} Å/px</span>
+          <span>Mode {mrcData.header.mode}</span>
+          <span>density {mrcData.header.dmin.toFixed(2)}–{mrcData.header.dmax.toFixed(2)}</span>
+          <span class={`font-semibold ${mrcData.header.is3DVolume ? "text-emerald-600 dark:text-emerald-400" : "text-sky-600 dark:text-sky-400"}`}>
+            {mrcData.header.is3DVolume ? "3D Density Map" : "2D Particle Stack"}
+          </span>
         </div>
 
-        {/* View Mode Switcher & Export Actions */}
+        {/* View mode (segmented) + primary export actions */}
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div class="flex flex-wrap items-center gap-1.5">
+          <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800 text-xs font-semibold">
             <button
               type="button"
               onClick={() => setViewMode("gallery")}
-              class={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+              class={`px-3 py-1.5 rounded-md transition ${
                 viewMode === "gallery"
-                  ? "bg-accent-600 text-white shadow-xs"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              2D Particle Gallery ({totalSlices} classes)
+              2D Classes ({totalSlices})
             </button>
             <button
               type="button"
               onClick={() => setViewMode("orthoslice")}
-              class={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+              class={`px-3 py-1.5 rounded-md transition ${
                 viewMode === "orthoslice"
-                  ? "bg-accent-600 text-white shadow-xs"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              3D Orthoslice Scrubber (XY, XZ, YZ)
+              3D Orthoslices
             </button>
             <button
               type="button"
               onClick={() => setViewMode("mip")}
-              class={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+              class={`px-3 py-1.5 rounded-md transition ${
                 viewMode === "mip"
-                  ? "bg-accent-600 text-white shadow-xs"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              3D Maximum Projection (MIP)
+              3D MIP
             </button>
           </div>
 
           {viewMode === "gallery" && (
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowExportOptions(v => !v)}
-                class="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 transition flex items-center gap-1"
+                class="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                aria-expanded={showExportOptions}
               >
-                <span>⚙️ Export Options</span>
-                <span class="text-[10px]">{showExportOptions ? "▲" : "▼"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={exportPublicationPng}
-                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
-              >
-                Export Publication Grid (PNG)
+                <span>Options</span>
+                <span class="text-[10px]" aria-hidden="true">{showExportOptions ? "▲" : "▼"}</span>
               </button>
               <button
                 type="button"
                 onClick={exportSelectedMrcs}
-                class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                class="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
-                Export Selected (.mrcs)
+                Export .mrcs
+              </button>
+              <button
+                type="button"
+                onClick={exportPublicationPng}
+                class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
+              >
+                Export PNG
               </button>
             </div>
           )}
@@ -581,9 +543,9 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
             <button
               type="button"
               onClick={exportMipPng}
-              class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition flex items-center gap-1"
+              class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
             >
-              <span>Export Maximum Projection (PNG)</span>
+              Export MIP (PNG)
             </button>
           )}
         </div>
@@ -654,7 +616,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
       <div class="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
           <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-            Contrast, Leveling &amp; Display Settings
+            Display
           </span>
 
           {/* Quick Presets */}
@@ -810,43 +772,18 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               </label>
 
               {/* Card Zoom */}
-              <div class="flex items-center gap-1">
-                <span class="text-slate-400">Size:</span>
-                <div class="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setCardSize("compact")}
-                    class={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                      cardSize === "compact"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs"
-                        : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
-                    }`}
-                  >
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCardSize("normal")}
-                    class={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                      cardSize === "normal"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs"
-                        : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
-                    }`}
-                  >
-                    Normal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCardSize("large")}
-                    class={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                      cardSize === "large"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs"
-                        : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
-                    }`}
-                  >
-                    Large
-                  </button>
-                </div>
+              <div class="flex items-center gap-1.5">
+                <label class="text-slate-500">Size:</label>
+                <select
+                  aria-label="Card size"
+                  value={cardSize}
+                  onChange={(e) => setCardSize((e.target as HTMLSelectElement).value as "compact" | "normal" | "large")}
+                  class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1"
+                >
+                  <option value="compact">Compact</option>
+                  <option value="normal">Normal</option>
+                  <option value="large">Large</option>
+                </select>
               </div>
 
               {/* Display Columns */}
@@ -905,10 +842,10 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
             <div>
               <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                Synchronized 3-Plane Orthogonal Slicer
+                Orthogonal Slicer (XY, XZ, YZ)
               </h3>
               <p class="text-xs text-slate-500">
-                Scrub along X (Sagittal), Y (Coronal), and Z (Axial) to inspect 3D density interiors, symmetry axes, and micelle envelopes.
+                Scrub the sliders to inspect the volume from all three axes.
               </p>
             </div>
             <span class="text-xs font-mono text-slate-400">
@@ -992,7 +929,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                 3D Maximum Intensity Projection (MIP)
               </h3>
               <p class="text-xs text-slate-500">
-                Projects maximum voxel density along viewing rays to visualize macromolecular envelopes, viral capsids, and high-density structural cores without slice ambiguity.
+                Projects maximum voxel density along viewing rays.
               </p>
             </div>
 

@@ -32,6 +32,9 @@ export type MatrixName = typeof MATRIX_NAMES[number];
 export const MATRIX_SOURCE: string = data._source;
 
 export function getMatrix(name: string): ScoringMatrix {
+  if (name === 'DNA-simple') {
+    return simpleMatrix(2, -1, 'dna');
+  }
   const raw = RAW[name];
   if (!raw) throw new InputError(`Unknown substitution matrix "${name}"`);
   return { name, type: raw.type as MatrixType, order: raw.order, scores: raw.scores, scaling: raw.scaling, source: raw.source, notes: raw.notes };

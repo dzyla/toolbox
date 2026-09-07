@@ -7,6 +7,7 @@ describe('router', () => {
   });
   it('parses tool routes', () => {
     expect(parseRoute('#/t/molarity')).toEqual({ name: 'tool', toolId: 'molarity' });
+    expect(parseRoute('#/tool/fitting')).toEqual({ name: 'tool', toolId: 'fitting' });
     expect(parseRoute('#/t/molarity/p/abc123')).toEqual({ name: 'tool', toolId: 'molarity', projectId: 'abc123' });
     expect(parseRoute('#/t/molarity?s=N4Ig')).toEqual({ name: 'tool', toolId: 'molarity', state: 'N4Ig' });
   });

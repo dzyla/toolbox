@@ -253,7 +253,7 @@ export default function View() {
                         type="number"
                         min="0"
                         max="95"
-                        step="0.5"
+                        step="any"
                         value={current.glycanPercent}
                         onInput={(e) => set({ glycanPercent: parseFloat((e.target as HTMLInputElement).value) || 0 })}
                         class={FIELD}
@@ -267,7 +267,7 @@ export default function View() {
                       <input
                         type="number"
                         min="0"
-                        step="100"
+                        step="any"
                         value={current.glycanCustomDa}
                         onInput={(e) => set({ glycanCustomDa: parseFloat((e.target as HTMLInputElement).value) || 0 })}
                         class={FIELD}

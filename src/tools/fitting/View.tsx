@@ -39,7 +39,18 @@ export default function CurveFittingView() {
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
-  const [rawText, setRawText] = useState<string>(() => SAMPLE_DATASETS.dose_response!.text);
+  const [rawText, setRawText] = useState<string>(() => {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const piped = sessionStorage.getItem('biobench_fitting_input');
+        if (piped) {
+          sessionStorage.removeItem('biobench_fitting_input');
+          return piped;
+        }
+      }
+    } catch {}
+    return SAMPLE_DATASETS.dose_response!.text;
+  });
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; yFit: number; residual: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);

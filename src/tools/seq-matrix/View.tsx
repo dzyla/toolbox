@@ -284,7 +284,8 @@ export default function SeqMatrixView() {
                   <option value="BLOSUM45">BLOSUM45 (Divergent Sequences)</option>
                   <option value="BLOSUM80">BLOSUM80 (Closely Related Sequences)</option>
                   <option value="PAM250">PAM250 (Evolutionary Distance)</option>
-                  <option value="DNA-simple">DNA Identity (+2 / -1)</option>
+                  <option value="DNA-simple">DNA Simple Match/Mismatch (+2 / -1)</option>
+                  <option value="EDNAFULL">EDNAFULL (NCBI Standard DNA/RNA)</option>
                 </select>
               </div>
 
@@ -332,10 +333,16 @@ export default function SeqMatrixView() {
         <div class="space-y-6">
         {/* Error state if < 2 sequences */}
         {parsedSequences.length < 2 && (
-          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900/50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200">
-            <h3 class="font-bold text-sm mb-1">⚠️ Minimum 2 Sequences Required</h3>
-            <p class="text-xs">
-              Please provide at least two sequences in the FASTA input or pick a preset from the sidebar to calculate the identity and similarity matrix.
+          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900/50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 space-y-1.5">
+            <h3 class="font-bold text-sm">
+              {s.fastaInput.includes('>') && parsedSequences.length === 0
+                ? '⚠️ FASTA Headers Found Without Sequence Data'
+                : '⚠️ Minimum 2 Sequences Required'}
+            </h3>
+            <p class="text-xs leading-relaxed">
+              {s.fastaInput.includes('>') && parsedSequences.length === 0
+                ? 'FASTA headers (starting with ">") were detected, but no sequence residues were found underneath them. Protein names in headers are not aligned as sequences. Please paste the actual amino acid or nucleotide sequence lines below each header.'
+                : 'Please provide at least two sequences in the FASTA input (with >Header and sequence residues) or pick a curated preset from the sidebar to calculate the identity and similarity matrix.'}
             </p>
           </div>
         )}

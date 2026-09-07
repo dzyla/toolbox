@@ -36,7 +36,7 @@ const explicitForm = (name: string) => /hydrate|anhydrous|[·.]\s*\d*\s*h[₂2]o
 function toCore(component: EditorComponent): RecipeComponent {
   if (component.kind === 'solid') return { name: component.name, kind: 'solid', mw: component.mw, waters: component.waters, target: component.target };
   return {
-    name: component.name, kind: 'stock', stockConc: component.stockConc ?? NaN,
+    name: component.name, kind: 'stock', stockConc: (component.stockConc !== undefined && !isNaN(component.stockConc)) ? component.stockConc : 1,
     stockUnit: component.stockUnit ?? 'M', target: component.target, density: component.density,
   };
 }
@@ -177,115 +177,144 @@ export default function View() {
     const labelSuffix = index === 0 ? '' : ` ${index + 1}`;
 
     return (
-      <div key={component.id} class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-3">
-        {/* Component Header with Name & Form Badges */}
-        <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 dark:border-slate-800">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs font-bold text-accent-600 dark:text-accent-400 select-none">#{index + 1}</span>
-            <strong class="text-sm font-bold text-slate-900 dark:text-slate-100">
-              {component.name || 'Unnamed compound'}
+      <div key={component.id} class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-2.5 transition">
+        {/* Row 1: Header with index, compound name, Form pills, and remove button */}
+        <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 dark:border-slate-800/80">
+          <div class="flex items-center gap-2 flex-wrap min-w-0">
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent-100 dark:bg-accent-950 text-accent-700 dark:text-accent-300 text-xs font-bold shrink-0 select-none">
+              {index + 1}
+            </span>
+            <strong class="text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
+              {component.name || 'New component'}
             </strong>
-            <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              {component.kind === 'solid' ? `Solid · ${component.mw ? `${component.mw} g/mol` : 'MW needed'}` : `Stock · ${component.stockConc} ${component.stockUnit}`}
+            <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-mono font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {component.kind === 'solid'
+                ? (component.mw ? `${component.mw} g/mol` : 'MW needed')
+                : `${component.stockConc ?? 1} ${component.stockUnit || 'M'}`}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => set({ components: s.components.filter((_, i) => i !== index) })}
-            disabled={s.components.length === 1}
-            class="text-xs text-slate-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 transition p-1"
-            title="Remove component"
-          >
-            ✕
-          </button>
-        </div>
 
-        {/* Search Input */}
-        <div>
-          <label class="block">
-            <span class="mb-1 block text-xs font-medium text-slate-500">Chemical search</span>
-            <input
-              aria-label={`Chemical search${labelSuffix}`}
-              value={component.query}
-              onInput={event => update(index, { query: (event.target as HTMLInputElement).value })}
-              class={fieldClass}
-              placeholder="Search chemical name or formula (e.g. NaCl, Tris, HEPES, MgCl2)"
-            />
-          </label>
-          {matches.length > 0 && (
-            <div class="mt-1.5 max-h-36 space-y-1 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800" aria-label="Chemical matches">
-              {matches.map(chemical => (
-                <button
-                  key={chemical.name}
-                  type="button"
-                  class="block w-full rounded px-2.5 py-1.5 text-left text-xs hover:bg-white dark:hover:bg-slate-700 transition"
-                  onClick={() => update(index, { query: chemical.name, name: chemical.name, mw: chemical.mw, waters: 0 })}
-                >
-                  <strong class="font-medium text-slate-900 dark:text-slate-100">{chemical.name}</strong>
-                  <span class="text-slate-500 ml-1.5">— {chemical.mw} g/mol{chemical.hydrateOf ? ` (${chemical.waters} waters)` : ''}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Target & Form Row */}
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="block">
-            <span class="mb-1 block text-xs font-medium text-slate-500">Form</span>
-            <select
-              value={component.kind}
-              class={fieldClass}
-              onChange={event => update(index, { kind: (event.target as HTMLSelectElement).value as 'solid' | 'stock' })}
-            >
-              <option value="solid">Solid Powder / Crystals</option>
-              <option value="stock">Liquid Stock Solution</option>
-            </select>
-          </label>
-
-          <label class="block">
-            <span class="mb-1 block text-xs font-medium text-slate-500">Target In Recipe</span>
-            <span class="flex">
-              <input
-                aria-label={`Target concentration${labelSuffix}`}
-                type="number"
-                min="0"
-                step="any"
-                value={component.target.value}
-                onInput={event => update(index, { target: { ...component.target, value: Number((event.target as HTMLInputElement).value) } })}
-                class={`${fieldClass} rounded-r-none mono`}
-              />
-              <select
-                aria-label={`Target unit${labelSuffix}`}
-                value={component.target.unit}
-                onChange={event => update(index, { target: { ...component.target, unit: (event.target as HTMLSelectElement).value as RecipeUnit } })}
-                class="rounded-r-lg border border-l-0 border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          <div class="flex items-center gap-2 shrink-0">
+            {/* Form Toggle Segment */}
+            <div class="inline-flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => update(index, { kind: 'solid' })}
+                class={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${component.kind === 'solid' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'}`}
               >
-                <option>M</option>
-                <option>mM</option>
-                <option>%</option>
-                <option value="x">×</option>
-              </select>
-            </span>
-          </label>
+                Solid
+              </button>
+              <button
+                type="button"
+                onClick={() => update(index, { kind: 'stock' })}
+                class={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${component.kind === 'stock' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'}`}
+              >
+                Stock
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => set({ components: s.components.filter((_, i) => i !== index) })}
+              disabled={s.components.length === 1}
+              class="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 disabled:opacity-20 transition"
+              title="Remove component"
+              aria-label={`Remove component${labelSuffix}`}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        {/* Extra details (MW, waters, stock concentrations) */}
-        {component.kind === 'solid' ? (
-          <div class="grid gap-3 sm:grid-cols-2">
+        {/* Row 2: Chemical Search & Target side by side on sm+ */}
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+          {/* Chemical Search (7 cols) */}
+          <div class="sm:col-span-7 relative">
             <label class="block">
-              <span class="mb-1 block text-xs font-medium text-slate-500">Molecular weight (g/mol)</span>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Search Chemical / Formula</span>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400 text-xs">🔍</span>
+                <input
+                  aria-label={`Chemical search${labelSuffix}`}
+                  value={component.query}
+                  onInput={event => update(index, { query: (event.target as HTMLInputElement).value })}
+                  class={`${fieldClass} pl-7 text-xs py-1.5`}
+                  placeholder="e.g. Tris, NaCl, MgCl2, SDS"
+                />
+              </div>
+            </label>
+            {matches.length > 0 && (
+              <div class="absolute left-0 right-0 top-full mt-1 max-h-48 space-y-1 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800 z-30" aria-label="Chemical matches">
+                {matches.map(chemical => (
+                  <button
+                    key={chemical.name}
+                    type="button"
+                    class="block w-full rounded-lg px-2.5 py-1.5 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-700/80 transition"
+                    onClick={() => update(index, { query: chemical.name, name: chemical.name, mw: chemical.mw, waters: 0 })}
+                  >
+                    <strong class="font-medium text-slate-900 dark:text-slate-100">{chemical.name}</strong>
+                    <span class="text-slate-500 dark:text-slate-400 ml-1.5">— {chemical.mw} g/mol{chemical.hydrateOf ? ` (${chemical.waters} waters)` : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Target in Recipe (5 cols) */}
+          <div class="sm:col-span-5">
+            <label class="block">
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Target Concentration</span>
+              <span class="flex">
+                <input
+                  aria-label={`Target concentration${labelSuffix}`}
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={component.target.value}
+                  onInput={event => update(index, { target: { ...component.target, value: Number((event.target as HTMLInputElement).value) } })}
+                  class={`${fieldClass} rounded-r-none mono text-xs py-1.5 flex-1`}
+                />
+                <select
+                  aria-label={`Target unit${labelSuffix}`}
+                  value={component.target.unit}
+                  onChange={event => update(index, { target: { ...component.target, unit: (event.target as HTMLSelectElement).value as RecipeUnit } })}
+                  class="rounded-r-lg border border-l-0 border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  <option>M</option>
+                  <option>mM</option>
+                  <option>%</option>
+                  <option value="x">×</option>
+                </select>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Row 3: Solid vs Stock specifics */}
+        {component.kind === 'solid' ? (
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">MW (g/mol)</span>
+                <button
+                  type="button"
+                  onClick={() => void lookup(index)}
+                  class="text-[10px] text-accent-600 dark:text-accent-400 hover:underline font-medium"
+                >
+                  PubChem MW ↗
+                </button>
+              </div>
               <input
                 aria-label={`Molecular weight${labelSuffix}`}
                 type="number"
                 step="any"
                 value={component.mw ?? ''}
                 onInput={event => update(index, { mw: Number((event.target as HTMLInputElement).value) })}
-                class={`${fieldClass} mono`}
+                class={`${fieldClass} mono text-xs py-1.5`}
               />
-            </label>
-            <label class="block">
-              <span class="mb-1 block text-xs font-medium text-slate-500">Additional waters (hydrate)</span>
+            </div>
+            <div>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Hydrate Waters (·nH₂O)</span>
               <input
                 aria-label={`Additional waters${labelSuffix}`}
                 type="number"
@@ -294,37 +323,37 @@ export default function View() {
                 value={component.waters ?? 0}
                 disabled={explicitForm(component.name)}
                 onInput={event => update(index, { waters: Number((event.target as HTMLInputElement).value) })}
-                class={`${fieldClass} mono disabled:cursor-not-allowed disabled:opacity-50`}
+                class={`${fieldClass} mono text-xs py-1.5 disabled:cursor-not-allowed disabled:opacity-50`}
               />
-            </label>
+            </div>
           </div>
         ) : (
-          <div class="grid gap-3 sm:grid-cols-3">
-            <label class="block">
-              <span class="mb-1 block text-xs font-medium text-slate-500">Stock concentration</span>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5">
+            <div>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Stock Conc</span>
               <input
                 type="number"
                 step="any"
                 value={component.stockConc ?? 1}
                 onInput={event => update(index, { stockConc: Number((event.target as HTMLInputElement).value) })}
-                class={`${fieldClass} mono`}
+                class={`${fieldClass} mono text-xs py-1.5`}
               />
-            </label>
-            <label class="block">
-              <span class="mb-1 block text-xs font-medium text-slate-500">Stock unit</span>
+            </div>
+            <div>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Stock Unit</span>
               <select
                 value={component.stockUnit ?? 'M'}
                 onChange={event => update(index, { stockUnit: (event.target as HTMLSelectElement).value as RecipeUnit })}
-                class={fieldClass}
+                class={`${fieldClass} text-xs py-1.5`}
               >
                 <option>M</option>
                 <option>mM</option>
                 <option>%</option>
                 <option value="x">×</option>
               </select>
-            </label>
-            <label class="block">
-              <span class="mb-1 block text-xs font-medium text-slate-500">Density (g/mL, optional)</span>
+            </div>
+            <div>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Density (g/mL, opt)</span>
               <input
                 type="number"
                 step="any"
@@ -333,27 +362,18 @@ export default function View() {
                   const value = (event.target as HTMLInputElement).value;
                   update(index, { density: value ? Number(value) : undefined });
                 }}
-                class={`${fieldClass} mono`}
+                class={`${fieldClass} mono text-xs py-1.5`}
               />
-            </label>
+            </div>
           </div>
         )}
-
-        <div class="pt-1 flex justify-end">
-          <button
-            type="button"
-            onClick={() => void lookup(index)}
-            class="text-[11px] text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 transition underline"
-          >
-            PubChem MW lookup
-          </button>
-        </div>
       </div>
     );
   };
 
   return (
-    <ToolLayout
+    <>
+      <ToolLayout
       icon="🧪"
       title="Buffer & Media Recipes"
       blurb="Build recipes from exact chemical forms, solids and liquid stocks with automated unit-safe solving."
@@ -516,11 +536,11 @@ export default function View() {
                 </label>
                 <label>
                   <span class="mb-1 block text-xs font-medium text-slate-500">Target pH</span>
-                  <input type="number" step="0.1" value={s.pH} onInput={event => set({ pH: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
+                  <input type="number" step="any" value={s.pH} onInput={event => set({ pH: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
                 </label>
                 <label>
                   <span class="mb-1 block text-xs font-medium text-slate-500">Temperature (°C)</span>
-                  <input type="number" step="1" value={s.temperature} onInput={event => set({ temperature: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
+                  <input type="number" step="any" value={s.temperature} onInput={event => set({ temperature: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
                 </label>
               </div>
               <div class="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -529,58 +549,6 @@ export default function View() {
             </div>
           </details>
 
-          {/* Contribute Modal */}
-          {showContributeModal && (
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div class="max-w-lg w-full rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900 space-y-4">
-                <div class="flex items-start justify-between">
-                  <div>
-                    <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100">Contribute Buffer Recipe</h3>
-                    <p class="text-xs text-slate-500 mt-1">
-                      Share your recipe with scientists worldwide by submitting it to the open-source database!
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setShowContributeModal(false)} class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
-                </div>
-
-                <div class="text-xs text-slate-600 dark:text-slate-300 space-y-2">
-                  <p>
-                    <strong>How to submit your buffer:</strong>
-                  </p>
-                  <ol class="list-decimal list-inside space-y-1 pl-1 text-slate-500">
-                    <li>Click <strong>Submit via GitHub Issue</strong> below to open a pre-filled submission on the Toolbox repo.</li>
-                    <li>Or click <strong>Copy Recipe JSON</strong> and paste it into a GitHub discussion or PR.</li>
-                    <li>Once reviewed, it will be added to the official preset library for all users!</li>
-                  </ol>
-                </div>
-
-                <div class="overflow-x-auto rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
-                  <pre class="mono text-[11px] text-slate-700 dark:text-slate-300 max-h-40 overflow-y-auto">{recipeJsonString}</pre>
-                </div>
-
-                <div class="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(recipeJsonString);
-                      alert('Recipe JSON copied to clipboard!');
-                    }}
-                    class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                  >
-                    Copy JSON
-                  </button>
-                  <a
-                    href={`https://github.com/dzyla/toolbox/issues/new?title=${encodeURIComponent(`[Buffer Preset]: ${saveName || s.components[0]?.name || 'New Buffer'}`)}&body=${encodeURIComponent(`### New Buffer Recipe Submission\n\n\`\`\`json\n${recipeJsonString}\n\`\`\`\n\n**Source / Reference:** (e.g. Cold Spring Harbor, Sambrook, paper citation)`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="rounded-lg bg-accent-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 transition inline-block text-center"
-                  >
-                    Submit via GitHub Issue ↗
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       }
       results={
@@ -671,18 +639,81 @@ export default function View() {
         )
       }
       actions={
-        <div class="space-y-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <ActionBar onCopy={() => copyText} shareUrl={shareUrl} />
           <button
             type="button"
             onClick={exportCsv}
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 transition"
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition shadow-2xs"
           >
-            Export Recipe CSV
+            📥 Export Recipe CSV
           </button>
         </div>
       }
       science={<SciencePanel science={SCIENCE} />}
     />
+
+    {/* Contribute Modal (Fixed Root Overlay) */}
+    {showContributeModal && (
+      <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div class="max-w-lg w-full rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 space-y-4 border border-slate-200 dark:border-slate-800">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>🚀</span> Contribute Buffer Recipe
+              </h3>
+              <p class="text-xs text-slate-500 mt-1">
+                Share your recipe with scientists worldwide by submitting it to the open-source database!
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowContributeModal(false)}
+              class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1 transition"
+              title="Close modal"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="text-xs text-slate-600 dark:text-slate-300 space-y-2">
+            <p>
+              <strong>How to submit your buffer:</strong>
+            </p>
+            <ol class="list-decimal list-inside space-y-1 pl-1 text-slate-500 dark:text-slate-400">
+              <li>Click <strong>Submit via GitHub Issue</strong> below to open a pre-filled submission on the Toolbox repo.</li>
+              <li>Or click <strong>Copy Recipe JSON</strong> and paste it into a GitHub discussion or PR.</li>
+              <li>Once reviewed, it will be added to the official preset library for all users!</li>
+            </ol>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl bg-slate-50 p-3 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <pre class="mono text-[11px] text-slate-700 dark:text-slate-300 max-h-40 overflow-y-auto">{recipeJsonString}</pre>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(recipeJsonString);
+                alert('Recipe JSON copied to clipboard!');
+              }}
+              class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition"
+            >
+              Copy JSON
+            </button>
+            <a
+              href={`https://github.com/dzyla/toolbox/issues/new?title=${encodeURIComponent(`[Buffer Preset]: ${saveName || s.components[0]?.name || 'New Buffer'}`)}&body=${encodeURIComponent(`### New Buffer Recipe Submission\n\n\`\`\`json\n${recipeJsonString}\n\`\`\`\n\n**Source / Reference:** (e.g. Cold Spring Harbor, Sambrook, paper citation)`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rounded-lg bg-accent-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 transition inline-block text-center shadow-xs"
+            >
+              Submit via GitHub Issue ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

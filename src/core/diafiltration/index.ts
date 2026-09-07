@@ -107,6 +107,15 @@ export function simulateUltrafiltration(
   totalDfv: number;
   cyclesToSafeTarget: number;
 } {
+  if (initialVolumeMl <= 0 || concentrateVolumeMl <= 0 || concentrateVolumeMl >= initialVolumeMl) {
+    return {
+      cycles: [],
+      finalConc: solute.initialConc,
+      totalDfv: 0,
+      cyclesToSafeTarget: 0,
+    };
+  }
+
   const cycles = [];
   let currentConc = solute.initialConc;
   let cumulativeDfv = 0;
@@ -175,6 +184,14 @@ export function simulateDialysis(
   finalConc: number;
   changesToSafeTarget: number;
 } {
+  if (sampleVolumeMl <= 0 || bathVolumeMl <= 0) {
+    return {
+      steps: [],
+      finalConc: solute.initialConc,
+      changesToSafeTarget: 0,
+    };
+  }
+
   const steps = [];
   let currentConc = solute.initialConc;
   let changesToSafeTarget = -1;

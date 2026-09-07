@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/preact';
+import { render, screen, fireEvent, cleanup } from '@testing-library/preact';
 import { describe, it, expect } from 'vitest';
 import CryoEmView from '@/tools/cryoem/View';
+import { Home } from '@/app/pages/Home';
 import { route } from '@/app/router';
 
 describe('Cryo-EM / NS MRC Viewer UI', () => {
@@ -31,7 +32,7 @@ describe('Cryo-EM / NS MRC Viewer UI', () => {
     expect(await screen.findByTestId('cryo-classes-result')).toBeTruthy();
 
     // Open export options drawer
-    const exportOptionsBtn = screen.getByRole('button', { name: /Export Options/i });
+    const exportOptionsBtn = screen.getByRole('button', { name: /^Options/ });
     fireEvent.click(exportOptionsBtn);
 
     // Verify numbering toggle exists
@@ -66,7 +67,7 @@ describe('Cryo-EM / NS MRC Viewer UI', () => {
     fireEvent.click(screen.getByRole('button', { name: /Demo 3D Volume/i }));
 
     // Switch to MIP mode
-    const mipBtn = screen.getByRole('button', { name: /3D Maximum Projection/i });
+    const mipBtn = screen.getByRole('button', { name: /3D MIP/i });
     fireEvent.click(mipBtn);
 
     expect(await screen.findByText(/3D Maximum Intensity Projection \(MIP\)/i)).toBeTruthy();
@@ -86,7 +87,7 @@ describe('Cryo-EM / NS MRC Viewer UI', () => {
     expect(screen.getByText(/Slab End Slice/i)).toBeTruthy();
 
     // Export MIP button is present
-    expect(screen.getByRole('button', { name: /Export Maximum Projection/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Export MIP \(PNG\)/i })).toBeTruthy();
   });
 
   it('supports contrast presets including Negative Stain (NS) inversion', async () => {
@@ -110,19 +111,24 @@ describe('Cryo-EM / NS MRC Viewer UI', () => {
     expect(invertCheck.checked).toBe(false);
   });
 
-  it('displays research preview notices advising researcher evaluation', async () => {
+  it('verifies research preview warning on dashboard and clean tool page', async () => {
+    route.value = { name: 'home' };
+    render(<Home />);
+
+    // Site-wide research preview banner is displayed on main dashboard
+    expect(screen.getByTestId('home-preview-banner')).toBeTruthy();
+    expect(screen.getAllByText(/Research preview/i).length).toBeGreaterThan(0);
+
+    // The Cryo-EM tool card does not carry an individual Preview badge
+    const cryoCards = screen.getAllByRole('button', { name: /Cryo-EM/ });
+    expect(cryoCards.some(c => c.textContent?.includes('Preview'))).toBe(false);
+
+    // The cryo-EM tool page itself does not show research-preview notices
+    cleanup();
     route.value = { name: 'tool', toolId: 'cryoem' };
     render(<CryoEmView />);
-
     fireEvent.click(screen.getByRole('button', { name: /2D Classes & 3D Volume/i }));
     expect(await screen.findByTestId('cryo-classes-result')).toBeTruthy();
-
-    // Verify Research Preview badges and text
-    const previewBadges = screen.getAllByText(/Research Preview/i);
-    expect(previewBadges.length).toBeGreaterThanOrEqual(1);
-
-    // Verify warning that outputs should be evaluated by a researcher before actual work
-    const evaluationNotices = screen.getAllByText(/evaluated by a researcher before/i);
-    expect(evaluationNotices.length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByText(/evaluated by a researcher before/i)).toHaveLength(0);
   });
 });

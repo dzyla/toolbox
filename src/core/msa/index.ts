@@ -1,4 +1,4 @@
-import { getMatrix, scoreOf, type MatrixName, type ScoringMatrix } from '../align/matrices';
+import { getMatrix, simpleMatrix, scoreOf, type MatrixName, type ScoringMatrix } from '../align/matrices';
 import { align, type AlignmentResult } from '../align/gotoh';
 
 export interface SequenceItem {
@@ -64,12 +64,14 @@ export function parseFastaSequences(raw: string): SequenceItem[] {
   const items: SequenceItem[] = [];
   let currentHeader = '';
   let currentSeqParts: string[] = [];
+  let hasFastaHeaders = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
 
     if (trimmed.startsWith('>')) {
+      hasFastaHeaders = true;
       if (currentHeader || currentSeqParts.length > 0) {
         const fullSeq = currentSeqParts.join('').toUpperCase().replace(/[^A-Z*]/g, '');
         if (fullSeq) {
@@ -102,11 +104,14 @@ export function parseFastaSequences(raw: string): SequenceItem[] {
     }
   }
 
-  // If no fasta headers were provided, fallback to splitting lines or commas
-  if (items.length === 0 && raw.trim().length > 0) {
+  // If no fasta headers were provided, fallback to splitting raw sequences by lines/commas
+  // CRITICAL: If any line started with '>', it is FASTA input. We must NEVER parse header lines as sequences!
+  if (!hasFastaHeaders && items.length === 0 && raw.trim().length > 0) {
     const candidateLines = raw
       .split(/[\n,;]+/)
-      .map(s => s.trim().toUpperCase().replace(/[^A-Z*]/g, ''))
+      .map(s => s.trim())
+      .filter(s => s.length >= 3 && !s.startsWith('>') && !s.startsWith('#') && !s.startsWith(';'))
+      .map(s => s.toUpperCase().replace(/[^A-Z*]/g, ''))
       .filter(s => s.length >= 3);
 
     candidateLines.forEach((seq, idx) => {
@@ -158,8 +163,17 @@ export function computeSequenceMatrices(
 ): SequenceMatrixResult {
   const n = sequences.length;
   const molType = detectMoleculeType(sequences);
-  const matrixName = options.matrixName ?? (molType === 'dna' ? 'DNA-simple' : 'BLOSUM62');
-  const scoringMatrix = getMatrix(matrixName);
+  const matrixName = options.matrixName ?? (molType === 'dna' ? 'EDNAFULL' : 'BLOSUM62');
+  let scoringMatrix: ScoringMatrix;
+  if ((matrixName as string) === 'DNA-simple') {
+    scoringMatrix = simpleMatrix(2, -1, 'dna');
+  } else {
+    try {
+      scoringMatrix = getMatrix(matrixName);
+    } catch {
+      scoringMatrix = getMatrix(molType === 'dna' ? 'EDNAFULL' : 'BLOSUM62');
+    }
+  }
   const gapOpen = options.gapOpen ?? (molType === 'dna' ? 10 : 10);
   const gapExtend = options.gapExtend ?? (molType === 'dna' ? 2 : 1);
   const metric = options.metric ?? 'identity';

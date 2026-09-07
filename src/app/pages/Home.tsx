@@ -81,6 +81,20 @@ export function Home() {
           </div>
         </div>
 
+        {/* Research Preview Warning Banner */}
+        <div data-testid="home-preview-banner" class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-amber-200/90 bg-amber-50/70 p-2.5 text-xs text-amber-900 shadow-2xs dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          <span class="text-sm shrink-0 leading-tight">🔬</span>
+          <div class="flex-1 space-y-0.5 leading-snug">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-amber-950 dark:text-amber-100">Research Preview</span>
+              <span class="rounded bg-amber-200/80 px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:bg-amber-900/60 dark:text-amber-300">Active Development</span>
+            </div>
+            <p class="text-[11.5px] text-amber-800 dark:text-amber-300/90">
+              This workbench is an experimental research preview. Core biophysical equations are verified against published literature, but complex interactive features are actively being built and refined—some tools might not work completely yet.
+            </p>
+          </div>
+        </div>
+
         {/* Search Bar */}
         <div class="relative mt-2.5">
           <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-slate-400" aria-hidden="true">
@@ -142,6 +156,8 @@ export function Home() {
           </div>
         )}
       </div>
+
+
 
       {/* Recent Projects */}
       {!q && recent.length > 0 && (

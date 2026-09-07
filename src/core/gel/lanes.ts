@@ -45,7 +45,14 @@ export function autoLanes(plane: Plane, region: Region, polarity: Polarity, toRa
   // Prominence in findPeaks already judges each peak against its local valleys.
   const peaks = findPeaks(sm, { minProminence: opts.minProminence ?? 0.15, relative: true, minWidth: opts.minWidth ?? 4 });
   const frac = opts.widthFraction ?? 0.9;
-  return peaks.map(p => {
+  // A true gel lane occupies only a fraction of the gel width (typically 3% - 25%).
+  // Broad background humps spanning > 35% of the region width are illumination artifacts, not lanes.
+  const maxLaneWidth = Math.max(20, region.w * 0.35);
+  const validPeaks = peaks.filter(p => p.width <= maxLaneWidth);
+  // If only 1 peak was detected and it's excessively wide (> 25% of region), reject it as whole-gel artifact.
+  const filtered = (validPeaks.length === 1 && validPeaks[0]!.width > region.w * 0.25) ? [] : validPeaks;
+
+  return filtered.map(p => {
     const width = Math.max(opts.minWidth ?? 4, Math.round(p.width * frac));
     const cx = p.halfCenter ?? (p.left + p.right) / 2;
     return { id: laneId(), x: region.x + cx + 0.5, y0: region.y, y1: region.y + region.h, width, tilt: 0 };

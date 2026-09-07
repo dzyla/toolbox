@@ -38,6 +38,7 @@ test('service worker registers for offline use', async ({ page }) => {
 test('all ready tools open without page errors', async ({ page }) => {
   const readyTools = [
     'molarity', 'buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate',
+    'unit-converter',
     'cryoem', 'fitting', 'protein', 'protein-conc', 'nucleic', 'sequence', 'plasmid',
     'align', 'binding', 'gel', 'measure', 'colonies', 'hemocytometer',
     'tally', 'plate', 'culture', 'timers', 'protocols', 'colors',

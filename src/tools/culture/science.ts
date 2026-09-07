@@ -5,6 +5,8 @@ export const SCIENCE: Science = {
   formulas: [
     'Growth rate µ (h⁻¹) = ln(N_final / N_initial) / t',
     'Doubling time T_d (h) = ln(2) / µ = t × [ln(2) / ln(N_final / N_initial)]',
+    'Multi-point Log-linear Regression: ln(N_i) = ln(N_0) + µ · t_i',
+    'Target Availability Time: t_harvest = t_0 + [log₂(N_target / N_0) × T_d]',
     'Population doublings (PD) = log₂(N_final / N_initial)',
     'Target cells per vessel = Target density (cells/cm²) × Vessel surface area (cm²)',
     'Required harvest volume (mL) = Target cells per vessel / Harvest concentration (cells/mL)',

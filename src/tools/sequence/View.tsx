@@ -10,7 +10,7 @@ import {
   sixFrames, findOrfs, digestSummary, restrictionSites,
   CODON_TABLES,
 } from '@/core/nucleic/sequence';
-import { summarize } from '@/core/protein';
+import { summarize, sanitize } from '@/core/protein';
 
 interface State {
   raw: string;
@@ -46,8 +46,21 @@ export default function SequenceView() {
       header = lines[0]!.replace(/^>\s*/, '');
       content = lines.slice(1).join('');
     }
+    const kind = detectType(content);
+    if (kind === 'protein') {
+      const prot = sanitize(content);
+      return {
+        header,
+        seq: prot.seq,
+        removed: {
+          whitespace: prot.removed.whitespace,
+          digits: prot.removed.digits,
+          other: prot.removed.dashes + prot.removed.stars + prot.removed.punctuation + prot.removed.other,
+        },
+        kind,
+      };
+    }
     const clean = cleanNucleic(content);
-    const kind = detectType(clean.seq);
     return { header, seq: clean.seq, removed: clean.removed, kind };
   }, [s.raw]);
 

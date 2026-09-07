@@ -1,5 +1,5 @@
-/* Unit parsing, conversion and formatting. SI bases: M (mol/L), L, g, mol, g/L, m. */
-export type Dim = 'concentration' | 'volume' | 'mass' | 'amount' | 'massconc' | 'length';
+/* Unit parsing, conversion and formatting. SI bases: M (mol/L), L, g, mol, g/L, m, Bq, Gy, Pa. */
+export type Dim = 'concentration' | 'volume' | 'mass' | 'amount' | 'massconc' | 'length' | 'activity' | 'radiation' | 'pressure';
 export interface Quantity { value: number; unit: string }
 export class UnitError extends Error {}
 
@@ -19,6 +19,12 @@ export const UNITS: Record<Dim, Record<string, number>> = {
   amount: withPrefixes('mol', 1, ['', 'm', 'µ', 'n', 'p', 'f']),
   massconc: { 'g/L': 1, 'mg/mL': 1, 'µg/µL': 1, 'mg/L': 1e-3, 'µg/mL': 1e-3, 'ng/µL': 1e-3, 'µg/L': 1e-6, 'ng/mL': 1e-6, 'pg/µL': 1e-6, 'ng/L': 1e-9, 'pg/mL': 1e-9, '%': 10 },
   length: { m: 1, cm: 1e-2, mm: 1e-3, 'µm': 1e-6, nm: 1e-9, 'Å': 1e-10, pm: 1e-12 },
+  // Radioactivity: 1 Ci = 3.7e10 Bq (defined from the early-1900s ²²⁶Ra activity), 1 kBq = 1e3 Bq, 1 MBq = 1e6 Bq, 1 GBq = 1e9 Bq
+  activity: { Bq: 1, kBq: 1e3, MBq: 1e6, GBq: 1e9, TBq: 1e12, Ci: 3.7e10, mCi: 3.7e7, uCi: 3.7e4, 'µCi': 3.7e4, nCi: 37 },
+  // Absorbed / equivalent dose: SI base Gy (J/kg); 1 rem = 0.01 Sv, 1 mrem = 1e-5 Sv; sieverts track by prefix
+  radiation: { Gy: 1, mGy: 1e-3, uGy: 1e-6, 'µGy': 1e-6, Sv: 1, mSv: 1e-3, uSv: 1e-6, 'µSv': 1e-6, rem: 0.01, mrem: 1e-5 },
+  // Pressure: 1 atm = 101325 Pa (standard atmosphere), 1 bar = 1e5 Pa, 1 mmHg ≈ 133.322 Pa (Torr, 101325/760)
+  pressure: { Pa: 1, kPa: 1e3, MPa: 1e6, bar: 1e5, mbar: 100, mmHg: 133.322368, Torr: 133.322368, atm: 101325, psi: 6894.757 },
 };
 
 const DISPLAY: Record<Dim, string[]> = {
@@ -28,6 +34,9 @@ const DISPLAY: Record<Dim, string[]> = {
   amount: ['mol', 'mmol', 'µmol', 'nmol', 'pmol', 'fmol'],
   massconc: ['mg/mL', 'µg/mL', 'ng/mL', 'pg/mL'],
   length: ['m', 'cm', 'mm', 'µm', 'nm', 'Å'],
+  activity: ['Bq', 'kBq', 'MBq', 'GBq', 'TBq', 'Ci'],
+  radiation: ['Gy', 'mGy', 'µGy', 'Sv', 'mSv', 'µSv'],
+  pressure: ['Pa', 'kPa', 'MPa', 'bar', 'mmHg', 'atm'],
 };
 
 /** Accept common ASCII spellings: uL → µL, ml → mL, ug/ml → µg/mL, A → Å. */

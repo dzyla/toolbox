@@ -9,7 +9,9 @@ import {
   compareBoxes, nextGoodBox, isGoodBox, dosePlan, exposureForDose,
   pixelSizeFromMag, magFromPixelSize,
   relativisticWavelength, firstCtfZero, generateCtfProfile, generateThonRingsMatrix,
+  generateMultiDefocusProfile, generateMultiDefocusThonRingsMatrix,
   CtfPoint,
+  type MultiDefocusCtfPoint,
   type DiffractionArtifactType,
   DIFFRACTION_PRESETS,
 } from '@/core/cryoem';
@@ -36,6 +38,8 @@ interface State {
   amplitudeContrast: number;
   bFactor: number;
   diffractionArtifact: DiffractionArtifactType;
+  multiDefocus: boolean;
+  multiDefociStr: string;
 }
 
 
@@ -59,6 +63,8 @@ const DEFAULTS: State = {
   amplitudeContrast: 0.07,
   bFactor: 50,
   diffractionArtifact: 'none',
+  multiDefocus: false,
+  multiDefociStr: '0.8, 1.2, 1.6, 2.0',
 };
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
@@ -73,6 +79,9 @@ function ThonRingsCanvas({
   amplitudeContrast,
   bFactor,
   diffractionArtifact = 'none',
+  multiDefocus = false,
+  defociUm = [0.8, 1.2, 1.6, 2.0],
+  astigmatismUm = 0.05,
 }: {
   voltageKv: number;
   csMm: number;
@@ -83,6 +92,9 @@ function ThonRingsCanvas({
   amplitudeContrast: number;
   bFactor: number;
   diffractionArtifact?: DiffractionArtifactType;
+  multiDefocus?: boolean;
+  defociUm?: number[];
+  astigmatismUm?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const size = 420;
@@ -93,25 +105,38 @@ function ThonRingsCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const matrix = generateThonRingsMatrix(
-      size,
-      voltageKv,
-      csMm,
-      dfU_um,
-      dfV_um,
-      astAngleDeg,
-      pixelSize,
-      amplitudeContrast,
-      bFactor,
-      diffractionArtifact
-    );
+    const matrix = multiDefocus && defociUm.length > 0
+      ? generateMultiDefocusThonRingsMatrix(
+          size,
+          voltageKv,
+          csMm,
+          defociUm,
+          astigmatismUm,
+          astAngleDeg,
+          pixelSize,
+          amplitudeContrast,
+          bFactor,
+          diffractionArtifact
+        )
+      : generateThonRingsMatrix(
+          size,
+          voltageKv,
+          csMm,
+          dfU_um,
+          dfV_um,
+          astAngleDeg,
+          pixelSize,
+          amplitudeContrast,
+          bFactor,
+          diffractionArtifact
+        );
 
     const imgData = ctx.createImageData(size, size);
     const data = imgData.data;
 
     for (let i = 0; i < matrix.length; i++) {
       const val = Math.min(1, Math.max(0, matrix[i] ?? 0));
-      const brightness = Math.pow(val, 0.45);
+      const brightness = Math.pow(val, 0.75);
       const pixelIndex = i * 4;
       const c = Math.floor(brightness * 255);
       data[pixelIndex] = c;
@@ -222,7 +247,7 @@ function ThonRingsCanvas({
         }
       }
     }
-  }, [voltageKv, csMm, dfU_um, dfV_um, astAngleDeg, pixelSize, amplitudeContrast, bFactor, diffractionArtifact]);
+  }, [voltageKv, csMm, dfU_um, dfV_um, astAngleDeg, pixelSize, amplitudeContrast, bFactor, diffractionArtifact, multiDefocus, defociUm?.join(','), astigmatismUm]);
 
   const preset = DIFFRACTION_PRESETS[diffractionArtifact || 'none'];
 
@@ -243,6 +268,12 @@ function ThonRingsCanvas({
         <span class="text-rose-400">½ Nyq</span>
         <span>+Nyq ({(2 * pixelSize).toFixed(1)} Å)</span>
       </div>
+      {multiDefocus && defociUm && defociUm.length > 0 && (
+        <div class="mt-2 text-center text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 py-1.5 px-3 rounded-lg border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+          <span>🌊</span>
+          <span>Multi-Defocus Dataset Blend ({defociUm.length} shots: {defociUm.join(', ')} µm) — CTF Zeros Filled</span>
+        </div>
+      )}
       {diffractionArtifact !== 'none' && preset && (
         <div class="mt-2 text-center text-xs text-amber-500 font-medium">
           ⚡ {preset.name}: Bragg diffraction rings overlaid in gold
@@ -252,16 +283,26 @@ function ThonRingsCanvas({
   );
 }
 
+const DEFOCUS_COLORS = ['#38bdf8', '#a855f7', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6'];
+
 function CtfCurvePlot({
   profile,
   zeroD1,
   pixelSize,
   diffractionArtifact = 'none',
+  multiDefocus = false,
+  multiProfile = null,
+  defociUm = [0.8, 1.2, 1.6, 2.0],
+  onToggleMultiDefocus,
 }: {
   profile: CtfPoint[];
   zeroD1: number;
   pixelSize: number;
   diffractionArtifact?: DiffractionArtifactType;
+  multiDefocus?: boolean;
+  multiProfile?: MultiDefocusCtfPoint[] | null;
+  defociUm?: number[];
+  onToggleMultiDefocus?: () => void;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [plotMode, setPlotMode] = useState<'both' | 'ctf' | 'power'>('both');
@@ -278,19 +319,28 @@ function CtfCurvePlot({
 
   const sMax = 1 / (2 * Math.max(0.1, pixelSize));
 
-  // 1D CTF oscillation curve (-1 to 1)
+  // Single defocus curves
   const ctfPts = profile.map((p, i) => {
     const x = padLeft + (p.s / sMax) * plotW;
     const y = midY - p.ctf * (plotH / 2);
     return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
   }).join(' ');
 
-  // 1D Power spectrum curve (|CTF|² + diffraction) (0 to 1)
   const powerPts = profile.map((p, i) => {
     const x = padLeft + (p.s / sMax) * plotW;
     const y = padTop + plotH - p.power * plotH;
     return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
   }).join(' ');
+
+  // Multi-defocus curves
+  const activeMulti = multiDefocus && multiProfile && multiProfile.length > 0;
+  const combinedPts = activeMulti
+    ? multiProfile.map((p, i) => {
+        const x = padLeft + (p.s / sMax) * plotW;
+        const y = padTop + plotH - p.combinedPower * plotH;
+        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ')
+    : '';
 
   // Shaded area for diffraction artifact peaks
   const diffAreaPts = useMemo(() => {
@@ -322,44 +372,63 @@ function CtfCurvePlot({
   }, [profile, diffractionArtifact, sMax, plotW, plotH, padLeft, padTop]);
 
   const zeroX = zeroD1 > 0 ? padLeft + ((1 / zeroD1) / sMax) * plotW : null;
-  const hovered = hoverIdx !== null && profile[hoverIdx] ? profile[hoverIdx] : null;
+  const hoveredSingle = hoverIdx !== null && profile[hoverIdx] ? profile[hoverIdx] : null;
+  const hoveredMulti = activeMulti && hoverIdx !== null && multiProfile[hoverIdx] ? multiProfile[hoverIdx] : null;
 
   return (
     <div class="space-y-2">
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div class="flex items-center gap-2">
-          <span class="font-bold text-slate-700 dark:text-slate-300">1D CTF &amp; Diffraction Spectrum</span>
-          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[11px]">
+          <span class="font-bold text-slate-700 dark:text-slate-300">
+            {activeMulti ? '🌊 Multi-Defocus Composite Spectrum' : '1D CTF & Diffraction Spectrum'}
+          </span>
+          {onToggleMultiDefocus && (
             <button
               type="button"
-              onClick={() => setPlotMode('both')}
-              class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'both' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              onClick={onToggleMultiDefocus}
+              class={`px-2 py-0.5 rounded-md font-semibold text-[11px] border transition ${activeMulti ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-300' : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100'}`}
+              title="Toggle multi-defocus zero-filling mode"
             >
-              Overlay
+              {activeMulti ? '🌊 Multi-Defocus ON' : '🎯 Single Defocus'}
             </button>
-            <button
-              type="button"
-              onClick={() => setPlotMode('ctf')}
-              class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'ctf' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              CTF(s)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlotMode('power')}
-              class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'power' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              |CTF|² Power
-            </button>
-          </div>
+          )}
+          {!activeMulti && (
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[11px]">
+              <button
+                type="button"
+                onClick={() => setPlotMode('both')}
+                class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'both' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                Overlay
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlotMode('ctf')}
+                class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'ctf' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                CTF(s)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlotMode('power')}
+                class={`px-2 py-0.5 rounded font-medium transition ${plotMode === 'power' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                |CTF|² Power
+              </button>
+            </div>
+          )}
         </div>
 
-        {hovered ? (
+        {activeMulti && hoveredMulti ? (
+          <span class="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+            s: {hoveredMulti.s} Å⁻¹ | d: {hoveredMulti.d} Å | Combined Power: {hoveredMulti.combinedPower.toFixed(3)}
+          </span>
+        ) : hoveredSingle ? (
           <span class="font-mono font-semibold text-accent-600 dark:text-accent-400">
-            s: {hovered.s} Å⁻¹ | d: {hovered.d} Å | CTF: {hovered.ctf} | |CTF|²: {hovered.power.toFixed(3)}{hovered.diffraction ? ` | Bragg: +${hovered.diffraction.toFixed(3)}` : ''}
+            s: {hoveredSingle.s} Å⁻¹ | d: {hoveredSingle.d} Å | CTF: {hoveredSingle.ctf} | |CTF|²: {hoveredSingle.power.toFixed(3)}{hoveredSingle.diffraction ? ` | Bragg: +${hoveredSingle.diffraction.toFixed(3)}` : ''}
           </span>
         ) : (
-          <span class="text-slate-400 text-[11px]">Hover over curve to inspect frequency &amp; resolution</span>
+          <span class="text-slate-400 text-[11px]">Hover over curves to inspect spatial frequency</span>
         )}
       </div>
 
@@ -374,8 +443,8 @@ function CtfCurvePlot({
           <line x1={padLeft} y1={padTop} x2={w - padRight} y2={padTop} stroke="currentColor" class="text-slate-100 dark:text-slate-800" />
           <line x1={padLeft} y1={padTop + plotH} x2={w - padRight} y2={padTop + plotH} stroke="currentColor" class="text-slate-200 dark:text-slate-800" />
 
-          {/* First CTF Zero */}
-          {zeroX !== null && zeroX >= padLeft && zeroX <= w - padRight && (
+          {/* First CTF Zero (only in single mode) */}
+          {!activeMulti && zeroX !== null && zeroX >= padLeft && zeroX <= w - padRight && (
             <g>
               <line x1={zeroX} y1={padTop} x2={zeroX} y2={padTop + plotH} stroke="#f43f5e" stroke-dasharray="2,2" stroke-width="1.5" />
               <text x={zeroX} y={padTop + 10} text-anchor="middle" fill="#f43f5e" class="text-[9px] font-mono font-bold">
@@ -400,33 +469,70 @@ function CtfCurvePlot({
             );
           })}
 
-          {/* Shaded Bragg Diffraction Peak Area */}
-          {(plotMode === 'power' || plotMode === 'both') && diffAreaPts && (
-            <path d={diffAreaPts} fill="rgba(245, 158, 11, 0.25)" stroke="#f59e0b" stroke-width="1.5" />
-          )}
+          {activeMulti ? (
+            /* Multi-Defocus Mode */
+            <>
+              {/* Individual defocus power curves */}
+              {defociUm.map((_, k) => {
+                const pts = multiProfile!.map((p, i) => {
+                  const x = padLeft + (p.s / sMax) * plotW;
+                  const power = p.individualPowers[k] ?? 0;
+                  const y = padTop + plotH - power * plotH;
+                  return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                }).join(' ');
+                return (
+                  <path
+                    key={k}
+                    d={pts}
+                    fill="none"
+                    stroke={DEFOCUS_COLORS[k % DEFOCUS_COLORS.length]}
+                    stroke-width="1.2"
+                    stroke-dasharray="3,2"
+                    opacity="0.65"
+                  />
+                );
+              })}
 
-          {/* Power Spectrum curve */}
-          {(plotMode === 'power' || plotMode === 'both') && (
-            <path d={powerPts} fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray={plotMode === 'both' ? '4,2' : undefined} />
-          )}
+              {/* Bold Composite Combined Curve */}
+              <path
+                d={combinedPts}
+                fill="none"
+                stroke="#10b981"
+                stroke-width="2.5"
+              />
+            </>
+          ) : (
+            /* Single Defocus Mode */
+            <>
+              {/* Shaded Bragg Diffraction Peak Area */}
+              {(plotMode === 'power' || plotMode === 'both') && diffAreaPts && (
+                <path d={diffAreaPts} fill="rgba(245, 158, 11, 0.2)" stroke="#f59e0b" stroke-width="1" />
+              )}
 
-          {/* CTF amplitude curve */}
-          {(plotMode === 'ctf' || plotMode === 'both') && (
-            <path d={ctfPts} fill="none" stroke="#0284c7" stroke-width="2" />
+              {/* Power Spectrum curve */}
+              {(plotMode === 'power' || plotMode === 'both') && (
+                <path d={powerPts} fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray={plotMode === 'both' ? '4,2' : undefined} />
+              )}
+
+              {/* CTF amplitude curve */}
+              {(plotMode === 'ctf' || plotMode === 'both') && (
+                <path d={ctfPts} fill="none" stroke="#0284c7" stroke-width="1.5" />
+              )}
+            </>
           )}
 
           {/* Y Axis Labels */}
-          {plotMode === 'ctf' || plotMode === 'both' ? (
+          {activeMulti || plotMode === 'power' ? (
+            <>
+              <text x={padLeft - 6} y={padTop + 4} text-anchor="end" fill="currentColor" class="text-[9px] fill-emerald-600 dark:fill-emerald-400 font-mono">1.0</text>
+              <text x={padLeft - 6} y={midY + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">0.5</text>
+              <text x={padLeft - 6} y={padTop + plotH + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">0.0</text>
+            </>
+          ) : (
             <>
               <text x={padLeft - 6} y={padTop + 4} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">+1</text>
               <text x={padLeft - 6} y={midY + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">0</text>
               <text x={padLeft - 6} y={padTop + plotH + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-slate-400 font-mono">-1</text>
-            </>
-          ) : (
-            <>
-              <text x={padLeft - 6} y={padTop + 4} text-anchor="end" fill="currentColor" class="text-[9px] fill-amber-500 font-mono">1.0</text>
-              <text x={padLeft - 6} y={midY + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-amber-500 font-mono">0.5</text>
-              <text x={padLeft - 6} y={padTop + plotH + 3} text-anchor="end" fill="currentColor" class="text-[9px] fill-amber-500 font-mono">0.0</text>
             </>
           )}
 
@@ -435,14 +541,14 @@ function CtfCurvePlot({
             {sMax.toFixed(2)} Å⁻¹ ({ (2 * pixelSize).toFixed(1) } Å Nyq)
           </text>
 
-          {profile.map((p, i) => {
+          {(activeMulti ? multiProfile! : profile).map((p, i) => {
             const x = padLeft + (p.s / sMax) * plotW;
             return (
               <rect
                 key={i}
-                x={x - (plotW / profile.length) / 2}
+                x={x - (plotW / (activeMulti ? multiProfile!.length : profile.length)) / 2}
                 y={padTop}
-                width={plotW / profile.length}
+                width={plotW / (activeMulti ? multiProfile!.length : profile.length)}
                 height={plotH}
                 fill="transparent"
                 onMouseEnter={() => setHoverIdx(i)}
@@ -450,10 +556,21 @@ function CtfCurvePlot({
             );
           })}
 
-          {hovered && hoverIdx !== null && (
+          {activeMulti && hoveredMulti && hoverIdx !== null && (
             <circle
-              cx={padLeft + (hovered.s / sMax) * plotW}
-              cy={plotMode === 'power' ? padTop + plotH - hovered.power * plotH : midY - hovered.ctf * (plotH / 2)}
+              cx={padLeft + (hoveredMulti.s / sMax) * plotW}
+              cy={padTop + plotH - hoveredMulti.combinedPower * plotH}
+              r="4"
+              fill="#10b981"
+              stroke="#ffffff"
+              stroke-width="1.5"
+            />
+          )}
+
+          {!activeMulti && hoveredSingle && hoverIdx !== null && (
+            <circle
+              cx={padLeft + (hoveredSingle.s / sMax) * plotW}
+              cy={plotMode === 'power' ? padTop + plotH - hoveredSingle.power * plotH : midY - hoveredSingle.ctf * (plotH / 2)}
               r="4"
               fill={plotMode === 'power' ? '#f59e0b' : '#0ea5e9'}
               stroke="#ffffff"
@@ -462,6 +579,35 @@ function CtfCurvePlot({
           )}
         </svg>
       </div>
+
+      {activeMulti && (
+        <div class="space-y-2 pt-1">
+          <div class="flex flex-wrap items-center gap-3 text-[11px] p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div class="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+              <span class="inline-block w-4 h-1 bg-emerald-500 rounded"></span>
+              <span>Combined Zero-Filling Signal</span>
+            </div>
+            <span class="text-slate-300 dark:text-slate-700">|</span>
+            <span class="text-slate-400 font-medium">Single defoci:</span>
+            {defociUm.map((df, k) => (
+              <div key={k} class="flex items-center gap-1 text-slate-600 dark:text-slate-400 font-mono text-[10.5px]">
+                <span class="inline-block w-2.5 h-0.5 rounded" style={{ backgroundColor: DEFOCUS_COLORS[k % DEFOCUS_COLORS.length] }}></span>
+                <span>{df.toFixed(2)} µm</span>
+              </div>
+            ))}
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
+            <div class="font-bold flex items-center gap-1.5">
+              <span>🌊</span>
+              <span>Zero Filling in Action</span>
+            </div>
+            <p class="text-[11.5px] leading-relaxed text-emerald-800 dark:text-emerald-300">
+              Notice how the combined signal (green) stays stable and non-zero across all frequencies: the zeros of one defocus are covered by the passbands of others. This eliminates blind spots and ensures continuous spectral coverage for 3D reconstruction.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -525,6 +671,28 @@ export default function CryoEmView() {
     }
   }, [s.voltageKv, s.csMm, s.defocusUm, s.astigmatismUm, s.pixelSize, s.amplitudeContrast, s.bFactor, s.diffractionArtifact]);
 
+  const parsedDefoci = useMemo(() => {
+    const parts = (s.multiDefociStr || '')
+      .split(/[,\s]+/)
+      .map(p => parseFloat(p.trim()))
+      .filter(n => Number.isFinite(n) && n > 0 && n <= 10);
+    return parts.length > 0 ? parts : [0.8, 1.2, 1.6, 2.0];
+  }, [s.multiDefociStr]);
+
+  const multiProfile = useMemo(() => {
+    if (!s.multiDefocus || !(s.voltageKv > 0) || !(s.pixelSize > 0)) return null;
+    return generateMultiDefocusProfile(
+      s.voltageKv,
+      s.csMm,
+      parsedDefoci,
+      s.pixelSize,
+      s.amplitudeContrast,
+      s.bFactor,
+      200,
+      s.diffractionArtifact
+    );
+  }, [s.multiDefocus, s.voltageKv, s.csMm, parsedDefoci, s.pixelSize, s.amplitudeContrast, s.bFactor, s.diffractionArtifact]);
+
   const copyText = () => {
     const lines = [
       `Cryo-EM Settings (${s.tab}):`,
@@ -539,8 +707,12 @@ export default function CryoEmView() {
     }
     if (ctfResults && s.tab === 'ctf') {
       lines.push(`Voltage: ${s.voltageKv} kV (λ = ${ctfResults.lambdaA.toFixed(4)} Å), Cs: ${s.csMm} mm`);
-      lines.push(`Defocus: ${s.defocusUm} µm (U: ${ctfResults.dfU_um.toFixed(3)} µm, V: ${ctfResults.dfV_um.toFixed(3)} µm, Astigmatism: ${s.astigmatismUm} µm at ${s.astAngleDeg}°)`);
-      lines.push(`First CTF Zero d1: ${ctfResults.zero.d1.toFixed(2)} Å (s1: ${ctfResults.zero.s1.toFixed(4)} Å⁻¹)`);
+      if (s.multiDefocus) {
+        lines.push(`Multi-Defocus Dataset Blend: [${parsedDefoci.join(', ')}] µm (zero filling active)`);
+      } else {
+        lines.push(`Defocus: ${s.defocusUm} µm (U: ${ctfResults.dfU_um.toFixed(3)} µm, V: ${ctfResults.dfV_um.toFixed(3)} µm, Astigmatism: ${s.astigmatismUm} µm at ${s.astAngleDeg}°)`);
+        lines.push(`First CTF Zero d1: ${ctfResults.zero.d1.toFixed(2)} Å (s1: ${ctfResults.zero.s1.toFixed(4)} Å⁻¹)`);
+      }
       lines.push(`Amplitude contrast: ${(s.amplitudeContrast * 100).toFixed(0)}%, B-factor: ${s.bFactor} Å²`);
     }
     return `${lines.join('\n')}\n\n${scienceText(SCIENCE)}`;
@@ -558,13 +730,13 @@ export default function CryoEmView() {
           <div class="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2.5 dark:border-slate-700">
             {(
               [
-                ['box', 'Box & Sampling'],
-                ['dose', 'Dose Calculator'],
-                ['ctf', 'CTF & Thon Rings'],
-                ['classes', '2D Classes & 3D Volume'],
-                ['mag', 'Magnification'],
+                ['box', 'Box & Sampling', '📐'],
+                ['dose', 'Dose Calculator', '⚡'],
+                ['ctf', 'CTF & Thon Rings', '🌊'],
+                ['classes', '2D Classes & 3D Volume', '🔬'],
+                ['mag', 'Magnification', '🔍'],
               ] as const
-            ).map(([id, label]) => (
+            ).map(([id, label, icon]) => (
               <button
                 key={id}
                 type="button"
@@ -575,28 +747,14 @@ export default function CryoEmView() {
                 }`}
                 onClick={() => set({ tab: id })}
               >
+                <span aria-hidden="true">{icon}</span>
                 <span>{label}</span>
-                {id === 'classes' && (
-                  <span class={`text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${s.tab === id ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}`}>
-                    Preview
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           {s.tab === 'classes' && (
             <div class="space-y-3 text-xs text-slate-600 dark:text-slate-400">
-              {/* Research Preview Disclaimer */}
-              <div class="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
-                <div class="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider">
-                  <span>🔬 Research Preview</span>
-                </div>
-                <p class="text-[11px] leading-relaxed">
-                  <strong>Notice:</strong> This is a research preview — a lot of features are here, but they need some work. All outputs, measurements, contrast settings, and projections should be evaluated by a researcher before using it for actual work.
-                </p>
-              </div>
-
               <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
                 <h4 class="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
                   📦 MRC / MRCS Format Specifications
@@ -622,13 +780,6 @@ export default function CryoEmView() {
                     <strong class="text-slate-700 dark:text-slate-300">Negative Stain (NS):</strong> Heavy metal salts (uranyl formate/acetate) accumulate around the particle envelope. Use <em>Invert Contrast</em> or the <em>NS Preset</em> to view dark particles on light background.
                   </li>
                 </ul>
-              </div>
-
-              <div class="p-3 rounded-xl bg-accent-50/60 dark:bg-accent-950/30 border border-accent-200 dark:border-accent-800 text-accent-800 dark:text-accent-300 text-[11px] space-y-1">
-                <strong>💡 Publication Figure Tip:</strong>
-                <p>
-                  Click <em>Export Options</em> in the viewer to set the exact number of output columns and toggle class numbering (#1, #2) on or off for manuscript figures.
-                </p>
               </div>
             </div>
           )}
@@ -756,41 +907,40 @@ export default function CryoEmView() {
             <div class="space-y-4">
               {/* Microscope Presets */}
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Microscope Optics Presets
-                </label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Microscope Preset
+                  </label>
+                  <span class="text-[11px] text-slate-400 font-mono">{s.voltageKv} kV · Cs {s.csMm} mm</span>
+                </div>
                 <div class="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    class="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    class={`rounded-lg border p-1.5 text-center text-xs font-semibold transition ${s.voltageKv === 300 && s.csMm === 2.7 ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/60 dark:text-accent-300 shadow-2xs' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                     onClick={() => set({ voltageKv: 300, csMm: 2.7 })}
                   >
-                    <strong class="block text-slate-800 dark:text-slate-200">Titan Krios</strong>
-                    <span class="text-[10px] text-slate-400">300 kV, Cs 2.7 mm</span>
+                    Titan Krios (300kV)
                   </button>
                   <button
                     type="button"
-                    class="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    class={`rounded-lg border p-1.5 text-center text-xs font-semibold transition ${s.voltageKv === 200 && s.csMm === 2.7 ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/60 dark:text-accent-300 shadow-2xs' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                     onClick={() => set({ voltageKv: 200, csMm: 2.7 })}
                   >
-                    <strong class="block text-slate-800 dark:text-slate-200">Glacios / Arctica</strong>
-                    <span class="text-[10px] text-slate-400">200 kV, Cs 2.7 mm</span>
+                    Glacios (200kV)
                   </button>
                   <button
                     type="button"
-                    class="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    class={`rounded-lg border p-1.5 text-center text-xs font-semibold transition ${s.voltageKv === 300 && s.csMm === 0.01 ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/60 dark:text-accent-300 shadow-2xs' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                     onClick={() => set({ voltageKv: 300, csMm: 0.01 })}
                   >
-                    <strong class="block text-slate-800 dark:text-slate-200">Cs-Corrected Krios</strong>
-                    <span class="text-[10px] text-slate-400">300 kV, Cs 0.01 mm</span>
+                    Cs-Corrected Krios
                   </button>
                   <button
                     type="button"
-                    class="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                    class={`rounded-lg border p-1.5 text-center text-xs font-semibold transition ${s.voltageKv === 100 && s.csMm === 2.0 ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/60 dark:text-accent-300 shadow-2xs' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                     onClick={() => set({ voltageKv: 100, csMm: 2.0 })}
                   >
-                    <strong class="block text-slate-800 dark:text-slate-200">100 kV Screening</strong>
-                    <span class="text-[10px] text-slate-400">100 kV, Cs 2.0 mm</span>
+                    100kV Screening
                   </button>
                 </div>
               </div>
@@ -820,19 +970,97 @@ export default function CryoEmView() {
                 </label>
               </div>
 
-              {/* Defocus & Astigmatism */}
+              {/* Defocus Mode Toggle & Parameters */}
+              <div class="space-y-2.5 pt-1 border-t border-slate-200/80 dark:border-slate-800">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Defocus Mode
+                  </label>
+                  <span class="text-[10.5px] font-mono text-slate-400">
+                    {s.multiDefocus ? `${parsedDefoci.length} defoci` : `${s.defocusUm.toFixed(2)} µm`}
+                  </span>
+                </div>
+
+                <div class="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => set({ multiDefocus: false })}
+                    class={`flex-1 py-1.5 rounded-lg transition ${!s.multiDefocus ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                  >
+                    🎯 Single Defocus
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set({ multiDefocus: true })}
+                    class={`flex-1 py-1.5 rounded-lg transition ${s.multiDefocus ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-300' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                  >
+                    🌊 Multi-Defocus Blend
+                  </button>
+                </div>
+
+                {!s.multiDefocus ? (
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Defocus (µm underfocus)
+                    </label>
+                    <DecimalInput
+                      class={FIELD}
+                      value={s.defocusUm}
+                      onChange={defocusUm => set({ defocusUm })}
+                      min={0.1}
+                      max={10.0}
+                      step={0.1}
+                    />
+                  </div>
+                ) : (
+                  <div class="space-y-2 p-3 rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                        Dataset Defocus Values (µm)
+                      </span>
+                      <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
+                        {parsedDefoci.length} defoci
+                      </span>
+                    </div>
+
+                    <input
+                      type="text"
+                      class="w-full text-xs font-mono rounded-lg border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-slate-800 dark:text-slate-100"
+                      placeholder="e.g. 0.8, 1.2, 1.6, 2.0"
+                      value={s.multiDefociStr}
+                      onInput={e => set({ multiDefociStr: (e.target as HTMLInputElement).value })}
+                    />
+
+                    <div class="flex flex-wrap gap-1 pt-0.5">
+                      <span class="text-[10px] text-slate-500 mr-0.5">Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => set({ multiDefociStr: '0.8, 1.2, 1.6, 2.0' })}
+                        class="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      >
+                        Standard (0.8–2.0)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set({ multiDefociStr: '0.6, 1.2, 1.8, 2.4, 3.0' })}
+                        class="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      >
+                        Wide (0.6–3.0)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set({ multiDefociStr: '0.5, 0.8, 1.1, 1.4' })}
+                        class="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      >
+                        High-Res (0.5–1.4)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Astigmatism */}
               <div class="space-y-3 pt-1">
-                <label class="block">
-                  <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Mean Underfocus (µm)</span>
-                  <DecimalInput
-                    class={FIELD}
-                    value={s.defocusUm}
-                    onChange={defocusUm => set({ defocusUm })}
-                    min={0.1}
-                    max={10.0}
-                    step={0.1}
-                  />
-                </label>
 
                 <div class="grid grid-cols-2 gap-3">
                   <label class="block">
@@ -860,32 +1088,7 @@ export default function CryoEmView() {
                 </div>
               </div>
 
-              {/* Advanced Envelope & Contrast */}
-              <div class="grid grid-cols-2 gap-3 pt-1">
-                <label class="block">
-                  <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amplitude Contrast (Q)</span>
-                  <DecimalInput
-                    class={FIELD}
-                    value={s.amplitudeContrast}
-                    onChange={amplitudeContrast => set({ amplitudeContrast })}
-                    min={0}
-                    max={1}
-                    step={0.01}
-                  />
-                </label>
-                <label class="block">
-                  <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Envelope B-factor (Å²)</span>
-                  <DecimalInput
-                    class={FIELD}
-                    value={s.bFactor}
-                    onChange={bFactor => set({ bFactor })}
-                    min={0}
-                    max={500}
-                    step={10}
-                  />
-                </label>
-              </div>
-
+              {/* Sampling & diffraction (always visible — core controls) */}
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <label class="block">
                   <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Pixel Size (Å/px)</span>
@@ -912,6 +1115,38 @@ export default function CryoEmView() {
                   </select>
                 </label>
               </div>
+
+              {/* Advanced Envelope & Contrast (collapsed) */}
+              <details class="group rounded-xl border border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/40">
+                <summary class="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">
+                  <span class="text-[9px] transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
+                  <span>Advanced: amplitude contrast &amp; B-factor envelope</span>
+                </summary>
+                <div class="grid grid-cols-2 gap-3 p-3 pt-1.5">
+                  <label class="block">
+                    <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amplitude Contrast (Q)</span>
+                    <DecimalInput
+                      class={FIELD}
+                      value={s.amplitudeContrast}
+                      onChange={amplitudeContrast => set({ amplitudeContrast })}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                    />
+                  </label>
+                  <label class="block">
+                    <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Envelope B-factor (Å²)</span>
+                    <DecimalInput
+                      class={FIELD}
+                      value={s.bFactor}
+                      onChange={bFactor => set({ bFactor })}
+                      min={0}
+                      max={500}
+                      step={10}
+                    />
+                  </label>
+                </div>
+              </details>
             </div>
           )}
 
@@ -1133,6 +1368,10 @@ export default function CryoEmView() {
                   zeroD1={ctfResults.zero.d1}
                   pixelSize={s.pixelSize}
                   diffractionArtifact={s.diffractionArtifact}
+                  multiDefocus={s.multiDefocus}
+                  multiProfile={multiProfile}
+                  defociUm={parsedDefoci}
+                  onToggleMultiDefocus={() => set({ multiDefocus: !s.multiDefocus })}
                 />
               </div>
 
@@ -1140,16 +1379,32 @@ export default function CryoEmView() {
               <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
                   <div>
-                    <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                      Simulated 2D Power Spectrum (Thon Rings)
+                    <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <span>Simulated 2D Power Spectrum (Thon Rings)</span>
+                      {s.multiDefocus && (
+                        <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          🌊 Multi-Defocus Dataset ({parsedDefoci.length} Shots)
+                        </span>
+                      )}
                     </h3>
                     <p class="text-xs text-slate-500">
-                      Concentric interference rings displaying astigmatic ellipticity, defocus phase flips (|CTF|²), and diffraction artifacts.
+                      {s.multiDefocus
+                        ? `Averaged power spectrum across ${parsedDefoci.length} micrographs (${parsedDefoci.join(', ')} µm) — zero nodes filled.`
+                        : 'Concentric interference rings displaying astigmatic ellipticity, defocus phase flips (|CTF|²), and diffraction artifacts.'}
                     </p>
                   </div>
-                  <span class="text-xs font-mono text-slate-400">
-                    {s.astigmatismUm > 0 ? `Astigmatic: ${s.astAngleDeg}°` : 'Round (No Astigmatism)'}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => set({ multiDefocus: !s.multiDefocus })}
+                      class={`px-2 py-1 rounded-lg text-xs font-semibold border transition ${s.multiDefocus ? 'bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-300' : 'bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100'}`}
+                    >
+                      {s.multiDefocus ? '🌊 Blend Active' : 'Blend Multiple Defoci'}
+                    </button>
+                    <span class="text-xs font-mono text-slate-400">
+                      {s.astigmatismUm > 0 ? `Astigmatic: ${s.astAngleDeg}°` : 'Round (No Astigmatism)'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Enlarged Centered Canvas */}
@@ -1164,26 +1419,28 @@ export default function CryoEmView() {
                     amplitudeContrast={s.amplitudeContrast}
                     bFactor={s.bFactor}
                     diffractionArtifact={s.diffractionArtifact}
+                    multiDefocus={s.multiDefocus}
+                    defociUm={parsedDefoci}
+                    astigmatismUm={s.astigmatismUm}
                   />
                 </div>
 
-                {/* Descriptive Guide & Physics Explanation (Moved BELOW graphics) */}
-                <div class="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 text-xs">
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5 text-slate-600 dark:text-slate-400">
-                      <strong class="text-slate-800 dark:text-slate-200 block text-xs">
-                        🔬 Interpreting Thon Rings &amp; Astigmatism
-                      </strong>
-                      <p>• <strong>Bright rings</strong> correspond to maxima of |CTF|² where constructive wave phase interference transfers high-contrast image features.</p>
-                      <p>• <strong>Dark circular nodes</strong> mark CTF zero crossings where spatial frequency information transfer drops to 0.</p>
-                      <p>• <strong>Elliptical distortion</strong> indicates objective lens astigmatism with defocus disparity Δ = {(s.astigmatismUm * 1000).toFixed(0)} nm along {s.astAngleDeg}°.</p>
-                      <p>• <strong>Radial falloff</strong> reflects envelope B-factor decay ({s.bFactor} Å²) from beam partial coherence, energy spread, and motion.</p>
+                {/* Descriptive Guide & Physics Explanation (collapsible, kept out of the way) */}
+                <details class="rounded-xl border border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/40">
+                  <summary class="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">
+                    <span>🔬</span>
+                    <span>Interpreting Thon Rings &amp; Astigmatism</span>
+                  </summary>
+                  <div class="grid grid-cols-1 gap-3 p-3 pt-1.5 text-xs md:grid-cols-2">
+                    <div class="space-y-1.5 text-slate-600 dark:text-slate-400">
+                      <p>• <strong class="text-slate-800 dark:text-slate-200">Bright rings</strong> correspond to maxima of |CTF|² where constructive wave phase interference transfers high-contrast image features.</p>
+                      <p>• <strong class="text-slate-800 dark:text-slate-200">Dark circular nodes</strong> mark CTF zero crossings where spatial frequency information transfer drops to 0.</p>
+                      <p>• <strong class="text-slate-800 dark:text-slate-200">Elliptical distortion</strong> indicates objective lens astigmatism with defocus disparity Δ = {(s.astigmatismUm * 1000).toFixed(0)} nm along {s.astAngleDeg}°.</p>
+                      <p>• <strong class="text-slate-800 dark:text-slate-200">Radial falloff</strong> reflects envelope B-factor decay ({s.bFactor} Å²) from beam partial coherence, energy spread, and motion.</p>
                     </div>
 
-                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5 text-slate-600 dark:text-slate-400">
-                      <strong class="text-slate-800 dark:text-slate-200 block text-xs">
-                        ⚡ {DIFFRACTION_PRESETS[s.diffractionArtifact].name}
-                      </strong>
+                    <div class="space-y-1.5 text-slate-600 dark:text-slate-400">
+                      <p><strong class="text-slate-800 dark:text-slate-200">⚡ {DIFFRACTION_PRESETS[s.diffractionArtifact].name}</strong></p>
                       <p>{DIFFRACTION_PRESETS[s.diffractionArtifact].description}</p>
                       {s.diffractionArtifact === 'ice' && (
                         <p class="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
@@ -1207,7 +1464,7 @@ export default function CryoEmView() {
                       )}
                     </div>
                   </div>
-                </div>
+                </details>
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'preact/hooks';
+import { useState, useMemo, useEffect, useRef } from 'preact/hooks';
 import {
   type Protocol,
   BUNDLED_PROTOCOLS,
@@ -98,22 +98,24 @@ export default function ProtocolsView() {
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState<number>(0);
   const [timerIsRunning, setTimerIsRunning] = useState<boolean>(false);
   const [promptCopied, setPromptCopied] = useState(false);
+  const timerTargetEndTimeRef = useRef<number | null>(null);
 
-  // Active step countdown interval ticker
+  // Active step countdown interval ticker: wall-clock timestamp comparison
+  // prevents background tab throttling delays on long incubations.
   useEffect(() => {
     if (!activeTimerStepId || !timerIsRunning) return;
 
     const interval = window.setInterval(() => {
-      setTimerRemainingSeconds(prev => {
-        if (prev <= 1) {
-          const finishedStep = activeProtocol.steps.find(st => st.id === activeTimerStepId);
-          notifyStepComplete(finishedStep?.text || 'Incubation complete!');
-          setTimerIsRunning(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      if (!timerTargetEndTimeRef.current) return;
+      const rem = Math.max(0, Math.ceil((timerTargetEndTimeRef.current - Date.now()) / 1000));
+      setTimerRemainingSeconds(rem);
+      if (rem <= 0) {
+        const finishedStep = activeProtocol.steps.find(st => st.id === activeTimerStepId);
+        notifyStepComplete(finishedStep?.text || 'Incubation complete!');
+        setTimerIsRunning(false);
+        timerTargetEndTimeRef.current = null;
+      }
+    }, 500);
 
     return () => clearInterval(interval);
   }, [activeTimerStepId, timerIsRunning, activeProtocol.steps]);
@@ -131,6 +133,7 @@ export default function ProtocolsView() {
       setActiveProtocol(JSON.parse(JSON.stringify(p)));
       setActiveTimerStepId(null);
       setTimerIsRunning(false);
+      timerTargetEndTimeRef.current = null;
     }
   }
 
@@ -171,6 +174,7 @@ export default function ProtocolsView() {
     setActiveTimerStepId(stepId);
     setTimerTotalSeconds(total);
     setTimerRemainingSeconds(total);
+    timerTargetEndTimeRef.current = Date.now() + total * 1000;
     setTimerIsRunning(true);
   }
 
@@ -460,7 +464,7 @@ export default function ProtocolsView() {
                               class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-accent-50 text-accent-700 hover:bg-accent-100 dark:bg-accent-950 dark:text-accent-300 border border-accent-200 dark:border-accent-800 transition shadow-2xs"
                             >
                               <span>⏱️</span>
-                              <span>Start Timer ({step.timerMinutes} min)</span>
+                              <span>Start Timer ({step.timerMinutes < 1 ? `${Math.round(step.timerMinutes * 60)} s` : `${step.timerMinutes} min`})</span>
                             </button>
                           )}
                         </div>

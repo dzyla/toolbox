@@ -130,7 +130,7 @@ export default function BindingView() {
       if (s.model === 'single_step') {
         const res = singleStep(p1_nM, p2_nM, kd_nM, s.n);
         const rows = speciesTable(
-          { probs: [res.p1Free / p1_nM, res.complex / p1_nM], concs: [res.p1Free, res.complex] },
+          res,
           s.mwP1 > 0 ? s.mwP1 : undefined,
           s.mwP2 > 0 ? s.mwP2 : undefined
         );
@@ -357,7 +357,7 @@ export default function BindingView() {
                 <input
                   type="number"
                   min="0.001"
-                  step="0.1"
+                  step="any"
                   class={FIELD}
                   value={s.alpha}
                   onInput={e => set({ alpha: Number((e.target as HTMLInputElement).value) })}
@@ -818,6 +818,7 @@ export default function BindingView() {
                   <input
                     type="number"
                     min="0"
+                    step="any"
                     class={FIELD}
                     value={s.dilutionHigh}
                     onInput={e => set({ dilutionHigh: Number((e.target as HTMLInputElement).value) })}
@@ -828,6 +829,7 @@ export default function BindingView() {
                   <input
                     type="number"
                     min="0"
+                    step="any"
                     class={FIELD}
                     value={s.dilutionLow}
                     onInput={e => set({ dilutionLow: Number((e.target as HTMLInputElement).value) })}

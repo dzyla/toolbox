@@ -101,14 +101,14 @@ export default function SecView() {
 
   const activeColumn = PRESET_COLUMNS.find(c => c.id === s.columnId) || PRESET_COLUMNS[0]!;
 
-  // Dynamic x-axis range adapted to active column fractionation range and loaded standards
+  // Dynamic x-axis range strictly anchored to column fractionation range and active standards
+  // Note: Test sample is deliberately excluded so entering or modifying the tested protein NEVER alters calibration or plot scaling
   const { xMinLog, xMaxLog, xTicks } = useMemo(() => {
+    const activeStds = standards.filter(st => st.enabled && st.mwDa > 0).map(st => st.mwDa);
     const allMw = [
       activeColumn.rangeMinDa,
       activeColumn.rangeMaxDa,
-      ...standards.filter(st => st.enabled && st.mwDa > 0).map(st => st.mwDa),
-      ...(s.queryMode === 've_to_mw' && predictionMw ? [predictionMw.apparentMwDa] : []),
-      ...(s.queryMode === 'mw_to_ve' && s.targetMwKDa > 0 ? [s.targetMwKDa * 1000] : []),
+      ...(activeStds.length > 0 ? activeStds : [10000, 600000]),
     ];
     const minVal = Math.min(...allMw);
     const maxVal = Math.max(...allMw);
@@ -120,7 +120,7 @@ export default function SecView() {
       ticks.push(Math.round(t * 10) / 10);
     }
     return { xMinLog: minLog, xMaxLog: Math.max(minLog + 1.5, maxLog), xTicks: ticks };
-  }, [activeColumn, standards, s.queryMode, predictionMw, s.targetMwKDa]);
+  }, [activeColumn, standards]);
 
   const copySummary = () => {
     const lines = [
@@ -529,14 +529,26 @@ export default function SecView() {
                     Molecular Weight (Da, log scale)
                   </text>
 
-                  {/* Regression Line */}
+                  {/* Regression Line: clipped cleanly within plot bounds */}
                   {(() => {
-                    const sx1 = 60;
-                    const y1Kav = model.slope * xMinLog + model.intercept;
-                    const sy1 = 20 + 250 * (1 - Math.max(0, Math.min(1, y1Kav)));
-                    const sx2 = 630;
-                    const y2Kav = model.slope * xMaxLog + model.intercept;
-                    const sy2 = 20 + 250 * (1 - Math.max(0, Math.min(1, y2Kav)));
+                    // Line equation: Kav = model.slope * logMw + model.intercept
+                    // When slope < 0: logMw increases as Kav decreases
+                    const xAtKav1 = (1 - model.intercept) / model.slope;
+                    const xAtKav0 = (0 - model.intercept) / model.slope;
+                    const minXFit = Math.min(xAtKav1, xAtKav0);
+                    const maxXFit = Math.max(xAtKav1, xAtKav0);
+
+                    const xStart = Math.max(xMinLog, minXFit);
+                    const xEnd = Math.min(xMaxLog, maxXFit);
+                    if (xStart >= xEnd) return null;
+
+                    const kavStart = model.slope * xStart + model.intercept;
+                    const kavEnd = model.slope * xEnd + model.intercept;
+
+                    const sx1 = 60 + ((xStart - xMinLog) / (xMaxLog - xMinLog)) * 570;
+                    const sy1 = 20 + 250 * (1 - Math.max(0, Math.min(1, kavStart)));
+                    const sx2 = 60 + ((xEnd - xMinLog) / (xMaxLog - xMinLog)) * 570;
+                    const sy2 = 20 + 250 * (1 - Math.max(0, Math.min(1, kavEnd)));
 
                     return <line x1={sx1} y1={sy1} x2={sx2} y2={sy2} stroke="#2563eb" stroke-width="2" stroke-dasharray="4,4" />;
                   })()}
@@ -563,27 +575,45 @@ export default function SecView() {
                     );
                   })}
 
-                  {/* Unknown Sample Point */}
-                  {s.queryMode === 've_to_mw' && predictionMw && (
-                    <g>
-                      {(() => {
-                        const logMw = Math.log10(predictionMw.apparentMwDa);
-                        const cx = 60 + ((logMw - xMinLog) / (xMaxLog - xMinLog)) * 570;
-                        const cy = 20 + 250 * (1 - Math.max(0, Math.min(1, predictionMw.kav)));
-                        return (
-                          <g>
-                            <line x1={cx} y1="20" x2={cx} y2="270" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
-                            <line x1="60" y1={cy} x2="630" y2={cy} stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
-                            <circle cx={cx} cy={cy} r="8" fill="#f43f5e" stroke="#ffffff" stroke-width="2.5" />
-                            <text x={cx} y={cy - 12} text-anchor="middle" font-size="11" font-weight="bold" fill="#e11d48">
-                              Unknown ({predictionMw.apparentMwkDa.toFixed(1)} kDa)
-                            </text>
-                          </g>
-                        );
-                      })()}
-                    </g>
-                  )}
+                  {/* Tested Sample Point (Rendered for both Ve -> MW and MW -> Ve modes) */}
+                  {(() => {
+                    let sampleLogMw: number | null = null;
+                    let sampleKav: number | null = null;
+                    let sampleLabel = '';
+
+                    if (s.queryMode === 've_to_mw' && predictionMw) {
+                      sampleLogMw = Math.log10(predictionMw.apparentMwDa);
+                      sampleKav = predictionMw.kav;
+                      sampleLabel = `Unknown (${predictionMw.apparentMwkDa.toFixed(1)} kDa)`;
+                    } else if (s.queryMode === 'mw_to_ve' && predictionVe && s.targetMwKDa > 0) {
+                      sampleLogMw = Math.log10(s.targetMwKDa * 1000);
+                      sampleKav = predictionVe.kav;
+                      sampleLabel = `Target (${s.targetMwKDa} kDa, Ve ${predictionVe.elutionVolumeMl.toFixed(2)} mL)`;
+                    }
+
+                    if (sampleLogMw === null || sampleKav === null) return null;
+
+                    const cx = 60 + ((sampleLogMw - xMinLog) / (xMaxLog - xMinLog)) * 570;
+                    const cy = 20 + 250 * (1 - Math.max(0, Math.min(1, sampleKav)));
+
+                    return (
+                      <g>
+                        <line x1={cx} y1="20" x2={cx} y2="270" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
+                        <line x1="60" y1={cy} x2="630" y2={cy} stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2" opacity="0.6" />
+                        <circle cx={cx} cy={cy} r="8" fill="#f43f5e" stroke="#ffffff" stroke-width="2.5" />
+                        <text x={cx} y={cy - 12} text-anchor="middle" font-size="11" font-weight="bold" fill="#e11d48">
+                          ★ {sampleLabel}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </svg>
+                <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-2">
+                  <span class="flex items-center gap-1.5">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                    <span><strong>Calibration fit:</strong> Derived from {model.n} active standards (R² = {model.rSquared.toFixed(4)})</span>
+                  </span>
+                </div>
               </div>
             )}
 

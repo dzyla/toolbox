@@ -175,7 +175,7 @@ export function findRestrictionSites(dna: string, isCircular = true): Restrictio
 }
 
 /** Detect Open Reading Frames (ORFs) across 6 reading frames */
-export function findORFs(dna: string, minLengthAa = 30, isCircular = true): ORF[] {
+export function findORFs(dna: string, minLengthAa = 30, isCircular = true, maxLengthAa?: number): ORF[] {
   const clean = dna.toUpperCase().replace(/[^ACGT]/g, '');
   const len = clean.length;
   if (len < 90) return [];
@@ -194,7 +194,7 @@ export function findORFs(dna: string, minLengthAa = 30, isCircular = true): ORF[
       } else if ((codon === 'TAA' || codon === 'TAG' || codon === 'TGA') && currentStart !== -1) {
         const orfDna = searchDna.slice(currentStart, i + 3);
         const aaLen = orfDna.length / 3 - 1; // excluding stop
-        if (aaLen >= minLengthAa) {
+        if (aaLen >= minLengthAa && (!maxLengthAa || maxLengthAa <= 0 || aaLen <= maxLengthAa)) {
           const start1 = (currentStart % len) + 1;
           const end1 = ((i + 2) % len) + 1;
           orfs.push({
@@ -224,7 +224,7 @@ export function findORFs(dna: string, minLengthAa = 30, isCircular = true): ORF[
       } else if ((codon === 'TAA' || codon === 'TAG' || codon === 'TGA') && currentStart !== -1) {
         const orfDna = revDna.slice(currentStart, i + 3);
         const aaLen = orfDna.length / 3 - 1;
-        if (aaLen >= minLengthAa) {
+        if (aaLen >= minLengthAa && (!maxLengthAa || maxLengthAa <= 0 || aaLen <= maxLengthAa)) {
           // Convert back to original 5' coordinate
           const origEnd = (searchLen - currentStart) % len || len;
           const origStart = (searchLen - (i + 2)) % len || len;

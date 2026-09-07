@@ -6,6 +6,7 @@ import {
   pixelSizeFromMag, magFromPixelSize, CryoEmError,
   relativisticWavelength, waveAberration, ctfValue, firstCtfZero,
   generateCtfProfile, generateThonRingsMatrix,
+  generateMultiDefocusProfile, generateMultiDefocusThonRingsMatrix,
 } from '@/core/cryoem';
 
 describe('cryo-em geometry and sampling', () => {
@@ -129,5 +130,26 @@ describe('CTF and Thon rings physics', () => {
     const iceProfile = generateCtfProfile(300, 2.7, 1.5, 1.0, 0.07, 50, 50, 'ice');
     const peakAt3_66 = iceProfile.find(p => p.d >= 3.6 && p.d <= 3.75);
     expect(peakAt3_66?.diffraction).toBeGreaterThan(0);
+  });
+
+  it('generates multi-defocus profile and 2D matrix demonstrating zero filling', () => {
+    const defoci = [0.8, 1.2, 1.6, 2.0];
+    const multiProf = generateMultiDefocusProfile(300, 2.7, defoci, 1.0, 0.07, 50, 100);
+
+    expect(multiProf.length).toBe(101);
+    expect(multiProf[0]!.s).toBe(0);
+
+    // In the oscillating frequency range (e.g. s = 0.1 to 0.3),
+    // find points where at least one individual defocus has a zero crossing (< 0.02)
+    const pointsWithIndividualZero = multiProf.filter(p =>
+      p.s >= 0.1 && p.s <= 0.3 && p.individualPowers.some(pow => pow < 0.02)
+    );
+    expect(pointsWithIndividualZero.length).toBeGreaterThan(0);
+
+    const avgCombinedPower = multiProf.reduce((sum, p) => sum + p.combinedPower, 0) / multiProf.length;
+    expect(avgCombinedPower).toBeGreaterThan(0.15);
+
+    const multiMatrix = generateMultiDefocusThonRingsMatrix(64, 300, 2.7, defoci, 0.05, 30, 1.0);
+    expect(multiMatrix.length).toBe(64 * 64);
   });
 });

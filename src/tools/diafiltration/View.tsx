@@ -232,6 +232,12 @@ export default function DiafiltrationView() {
                   />
                 </div>
               </div>
+
+              {s.concentrateVolMl >= s.initialVolMl && (
+                <div class="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+                  ⚠️ Concentrate volume must be strictly smaller than initial sample volume to perform spin concentration.
+                </div>
+              )}
             </div>
           ) : (
             <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
@@ -369,6 +375,11 @@ export default function DiafiltrationView() {
       }
       results={
         <div class="space-y-4">
+          {s.mode === 'ultrafiltration' && s.concentrateVolMl >= s.initialVolMl && (
+            <div class="p-3.5 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 text-xs text-amber-800 dark:text-amber-200">
+              ⚠️ <strong>Invalid Concentration Volume:</strong> Concentrate volume ({s.concentrateVolMl} mL) must be strictly less than initial sample volume ({s.initialVolMl} mL) to perform ultrafiltration / spin concentration.
+            </div>
+          )}
           {/* Primary Result Banner */}
           <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
             <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">

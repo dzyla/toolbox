@@ -198,14 +198,94 @@ export interface SampleReagentSummary {
   isDilution: boolean;
 }
 
+export interface DilutionSeriesWellStep {
+  wellId: string;
+  targetConc?: number;
+  unit?: string;
+  action: string;
+  prefillBufferUl: number;
+  addStockUl?: number;
+  transferInUl?: number;
+  transferOutUl?: number;
+  finalVolumeUl: number;
+  fromWellId?: string;
+  toWellId?: string;
+  isDiscard?: boolean;
+}
+
+export interface DilutionSeriesPlan {
+  groupName: string;
+  stockConc?: number;
+  unit: string;
+  initialWellIds: string[];
+  initialTargetConc: number;
+  initialTotalVolumeUl: number;
+  stockVolumePerInitialWellUl: number;
+  bufferVolumePerInitialWellUl: number;
+  transferVolumeUl: number;
+  discardVolumeUl: number;
+  workingVolumeUl: number;
+  wellsInOrder: DilutionSeriesWellStep[];
+}
+
 export interface PipettingPlan {
   totalAssignedWells: number;
   workingVolumeUl: number;
   transferVolumeUl: number;
   totalDiluentNeededUl: number;
   totalStockNeededUl: number;
+  stockConc?: number;
   reagentSummaries: SampleReagentSummary[];
   steps: PipettingSchemeStep[];
+  dilutionSeriesPlans: DilutionSeriesPlan[];
+}
+
+function partitionReplicateSeries(wells: WellData[]): WellData[][] {
+  if (wells.length <= 1) return [wells];
+
+  // 1. If replicateIndex is explicitly defined on wells
+  const hasReplicateIndex = wells.some(w => w.replicateIndex !== undefined);
+  if (hasReplicateIndex) {
+    const map = new Map<number, WellData[]>();
+    for (const w of wells) {
+      const rep = w.replicateIndex ?? 1;
+      if (!map.has(rep)) map.set(rep, []);
+      map.get(rep)!.push(w);
+    }
+    return Array.from(map.values());
+  }
+
+  // 2. Check if grouping by row creates multiple rows with varying concentrations
+  const rowMap = new Map<string, WellData[]>();
+  for (const w of wells) {
+    if (!rowMap.has(w.row)) rowMap.set(w.row, []);
+    rowMap.get(w.row)!.push(w);
+  }
+  if (rowMap.size > 1) {
+    const allRowsHaveMultipleConcs = Array.from(rowMap.values()).every(
+      rowWells => rowWells.length > 1 && new Set(rowWells.map(w => w.value)).size > 1
+    );
+    if (allRowsHaveMultipleConcs) {
+      return Array.from(rowMap.values());
+    }
+  }
+
+  // 3. Check if grouping by col creates multiple columns with varying concentrations
+  const colMap = new Map<number, WellData[]>();
+  for (const w of wells) {
+    if (!colMap.has(w.col)) colMap.set(w.col, []);
+    colMap.get(w.col)!.push(w);
+  }
+  if (colMap.size > 1) {
+    const allColsHaveMultipleConcs = Array.from(colMap.values()).every(
+      colWells => colWells.length > 1 && new Set(colWells.map(w => w.value)).size > 1
+    );
+    if (allColsHaveMultipleConcs) {
+      return Array.from(colMap.values());
+    }
+  }
+
+  return [wells];
 }
 
 /** Generate a realistic step-by-step pipetting scheme for plate preparation */
@@ -215,13 +295,15 @@ export function generatePipettingScheme(
     workingVolumeUl: number;
     transferVolumeUl: number;
     pipetteType: 'single' | '8-channel' | '12-channel';
+    stockConc?: number;
   },
   groups: SampleGroup[] = [],
 ): PipettingPlan {
-  const { workingVolumeUl, transferVolumeUl, pipetteType } = options;
+  const { workingVolumeUl, transferVolumeUl, pipetteType, stockConc } = options;
   const assigned = Object.values(wells).filter(w => !!w.sampleGroupId || !!w.sampleName);
   const diluentVolPerWell = workingVolumeUl;
   const steps: PipettingSchemeStep[] = [];
+  const dilutionSeriesPlans: DilutionSeriesPlan[] = [];
 
   const groupNameMap = new Map<string, string>(groups.map(g => [g.id, g.name]));
   const groupTypeMap = new Map<string, string>(groups.map(g => [g.id, g.type]));
@@ -234,25 +316,54 @@ export function generatePipettingScheme(
     groupWells.get(gKey)!.push(w);
   }
 
-  // Summarize reagents
-  const reagentSummaries: SampleReagentSummary[] = [];
+  // Identify blank wells, dilution series tracks, and initial wells
+  const blankWells: WellData[] = [];
+  const initialDilutionWells: WellData[] = [];
+  const downstreamDilutionWells: WellData[] = [];
+  let totalStockNeededUl = 0;
+  let totalInitialBufferNeededUl = 0;
+
+  // Pre-analyze groups to determine exact diluent requirements
+  for (const [gKey, sWells] of groupWells.entries()) {
+    const gType = groupTypeMap.get(gKey) || (gKey === 'blank' ? 'blank' : 'sample');
+    if (gType === 'blank' || gKey === 'blank') {
+      blankWells.push(...sWells);
+      continue;
+    }
+    const distinctValues = new Set(sWells.map(w => w.value).filter(v => v !== undefined && v > 0));
+    const isDilution = distinctValues.size > 1;
+    if (isDilution) {
+      const tracks = partitionReplicateSeries(sWells);
+      for (const track of tracks) {
+        const sorted = [...track].sort((a, b) => (b.value ?? 0) - (a.value ?? 0) || a.row.localeCompare(b.row) || a.col - b.col);
+        if (sorted.length > 0) {
+          initialDilutionWells.push(sorted[0]!);
+          downstreamDilutionWells.push(...sorted.slice(1));
+        }
+      }
+    }
+  }
+
+  // Step 1: Pre-fill diluent into downstream dilution wells and blank wells
+  // (Initial wells receive customized buffer+stock mixtures in subsequent step)
+  const prefillWells = [...blankWells, ...downstreamDilutionWells];
   let stepCounter = 1;
 
-  // Step 1: Pre-fill diluent/buffer into destination wells
-  steps.push({
-    stepNumber: stepCounter++,
-    description: `Pre-fill assay buffer / diluent (${diluentVolPerWell} µL/well) into all ${assigned.length} assigned wells.`,
-    volumeUl: diluentVolPerWell * assigned.length,
-    reagent: 'Assay Buffer / Diluent',
-    source: 'Reagent Reservoir',
-    destination: `${assigned.length} active wells`,
-    pipetteType,
-  });
+  if (prefillWells.length > 0) {
+    steps.push({
+      stepNumber: stepCounter++,
+      description: `Pre-fill assay buffer / diluent (${diluentVolPerWell} µL/well) into ${prefillWells.length} destination wells (${prefillWells.map(w => w.id).join(', ')}). Note: initial dilution wells and neat samples are excluded from this step.`,
+      volumeUl: diluentVolPerWell * prefillWells.length,
+      reagent: 'Assay Buffer / Diluent',
+      source: 'Reagent Reservoir',
+      destination: `${prefillWells.length} active wells`,
+      pipetteType,
+    });
+  }
 
-  let totalStockNeededUl = 0;
-  const totalDiluentNeededUl = diluentVolPerWell * assigned.length;
+  const reagentSummaries: SampleReagentSummary[] = [];
 
-  // For each non-blank sample group:
+  // For each sample group:
   for (const [gKey, sWells] of groupWells.entries()) {
     const gType = groupTypeMap.get(gKey) || (gKey === 'blank' ? 'blank' : 'sample');
     const sampleName = groupNameMap.get(gKey) || sWells[0]?.sampleName || gKey;
@@ -275,41 +386,149 @@ export function generatePipettingScheme(
     const isDilution = distinctValues.size > 1;
 
     if (isDilution) {
-      // Find maximum concentration well(s) = stock wells
+      const tracks = partitionReplicateSeries(sWells);
       const maxVal = Math.max(0, ...sWells.map(w => w.value || 0));
-      const startWells = sWells.filter(w => w.value === maxVal);
-      const stockLoadVol = (workingVolumeUl + transferVolumeUl) * startWells.length;
-      totalStockNeededUl += stockLoadVol;
+      const unit = sWells[0]?.unit || 'µM';
+      const initialTotalVolPerWell = workingVolumeUl + transferVolumeUl;
+
+      // Calculate stock and buffer split for initial well if stockConc is provided
+      let stockVolPerWell = initialTotalVolPerWell;
+      let bufferVolPerWell = 0;
+      const effectiveStock = stockConc && stockConc > 0 ? stockConc : undefined;
+
+      if (effectiveStock && effectiveStock >= maxVal && maxVal > 0) {
+        stockVolPerWell = (maxVal / effectiveStock) * initialTotalVolPerWell;
+        bufferVolPerWell = Math.max(0, initialTotalVolPerWell - stockVolPerWell);
+      }
+
+      const allStartWells: WellData[] = [];
+      const sortedTracks: WellData[][] = [];
+
+      for (const track of tracks) {
+        const sorted = [...track].sort((a, b) => (b.value ?? 0) - (a.value ?? 0) || a.row.localeCompare(b.row) || a.col - b.col);
+        if (sorted.length > 0) {
+          allStartWells.push(sorted[0]!);
+          sortedTracks.push(sorted);
+        }
+      }
+
+      const totalStockForStartWells = stockVolPerWell * allStartWells.length;
+      totalStockNeededUl += totalStockForStartWells;
+      totalInitialBufferNeededUl += bufferVolPerWell * allStartWells.length;
+
+      const groupDiluentNeededUl =
+        (sWells.length - allStartWells.length) * diluentVolPerWell + bufferVolPerWell * allStartWells.length;
 
       reagentSummaries.push({
         sampleName,
         type: gType,
         wellCount: sWells.length,
         wells: sWells.map(w => w.id),
-        stockVolumeNeededUl: stockLoadVol,
-        diluentVolumeNeededUl: diluentVolPerWell * sWells.length,
+        stockVolumeNeededUl: totalStockForStartWells,
+        diluentVolumeNeededUl: groupDiluentNeededUl,
         isDilution: true,
       });
 
-      steps.push({
-        stepNumber: stepCounter++,
-        description: `Load ${workingVolumeUl + transferVolumeUl} µL ${sampleName} stock into initial well(s) ${startWells.map(w => w.id).join(', ')}.`,
-        volumeUl: stockLoadVol,
-        reagent: `${sampleName} Stock`,
-        source: `${sampleName} Tube`,
-        destination: startWells.map(w => w.id).join(', '),
-        pipetteType: startWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
-      });
+      if (bufferVolPerWell > 0 && effectiveStock) {
+        steps.push({
+          stepNumber: stepCounter++,
+          description: `Prepare Initial Well(s) ${allStartWells.map(w => w.id).join(', ')}: Add ${bufferVolPerWell.toFixed(1)} µL Diluent Buffer + ${stockVolPerWell.toFixed(1)} µL of ${sampleName} Stock (${effectiveStock} ${unit}) per well to reach ${maxVal} ${unit} (Total: ${initialTotalVolPerWell} µL/well).`,
+          volumeUl: totalStockForStartWells + (bufferVolPerWell * allStartWells.length),
+          reagent: `${sampleName} Concentrated Stock (${effectiveStock} ${unit}) + Buffer`,
+          source: `${sampleName} Stock Tube & Buffer`,
+          destination: allStartWells.map(w => w.id).join(', '),
+          pipetteType: allStartWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
+        });
+      } else {
+        steps.push({
+          stepNumber: stepCounter++,
+          description: `Load ${initialTotalVolPerWell} µL ${sampleName} stock solution into initial well(s) ${allStartWells.map(w => w.id).join(', ')}.`,
+          volumeUl: initialTotalVolPerWell * allStartWells.length,
+          reagent: `${sampleName} Stock`,
+          source: `${sampleName} Tube`,
+          destination: allStartWells.map(w => w.id).join(', '),
+          pipetteType: allStartWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
+        });
+      }
 
-      steps.push({
-        stepNumber: stepCounter++,
-        description: `Serial dilution for ${sampleName}: transfer ${transferVolumeUl} µL across consecutive wells (${sWells.map(w => w.id).join(' ➔ ')}), mixing 3–5× at each step. Discard ${transferVolumeUl} µL from the final dilution well.`,
-        volumeUl: transferVolumeUl * (sWells.length - startWells.length),
-        reagent: `${sampleName} Transfer`,
-        source: 'Preceding well',
-        destination: 'Next dilution well',
-        pipetteType: startWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
-      });
+      // Build dilution plan for each replicate series track
+      for (let tIdx = 0; tIdx < sortedTracks.length; tIdx++) {
+        const trackWells = sortedTracks[tIdx]!;
+        const seriesSteps: DilutionSeriesWellStep[] = [];
+
+        for (let i = 0; i < trackWells.length; i++) {
+          const cur = trackWells[i]!;
+          const isStart = i === 0;
+          const isEnd = i === trackWells.length - 1;
+          const next = !isEnd ? trackWells[i + 1] : undefined;
+          const prev = i > 0 ? trackWells[i - 1] : undefined;
+
+          let action = '';
+          if (isStart) {
+            action = effectiveStock && bufferVolPerWell > 0
+              ? `Add ${bufferVolPerWell.toFixed(1)} µL Buffer + ${stockVolPerWell.toFixed(1)} µL Stock (${effectiveStock} ${unit})`
+              : `Load ${initialTotalVolPerWell} µL Stock solution`;
+          } else if (isEnd) {
+            action = `Mix 3-5×; Discard ${transferVolumeUl} µL to waste (retains ${workingVolumeUl} µL)`;
+          } else {
+            action = `Mix 3-5×; Transfer ${transferVolumeUl} µL ➔ ${next?.id}`;
+          }
+
+          seriesSteps.push({
+            wellId: cur.id,
+            targetConc: cur.value,
+            unit: cur.unit || unit,
+            action,
+            prefillBufferUl: isStart ? bufferVolPerWell : workingVolumeUl,
+            addStockUl: isStart ? stockVolPerWell : 0,
+            transferInUl: isStart ? 0 : transferVolumeUl,
+            transferOutUl: transferVolumeUl,
+            finalVolumeUl: workingVolumeUl,
+            fromWellId: prev?.id,
+            toWellId: next?.id,
+            isDiscard: isEnd,
+          });
+        }
+
+        dilutionSeriesPlans.push({
+          groupName: sortedTracks.length > 1 ? `${sampleName} (Replicate ${tIdx + 1})` : sampleName,
+          stockConc: effectiveStock,
+          unit,
+          initialWellIds: [trackWells[0]!.id],
+          initialTargetConc: maxVal,
+          initialTotalVolumeUl: initialTotalVolPerWell,
+          stockVolumePerInitialWellUl: stockVolPerWell,
+          bufferVolumePerInitialWellUl: bufferVolPerWell,
+          transferVolumeUl,
+          discardVolumeUl: transferVolumeUl,
+          workingVolumeUl,
+          wellsInOrder: seriesSteps,
+        });
+      }
+
+      // Generate the transfer protocol step
+      if (sortedTracks.length > 1) {
+        const transferChains = sortedTracks.map(t => t.map(w => w.id).join(' ➔ ')).join('; ');
+        steps.push({
+          stepNumber: stepCounter++,
+          description: `Serial dilution for ${sampleName} (${sortedTracks.length} replicate series in parallel): transfer ${transferVolumeUl} µL across consecutive wells in each series (${transferChains}), mixing 3–5× at each step. Discard ${transferVolumeUl} µL from the final well of each series.`,
+          volumeUl: transferVolumeUl * (sWells.length - sortedTracks.length),
+          reagent: `${sampleName} Transfer`,
+          source: 'Preceding well',
+          destination: 'Next dilution well',
+          pipetteType: allStartWells.length >= 8 && pipetteType !== 'single' ? pipetteType : 'single',
+        });
+      } else {
+        steps.push({
+          stepNumber: stepCounter++,
+          description: `Serial dilution for ${sampleName}: transfer ${transferVolumeUl} µL across consecutive wells (${sortedTracks[0]?.map(w => w.id).join(' ➔ ')}), mixing 3–5× at each step. Discard ${transferVolumeUl} µL from the final dilution well.`,
+          volumeUl: transferVolumeUl * (sWells.length - 1),
+          reagent: `${sampleName} Transfer`,
+          source: 'Preceding well',
+          destination: 'Next dilution well',
+          pipetteType: 'single',
+        });
+      }
     } else {
       // Fixed concentration sample
       const sampleVol = workingVolumeUl * sWells.length;
@@ -348,6 +567,8 @@ export function generatePipettingScheme(
     pipetteType: 'single',
   });
 
+  const totalDiluentNeededUl = diluentVolPerWell * prefillWells.length + totalInitialBufferNeededUl;
+
   return {
     totalAssignedWells: assigned.length,
     workingVolumeUl,
@@ -356,6 +577,7 @@ export function generatePipettingScheme(
     totalStockNeededUl,
     reagentSummaries,
     steps,
+    dilutionSeriesPlans,
   };
 }
 
@@ -663,4 +885,221 @@ export function plateToMatrixTsv(format: PlateFormat, wells: Record<string, Well
 
   return rows.join('\n');
 }
+
+export interface AssayPreset {
+  id: string;
+  name: string;
+  badge: string;
+  description: string;
+  format: PlateFormat;
+  build: () => { wells: Record<string, WellData>; groups: SampleGroup[] };
+}
+
+export const ASSAY_PRESETS: AssayPreset[] = [
+  {
+    id: 'elisa',
+    name: 'ELISA / Binding Standard Curve',
+    badge: '8-pt 1:2',
+    description: 'Blanks (Row A), Standard curve 1:2 dilution in duplicate (Rows B & C), Samples in duplicate (Rows D-G), Controls (Row H).',
+    format: 96,
+    build: () => {
+      const wells = generateEmptyPlate(96);
+      const dim = PLATE_DIMENSIONS[96];
+      const groups: SampleGroup[] = [
+        { id: 'blank', name: 'Blank / Media', color: '#94a3b8', type: 'blank' },
+        { id: 'std', name: 'Standard Curve', color: '#8b5cf6', type: 'standard' },
+        { id: 'pos-ctrl', name: 'Positive Control', color: '#10b981', type: 'pos-ctrl' },
+        { id: 'neg-ctrl', name: 'Negative Control', color: '#ef4444', type: 'neg-ctrl' },
+        { id: 'sample-1', name: 'Sample 1', color: '#3b82f6', type: 'sample' },
+        { id: 'sample-2', name: 'Sample 2', color: '#ec4899', type: 'sample' },
+      ];
+      // Row A: Blanks
+      for (let c = 1; c <= 12; c++) {
+        wells[`A${c}`] = { id: `A${c}`, row: 'A', col: c, sampleGroupId: 'blank', sampleName: 'Blank' };
+      }
+      // Rows B & C: Std curve (8 steps, 1:2 dilution, 100 ng/mL)
+      applyDilutionSeries(wells, {
+        groupId: 'std',
+        startConc: 100,
+        dilutionFactor: 2,
+        unit: 'ng/mL',
+        direction: 'row',
+        startRow: 'B',
+        startCol: 1,
+        length: 8,
+        replicates: 2,
+        includeBlank: true,
+      }, dim, 'Std');
+      // Controls in cols 9-12 of B & C
+      wells['B9'] = { id: 'B9', row: 'B', col: 9, sampleGroupId: 'pos-ctrl', sampleName: 'Pos Ctrl', value: 100, unit: 'ng/mL' };
+      wells['C9'] = { id: 'C9', row: 'C', col: 9, sampleGroupId: 'pos-ctrl', sampleName: 'Pos Ctrl', value: 100, unit: 'ng/mL' };
+      wells['B10'] = { id: 'B10', row: 'B', col: 10, sampleGroupId: 'pos-ctrl', sampleName: 'Pos Ctrl', value: 50, unit: 'ng/mL' };
+      wells['C10'] = { id: 'C10', row: 'C', col: 10, sampleGroupId: 'pos-ctrl', sampleName: 'Pos Ctrl', value: 50, unit: 'ng/mL' };
+      wells['B11'] = { id: 'B11', row: 'B', col: 11, sampleGroupId: 'neg-ctrl', sampleName: 'Neg Ctrl' };
+      wells['C11'] = { id: 'C11', row: 'C', col: 11, sampleGroupId: 'neg-ctrl', sampleName: 'Neg Ctrl' };
+      wells['B12'] = { id: 'B12', row: 'B', col: 12, sampleGroupId: 'blank', sampleName: 'Buffer Blank' };
+      wells['C12'] = { id: 'C12', row: 'C', col: 12, sampleGroupId: 'blank', sampleName: 'Buffer Blank' };
+      // Rows D & E: Sample 1 dilution
+      applyDilutionSeries(wells, {
+        groupId: 'sample-1',
+        startConc: 50,
+        dilutionFactor: 2,
+        unit: 'ng/mL',
+        direction: 'row',
+        startRow: 'D',
+        startCol: 1,
+        length: 8,
+        replicates: 2,
+        includeBlank: false,
+      }, dim, 'S1');
+      // Rows F & G: Sample 2 dilution
+      applyDilutionSeries(wells, {
+        groupId: 'sample-2',
+        startConc: 50,
+        dilutionFactor: 2,
+        unit: 'ng/mL',
+        direction: 'row',
+        startRow: 'F',
+        startCol: 1,
+        length: 8,
+        replicates: 2,
+        includeBlank: false,
+      }, dim, 'S2');
+      return { wells, groups };
+    },
+  },
+  {
+    id: 'ic50',
+    name: '12-Point Dose-Response (IC50)',
+    badge: '12-pt 1:3',
+    description: '4 compounds across 12 serial concentrations in duplicate: 10 µM start with 1:3 dilution down to 0.056 nM.',
+    format: 96,
+    build: () => {
+      const wells = generateEmptyPlate(96);
+      const dim = PLATE_DIMENSIONS[96];
+      const groups: SampleGroup[] = [
+        { id: 'blank', name: 'Blank / Vehicle (DMSO)', color: '#94a3b8', type: 'blank' },
+        { id: 'cpd-a', name: 'Compound A', color: '#3b82f6', type: 'sample' },
+        { id: 'cpd-b', name: 'Compound B', color: '#10b981', type: 'sample' },
+        { id: 'cpd-c', name: 'Compound C', color: '#f59e0b', type: 'sample' },
+        { id: 'ref-inhibitor', name: 'Reference Inhibitor', color: '#8b5cf6', type: 'standard' },
+      ];
+      // A & B: Compound A
+      applyDilutionSeries(wells, {
+        groupId: 'cpd-a',
+        startConc: 10,
+        dilutionFactor: 3,
+        unit: 'µM',
+        direction: 'row',
+        startRow: 'A',
+        startCol: 1,
+        length: 12,
+        replicates: 2,
+        includeBlank: true,
+      }, dim, 'Cpd A');
+      // C & D: Compound B
+      applyDilutionSeries(wells, {
+        groupId: 'cpd-b',
+        startConc: 10,
+        dilutionFactor: 3,
+        unit: 'µM',
+        direction: 'row',
+        startRow: 'C',
+        startCol: 1,
+        length: 12,
+        replicates: 2,
+        includeBlank: true,
+      }, dim, 'Cpd B');
+      // E & F: Compound C
+      applyDilutionSeries(wells, {
+        groupId: 'cpd-c',
+        startConc: 10,
+        dilutionFactor: 3,
+        unit: 'µM',
+        direction: 'row',
+        startRow: 'E',
+        startCol: 1,
+        length: 12,
+        replicates: 2,
+        includeBlank: true,
+      }, dim, 'Cpd C');
+      // G & H: Ref Inhibitor
+      applyDilutionSeries(wells, {
+        groupId: 'ref-inhibitor',
+        startConc: 10,
+        dilutionFactor: 3,
+        unit: 'µM',
+        direction: 'row',
+        startRow: 'G',
+        startCol: 1,
+        length: 12,
+        replicates: 2,
+        includeBlank: true,
+      }, dim, 'Ref');
+      return { wells, groups };
+    },
+  },
+  {
+    id: 'qpcr',
+    name: 'qPCR Gene Expression (Triplicates)',
+    badge: '3 Replicates',
+    description: 'Columns 1–3 Target 1, Columns 4–6 Target 2, Columns 7–9 GAPDH reference, Columns 10–12 NTC controls.',
+    format: 96,
+    build: () => {
+      const wells = generateEmptyPlate(96);
+      const groups: SampleGroup[] = [
+        { id: 'gapdh', name: 'GAPDH (Ref Gene)', color: '#3b82f6', type: 'standard' },
+        { id: 'actb', name: 'ACTB (Ref Gene)', color: '#06b6d4', type: 'standard' },
+        { id: 'target-1', name: 'Target Gene 1', color: '#10b981', type: 'sample' },
+        { id: 'target-2', name: 'Target Gene 2', color: '#ec4899', type: 'sample' },
+        { id: 'ntc', name: 'NTC (No Template)', color: '#94a3b8', type: 'neg-ctrl' },
+      ];
+      const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      rows.forEach(r => {
+        // Target 1 (cols 1-3)
+        for (let c = 1; c <= 3; c++) {
+          wells[`${r}${c}`] = { id: `${r}${c}`, row: r, col: c, sampleGroupId: 'target-1', sampleName: `T1 ${r}`, replicateIndex: c };
+        }
+        // Target 2 (cols 4-6)
+        for (let c = 4; c <= 6; c++) {
+          wells[`${r}${c}`] = { id: `${r}${c}`, row: r, col: c, sampleGroupId: 'target-2', sampleName: `T2 ${r}`, replicateIndex: c - 3 };
+        }
+        // GAPDH (cols 7-9)
+        for (let c = 7; c <= 9; c++) {
+          wells[`${r}${c}`] = { id: `${r}${c}`, row: r, col: c, sampleGroupId: 'gapdh', sampleName: `GAPDH ${r}`, replicateIndex: c - 6 };
+        }
+        // NTC and calibrators (cols 10-12)
+        for (let c = 10; c <= 12; c++) {
+          wells[`${r}${c}`] = { id: `${r}${c}`, row: r, col: c, sampleGroupId: 'ntc', sampleName: 'NTC Water', replicateIndex: c - 9 };
+        }
+      });
+      return { wells, groups };
+    },
+  },
+  {
+    id: 'hts',
+    name: 'HTS Screening Plate (80 Compounds)',
+    badge: 'Cols 1 & 12 Ctrl',
+    description: 'Column 1 DMSO negative control, Column 12 positive control, Columns 2–11 screening library test wells.',
+    format: 96,
+    build: () => {
+      const wells = generateEmptyPlate(96);
+      const groups: SampleGroup[] = [
+        { id: 'neg-ctrl', name: 'Neg Ctrl (DMSO 0.1%)', color: '#64748b', type: 'neg-ctrl' },
+        { id: 'pos-ctrl', name: 'Pos Ctrl (Staurosporine)', color: '#10b981', type: 'pos-ctrl' },
+        { id: 'hts-compounds', name: 'Screening Library', color: '#3b82f6', type: 'sample' },
+      ];
+      const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      rows.forEach(r => {
+        wells[`${r}1`] = { id: `${r}1`, row: r, col: 1, sampleGroupId: 'neg-ctrl', sampleName: 'DMSO Ctrl' };
+        wells[`${r}12`] = { id: `${r}12`, row: r, col: 12, sampleGroupId: 'pos-ctrl', sampleName: 'Pos Ctrl' };
+        for (let c = 2; c <= 11; c++) {
+          wells[`${r}${c}`] = { id: `${r}${c}`, row: r, col: c, sampleGroupId: 'hts-compounds', sampleName: `Cpd ${r}${c}`, value: 10, unit: 'µM' };
+        }
+      });
+      return { wells, groups };
+    },
+  },
+];
+
 

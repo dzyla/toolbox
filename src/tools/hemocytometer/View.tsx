@@ -106,7 +106,7 @@ export default function HemocytometerView() {
               <input
                 type="number"
                 min="1"
-                step="0.1"
+                step="any"
                 value={s.dilutionFactor}
                 onInput={(e) => set({ dilutionFactor: parseFloat((e.target as HTMLInputElement).value) || 1 })}
                 class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -119,7 +119,7 @@ export default function HemocytometerView() {
               <input
                 type="number"
                 min="0"
-                step="0.5"
+                step="any"
                 value={s.totalCultureVolumeMl}
                 onInput={(e) => set({ totalCultureVolumeMl: parseFloat((e.target as HTMLInputElement).value) || 0 })}
                 class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"

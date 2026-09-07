@@ -5,6 +5,8 @@ export interface ToolProps { projectId?: string }
 export interface ToolMeta {
   id: string; name: string; category: Category; icon: string; blurb: string;
   keywords: string[]; hasProjects?: boolean; status?: 'ready' | 'porting' | 'planned';
+  /** Research preview: surfaced on the home page and the tool page so visitors know before they use it. */
+  preview?: string;
   load?: () => Promise<{ default: ComponentType<ToolProps> }>;
 }
 
@@ -35,7 +37,7 @@ export const TOOLS: ToolMeta[] = [
     blurb: 'Salt to add for a saturation cut', keywords: ['ammonium sulfate', 'precipitation', 'saturation', 'salting out'],
     status: 'ready', load: () => import('./ammonium-sulfate/View') },
   { id: 'cryoem', name: 'Cryo-EM', category: 'calculators', icon: '❄️',
-    blurb: 'Pixel size, Nyquist, box sizes', keywords: ['cryo-em', 'nyquist', 'box size', 'pixel', 'em'],
+    blurb: 'Pixel size, Nyquist, box sizes, CTF / Thon rings, 2D classes & 3D MRC viewer', keywords: ['cryo-em', 'nyquist', 'box size', 'pixel', 'em', 'ctf', 'thon rings', 'mrc', 'mrcs', 'dose', 'class averages'],
     status: 'ready', load: () => import('./cryoem/View') },
   { id: 'fitting', name: 'Curve Fitting', category: 'calculators', icon: '📈',
     blurb: 'Fit 4PL (EC50), linear, Michaelis-Menten, and exponential models', keywords: ['fit', 'curve', 'regression', 'logistic', '4pl', 'ic50', 'ec50', 'exponential', 'michaelis-menten', 'linear', 'r2', 'residuals'],
@@ -46,11 +48,17 @@ export const TOOLS: ToolMeta[] = [
   { id: 'diafiltration', name: 'Ultrafiltration & Dialysis', category: 'calculators', icon: '🔄',
     blurb: 'Centrifugal spin concentrator cycles (DFV) and dialysis kinetics', keywords: ['diafiltration', 'ultrafiltration', 'dialysis', 'amicon', 'vivaspin', 'mwco', 'buffer exchange', 'desalting', 'dfv'],
     status: 'ready', load: () => import('./diafiltration/View') },
+  { id: 'dsf', name: 'Thermal Shift (DSF)', category: 'calculators', icon: '🔥',
+    blurb: 'Protein stability, Tm from dF/dT, Boltzmann fit, and ΔTm screening', keywords: ['dsf', 'thermal shift', 'tm', 'melting', 'stability', 'sypro', 'nanodsf', 'boltzmann', 'unfolding'],
+    status: 'ready', load: () => import('./dsf/View') },
+  { id: 'detergent', name: 'Detergent & Micelles', category: 'calculators', icon: '🫧',
+    blurb: 'CMC, micelle MW, free/micellar concentration, and PDC sizing', keywords: ['detergent', 'micelle', 'cmc', 'membrane protein', 'ddm', 'lmng', 'og', 'chaps', 'dialysis'],
+    status: 'ready', load: () => import('./detergent/View') },
   { id: 'protein', name: 'Protein Workbench', category: 'sequences', icon: '🧬',
     blurb: 'MW, pI, ε280, instability, digests, plots', keywords: ['protein', 'pi', 'extinction', 'protparam', 'mw', 'kda', 'digest'],
     status: 'ready', load: () => import('./protein/View') },
-  { id: 'structure', name: '3D Structure & RMSD', category: 'sequences', icon: '🧊',
-    blurb: '3D protein backbone viewer, PDB upload, and Kabsch Cα RMSD superposition', keywords: ['structure', 'pdb', 'rmsd', 'superposition', 'kabsch', '3d', 'protein', 'molstar', 'alphafold'],
+  { id: 'structure', name: '3D Structure Viewer', category: 'sequences', icon: '🧊',
+    blurb: 'Interactive Mol* 3D structure viewer, RCSB PDB fetch, local PDB upload, and coordinate metrics', keywords: ['structure', 'pdb', '3d', 'protein', 'molstar', 'alphafold', 'rcsb'],
     status: 'ready', load: () => import('./structure/View') },
   { id: 'protein-conc', name: 'Protein Concentration', category: 'sequences', icon: '📏',
     blurb: 'A280 to mg/mL and µM', keywords: ['a280', 'concentration', 'nanodrop', 'bradford', 'bca'],
@@ -79,6 +87,12 @@ export const TOOLS: ToolMeta[] = [
   { id: 'binding', name: 'Binding Calculator', category: 'sequences', icon: '🧲',
     blurb: 'Kd, complex fractions, cooperativity, Ki', keywords: ['kd', 'binding', 'affinity', 'cheng-prusoff', 'hill', 'ki'],
     status: 'ready', load: () => import('./binding/View') },
+  { id: 'primers', name: 'Primer QC & PCR Suite', category: 'sequences', icon: '🧬',
+    blurb: 'Thermodynamic Tm, 3′ stability, hairpins, dimers, and Ta (Taq & Q5)', keywords: ['primer', 'pcr', 'tm', 'hairpin', 'dimer', 'annealing', 'oligo', 'santalucia', 'q5', 'taq'],
+    status: 'ready', load: () => import('./primers/View') },
+  { id: 'tags', name: 'Tag & Cleavage Simulator', category: 'sequences', icon: '✂️',
+    blurb: 'Protease cleavage (TEV, 3C, Thrombin), tag library, and virtual SDS-PAGE', keywords: ['tag', 'cleavage', 'protease', 'tev', 'prescission', 'thrombin', 'his6', 'gst', 'mbp', 'sumo', 'sds-page'],
+    status: 'ready', load: () => import('./tags/View') },
   { id: 'gel', name: 'Gel / Blot', category: 'gels', icon: '🩻',
     blurb: 'Annotate lanes, ladders and bands; quantify', keywords: ['gel', 'blot', 'western', 'ladder', 'densitometry', 'band'],
     status: 'ready', hasProjects: true, load: () => import('./gel/View') },
@@ -94,8 +108,11 @@ export const TOOLS: ToolMeta[] = [
   { id: 'tally', name: 'Tally Counter', category: 'counting', icon: '🔢',
     blurb: 'Named counters with limits', keywords: ['counter', 'tally'],
     status: 'ready', load: () => import('./tally/View') },
-  { id: 'plate', name: 'Plate Layout', category: 'plates', icon: '🟦',
-    blurb: 'Lay out 6 to 384 wells', keywords: ['plate', '96', '384', 'wells', 'layout'],
+  { id: 'plate', name: 'Plate Layout & Reader', category: 'plates', icon: '🟦',
+    blurb: 'Multi-well plate designer & reader processor: 6 to 384 wells, serial dilutions, normalization & curve fits', keywords: ['plate', '96', '384', 'wells', 'layout', 'reader', 'tecan', 'biotek', 'bmg', 'elisa', 'heatmap'],
+    status: 'ready', load: () => import('./plate/View') },
+  { id: 'plate-reader', name: 'Plate Reader Processor', category: 'plates', icon: '📊',
+    blurb: '96 & 384-well matrix parser, blanks, %CV, Z\', and curve fit export', keywords: ['plate reader', 'tecan', 'biotek', 'bmg', 'heatmap', 'z-prime', 'cv', 'normalization', '96-well', '384-well'],
     status: 'ready', load: () => import('./plate/View') },
   { id: 'culture', name: 'Cell Culture', category: 'plates', icon: '🧫',
     blurb: 'Passaging and seeding density', keywords: ['cell culture', 'passage', 'seeding', 'confluence', 'doubling'],
@@ -109,6 +126,9 @@ export const TOOLS: ToolMeta[] = [
   { id: 'colors', name: 'Figure Colours', category: 'figures', icon: '🎨',
     blurb: 'Palettes, colour-blind check, PyMOL export', keywords: ['colors', 'colours', 'palette', 'pymol', 'colorblind', 'viridis', 'matplotlib', 'contrast'],
     status: 'ready', load: () => import('./colors/View') },
+  { id: 'unit-converter', name: 'Unit Converter', category: 'calculators', icon: '🔄',
+    blurb: 'Concentration, mass, volume, length, radioactivity, dose, pressure', keywords: ['unit', 'converter', 'convert', 'bq', 'curie', 'sievert', 'dose', 'psi', 'mmhg', 'atm', 'bar'],
+    status: 'ready', load: () => import('./unit-converter/View') },
 ];
 
 export function findTool(id: string): ToolMeta | undefined {

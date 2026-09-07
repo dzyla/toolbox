@@ -59,8 +59,8 @@ export default function RareCodonsView() {
   function handleAutoDetectOrf() {
     const detected = autoDetectBestOrf(s.codingDna);
     if (detected) {
-      set({ frame: detected.frame });
-      setOrfFeedback(`✓ Auto-detected ${detected.label}! Switched reading frame to ${detected.frame > 0 ? `+${detected.frame}` : detected.frame}.`);
+      set({ codingDna: detected.sequence, frame: 1 });
+      setOrfFeedback(`✓ Auto-detected & extracted ${detected.label}! Ready for expression optimization.`);
     } else {
       setOrfFeedback('⚠️ No complete ORF (≥30 codons with start and stop) found in any frame.');
     }

@@ -12,6 +12,7 @@ interface LabTimer {
   remainingSeconds: number;
   isRunning: boolean;
   color: string;
+  targetEndTime?: number;
 }
 
 interface State {
@@ -92,18 +93,22 @@ export default function TimersView() {
   const [laps, setLaps] = useState<number[]>([]);
   const stopwatchRef = useRef<number | null>(null);
 
-  // Countdown timer interval ticker
+  // Countdown timer interval ticker: wall-clock timestamp delta comparison
+  // to avoid background tab throttling delays and ensure accurate incubation intervals.
   useEffect(() => {
     const interval = window.setInterval(() => {
+      const now = Date.now();
       setTimers(prev => prev.map(t => {
         if (!t.isRunning) return t;
-        if (t.remainingSeconds <= 1) {
+        const target = t.targetEndTime ?? (now + t.remainingSeconds * 1000);
+        const rem = Math.max(0, Math.ceil((target - now) / 1000));
+        if (rem <= 0) {
           notifyTimerComplete(t.name);
-          return { ...t, remainingSeconds: 0, isRunning: false };
+          return { ...t, remainingSeconds: 0, isRunning: false, targetEndTime: undefined };
         }
-        return { ...t, remainingSeconds: t.remainingSeconds - 1 };
+        return { ...t, remainingSeconds: rem, targetEndTime: target };
       }));
-    }, 1000);
+    }, 500);
     return () => clearInterval(interval);
   }, []);
 
@@ -128,18 +133,37 @@ export default function TimersView() {
         Notification.requestPermission();
       } catch {}
     }
-    setTimers(prev => prev.map(t => t.id === id ? { ...t, isRunning: !t.isRunning } : t));
+    const now = Date.now();
+    setTimers(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      if (t.isRunning) {
+        // Pausing
+        const rem = t.targetEndTime ? Math.max(0, Math.ceil((t.targetEndTime - now) / 1000)) : t.remainingSeconds;
+        return { ...t, isRunning: false, remainingSeconds: rem, targetEndTime: undefined };
+      } else {
+        // Starting or Restarting
+        const startingRem = t.remainingSeconds <= 0 ? t.totalSeconds : t.remainingSeconds;
+        return { ...t, isRunning: true, remainingSeconds: startingRem, targetEndTime: now + startingRem * 1000 };
+      }
+    }));
   }
 
   function handleResetTimer(id: string) {
-    setTimers(prev => prev.map(t => t.id === id ? { ...t, remainingSeconds: t.totalSeconds, isRunning: false } : t));
+    setTimers(prev => prev.map(t => t.id === id ? { ...t, remainingSeconds: t.totalSeconds, isRunning: false, targetEndTime: undefined } : t));
   }
 
   function handleAddSeconds(id: string, secs: number) {
+    const now = Date.now();
     setTimers(prev => prev.map(t => {
       if (t.id !== id) return t;
       const next = t.remainingSeconds + secs;
-      return { ...t, remainingSeconds: next, totalSeconds: Math.max(t.totalSeconds, next) };
+      const nextTarget = t.isRunning ? (t.targetEndTime ? t.targetEndTime + secs * 1000 : now + next * 1000) : undefined;
+      return {
+        ...t,
+        remainingSeconds: next,
+        totalSeconds: Math.max(t.totalSeconds, next),
+        targetEndTime: nextTarget,
+      };
     }));
   }
 

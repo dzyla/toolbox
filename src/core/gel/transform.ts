@@ -114,10 +114,94 @@ export interface GelCropSuggestion {
   confidence: number;
 }
 
+/** Median of a number array (robust centre, used for border/background estimation). */
+function medianOf(a: number[]): number {
+  const s = [...a].sort((x, y) => x - y);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+}
+
 /**
- * Automatically analyzes the gel image plane to detect tilt angle and suggest centering and cropping.
- * Uses Radon/projection variance to find optimal alignment angle for horizontal bands/vertical lanes,
- * and profile energy/variance to locate the active gel boundary away from scanner borders.
+ * Content-based crop: the gel is the largest contiguous block of rows/columns that carry ink
+ * (pixels far from the scanner background). The background level is estimated from the image border,
+ * which is robust because a gel occupies the central bulk of the frame — measuring distance from the
+ * median instead fails (the gel IS the majority, so the median sits inside it).
+ * Returns the crop box in image pixels, or null if no clear content block exists.
+ */
+export function contentCropBox(plane: Plane, polarity: Polarity = 'dark'): { x: number; y: number; w: number; h: number } | null {
+  const w = plane.width, h = plane.height;
+  if (w < 40 || h < 40) return null;
+
+  // Scanner background: median of the outer border ring (a couple of pixel rings thick).
+  const ring: number[] = [];
+  const rt = Math.max(1, Math.round(Math.min(w, h) * 0.02));
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const onBorder = x < rt || x >= w - rt || y < rt || y >= h - rt;
+      if (onBorder) ring.push(plane.data[y * w + x]!);
+    }
+  }
+  const bg = medianOf(ring);
+
+  // Ink = deviation from the background, in the polarity direction (works for dark and light gels).
+  const ink = (v: number): number => {
+    if (Number.isNaN(v)) return 0;
+    return polarity === 'dark' ? Math.max(0, bg - v) : Math.max(0, v - bg);
+  };
+
+  // Per-row and per-column ink fractions, sampled sparsely along the other axis.
+  const colStep = Math.max(1, Math.floor(w / 240));
+  const rowStep = Math.max(1, Math.floor(h / 240));
+  const rowFrac = new Float64Array(h), rowTot = new Float64Array(h);
+  for (let y = 0; y < h; y++) {
+    let cnt = 0, tot = 0;
+    for (let x = 0; x < w; x += colStep) { if (ink(plane.data[y * w + x]!) > 0.03) cnt++; tot++; }
+    rowFrac[y] = tot > 0 ? cnt / tot : 0; rowTot[y] = tot;
+  }
+  const colFrac = new Float64Array(w), colTot = new Float64Array(w);
+  for (let x = 0; x < w; x++) {
+    let cnt = 0, tot = 0;
+    for (let y = 0; y < h; y += rowStep) { if (ink(plane.data[y * w + x]!) > 0.03) cnt++; tot++; }
+    colFrac[x] = tot > 0 ? cnt / tot : 0; colTot[x] = tot;
+  }
+
+  const longest = (frac: Float64Array): [number, number] | null => {
+    let best: [number, number] | null = null;
+    let i = 0;
+    while (i < frac.length) {
+      if (frac[i]! < 0.3) { i++; continue; }
+      const start = i;
+      while (i < frac.length && frac[i]! >= 0.3) i++;
+      const len = i - start;
+      if (!best || len > best[1] - best[0]) best = [start, i];
+    }
+    return best;
+  };
+
+  const ry = longest(rowFrac);
+  const cx = longest(colFrac);
+  if (!ry || !cx) return null;
+  if ((ry[1] - ry[0]) < h * 0.1 || (cx[1] - cx[0]) < w * 0.1) return null; // degenerate: not a gel block
+
+  const padY = Math.round(h * 0.015), padX = Math.round(w * 0.015);
+  const x = Math.max(0, cx[0] - padX);
+  const y = Math.max(0, ry[0] - padY);
+  const cw = Math.min(w - x, (cx[1] - cx[0]) + padX * 2);
+  const ch = Math.min(h - y, (ry[1] - ry[0]) + padY * 2);
+  return { x, y, w: Math.max(20, cw), h: Math.max(20, ch) };
+}
+
+/**
+ * Automatically analyze the gel image plane to suggest a straightening rotation and a tight crop.
+ *
+ * - Crop: robust background-relative content block (see {@link contentCropBox}). Falls back to the
+ *   whole frame when no clear gel block is detected, so a bad suggestion is always a no-op.
+ * - Tilt: coarse-to-fine projection-variance deskew, gated so it only rotates when the winning
+ *   angle is a clear local maximum that beats the un-rotated projection. On a flat/ambiguous profile
+ *   it returns 0 rather than an artefact.
+ *
+ * The returned `crop` is in the UN-ROTATED working frame, and `rotation` is the angle to apply
+ * (the sign that straightens the gel under {@link transformPlane}).
  */
 export function suggestGelCropAndTilt(plane: Plane, polarity: Polarity = 'dark'): GelCropSuggestion {
   const w = plane.width;
@@ -126,127 +210,117 @@ export function suggestGelCropAndTilt(plane: Plane, polarity: Polarity = 'dark')
     return { rotation: 0, crop: { x: 0, y: 0, w, h }, confidence: 0 };
   }
 
-  // 1. Detect tilt angle: scan angles -12° to +12° in 0.5° steps
-  // Testing horizontal projection variance across central region
-  const yStart = Math.round(h * 0.15);
-  const yEnd = Math.round(h * 0.85);
-  const xStart = Math.round(w * 0.15);
-  const xEnd = Math.round(w * 0.85);
-  const sampleW = xEnd - xStart;
-  const sampleH = yEnd - yStart;
+  const box = contentCropBox(plane, polarity);
+  const crop = box ?? { x: 0, y: 0, w, h };
 
-  let bestAngle = 0;
-  let maxVar = -1;
+  const { angle, margin, peaked } = deskewAngle(plane, polarity);
+  // Only rotate when the winning angle is a clear local maximum with a meaningful margin over 0°.
+  // deskewAngle returns the rotation to APPLY (it finds the alignment-maximising rotation directly),
+  // so we use `angle` as-is — no sign flip.
+  const rotation = peaked && margin >= 0.01 && Math.abs(angle) >= 0.25 ? angle : 0;
 
-  for (let deg = -12; deg <= 12; deg += 0.5) {
-    const rad = deg * Math.PI / 180;
-    const tan = Math.tan(rad);
-
-    let sumVals = 0;
-    let sumSqVals = 0;
-    let count = 0;
-
-    const rowStep = Math.max(1, Math.floor(sampleH / 60));
-    const colStep = Math.max(1, Math.floor(sampleW / 50));
-
-    for (let y = yStart; y < yEnd; y += rowStep) {
-      let rowSum = 0;
-      let rowK = 0;
-      for (let x = xStart; x < xEnd; x += colStep) {
-        const sampleY = y + (x - w / 2) * tan;
-        const val = sampleBilinear(plane, x, sampleY);
-        if (!Number.isNaN(val)) {
-          const sig = polarity === 'dark' ? 1 - val : val;
-          rowSum += sig;
-          rowK++;
-        }
-      }
-      if (rowK > 0) {
-        const rowAvg = rowSum / rowK;
-        sumVals += rowAvg;
-        sumSqVals += rowAvg * rowAvg;
-        count++;
-      }
-    }
-
-    if (count > 2) {
-      const meanVal = sumVals / count;
-      const variance = (sumSqVals / count) - (meanVal * meanVal);
-      if (variance > maxVar) {
-        maxVar = variance;
-        bestAngle = deg;
-      }
-    }
-  }
-
-  // Rotation to apply to straighten the gel
-  const suggestedRotation = Math.abs(bestAngle) >= 0.2 ? -bestAngle : 0;
-
-  // 2. Active Gel Boundary Detection (Row & Column Profile Variance)
-  const colVars = new Float32Array(w);
-  const colStep = Math.max(1, Math.floor(h / 80));
-  for (let x = 0; x < w; x++) {
-    let s = 0, sq = 0, k = 0;
-    for (let y = 0; y < h; y += colStep) {
-      const v = plane.data[y * w + x] ?? 0;
-      s += v; sq += v * v; k++;
-    }
-    if (k > 1) {
-      const m = s / k;
-      colVars[x] = Math.max(0, sq / k - m * m);
-    }
-  }
-
-  const rowVars = new Float32Array(h);
-  const rowStep = Math.max(1, Math.floor(w / 80));
-  for (let y = 0; y < h; y++) {
-    let s = 0, sq = 0, k = 0;
-    for (let x = 0; x < w; x += rowStep) {
-      const v = plane.data[y * w + x] ?? 0;
-      s += v; sq += v * v; k++;
-    }
-    if (k > 1) {
-      const m = s / k;
-      rowVars[y] = Math.max(0, sq / k - m * m);
-    }
-  }
-
-  let maxColVar = 0;
-  for (let i = 0; i < w; i++) if (colVars[i]! > maxColVar) maxColVar = colVars[i]!;
-  let maxRowVar = 0;
-  for (let i = 0; i < h; i++) if (rowVars[i]! > maxRowVar) maxRowVar = rowVars[i]!;
-
-  const colThresh = maxColVar * 0.12;
-  const rowThresh = maxRowVar * 0.12;
-
-  let x0 = 0, x1 = w - 1;
-  while (x0 < w - 1 && (colVars[x0] ?? 0) < colThresh) x0++;
-  while (x1 > x0 && (colVars[x1] ?? 0) < colThresh) x1--;
-
-  let y0 = 0, y1 = h - 1;
-  while (y0 < h - 1 && (rowVars[y0] ?? 0) < rowThresh) y0++;
-  while (y1 > y0 && (rowVars[y1] ?? 0) < rowThresh) y1--;
-
-  // Add 3% margin
-  const padX = Math.round(w * 0.03);
-  const padY = Math.round(h * 0.03);
-
-  const cropX = Math.max(0, x0 - padX);
-  const cropY = Math.max(0, y0 - padY);
-  const cropW = Math.min(w - cropX, (x1 - x0) + padX * 2);
-  const cropH = Math.min(h - cropY, (y1 - y0) + padY * 2);
-
-  const confidence = maxVar > 0 ? Math.min(1, Math.max(0.4, maxVar * 10)) : 0.5;
+  // Confidence: how decisively the content block is smaller than the frame (a real crop), plus the
+  // deskew margin. A whole-frame fallback (cropFrac ~ 1) scores near 0, signalling "no crop needed".
+  const cropFrac = (crop.w * crop.h) / (w * h);
+  const confidence = Math.min(1, Math.max(0, (1 - cropFrac) * 1.3 + (peaked ? margin * 0.4 : 0)));
 
   return {
-    rotation: Number(suggestedRotation.toFixed(1)),
-    crop: {
-      x: cropX,
-      y: cropY,
-      w: Math.max(20, cropW),
-      h: Math.max(20, cropH),
-    },
-    confidence,
+    rotation: Number(rotation.toFixed(1)),
+    crop,
+    confidence: Number(confidence.toFixed(3)),
   };
+}
+
+/**
+ * Deskew estimate: the rotation whose combined row+column projection profile of the band signal is
+ * most peaked (max variance of a lightly smoothed projection). Gels are straight when their lanes and
+ * bands align with the axes, which maximises both the per-row and per-column projection variance.
+ *
+ * The search is coarse-to-fine over a small range around 0°. Returns the measured tilt `angle`, the
+ * score margin of the best angle over 0°, and whether the best angle is a clear LOCAL maximum (not a
+ * search-edge artefact) — callers gate on `peaked` so a flat/ambiguous profile never forces a rotation.
+ */
+export function deskewAngle(plane: Plane, polarity: Polarity = 'dark', range = 8, steps = 32): { angle: number; margin: number; peaked: boolean } {
+  const w = plane.width, h = plane.height;
+  if (w < 16 || h < 16) return { angle: 0, margin: 0, peaked: false };
+
+  // Band signal: high where there is ink. For a dark gel (light bg) ink is dark pixels (1 - v);
+  // for a light gel (dark bg) ink is bright pixels (v).
+  const sig = (v: number): number => (Number.isNaN(v) ? 0 : (polarity === 'dark' ? 1 - v : v));
+
+  // Combined projection score at a candidate rotation: variance of the per-row and per-column
+  // band-signal means, dimension-normalised so the two axes are comparable.
+  const project = (deg: number): { score: number; rowVar: number; colVar: number } => {
+    const rad = deg * Math.PI / 180;
+    const cs = Math.cos(rad), sn = Math.sin(rad);
+    const rowStep = Math.max(1, Math.floor(h / 72));
+    const colStep = Math.max(1, Math.floor(w / 72));
+    const rowSums = new Float64Array(h), rowCnt = new Float64Array(h);
+    const colSums = new Float64Array(w), colCnt = new Float64Array(w);
+    for (let y = 0; y < h; y += rowStep) {
+      for (let x = 0; x < w; x += colStep) {
+        const v = sampleBilinear(plane, x, y);
+        if (Number.isNaN(v)) continue;
+        const s = sig(v);
+        // Map the pixel to its coordinates after a test rotation by `deg` about the centre.
+        const dx = x - w / 2, dy = y - h / 2;
+        const rx = dx * cs - dy * sn + w / 2;
+        const ry = dx * sn + dy * cs + h / 2;
+        const r = Math.round(ry), c = Math.round(rx);
+        if (r >= 0 && r < h) { rowSums[r]! += s; rowCnt[r]! += 1; }
+        if (c >= 0 && c < w) { colSums[c]! += s; colCnt[c]! += 1; }
+      }
+    }
+    const rowProf = new Float32Array(h), colProf = new Float32Array(w);
+    for (let i = 0; i < h; i++) rowProf[i] = rowCnt[i]! > 0 ? rowSums[i]! / rowCnt[i]! : 0;
+    for (let j = 0; j < w; j++) colProf[j] = colCnt[j]! > 0 ? colSums[j]! / colCnt[j]! : 0;
+    // Light box smoothing (±2 bins) to suppress single-pixel jitter.
+    const smooth = (a: Float32Array): Float32Array => {
+      const b = new Float32Array(a.length);
+      for (let i = 0; i < a.length; i++) {
+        let sum = 0, k = 0;
+        for (let j = Math.max(0, i - 2); j <= Math.min(a.length - 1, i + 2); j++) { sum += a[j]!; k++; }
+        b[i] = sum / k;
+      }
+      return b;
+    };
+    const variance = (a: Float32Array): number => {
+      const m = a.reduce((x, y) => x + y, 0) / a.length;
+      return a.reduce((x, y) => x + (y - m) * (y - m), 0) / a.length;
+    };
+    const rowVar = variance(smooth(rowProf)) * h;
+    const colVar = variance(smooth(colProf)) * w;
+    return { score: rowVar + colVar, rowVar, colVar };
+  };
+
+  const base = project(0);
+  const baseScore = base.score;
+
+  let bestAngle = 0, bestScore = baseScore;
+  // Coarse pass.
+  const coarse: number[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const deg = -range + (2 * range * i) / steps;
+    coarse.push(deg);
+    const p = project(deg);
+    if (p.score > bestScore) { bestScore = p.score; bestAngle = deg; }
+  }
+  // Fine pass around the coarse winner.
+  const lo = Math.max(-range, bestAngle - 0.6), hi = Math.min(range, bestAngle + 0.6);
+  let prevScore = 0, nextScore = 0, fineBest = bestAngle;
+  for (let i = 0; i <= 24; i++) {
+    const deg = lo + ((hi - lo) * i) / 24;
+    const p = project(deg);
+    if (p.score > bestScore) { bestScore = p.score; fineBest = deg; }
+  }
+  bestAngle = fineBest;
+  // Local-maximum check: the best must beat both neighbours and the un-rotated baseline.
+  const step = (hi - lo) / 24;
+  const left = project(bestAngle - step), right = project(bestAngle + step);
+  prevScore = left.score; nextScore = right.score;
+  const peaked = bestScore > prevScore && bestScore > nextScore && bestScore > baseScore;
+
+  const margin = baseScore > 0 ? (bestScore - baseScore) / baseScore : 0;
+  return { angle: Number(bestAngle.toFixed(2)), margin: Number(margin.toFixed(4)), peaked };
 }
 

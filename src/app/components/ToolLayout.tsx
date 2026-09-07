@@ -126,7 +126,7 @@ export function ToolLayout({
           <div class="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-700 dark:bg-slate-900 min-w-0">
             {results}
           </div>
-          <div class="sticky bottom-2 z-10">{actions}</div>
+          <div class="pt-2">{actions}</div>
           {science}
         </div>
       </div>

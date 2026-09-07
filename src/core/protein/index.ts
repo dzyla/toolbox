@@ -212,3 +212,4 @@ export function summarize(rawSeq: string, scheme: PKaScheme = 'bjellqvist'): Pro
 export * from './profiles';
 export * from './features';
 export * from './mass';
+export * from './tags';

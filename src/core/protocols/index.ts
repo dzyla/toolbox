@@ -59,11 +59,22 @@ export function parseMarkdownProtocol(markdown: string): Protocol {
       const isDone = stepMatch[1]?.toLowerCase() === 'x';
       const text = stepMatch[2]!;
 
-      // Extract timer if specified: [timer: 15 min] or [timer 10m] or (10 min)
+      // Extract timer if specified: [timer: 45 s] or [timer: 15 min] or [timer: 1 hr] or natural text
       let timerMinutes: number | undefined;
-      const timerMatch = text.match(/\[timer:\s*(\d+(?:\.\d+)?)\s*(?:min|m)?\]/i) || text.match(/\b(?:incubate|spin|wait|heat|rest)\s*(?:for)?\s*(\d+(?:\.\d+)?)\s*min/i);
-      if (timerMatch) {
-        timerMinutes = parseFloat(timerMatch[1]!);
+      const bracketMatch = text.match(/\[timer:\s*(\d+(?:\.\d+)?)\s*(s|sec|seconds?|min|mins|minutes?|m|h|hr|hrs|hours?)?\]/i);
+      const naturalMatch = !bracketMatch && text.match(/\b(?:incubate|spin|wait|heat(?:-shock)?|rest|shake)\s*(?:for)?\s*(\d+(?:\.\d+)?)\s*(s|sec|seconds?|min|mins|minutes?|m|h|hr|hrs|hours?)\b/i);
+
+      const m = bracketMatch || naturalMatch;
+      if (m) {
+        const val = parseFloat(m[1]!);
+        const unit = (m[2] || 'min').toLowerCase();
+        if (unit.startsWith('s')) {
+          timerMinutes = Number((val / 60).toFixed(4));
+        } else if (unit.startsWith('h')) {
+          timerMinutes = val * 60;
+        } else {
+          timerMinutes = val;
+        }
       }
 
       const isCritical = /\b(critical|danger|fatal|hazard)\b/i.test(text);

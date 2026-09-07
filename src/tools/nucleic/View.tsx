@@ -301,7 +301,7 @@ export default function NucleicView() {
                 <label class="block text-sm font-medium mb-1">A260 Absorbance</label>
                 <input
                   type="number"
-                  step="0.001"
+                  step="any"
                   min="0"
                   class={FIELD}
                   value={s.a260}
@@ -314,7 +314,7 @@ export default function NucleicView() {
                   <label class="block text-sm font-medium mb-1">Dilution Factor</label>
                   <input
                     type="number"
-                    step="1"
+                    step="any"
                     min="1"
                     class={FIELD}
                     value={s.a260Dilution}
@@ -325,7 +325,7 @@ export default function NucleicView() {
                   <label class="block text-sm font-medium mb-1">Path Length (cm)</label>
                   <input
                     type="number"
-                    step="0.1"
+                    step="any"
                     min="0.01"
                     class={FIELD}
                     value={s.a260Path}
@@ -420,7 +420,7 @@ export default function NucleicView() {
                     <label class="block text-xs text-slate-500 mb-1">A260</label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       min="0"
                       class={FIELD}
                       value={s.oligoA260 ?? 0}
@@ -431,7 +431,7 @@ export default function NucleicView() {
                     <label class="block text-xs text-slate-500 mb-1">Dilution</label>
                     <input
                       type="number"
-                      step="1"
+                      step="any"
                       min="1"
                       class={FIELD}
                       value={s.oligoDilution ?? 1}
@@ -442,7 +442,7 @@ export default function NucleicView() {
                     <label class="block text-xs text-slate-500 mb-1">Path (cm)</label>
                     <input
                       type="number"
-                      step="0.1"
+                      step="any"
                       min="0.01"
                       class={FIELD}
                       value={s.oligoPath ?? 1.0}
@@ -471,6 +471,7 @@ export default function NucleicView() {
                   <label class="block text-xs font-medium mb-1">Oligo Conc (nM)</label>
                   <input
                     type="number"
+                    step="any"
                     min="1"
                     class={FIELD}
                     value={s.primerConc_nM}
@@ -481,6 +482,7 @@ export default function NucleicView() {
                   <label class="block text-xs font-medium mb-1">Na⁺ / Monovalent (mM)</label>
                   <input
                     type="number"
+                    step="any"
                     min="0"
                     class={FIELD}
                     value={s.naConc_mM}
@@ -491,8 +493,8 @@ export default function NucleicView() {
                   <label class="block text-xs font-medium mb-1">Mg²⁺ (mM)</label>
                   <input
                     type="number"
+                    step="any"
                     min="0"
-                    step="0.5"
                     class={FIELD}
                     value={s.mgConc_mM}
                     onInput={e => set({ mgConc_mM: Number((e.target as HTMLInputElement).value) })}
