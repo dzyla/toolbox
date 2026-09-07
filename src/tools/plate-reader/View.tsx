@@ -17,7 +17,6 @@ import {
   parseLayoutGrid,
   applyLayoutAnnotations,
   applyDoseResponsePreset,
-  applyColumnReplicatesPreset,
   applyHts384Preset,
   applyElisaPreset,
   generateSerialDilution,
@@ -106,7 +105,6 @@ export default function PlateReaderView({
   onSwitchToGenerator,
   externalLayoutAnnotations,
   onSyncLayoutToGenerator,
-  isEmbedded = false,
 }: PlateReaderViewProps = {}) {
   const [stateSig, shareUrl] = useUrlState<State>('plate-reader', DEFAULTS);
   const s = stateSig.value;

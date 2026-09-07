@@ -28,7 +28,6 @@ export interface PlateChassisProps {
   badge?: string;
   subtitle?: string;
   headerRight?: ComponentChildren;
-  hoveredWell?: { id: string; sampleName?: string; valueStr?: string } | null;
   selectedWellId?: string | null;
   onWellClick?: (wellId: string) => void;
   onWellMouseDown?: (rowIdx: number, col: number) => void;
@@ -77,7 +76,6 @@ export function PlateChassis({
   badge = '◹ A1 NOTCH',
   subtitle,
   headerRight,
-  hoveredWell,
   selectedWellId,
   onWellClick,
   onWellMouseDown,

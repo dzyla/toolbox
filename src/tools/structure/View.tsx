@@ -212,7 +212,6 @@ export default function StructureView() {
   const proteinChains = useMemo(() => parsed?.chains.filter(c => c.chainType === 'protein') || [], [parsed]);
   const rnaChains = useMemo(() => parsed?.chains.filter(c => c.chainType === 'rna') || [], [parsed]);
   const dnaChains = useMemo(() => parsed?.chains.filter(c => c.chainType === 'dna') || [], [parsed]);
-  const ligandChains = useMemo(() => parsed?.chains.filter(c => c.chainType === 'ligand') || [], [parsed]);
 
   const filteredChains = useMemo(() => {
     if (!parsed) return [];

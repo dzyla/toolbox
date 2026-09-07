@@ -4,8 +4,6 @@ import {
   PROTEASE_DATABASE,
   KAPUST_2002_TEV_P1_PRIME_EFFICIENCY,
   detectTags,
-  findCleavageSites,
-  calculateFragmentProperties,
   simulateCleavage,
   calculateMobilityY,
   getVirtualGelLanes,

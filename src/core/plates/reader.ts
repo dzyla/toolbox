@@ -1491,7 +1491,7 @@ export function parseLayoutGrid(
 /** Apply layout annotations and optional label role overrides to a parsed plate */
 export function applyLayoutAnnotations(
   plate: ParsedPlate,
-  annotations: Record<string, Partial<WellValue>>,
+  annotations: Record<string, Partial<WellValue> & Pick<AnnotationToken, 'label'>>,
   labelOverrides?: Record<string, {
     role?: SampleType;
     concentration?: number;
@@ -1529,7 +1529,7 @@ export function applyLayoutAnnotations(
       continue;
     }
 
-    const labelKey = (ann as any).label || ann.sampleName || '';
+    const labelKey = ann.label || ann.sampleName || '';
     const override = labelOverrides ? (labelOverrides[labelKey] || labelOverrides[ann.sampleName || '']) : undefined;
 
     const sampleType = override?.role ?? ann.sampleType ?? 'sample';
@@ -2726,4 +2726,3 @@ G	0.143	0.156	0.281	0.411	0.591	0.821	1.121	1.351	1.621	1.851	2.011	2.181
 H	0.137	0.149	0.274	0.404	0.584	0.814	1.114	1.344	1.614	1.844	2.004	2.174
 `,
 };
-

@@ -4,9 +4,6 @@ import {
   TAG_DATABASE,
   PROTEASE_DATABASE,
   CONSTRUCT_PRESETS,
-  STANDARD_LADDER_KDA,
-  KAPUST_2002_TEV_P1_PRIME_EFFICIENCY,
-  detectTags,
   findCleavageSites,
   simulateCleavage,
   getVirtualGelLanes,
@@ -14,8 +11,6 @@ import {
   type CleavageSimulationResult,
   type VirtualGelBand,
   type VirtualGelLane,
-  type AffinityTagDefinition,
-  type ProteaseDefinition,
 } from '@/core/protein/tags';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
