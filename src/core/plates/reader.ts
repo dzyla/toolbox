@@ -2297,6 +2297,8 @@ export interface DoseResponseSeries {
   unit: string;
   minConc: number;
   maxConc: number;
+  /** Aggregation is not a nonlinear fit. Use the fitting workflow for model parameters. */
+  fitStatus: 'not-fit';
   estimatedEc50: number | null;
   hillSlope: number | null;
   bottom: number | null;
@@ -2304,7 +2306,7 @@ export interface DoseResponseSeries {
   rSquared: number | null;
 }
 
-/** Group dose-response points and compute sigmoidal / EC50 estimates */
+/** Group dose-response points for a later, explicit nonlinear fit. */
 export function computeDoseResponseSeries(
   groups: GroupStats[],
   options: { useNormalized?: boolean } = {},
@@ -2361,40 +2363,18 @@ export function computeDoseResponseSeries(
     const maxConc = Math.max(...concs);
     const unit = sorted[0]?.concentrationUnit || 'µM';
 
-    const yVals = points.map(p => p.mean);
-    const minY = Math.min(...yVals);
-    const maxY = Math.max(...yVals);
-    const midY = (minY + maxY) / 2;
-
-    let ec50: number | null = null;
-    let hillSlope: number | null = null;
-
-    for (let i = 0; i < points.length - 1; i++) {
-      const p1 = points[i]!;
-      const p2 = points[i + 1]!;
-      if ((p1.mean <= midY && p2.mean >= midY) || (p1.mean >= midY && p2.mean <= midY)) {
-        const dy = p2.mean - p1.mean;
-        if (Math.abs(dy) > 1e-12) {
-          const frac = (midY - p1.mean) / dy;
-          const logEc50 = p1.logConc + frac * (p2.logConc - p1.logConc);
-          ec50 = Math.pow(10, logEc50);
-          hillSlope = p2.mean > p1.mean ? 1.0 : -1.0;
-        }
-        break;
-      }
-    }
-
     seriesList.push({
       seriesName: baseName,
       points,
       unit,
       minConc,
       maxConc,
-      estimatedEc50: ec50,
-      hillSlope,
-      bottom: minY,
-      top: maxY,
-      rSquared: 0.98,
+      fitStatus: 'not-fit',
+      estimatedEc50: null,
+      hillSlope: null,
+      bottom: null,
+      top: null,
+      rSquared: null,
     });
   }
 

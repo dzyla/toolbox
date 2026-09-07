@@ -670,7 +670,7 @@ B	Ctrl_High	Ctrl_High	DrugA_5	DrugA_5
       expect(csv).toContain('Standard Curve Equation');
     });
 
-    it('computes dose-response series and estimates midpoint EC50', () => {
+    it('formats dose-response points without inventing fit statistics', () => {
       const parsed = parsePlateData(DEMO_96_TECAN_DOSE_RESPONSE.rawText);
       const layout = applyDoseResponsePreset(parsed);
       parsed.wells = layout.wells;
@@ -684,8 +684,10 @@ B	Ctrl_High	Ctrl_High	DrugA_5	DrugA_5
       expect(series[0]?.points.length).toBe(8);
       expect(series[0]?.minConc).toBeCloseTo(0.0316, 3);
       expect(series[0]?.maxConc).toBeCloseTo(100.0, 1);
-      expect(series[0]?.estimatedEc50).toBeGreaterThan(0);
+      expect(series[0]?.fitStatus).toBe('not-fit');
+      expect(series[0]?.estimatedEc50).toBeNull();
+      expect(series[0]?.hillSlope).toBeNull();
+      expect(series[0]?.rSquared).toBeNull();
     });
   });
 });
-

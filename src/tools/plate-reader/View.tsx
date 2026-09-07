@@ -95,6 +95,7 @@ function getContrastingTextColor(colorStr: string): string {
 }
 
 export interface PlateReaderViewProps {
+  projectId?: string;
   onSwitchToGenerator?: () => void;
   externalLayoutAnnotations?: Record<string, AnnotationToken>;
   onSyncLayoutToGenerator?: (ann: Record<string, AnnotationToken>) => void;

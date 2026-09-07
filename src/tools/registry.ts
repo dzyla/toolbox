@@ -113,7 +113,7 @@ export const TOOLS: ToolMeta[] = [
     status: 'ready', load: () => import('./plate/View') },
   { id: 'plate-reader', name: 'Plate Reader Processor', category: 'plates', icon: '📊',
     blurb: '96 & 384-well matrix parser, blanks, %CV, Z\', and curve fit export', keywords: ['plate reader', 'tecan', 'biotek', 'bmg', 'heatmap', 'z-prime', 'cv', 'normalization', '96-well', '384-well'],
-    status: 'ready', load: () => import('./plate/View') },
+    status: 'ready', load: () => import('./plate-reader/View') },
   { id: 'culture', name: 'Cell Culture', category: 'plates', icon: '🧫',
     blurb: 'Passaging and seeding density', keywords: ['cell culture', 'passage', 'seeding', 'confluence', 'doubling'],
     status: 'ready', load: () => import('./culture/View') },
