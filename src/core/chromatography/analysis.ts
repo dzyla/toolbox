@@ -140,20 +140,22 @@ export function detectPeakCandidates(points: SignalPoint[], options: PeakDetecti
     if (index === lastIndex) return signal > ordered[lastIndex - 1]!.signalAu;
     return signal > ordered[index - 1]!.signalAu && signal >= ordered[index + 1]!.signalAu;
   };
-  const troughIndex = (start: number, end: number, preferLast: boolean): number => {
-    let selected = start;
-    for (let index = start + 1; index <= end; index += 1) {
-      const candidate = ordered[index]!;
-      const current = ordered[selected]!;
-      if (candidate.signalAu < current.signalAu || (preferLast && candidate.signalAu === current.signalAu)) selected = index;
-    }
-    return selected;
+  const isValley = (index: number): boolean => index > 0 && index < lastIndex
+    && ordered[index]!.signalAu <= ordered[index - 1]!.signalAu
+    && ordered[index]!.signalAu < ordered[index + 1]!.signalAu;
+  const nearestLeftValley = (apexIndex: number): number => {
+    for (let index = apexIndex - 1; index > 0; index -= 1) if (isValley(index)) return index;
+    return 0;
+  };
+  const nearestRightValley = (apexIndex: number): number => {
+    for (let index = apexIndex + 1; index < lastIndex; index += 1) if (isValley(index)) return index;
+    return lastIndex;
   };
 
   return ordered.flatMap((apex, apexIndex) => {
     if (!isApex(apexIndex)) return [];
-    const startIndex = troughIndex(0, apexIndex, true);
-    const endIndex = troughIndex(apexIndex, lastIndex, false);
+    const startIndex = nearestLeftValley(apexIndex);
+    const endIndex = nearestRightValley(apexIndex);
     const start = ordered[startIndex]!;
     const end = ordered[endIndex]!;
     const referenceSignalAu = startIndex === apexIndex

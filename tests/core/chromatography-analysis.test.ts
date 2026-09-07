@@ -80,6 +80,22 @@ describe('chromatography analysis', () => {
     });
   });
 
+  it('bounds separated peaks at their adjacent valleys without sharing area', () => {
+    const candidates = detectPeakCandidates([
+      { volumeMl: 0, signalAu: 0 },
+      { volumeMl: 1, signalAu: 2 },
+      { volumeMl: 2, signalAu: 1 },
+      { volumeMl: 3, signalAu: 3 },
+      { volumeMl: 4, signalAu: 0 },
+    ], { minimumProminenceAu: 1, minimumWidthMl: 1 });
+
+    expect(candidates).toHaveLength(2);
+    expect(candidates).toMatchObject([
+      { apexVolumeMl: 1, startVolumeMl: 0, endVolumeMl: 2, areaAuMl: 2.5 },
+      { apexVolumeMl: 3, startVolumeMl: 2, endVolumeMl: 4, areaAuMl: 3.5 },
+    ]);
+  });
+
   it('estimates fraction mass from Beer-Lambert concentration and molecular weight', () => {
     const result = estimateFractionAmount({
       a280: 0.5,
