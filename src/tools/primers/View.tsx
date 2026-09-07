@@ -168,7 +168,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
         `Forward: ${p.fwd.name} (${p.fwd.length} nt, Tm ${p.fwd.tm.toFixed(1)} °C, GC ${p.fwd.gcPercent.toFixed(1)}%, 3' ΔG ${p.fwd.terminalStability.deltaG.toFixed(1)} kcal/mol)`,
         `Reverse: ${p.rev.name} (${p.rev.length} nt, Tm ${p.rev.tm.toFixed(1)} °C, GC ${p.rev.gcPercent.toFixed(1)}%, 3' ΔG ${p.rev.terminalStability.deltaG.toFixed(1)} kcal/mol)`,
         `Tm Difference: ${p.tmDiff.toFixed(1)} °C (${p.isTmDiffOptimal ? 'Optimal ≤ 3 °C' : 'HIGH DIFFERENCE'})`,
-        `Recommended Ta (Phusion/Q5): ${p.taQ5.toFixed(1)} °C`,
+        `Starting Ta (Q5/Phusion high-fidelity): ${p.taQ5.toFixed(1)} °C; confirm with the vendor calculator or a gradient PCR.`,
         `Recommended Ta (Taq/Standard): ${p.taTaq.toFixed(1)} °C`,
         `Cross-Dimer worst ΔG: ${p.crossDimer.worstDeltaG.toFixed(1)} kcal/mol (${p.crossDimer.is3PrimeEndRisky ? "3' END EXTENSION RISK" : 'Safe'})`,
         `Overall Status: ${p.overallStatus.toUpperCase()} (${p.qualityScore}/100)`,
@@ -186,7 +186,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
         `3' GC Clamp: ${p.gcClamp.count}/5 G/C (${p.gcClamp.status.toUpperCase()})`,
         `Hairpin: ${p.hairpin.hasHairpin ? `${p.hairpin.worstDeltaG.toFixed(1)} kcal/mol (${p.hairpin.isRisky ? 'RISKY' : 'Tolerable'})` : 'None'}`,
         `Self-Dimer worst ΔG: ${p.selfDimer.worstDeltaG.toFixed(1)} kcal/mol (${p.selfDimer.is3PrimeEndRisky ? "3' END RISK" : 'Safe'})`,
-        `Recommended Ta: Q5 = ${ta.taQ5.toFixed(1)} °C, Taq = ${ta.taTaq.toFixed(1)} °C`,
+        `Starting Ta: Q5/Phusion = ${ta.taQ5.toFixed(1)} °C, Taq = ${ta.taTaq.toFixed(1)} °C; optimize with the enzyme vendor's calculator or a gradient PCR.`,
         `Quality Score: ${p.qualityScore}/100 (${p.status.toUpperCase()})`,
       ].join('\n');
     }
@@ -349,7 +349,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 class={`p-2.5 rounded-xl border text-left transition ${s.polymerase === 'q5' ? 'border-accent-500 bg-accent-50/50 dark:border-accent-600 dark:bg-accent-950/30 ring-1 ring-accent-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
               >
                 <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Phusion® / Q5®</div>
-                <div class="text-[11px] text-slate-500">Ta = 0.893·min(Tm) − 4.49 °C</div>
+                <div class="text-[11px] text-slate-500">Starting Ta = min(Tm) + 3.0 °C</div>
               </button>
               <button
                 type="button"

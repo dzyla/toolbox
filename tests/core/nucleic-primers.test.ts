@@ -165,23 +165,21 @@ describe('Primer QC: Self-Dimer & Hetero-Dimer Detection', () => {
 });
 
 describe('Annealing Temperature (Ta) & Reaction Conditions', () => {
-  it('computes Ta for Taq and Phusion/Q5 according to standard formulas', () => {
+  it('uses the documented Q5 high-fidelity starting point above the lower primer Tm', () => {
     // Taq: min(Tm1, Tm2) - 5 °C
-    // Phusion/Q5: 0.893 * min(Tm1, Tm2) - 4.49 °C
+    // NEB Q5: min(Tm1, Tm2) + 3 °C, with vendor calculator/gradient optimization advised.
     const tm1 = 60.0;
     const tm2 = 64.0;
     const ta = calcTa(tm1, tm2);
 
     expect(ta.minTm).toBe(60.0);
     expect(ta.taTaq).toBe(55.0);
-    // 0.893 * 60 - 4.49 = 53.58 - 4.49 = 49.09 -> 49.1 °C
-    expect(ta.taQ5).toBeCloseTo(49.1, 1);
+    expect(ta.taQ5).toBe(63.0);
 
     // Equal Tms
     const taSingle = calcTa(65.0);
     expect(taSingle.taTaq).toBe(60.0);
-    // 0.893 * 65 - 4.49 = 58.045 - 4.49 = 53.555 -> 53.6 °C
-    expect(taSingle.taQ5).toBeCloseTo(53.6, 1);
+    expect(taSingle.taQ5).toBe(68.0);
   });
 });
 

@@ -633,19 +633,20 @@ export interface AnnealingTemperatureResult {
   minTm: number;
   /** Taq / Standard PCR: min(Tm1, Tm2) - 5 °C */
   taTaq: number;
-  /** Phusion / Q5 High-Fidelity PCR: 0.893 * min(Tm1, Tm2) - 4.49 °C */
+  /** Q5 / Phusion high-fidelity starting point: min(Tm1, Tm2) + 3 °C. */
   taQ5: number;
 }
 
 /**
  * Computes recommended PCR annealing temperatures (Ta).
  * - Taq / Standard polymerase: min(Tm1, Tm2) - 5 °C
- * - Phusion / Q5 High-Fidelity DNA Polymerase: 0.893 * min(Tm1, Tm2) - 4.49 °C
+ * - Q5 / Phusion high-fidelity polymerases: min(Tm1, Tm2) + 3 °C as a starting point.
+ *   Use the enzyme vendor's buffer-aware calculator and a gradient to optimize the assay.
  */
 export function calcTa(tm1: number, tm2?: number): AnnealingTemperatureResult {
   const minTm = tm2 !== undefined && Number.isFinite(tm2) ? Math.min(tm1, tm2) : tm1;
   const taTaq = minTm - 5;
-  const taQ5 = 0.893 * minTm - 4.49;
+  const taQ5 = minTm + 3;
   return {
     minTm: Math.round(minTm * 10) / 10,
     taTaq: Math.round(taTaq * 10) / 10,

@@ -10,7 +10,7 @@ export const SCIENCE: Science = {
     'Hairpin secondary structure (SantaLucia & Hicks 2004): ΔG°_hairpin = ΔG°_stem + ΔG°_loop(N) + ΔG°_closingAT; loop size ≥ 3 nt; ΔG°₃₇ ≤ −3.0 kcal/mol flagged as significant hairpin',
     'Primer dimer stability (AutoDimer, SantaLucia 1998): sliding antiparallel duplex ΔG°₃₇ = ΔH° − (310.15 K)·ΔS°/1000 + ΔG°_init; 3′ end dimer flagged if ΔG°₃₇ ≤ −5.0 kcal/mol, internal dimer flagged if ΔG°₃₇ ≤ −6.0 kcal/mol',
     'Annealing temperature Ta (Taq / Standard): Ta = min(Tm1, Tm2) − 5.0 °C',
-    'Annealing temperature Ta (Phusion / Q5 High-Fidelity): Ta = 0.893 × min(Tm1, Tm2) − 4.49 °C',
+    'Annealing temperature Ta (Q5 / Phusion high-fidelity starting point): Ta = min(Tm1, Tm2) + 3.0 °C; optimize with the enzyme vendor’s buffer-aware calculator or a gradient PCR',
     'Primer pair compatibility: |Tm1 − Tm2| ≤ 3.0 °C optimal for balanced hybridization efficiency',
   ],
   assumptions: [
@@ -19,6 +19,7 @@ export const SCIENCE: Science = {
     'Hairpins with loops smaller than 3 nucleotides are sterically prohibited in double-helical B-DNA.',
     '3′ End dimers are substantially more deleterious than 5′ or internal dimers because thermostable DNA polymerases can utilize paired 3′ termini as priming sites to amplify artifactual primer-dimer concatemer bands.',
     'Optimal PCR primers are 18–25 nt in length, 40–60% GC, 55–65 °C Tm, with 1–3 GC bases in the terminal 5 nt.',
+    'The Q5 / Phusion value is a starting point, not a universal prediction: formulation, template, and amplicon sequence can shift the optimal annealing temperature.',
   ],
   references: [
     {
@@ -44,6 +45,10 @@ export const SCIENCE: Science = {
     {
       text: 'Vallone PM, Butler JM (2004) AutoDimer: a screening tool for primer-dimer and hairpin structures. Biotechniques 37:226–231',
       url: 'https://doi.org/10.2144/04372st03',
+    },
+    {
+      text: 'NEB Q5 High-Fidelity DNA Polymerase PCR protocol: use a buffer-aware Tm calculator; 3 °C above the lower primer Tm is a typical starting point',
+      url: 'https://www.neb.com/en/protocols/2013/12/13/pcr-using-q5-high-fidelity-dna-polymerase-m0491?pdf=true',
     },
   ],
   verified: '2026-09-05',
