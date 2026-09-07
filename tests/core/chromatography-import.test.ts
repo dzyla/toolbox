@@ -49,6 +49,16 @@ describe('chromatogram import', () => {
     ]);
   });
 
+  it('skips blank volume and time coordinates instead of fabricating zero-valued points', () => {
+    const volumeImport = parseChromatogram('Volume,UV280\n,10\n');
+    const timeImport = parseChromatogram('Time,UV280\n,10\n', { flowMlPerMin: 2 });
+
+    expect(volumeImport.points).toEqual([]);
+    expect(volumeImport.notices).toContain('Row 2: invalid volume value skipped.');
+    expect(timeImport.points).toEqual([]);
+    expect(timeImport.notices).toContain('Row 2: invalid time value skipped.');
+  });
+
   it('keeps manual fraction bounds alongside imported fraction labels', () => {
     const parsed = parseChromatogram('Volume,Fraction\n1,F1\n2,F2\n', {
       fractionBounds: [{ label: 'Pool A', startVolumeMl: 1.1, endVolumeMl: 1.9 }],

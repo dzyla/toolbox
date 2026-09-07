@@ -88,7 +88,9 @@ function selectDelimiter(header: string): string {
 }
 
 function parseNumber(value: string | undefined): number | undefined {
-  const parsed = Number(value?.trim());
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
