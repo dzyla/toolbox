@@ -18,6 +18,7 @@ const AMBER = '#d97706';
 const SLATE = '#64748b';
 const LEFT = 56;
 const WIDTH = 808;
+const INTERACTIVE_CLASS = 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d97706] focus-visible:[&>path]:stroke-[#d97706] focus-visible:[&>path]:stroke-[3] focus-visible:[&>line]:stroke-[#d97706] focus-visible:[&>line]:stroke-[3]';
 
 function displayPosition(position: number) {
   return (position + 1).toLocaleString();
@@ -28,11 +29,18 @@ function xFor(position: number, length: number) {
 }
 
 function chevron(x: number, y: number, width: number, height: number, strand: 1 | -1 | 0) {
+  if (strand === 0) return `M ${x} ${y} h ${width} v ${height} h ${-width} Z`;
   const head = Math.min(12, Math.max(4, width * 0.35));
   if (width <= head + 2) return `M ${x} ${y} h ${width} v ${height} h ${-width} Z`;
   return strand === -1
     ? `M ${x + width} ${y} L ${x + head} ${y} L ${x} ${y + height / 2} L ${x + head} ${y + height} L ${x + width} ${y + height} Z`
     : `M ${x} ${y} L ${x + width - head} ${y} L ${x + width} ${y + height / 2} L ${x + width - head} ${y + height} L ${x} ${y + height} Z`;
+}
+
+function strandLabel(strand: Annotation['location']['strand']) {
+  if (strand === -1) return 'reverse';
+  if (strand === 0) return 'unstranded';
+  return 'forward';
 }
 
 function color(annotation: Annotation) {
@@ -92,13 +100,18 @@ export function LinearMap({ document, selection, onSelect, orfs = [], restrictio
               const width = Math.max(3, end - start);
               // Canonical intervals are zero-based and half-open: [0, 861) is shown as 1–861.
               const range = `${displayPosition(segment.start)}–${segment.end.toLocaleString()}`;
-              const label = `${annotation.name}, ${range} bp, ${annotation.location.strand === -1 ? 'reverse' : 'forward'} strand`;
+              const label = `${annotation.name}, ${range} bp, ${strandLabel(annotation.location.strand)} strand`;
               const selected = selection?.annotationId === annotation.id;
-              return <g key={`${annotation.id}-${index}`} role="button" tabIndex={0} aria-label={label} onClick={() => selectAnnotation(annotation)} onKeyDown={event => activate(event, () => selectAnnotation(annotation))} class="cursor-pointer outline-none"><path d={chevron(start, y, width, 18, annotation.location.strand)} fill={color(annotation)} stroke={selected ? AMBER : '#fff'} stroke-width={selected ? 3 : 1}><title>{label}</title></path>{width > 60 && <text x={start + width / 2} y={y + 12} text-anchor="middle" font-size="10" font-weight="700" fill="#fff">{annotation.name}</text>}</g>;
+              return <g key={`${annotation.id}-${index}`} role="button" tabIndex={0} aria-label={label} onClick={() => selectAnnotation(annotation)} onKeyDown={event => activate(event, () => selectAnnotation(annotation))} class={INTERACTIVE_CLASS}><path d={chevron(start, y, width, 18, annotation.location.strand)} fill={color(annotation)} stroke={selected ? AMBER : '#fff'} stroke-width={selected ? 3 : 1}><title>{label}</title></path>{width > 60 && <text x={start + width / 2} y={y + 12} text-anchor="middle" font-size="10" font-weight="700" fill="#fff">{annotation.name}</text>}</g>;
             }))}
 
-            {showOrfs && orfs.flatMap(orf => annotationSegments({ location: orf.location } as Annotation).map((segment, index) => <path key={`${orf.id}-${index}`} d={chevron(xFor(segment.start, length), featureTop + laneCount * 28 + (orf.strand === 1 ? 10 : 28), Math.max(3, xFor(segment.end, length) - xFor(segment.start, length)), 10, orf.strand)} fill={TEAL} opacity="0.72"><title>Predicted ORF {orf.frame > 0 ? `+${orf.frame}` : orf.frame}</title></path>))}
-            {showRestrictions && restrictionSites.map(site => { const x = xFor(site.cutPosition, length); return <g key={site.id} role="button" tabIndex={0} aria-label={`${site.enzyme}, cut at ${displayPosition(site.cutPosition)} bp`} onClick={() => onSelect({ start: site.start, end: site.end, source: 'analysis' })} onKeyDown={event => activate(event, () => onSelect({ start: site.start, end: site.end, source: 'analysis' }))} class="cursor-pointer outline-none"><line x1={x} x2={x} y1="38" y2={height - 18} stroke={SLATE} stroke-width="1" stroke-dasharray="3 3" /><title>{site.enzyme} cut at {displayPosition(site.cutPosition)} bp</title></g>; })}
+            {showOrfs && orfs.flatMap(orf => orf.location.segments.map((segment, index) => {
+              const range = `${displayPosition(segment.start)}–${segment.end.toLocaleString()}`;
+              const label = `Predicted ORF ${orf.frame > 0 ? `+${orf.frame}` : orf.frame}, ${range} bp, ${strandLabel(orf.strand)} strand`;
+              const selectOrf = () => onSelect({ start: orf.location.segments[0]!.start, end: orf.location.segments[orf.location.segments.length - 1]!.end, source: 'analysis', annotationId: orf.id });
+              return <g key={`${orf.id}-${index}`} role="button" tabIndex={0} aria-label={label} onClick={selectOrf} onKeyDown={event => activate(event, selectOrf)} class={INTERACTIVE_CLASS}><path d={chevron(xFor(segment.start, length), featureTop + laneCount * 28 + (orf.strand === 1 ? 10 : 28), Math.max(3, xFor(segment.end, length) - xFor(segment.start, length)), 10, orf.strand)} fill={TEAL} opacity="0.72"><title>{label}</title></path></g>;
+            }))}
+            {showRestrictions && restrictionSites.map(site => { const x = xFor(site.cutPosition, length); return <g key={site.id} role="button" tabIndex={0} aria-label={`${site.enzyme}, cut at ${displayPosition(site.cutPosition)} bp`} onClick={() => onSelect({ start: site.start, end: site.end, source: 'analysis' })} onKeyDown={event => activate(event, () => onSelect({ start: site.start, end: site.end, source: 'analysis' }))} class={INTERACTIVE_CLASS}><line x1={x} x2={x} y1="38" y2={height - 18} stroke={SLATE} stroke-width="1" stroke-dasharray="3 3" /><title>{site.enzyme} cut at {displayPosition(site.cutPosition)} bp</title></g>; })}
           </svg>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState } from 'preact/hooks';
 import PlasmidView from '@/tools/plasmid/View';
 import { CircularMap } from '@/tools/plasmid/CircularMap';
 import { LinearMap } from '@/tools/plasmid/LinearMap';
+import type { DocumentOrf, DocumentRestrictionSite } from '@/core/plasmid/analysis';
 import type { PlasmidDocument } from '@/core/plasmid/model';
 import type { Selection } from '@/tools/plasmid/selection';
 import { route } from '@/app/router';
@@ -34,6 +35,63 @@ const MAP_DOCUMENT: PlasmidDocument = {
   provenance: { format: 'genbank', parserVersion: 'test', warnings: [] },
 };
 
+const MAP_ORF: DocumentOrf = {
+  id: 'predicted-forward',
+  start: 100,
+  end: 400,
+  frame: 1,
+  strand: 1,
+  lengthBp: 300,
+  lengthAa: 99,
+  protein: 'M'.repeat(99),
+  completeStart: true,
+  completeStop: true,
+  source: 'detected',
+  confidence: 'predicted',
+  location: { strand: 1, segments: [{ start: 100, end: 400 }] },
+};
+
+const MAP_RESTRICTION_SITE: DocumentRestrictionSite = {
+  id: 'EcoRI-500',
+  enzyme: 'EcoRI',
+  recognitionSeq: 'GAATTC',
+  cutPosition: 500,
+  cutCount: 1,
+  overhang: '5prime',
+  start: 499,
+  end: 505,
+  crossesOrigin: false,
+  source: 'detected',
+  confidence: 'predicted',
+  location: { strand: 1, segments: [{ start: 499, end: 505 }] },
+};
+
+const DENSE_CIRCULAR_DOCUMENT: PlasmidDocument = {
+  ...MAP_DOCUMENT,
+  annotations: Array.from({ length: 10 }, (_, index) => ({
+    id: `dense-${index}`,
+    name: `Dense lane ${index + 1}`,
+    type: 'misc_feature',
+    location: { strand: 1 as const, segments: [{ start: 0, end: 700 }] },
+    qualifiers: {},
+    source: 'imported' as const,
+  })),
+};
+
+const ARC_DOCUMENT: PlasmidDocument = {
+  ...MAP_DOCUMENT,
+  sequence: 'A'.repeat(1000),
+  annotations: [
+    { ...MAP_DOCUMENT.annotations[0]!, id: 'forward-arc', name: 'Forward arc', location: { strand: 1, segments: [{ start: 0, end: 510 }] } },
+    { ...MAP_DOCUMENT.annotations[1]!, id: 'reverse-arc', name: 'Reverse arc', location: { strand: -1, segments: [{ start: 0, end: 510 }] } },
+  ],
+};
+
+const UNSTRANDED_DOCUMENT: PlasmidDocument = {
+  ...MAP_DOCUMENT,
+  annotations: [{ ...MAP_DOCUMENT.annotations[0]!, id: 'unstranded', name: 'Unstranded feature', location: { strand: 0, segments: [{ start: 10, end: 100 }] } }],
+};
+
 function CircularMapHarness() {
   const [selection, setSelection] = useState<Selection | undefined>();
   return <CircularMap document={MAP_DOCUMENT} selection={selection} onSelect={setSelection} />;
@@ -59,6 +117,40 @@ describe('Plasmid Viewer tool view', () => {
 
     expect(screen.getByRole('img', { name: 'Linear map of pUC19' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /Origin crossing/i })).toHaveLength(2);
+  });
+
+  it('gives every circular keyboard target a visible focus treatment and lets ORFs select exact coordinates', () => {
+    render(<CircularMap document={MAP_DOCUMENT} orfs={[MAP_ORF]} restrictionSites={[MAP_RESTRICTION_SITE]} onSelect={() => undefined} />);
+
+    const targets = screen.getAllByRole('button');
+    expect(targets).toHaveLength(5);
+    expect(targets.every(target => target.getAttribute('class')?.includes('focus-visible:outline'))).toBe(true);
+    expect(screen.getByRole('button', { name: /Predicted ORF.*101.*400/i })).toBeTruthy();
+  });
+
+  it('expands circular geometry for packed annotation lanes while keeping overlay tracks outside them', () => {
+    render(<CircularMap document={DENSE_CIRCULAR_DOCUMENT} orfs={[MAP_ORF]} restrictionSites={[MAP_RESTRICTION_SITE]} onSelect={() => undefined} />);
+
+    const viewBox = screen.getByRole('img', { name: 'Circular map of pUC19' }).getAttribute('viewBox')!;
+    expect(Number(viewBox.split(' ')[2])).toBeGreaterThan(900);
+  });
+
+  it('uses the post-arrowhead body span for circular large arcs in both directions', () => {
+    render(<CircularMap document={ARC_DOCUMENT} onSelect={() => undefined} />);
+
+    for (const name of ['Forward arc', 'Reverse arc']) {
+      const path = screen.getByRole('button', { name: new RegExp(name) }).querySelector('path')!;
+      expect(path.getAttribute('d')).not.toMatch(/A [\d.]+ [\d.]+ 0 1 [01]/);
+    }
+  });
+
+  it('renders canonical strand zero as an unstranded, non-directional target in both maps', () => {
+    const { unmount } = render(<CircularMap document={UNSTRANDED_DOCUMENT} onSelect={() => undefined} />);
+    expect(screen.getByRole('button', { name: /Unstranded feature.*unstranded/i })).toBeTruthy();
+    unmount();
+
+    render(<LinearMap document={UNSTRANDED_DOCUMENT} onSelect={() => undefined} />);
+    expect(screen.getByRole('button', { name: /Unstranded feature.*unstranded/i })).toBeTruthy();
   });
 
   it('renders plasmid viewer with default pUC19 plasmid', async () => {

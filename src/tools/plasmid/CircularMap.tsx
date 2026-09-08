@@ -17,13 +17,15 @@ const COBALT = '#2563eb';
 const TEAL = '#0f766e';
 const AMBER = '#d97706';
 const SLATE = '#64748b';
+const TAU = Math.PI * 2;
+const INTERACTIVE_CLASS = 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d97706] focus-visible:[&>path]:stroke-[#d97706] focus-visible:[&>path]:stroke-[3] focus-visible:[&>line]:stroke-[#d97706] focus-visible:[&>line]:stroke-[3]';
 
 function point(center: number, radius: number, angle: number) {
   return { x: center + radius * Math.cos(angle), y: center + radius * Math.sin(angle) };
 }
 
 function angleFor(position: number, length: number) {
-  return ((position / Math.max(1, length)) * Math.PI * 2) - Math.PI / 2;
+  return ((position / Math.max(1, length)) * TAU) - Math.PI / 2;
 }
 
 function displayPosition(position: number) {
@@ -43,30 +45,45 @@ function activate(event: KeyboardEvent, callback: () => void) {
   }
 }
 
-function arcPath(start: number, end: number, length: number, inner: number, outer: number, strand: 1 | -1 | 0) {
+function strandLabel(strand: Annotation['location']['strand']) {
+  if (strand === -1) return 'reverse';
+  if (strand === 0) return 'unstranded';
+  return 'forward';
+}
+
+function arcPath(center: number, start: number, end: number, length: number, inner: number, outer: number, strand: 1 | -1 | 0) {
   const startAngle = angleFor(start, length);
   const endAngle = angleFor(end, length);
-  const span = Math.max(1, end - start);
-  const large = span / Math.max(1, length) > 0.5 ? 1 : 0;
+  const spanRadians = Math.max(TAU / Math.max(1, length), ((end - start) / Math.max(1, length)) * TAU);
   const middle = (inner + outer) / 2;
-  const arrow = Math.min((span / Math.max(1, length)) * Math.PI * 0.5, 0.10);
+  const arrow = strand === 0 ? 0 : Math.min(spanRadians / 4, 0.10);
+  // Arc flags must describe the visible body after the arrowhead is removed.
+  const large = spanRadians - arrow > Math.PI ? 1 : 0;
   const forwardEnd = endAngle - arrow;
   const reverseStart = startAngle + arrow;
 
+  if (strand === 0) {
+    const a = point(center, inner, startAngle);
+    const b = point(center, inner, endAngle);
+    const c = point(center, outer, endAngle);
+    const d = point(center, outer, startAngle);
+    return `M ${a.x} ${a.y} A ${inner} ${inner} 0 ${large} 1 ${b.x} ${b.y} L ${c.x} ${c.y} A ${outer} ${outer} 0 ${large} 0 ${d.x} ${d.y} Z`;
+  }
+
   if (strand === -1) {
-    const tip = point(350, middle, startAngle);
-    const a = point(350, inner, reverseStart);
-    const b = point(350, inner, endAngle);
-    const c = point(350, outer, endAngle);
-    const d = point(350, outer, reverseStart);
+    const tip = point(center, middle, startAngle);
+    const a = point(center, inner, reverseStart);
+    const b = point(center, inner, endAngle);
+    const c = point(center, outer, endAngle);
+    const d = point(center, outer, reverseStart);
     return `M ${tip.x} ${tip.y} L ${a.x} ${a.y} A ${inner} ${inner} 0 ${large} 1 ${b.x} ${b.y} L ${c.x} ${c.y} A ${outer} ${outer} 0 ${large} 0 ${d.x} ${d.y} Z`;
   }
 
-  const a = point(350, inner, startAngle);
-  const b = point(350, inner, forwardEnd);
-  const tip = point(350, middle, endAngle);
-  const c = point(350, outer, forwardEnd);
-  const d = point(350, outer, startAngle);
+  const a = point(center, inner, startAngle);
+  const b = point(center, inner, forwardEnd);
+  const tip = point(center, middle, endAngle);
+  const c = point(center, outer, forwardEnd);
+  const d = point(center, outer, startAngle);
   return `M ${a.x} ${a.y} A ${inner} ${inner} 0 ${large} 1 ${b.x} ${b.y} L ${tip.x} ${tip.y} L ${c.x} ${c.y} A ${outer} ${outer} 0 ${large} 0 ${d.x} ${d.y} Z`;
 }
 
@@ -89,6 +106,16 @@ export function CircularMap({ document, selection, onSelect, orfs = [], restrict
   const [showRestrictions, setShowRestrictions] = useState(true);
   const length = document.sequence.length;
   const lanes = assignAnnotationLanes(document.annotations, length, document.topology);
+  const laneCount = Math.max(1, ...Array.from(lanes.values()).map(lane => lane + 1));
+  const annotationOuter = 185 + (laneCount - 1) * 18;
+  // Reserve separate radial bands for derived layers even when a layer is hidden.
+  const orfInner = annotationOuter + 20;
+  const orfOuter = orfInner + 7;
+  const restrictionInner = orfOuter + 18;
+  const restrictionOuter = restrictionInner + 25;
+  const mapRadius = restrictionOuter + 30;
+  const center = mapRadius + 20;
+  const mapSize = center * 2;
   const status = selectionLabel(document, selection);
   const selectAnnotation = (annotation: Annotation) => {
     const segments = annotationSegments(annotation);
@@ -110,41 +137,42 @@ export function CircularMap({ document, selection, onSelect, orfs = [], restrict
             <label class="flex items-center gap-1.5"><input type="checkbox" checked={showOrfs} onChange={() => setShowOrfs(value => !value)} /> Predicted ORFs</label>
           </div>
         </div>
-        <svg viewBox="0 0 700 700" class="mx-auto block w-full max-w-[620px] select-none" role="img" aria-label={`Circular map of ${document.name}`}>
-          <circle cx="350" cy="350" r="166" fill="#fff" stroke="#cbd5e1" stroke-width="2" />
-          <circle cx="350" cy="350" r="150" fill="none" stroke="#e2e8f0" stroke-width="12" />
+        <svg viewBox={`0 0 ${mapSize} ${mapSize}`} class="mx-auto block w-full max-w-[620px] select-none" role="img" aria-label={`Circular map of ${document.name}`}>
+          <circle cx={center} cy={center} r="166" fill="#fff" stroke="#cbd5e1" stroke-width="2" />
+          <circle cx={center} cy={center} r="150" fill="none" stroke="#e2e8f0" stroke-width="12" />
 
           {document.annotations.flatMap(annotation => annotationSegments(annotation).map((segment, index) => {
             const lane = lanes.get(annotation.id) ?? 0;
             const inner = 172 + lane * 18;
             const selected = selection?.annotationId === annotation.id;
             const range = displayRange(segment.start, segment.end, document.topology);
-            const label = `${annotation.name}, ${range} bp, ${annotation.location.strand === -1 ? 'reverse' : 'forward'} strand`;
+            const label = `${annotation.name}, ${range} bp, ${strandLabel(annotation.location.strand)} strand`;
             return (
-              <g key={`${annotation.id}-${index}`} role="button" tabIndex={0} aria-label={label} onClick={() => selectAnnotation(annotation)} onKeyDown={event => activate(event, () => selectAnnotation(annotation))} class="cursor-pointer outline-none">
-                <path d={arcPath(segment.start, segment.end, length, inner, inner + 13, annotation.location.strand)} fill={annotationColor(annotation)} stroke={selected ? AMBER : '#fff'} stroke-width={selected ? 3 : 1}>
+              <g key={`${annotation.id}-${index}`} role="button" tabIndex={0} aria-label={label} onClick={() => selectAnnotation(annotation)} onKeyDown={event => activate(event, () => selectAnnotation(annotation))} class={INTERACTIVE_CLASS}>
+                <path d={arcPath(center, segment.start, segment.end, length, inner, inner + 13, annotation.location.strand)} fill={annotationColor(annotation)} stroke={selected ? AMBER : '#fff'} stroke-width={selected ? 3 : 1}>
                   <title>{label}</title>
                 </path>
               </g>
             );
           }))}
 
-          {showOrfs && orfs.flatMap(orf => annotationSegments({ location: orf.location } as Annotation).map((segment, index) => (
-            <path key={`${orf.id}-${index}`} d={arcPath(segment.start, segment.end, length, orf.strand === 1 ? 232 : 126, orf.strand === 1 ? 239 : 133, orf.strand)} fill={TEAL} opacity="0.72">
-              <title>Predicted ORF {orf.frame > 0 ? `+${orf.frame}` : orf.frame}, {displayRange(segment.start, segment.end, document.topology)} bp</title>
-            </path>
-          )))}
+          {showOrfs && orfs.flatMap(orf => orf.location.segments.map((segment, index) => {
+            const range = displayRange(segment.start, segment.end, document.topology);
+            const label = `Predicted ORF ${orf.frame > 0 ? `+${orf.frame}` : orf.frame}, ${range} bp, ${strandLabel(orf.strand)} strand`;
+            const selectOrf = () => onSelect({ start: orf.location.segments[0]!.start, end: orf.location.segments[orf.location.segments.length - 1]!.end, source: 'analysis', annotationId: orf.id });
+            return <g key={`${orf.id}-${index}`} role="button" tabIndex={0} aria-label={label} onClick={selectOrf} onKeyDown={event => activate(event, selectOrf)} class={INTERACTIVE_CLASS}><path d={arcPath(center, segment.start, segment.end, length, orfInner, orfOuter, orf.strand)} fill={TEAL} opacity="0.72"><title>{label}</title></path></g>;
+          }))}
 
           {showRestrictions && restrictionSites.map(site => {
             const angle = angleFor(site.cutPosition, length);
-            const inner = point(350, 242, angle);
-            const outer = point(350, 270, angle);
-            return <g key={site.id} role="button" tabIndex={0} aria-label={`${site.enzyme}, cut at ${displayPosition(site.cutPosition)} bp`} onClick={() => onSelect({ start: site.start, end: site.end, source: 'analysis' })} onKeyDown={event => activate(event, () => onSelect({ start: site.start, end: site.end, source: 'analysis' }))} class="cursor-pointer outline-none"><line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={SLATE} stroke-width="2" /><title>{site.enzyme} cut at {displayPosition(site.cutPosition)} bp</title></g>;
+            const inner = point(center, restrictionInner, angle);
+            const outer = point(center, restrictionOuter, angle);
+            return <g key={site.id} role="button" tabIndex={0} aria-label={`${site.enzyme}, cut at ${displayPosition(site.cutPosition)} bp`} onClick={() => onSelect({ start: site.start, end: site.end, source: 'analysis' })} onKeyDown={event => activate(event, () => onSelect({ start: site.start, end: site.end, source: 'analysis' }))} class={INTERACTIVE_CLASS}><line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={SLATE} stroke-width="2" /><title>{site.enzyme} cut at {displayPosition(site.cutPosition)} bp</title></g>;
           })}
 
-          <text x="350" y="332" text-anchor="middle" font-size="18" font-weight="700" fill={INK}>{document.name}</text>
-          <text x="350" y="355" text-anchor="middle" font-size="12" font-family="monospace" fill={SLATE}>{length.toLocaleString()} bp</text>
-          <text x="350" y="377" text-anchor="middle" font-size="11" fill={SLATE}>{document.topology}</text>
+          <text x={center} y={center - 18} text-anchor="middle" font-size="18" font-weight="700" fill={INK}>{document.name}</text>
+          <text x={center} y={center + 5} text-anchor="middle" font-size="12" font-family="monospace" fill={SLATE}>{length.toLocaleString()} bp</text>
+          <text x={center} y={center + 27} text-anchor="middle" font-size="11" fill={SLATE}>{document.topology}</text>
         </svg>
       </div>
 
