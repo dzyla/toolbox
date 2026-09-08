@@ -195,15 +195,16 @@ describe('Canonical sequence viewport', () => {
     expect(screen.getByLabelText('Base 10').getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('scrolls to a validated coordinate inside the viewport without selecting or moving the page', () => {
+  it('scrolls to a validated coordinate inside the viewport in both axes without selecting or moving the page', () => {
     render(<SequenceHarness />);
     const viewport = screen.getByTestId('plasmid-sequence-viewport');
     const target = screen.getByLabelText('Base 121');
-    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 50 } as DOMRect);
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 350 } as DOMRect);
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 50, left: 40 } as DOMRect);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 350, left: 440 } as DOMRect);
     fireEvent.input(screen.getByLabelText('Go to coordinate'), { target: { value: '121' } });
     fireEvent.click(screen.getByRole('button', { name: 'Go', exact: true }));
     expect(viewport.scrollTop).toBe(300);
+    expect(viewport.scrollLeft).toBe(400);
     expect(document.activeElement).toBe(target);
     expect(screen.getByTestId('sequence-selection').textContent).toBe('None');
     fireEvent.input(screen.getByLabelText('Go to coordinate'), { target: { value: '181' } });

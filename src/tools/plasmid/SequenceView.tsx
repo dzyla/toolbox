@@ -85,7 +85,10 @@ export function SequenceView({ document, selection, onSelect, preferences, onPre
     const viewport = viewportRef.current;
     const target = viewport?.querySelector<HTMLButtonElement>(`[aria-label="Base ${value}"]`);
     if (!viewport || !target) return;
-    viewport.scrollTop += target.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    const targetBounds = target.getBoundingClientRect();
+    const viewportBounds = viewport.getBoundingClientRect();
+    viewport.scrollTop += targetBounds.top - viewportBounds.top;
+    viewport.scrollLeft += targetBounds.left - viewportBounds.left;
     target.focus({ preventScroll: true });
   }
 
