@@ -53,7 +53,7 @@ const DEFAULTS: State = {
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-sm';
 
-function CalibrationPanel() {
+function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
   const [stateSig, shareUrl] = useUrlState<State>('sec', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
@@ -161,11 +161,18 @@ function CalibrationPanel() {
   };
 
   return (
-    <ToolLayout
+    <>
+      {embedded && (
+        <h2 class="mb-3 text-lg font-bold text-slate-900 dark:text-slate-100">
+          🧪 SEC Calibration &amp; Stokes Radius
+        </h2>
+      )}
+      <ToolLayout
       icon="🧪"
       title="SEC Calibration & Stokes Radius"
       blurb="Size exclusion chromatography calibration curve, apparent molecular weight estimation, Stokes radius (Rh), and oligomeric state analysis."
       wide={true}
+      embedded={embedded}
       mobileResultSummary={
         s.queryMode === 've_to_mw' && predictionMw ? (
           <span>Apparent MW: <strong class="text-accent-700 dark:text-accent-300 font-mono">{predictionMw.apparentMwkDa.toFixed(1)} kDa</strong> (Rh {predictionMw.stokesRadiusAngstrom.toFixed(1)} Å)</span>
@@ -803,7 +810,8 @@ function CalibrationPanel() {
       }
       actions={<ActionBar onCopy={copySummary} shareUrl={shareUrl} />}
       science={<SciencePanel science={SCIENCE} />}
-    />
+      />
+    </>
   );
 }
 
@@ -977,5 +985,5 @@ export default function SecView() {
   const [tab, setTab] = useState<WorkbenchTab>('calibration');
   const [audit, setAudit] = useState<WorkbenchAudit>({ opticalInputs: {}, methodSettings: {}, findings: [] });
   const updateAudit = useCallback((patch: Partial<WorkbenchAudit>) => setAudit(current => ({ ...current, ...patch })), []);
-  return <div class="mx-auto max-w-[92rem]"><header class="px-3 pt-3 sm:px-4"><h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1><p class="text-sm text-slate-600 dark:text-slate-300">SEC calibration, run review, method planning, and UV-Vis analysis on the stable SEC route.</p><nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">{WORKBENCH_TABS.map(item => <button type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} class={tab === item.id ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white' : 'rounded-lg border px-3 py-1.5 text-sm'}>{item.label}</button>)}</nav></header><div class="p-3 sm:p-4">{tab === 'calibration' && <CalibrationPanel />}{tab === 'run' && <RunFractionsPanel audit={audit} />}{tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}{tab === 'spectra' && <SpectraPanel onAudit={updateAudit} />}</div></div>;
+  return <div class="mx-auto max-w-[92rem]"><header class="px-3 pt-3 sm:px-4"><h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1><p class="text-sm text-slate-600 dark:text-slate-300">SEC calibration, run review, method planning, and UV-Vis analysis on the stable SEC route.</p><nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">{WORKBENCH_TABS.map(item => <button type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} class={tab === item.id ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white' : 'rounded-lg border px-3 py-1.5 text-sm'}>{item.label}</button>)}</nav></header><div class="p-3 sm:p-4">{tab === 'calibration' && <CalibrationPanel embedded />}{tab === 'run' && <RunFractionsPanel audit={audit} />}{tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}{tab === 'spectra' && <SpectraPanel onAudit={updateAudit} />}</div></div>;
 }

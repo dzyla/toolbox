@@ -16,6 +16,14 @@ describe('Chromatography Workbench', () => {
     expect(TOOLS.find(tool => tool.id === 'sec')?.name).toBe('Chromatography Workbench');
   });
 
+  it('renders one page-level heading for the workbench route', () => {
+    render(<SecView />);
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: /Chromatography Workbench/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: /SEC Calibration & Stokes Radius/i })).toBeTruthy();
+  });
+
   it('defaults baseline correction to none, supports reviewable manual peak integration, and blocks fraction amount until required inputs exist', () => {
     render(<SecView />);
     fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
