@@ -19,11 +19,14 @@ interface DimDef {
 
 const DIMS: DimDef[] = [
   { id: 'concentration', label: 'Concentration', units: ['M', 'mM', 'µM', 'nM', 'pM'], defaultIn: { value: 10, unit: 'mM' } },
-  { id: 'volume', label: 'Volume', units: ['L', 'mL', 'µL', 'nL'], defaultIn: { value: 100, unit: 'µL' } },
-  { id: 'mass', label: 'Mass', units: ['kg', 'g', 'mg', 'µg', 'ng', 'pg'], defaultIn: { value: 1, unit: 'g' } },
+  { id: 'volume', label: 'Volume', units: ['µL', 'mL', 'L', 'tsp', 'tbsp', 'fl oz', 'cup', 'pt', 'qt', 'gal'], defaultIn: { value: 100, unit: 'µL' } },
+  { id: 'mass', label: 'Weight', units: ['µg', 'mg', 'g', 'oz', 'lb', 'ton'], defaultIn: { value: 1, unit: 'g' } },
   { id: 'amount', label: 'Amount', units: ['mol', 'mmol', 'µmol', 'nmol', 'pmol'], defaultIn: { value: 1, unit: 'µmol' } },
   { id: 'massconc', label: 'Mass / volume', units: ['mg/mL', 'µg/mL', 'ng/mL', 'pg/mL', 'mg/L', 'µg/µL', 'ng/µL', '%'], defaultIn: { value: 1, unit: 'µg/mL' } },
-  { id: 'length', label: 'Length', units: ['m', 'cm', 'mm', 'µm', 'nm', 'Å'], defaultIn: { value: 1, unit: 'µm' } },
+  { id: 'length', label: 'Size', units: ['Å', 'nm', 'µm', 'mm', 'cm', 'in', 'ft', 'yd', 'mi'], defaultIn: { value: 1, unit: 'µm' } },
+  { id: 'area', label: 'Area', units: ['mm²', 'cm²', 'in²', 'ft²', 'acre'], defaultIn: { value: 1, unit: 'cm²' } },
+  { id: 'energy', label: 'Energy', units: ['J', 'cal', 'kcal', 'eV', 'BTU', 'kWh'], defaultIn: { value: 1, unit: 'kcal' } },
+  { id: 'temperature', label: 'Temperature', units: ['°C', '°F', 'K'], defaultIn: { value: 20, unit: '°C' } },
   { id: 'activity', label: 'Radioactivity', units: ['Bq', 'kBq', 'MBq', 'GBq', 'Ci', 'mCi', 'µCi'], defaultIn: { value: 1, unit: 'µCi' } },
   { id: 'radiation', label: 'Dose (radiation)', units: ['Gy', 'mGy', 'µGy', 'Sv', 'mSv', 'µSv', 'rem', 'mrem'], defaultIn: { value: 1, unit: 'mSv' } },
   { id: 'pressure', label: 'Pressure', units: ['Pa', 'kPa', 'MPa', 'bar', 'mbar', 'mmHg', 'Torr', 'atm', 'psi'], defaultIn: { value: 1, unit: 'atm' } },
@@ -74,7 +77,7 @@ export default function View() {
 
   return (
     <ToolLayout icon="🔄" title="Unit Converter"
-      blurb="Concentration, mass, volume, amount, length, radioactivity, dose and pressure — SI parsing, everything on device."
+      blurb="Lab scales plus practical US volume, mass, size, area, energy and temperature conversions — everything on device."
       mobileResultSummary={error ? <span class="text-rose-600 dark:text-rose-400 font-semibold">{error}</span> : <span class="font-medium">{main}</span>}
       inputs={<>
         <div class="flex flex-wrap gap-1.5">
@@ -90,7 +93,7 @@ export default function View() {
             </button>
           ))}
         </div>
-        <Quantity id="uc-in" label="Value" value={s.inQ} units={inUnits} onChange={v => set({ inQ: v })} hint='Type "10 mM" or "760 mmHg" to parse value and unit together.' />
+        <Quantity id="uc-in" label="Value" value={s.inQ} units={inUnits} onChange={v => set({ inQ: v })} hint='Type "10 mM", "760 mmHg", or "72 F" to parse value and unit together.' />
       </>}
       results={
         error ? <p role="alert" data-testid="result" class="text-red-600 dark:text-red-400 font-medium">{error}</p> : (

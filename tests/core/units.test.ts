@@ -66,4 +66,29 @@ describe('units', () => {
     expect(formatSI(101325, 'pressure')).toMatchObject({ value: 101.3, unit: 'kPa' });
     expect(['mGy', 'mSv']).toContain(formatSI(0.001, 'radiation').unit);
   });
+  it('converts practical lab and US energy, size, weight, volume, and area units', () => {
+    expect(convert(1, 'kcal', 'J')).toBe(4184);
+    expect(convert(1, 'BTU', 'J')).toBeCloseTo(1055.05585262, 8);
+    expect(convert(1, 'eV', 'J')).toBeCloseTo(1.602176634e-19, 30);
+    expect(convert(1, 'in', 'mm')).toBeCloseTo(25.4, 12);
+    expect(convert(1, 'mi', 'ft')).toBe(5280);
+    expect(convert(1, 'lb', 'g')).toBeCloseTo(453.59237, 12);
+    expect(convert(1, 'oz', 'g')).toBeCloseTo(28.349523125, 12);
+    expect(convert(1, 'gal', 'L')).toBeCloseTo(3.785411784, 12);
+    expect(convert(1, 'fl oz', 'mL')).toBeCloseTo(29.5735295625, 12);
+    expect(convert(1, 'in²', 'cm²')).toBeCloseTo(6.4516, 12);
+  });
+  it('converts temperatures through absolute zero rather than a multiplicative factor', () => {
+    expect(convert(0, '°C', '°F')).toBeCloseTo(32, 12);
+    expect(convert(100, '°C', 'K')).toBeCloseTo(373.15, 12);
+    expect(convert(32, '°F', '°C')).toBeCloseTo(0, 12);
+    expect(convert(273.15, 'K', '°F')).toBeCloseTo(32, 12);
+  });
+  it('parses familiar ASCII temperature and area spellings', () => {
+    expect(parseQuantity('72 F')).toMatchObject({ value: 72, unit: '°F', dim: 'temperature' });
+    expect(parseQuantity('72 F')!.si).toBeCloseTo(295.3722222222, 10);
+    expect(parseQuantity('0 C')!.si).toBeCloseTo(273.15, 12);
+    expect(parseQuantity('12 cm2')).toMatchObject({ value: 12, unit: 'cm²', dim: 'area' });
+    expect(parseQuantity('2 fl oz')).toMatchObject({ value: 2, unit: 'fl oz', dim: 'volume' });
+  });
 });

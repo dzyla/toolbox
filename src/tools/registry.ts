@@ -130,7 +130,7 @@ export const TOOLS: ToolMeta[] = [
     blurb: 'Palettes, colour-blind check, PyMOL export', keywords: ['colors', 'colours', 'palette', 'pymol', 'colorblind', 'viridis', 'matplotlib', 'contrast'],
     status: 'ready', load: () => import('./colors/View') },
   { id: 'unit-converter', name: 'Unit Converter', category: 'calculators', icon: '🔄',
-    blurb: 'Concentration, mass, volume, length, radioactivity, dose, pressure', keywords: ['unit', 'converter', 'convert', 'bq', 'curie', 'sievert', 'dose', 'psi', 'mmhg', 'atm', 'bar'],
+    blurb: 'Lab and US volume, weight, size, area, energy, temperature, radiation and pressure', keywords: ['unit', 'converter', 'convert', 'energy', 'temperature', 'fahrenheit', 'celsius', 'gallon', 'pound', 'inch', 'btu', 'bq', 'curie', 'sievert', 'dose', 'psi', 'mmhg', 'atm', 'bar'],
     status: 'ready', load: () => import('./unit-converter/View') },
 ];
 

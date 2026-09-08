@@ -25,4 +25,20 @@ describe('Unit Converter view', () => {
     fireEvent.input(input, { target: { value: '' } });
     expect(await screen.findByText(/Enter a number/)).toBeTruthy();
   });
+
+  it('offers practical energy and US customary conversions', async () => {
+    route.value = { name: 'tool', toolId: 'unit-converter' };
+    render(<UnitConverter />);
+
+    expect(screen.getByRole('button', { name: 'Weight' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Size' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Energy' }));
+    expect((await screen.findByTestId('result')).textContent).toContain('1 kcal');
+    expect(screen.getByText('4184 J')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Volume' }));
+    expect(screen.getAllByText('fl oz').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('gal').length).toBeGreaterThanOrEqual(2);
+  });
 });
