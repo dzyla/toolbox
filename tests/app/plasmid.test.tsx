@@ -580,6 +580,19 @@ describe('Composed document workspace', () => {
     expect((await getProject('invalid-plasmid'))!.state).toEqual({ schemaVersion: 2, document: { name: 'Broken' } });
   });
 
+  it('rejects array-valued persisted sequences through the restore error path', async () => {
+    const document = importPlasmidText('>Malformed\nACGT').document;
+    await saveProject({ id: 'array-sequence-plasmid', toolId: 'plasmid', name: 'Malformed', version: 2, state: {
+      schemaVersion: 2,
+      document: { ...document, sequence: ['ACGT'] },
+    } });
+
+    render(<PlasmidView projectId="array-sequence-plasmid" />);
+
+    expect((await screen.findByRole('alert')).textContent).toContain('supported, valid plasmid document');
+    expect(screen.getByRole('img', { name: 'Circular map of pUC19' })).toBeTruthy();
+  });
+
   it('exports current edited annotations, DNA, and the selected map as downloadable artifacts', async () => {
     const blobs: Blob[] = [];
     const capture = vi.spyOn(URL, 'createObjectURL').mockImplementation(blob => { blobs.push(blob as Blob); return 'blob:plasmid-export'; });

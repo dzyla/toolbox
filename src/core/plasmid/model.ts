@@ -48,6 +48,7 @@ const DNA_ALPHABET = /^[ACGTRYSWKMBDHVN]+$/i;
 export function validateDocument(document: PlasmidDocument): DocumentValidation {
   if (!document.id.trim()) return { valid: false, reason: 'Document ID is required.' };
   if (!document.name.trim()) return { valid: false, reason: 'Document name is required.' };
+  if (typeof document.sequence !== 'string') return { valid: false, reason: 'Sequence must be a string.' };
   if (!DNA_ALPHABET.test(document.sequence)) return { valid: false, reason: 'Sequence contains invalid DNA bases.' };
   if (!document.provenance.parserVersion.trim()) return { valid: false, reason: 'Parser version is required.' };
 
