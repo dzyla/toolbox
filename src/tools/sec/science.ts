@@ -1,7 +1,7 @@
 import type { Science } from '@/app/components/SciencePanel';
 
 export const SCIENCE: Science = {
-  title: 'Size Exclusion Chromatography (SEC) Calibration & Hydrodynamics',
+  title: 'Chromatography Workbench: SEC, ion exchange, and UV-Vis review',
   formulas: [
     'Kav = (Ve - V0) / (Vt - V0) ; Gel phase distribution coefficient (Laurent & Killander 1964)',
     'Kav = -m × log10(MW) + c ; Linear calibration curve across column fractionation range',
@@ -10,6 +10,8 @@ export const SCIENCE: Science = {
     'Rh ≈ 0.066 × MW^(1/3) nm ; Empirical Stokes radius for hydrated globular proteins (Erickson 2009)',
     'N = (Ve / σ_V)^2 ; Theoretical plate count (chromatographic efficiency)',
     'N_subunits = MW_apparent / MW_monomer ; Estimated oligomeric state ratio',
+    'A = εbc ; Beer–Lambert relation used for fraction amounts and DOL after user-supplied dye CF280 correction',
+    'Ion-exchange polarity is a pI-versus-buffer-pH charge-sign starting point; the method remains subject to experimental review.',
   ],
   assumptions: [
     'Standard proteins and samples behave as compact globular particles in solution with partial specific volume v̄ ≈ 0.73 cm³/g and typical hydration shell δ ≈ 0.35 g/g.',
@@ -18,6 +20,8 @@ export const SCIENCE: Science = {
     'Total volume Vt represents the geometric column bed volume (Kav = 1). Elution at Ve > Vt (Kav > 1) indicates non-ideal partitioning or attractive matrix interactions (e.g. aromatic/hydrophobic sticking).',
     'Non-specific interactions are suppressed by adequate mobile phase ionic strength (~150 mM NaCl, pH 7–8).',
     'Sample loading volume is ≤ 1–2% of column bed volume Vt to prevent volumetric band broadening.',
+    'Chromatogram peak candidates and scatter corrections are review aids: they do not replace inspection of raw traces, fraction identity, or instrument metadata.',
+    'Dye-to-protein labeling requires manufacturer-supplied dye ε and CF280; neither is inferred from a spectrum.',
   ],
   references: [
     { text: 'Laurent TC, Killander J. Theory of gel filtration and experimental verification. J Chromatogr. 1964;14:317-330.', url: 'https://doi.org/10.1016/S0021-9673(00)86637-6' },

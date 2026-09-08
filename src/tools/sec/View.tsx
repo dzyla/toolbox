@@ -1,4 +1,20 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useCallback, useEffect, useState, useMemo } from 'preact/hooks';
+import type { BaselineMode, ChromatogramColumnName, ChromatogramImport, PeakCandidate, SpectrumImport } from '@/core/chromatography';
+import {
+  applyBaseline,
+  calculateDyeLabeling,
+  correctA280ForScatter,
+  detectPeakCandidates,
+  estimateFractionAmount,
+  fitLogScatter,
+  integratePeak,
+  parseChromatogram,
+  parseSpectrum,
+  simulateGradient,
+  suggestIonExchange,
+} from '@/core/chromatography';
+import { summarize } from '@/core/protein';
+import { downloadText, toCsv } from '@/lib/export';
 import { useUrlState } from '@/lib/url-state';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
@@ -37,7 +53,7 @@ const DEFAULTS: State = {
 
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-sm';
 
-export default function SecView() {
+function CalibrationPanel() {
   const [stateSig, shareUrl] = useUrlState<State>('sec', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
@@ -789,4 +805,177 @@ export default function SecView() {
       science={<SciencePanel science={SCIENCE} />}
     />
   );
+}
+
+type WorkbenchTab = 'calibration' | 'run' | 'planner' | 'spectra';
+type WorkbenchAudit = { opticalInputs: Record<string, string | number | boolean | undefined>; methodSettings: Record<string, string | number | boolean | undefined>; findings: string[] };
+
+const WORKBENCH_TABS: Array<{ id: WorkbenchTab; label: string }> = [
+  { id: 'calibration', label: 'SEC calibration' },
+  { id: 'run', label: 'Run & fractions' },
+  { id: 'planner', label: 'Method planner' },
+  { id: 'spectra', label: 'UV-Vis spectra' },
+];
+
+function numberOrUndefined(value: string): number | undefined {
+  const parsed = Number(value);
+  return value.trim() && Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function TracePlot({ raw, derived }: { raw: Array<{ volumeMl: number; signalAu: number }>; derived: Array<{ volumeMl: number; signalAu: number }> }) {
+  const points = [...raw, ...derived];
+  if (points.length < 2) return <p class="text-sm text-slate-500">Import a mapped volume and UV 280 trace to plot it.</p>;
+  const xMin = Math.min(...points.map(point => point.volumeMl));
+  const xMax = Math.max(...points.map(point => point.volumeMl));
+  const yMax = Math.max(0.001, ...points.map(point => point.signalAu));
+  const path = (items: Array<{ volumeMl: number; signalAu: number }>) => items.map((point, index) => {
+    const x = 45 + ((point.volumeMl - xMin) / Math.max(0.001, xMax - xMin)) * 555;
+    const y = 210 - (point.signalAu / yMax) * 170;
+    return `${index ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+  return <div class="space-y-2"><div class="flex gap-4 text-xs"><span><i class="inline-block h-2 w-2 rounded-full bg-slate-500" /> Raw trace</span><span><i class="inline-block h-2 w-2 rounded-full bg-blue-600" /> Derived baseline-corrected trace</span></div><svg aria-label="Chromatogram raw and derived overlays" viewBox="0 0 640 245" class="w-full rounded border bg-white dark:bg-slate-950"><line x1="45" y1="210" x2="600" y2="210" stroke="#94a3b8" /><path d={path(raw)} fill="none" stroke="#64748b" stroke-width="2" /><path d={path(derived)} fill="none" stroke="#2563eb" stroke-width="2" /><text x="45" y="232" font-size="10">{xMin.toFixed(2)} mL</text><text x="555" y="232" font-size="10">{xMax.toFixed(2)} mL</text></svg></div>;
+}
+
+function _LegacyRunFractionsPanel() {
+  const [source, setSource] = useState('');
+  const [mapping, setMapping] = useState<Partial<Record<ChromatogramColumnName, string>>>({});
+  const [accepted, setAccepted] = useState<number | null>(null);
+  const [selectedFraction, setSelectedFraction] = useState<string | null>(null);
+  const result = useMemo<{ data?: ChromatogramImport; error?: string }>(() => {
+    if (!source.trim()) return {};
+    try {
+      const columns = Object.fromEntries(Object.entries(mapping).flatMap(([key, value]) => {
+        const parsed = value === undefined || value === '' ? undefined : Number(value);
+        return parsed === undefined ? [] : [[key, parsed]];
+      }));
+      return { data: parseChromatogram(source, columns) };
+    } catch (error) { return { error: error instanceof Error ? error.message : 'Could not parse chromatogram.' }; }
+  }, [source, mapping]);
+  const data = result.data;
+  const raw = (data?.points ?? []).flatMap(point => point.volumeMl !== undefined && point.uv280 !== undefined ? [{ volumeMl: point.volumeMl, signalAu: point.uv280 / 1000 }] : []);
+  const baseline = useMemo(() => applyBaseline(raw, 'endpoint'), [raw]);
+  const derived = baseline.points.map(point => ({ volumeMl: point.volumeMl, signalAu: point.correctedSignalAu }));
+  const candidates = useMemo(() => detectPeakCandidates(derived, { minimumProminenceAu: 0.0001, minimumWidthMl: 0 }), [derived]);
+  const acceptedCandidate: PeakCandidate | undefined = accepted === null ? undefined : candidates[accepted];
+  const integration = acceptedCandidate ? integratePeak(derived, acceptedCandidate.startVolumeMl, acceptedCandidate.endVolumeMl) : undefined;
+  const setColumn = (field: ChromatogramColumnName, value: string) => { setMapping(current => ({ ...current, [field]: value })); setAccepted(null); };
+  const headers = data?.sourceHeaders ?? (source.split(/\r?\n/)[0]?.split(/[\t,;]/) ?? []);
+  const selector = (field: ChromatogramColumnName, label: string) => <label class="block text-sm">{label}<select aria-label={label} value={mapping[field] ?? ''} onChange={event => setColumn(field, (event.target as HTMLSelectElement).value)} class={`${FIELD} mt-1`}><option value="">Auto / not mapped</option>{headers.map((header, index) => <option value={String(index)}>{index}: {header}</option>)}</select></label>;
+  const exportRaw = () => downloadText(toCsv([['volume_ml', 'uv280_mAU'], ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? ''])]), 'chromatography-raw.csv', 'text/csv;charset=utf-8');
+  const exportRawJson = () => downloadText(JSON.stringify({ sourceHeaders: data?.sourceHeaders ?? [], points: data?.points ?? [], fractions: data?.fractions ?? [] }, null, 2), 'chromatography-raw.json', 'application/json;charset=utf-8');
+  const exportDerivedCsv = () => downloadText(toCsv([['record', 'start_volume_ml', 'apex_or_end_volume_ml', 'area_au_ml'], ...candidates.map((candidate, index) => [`candidate_${index + 1}`, candidate.startVolumeMl, candidate.apexVolumeMl, candidate.areaAuMl]), ...(integration ? [['accepted_peak', integration.startVolumeMl, integration.endVolumeMl, integration.areaAuMl] as (string | number)[]] : [])]), 'chromatography-derived.csv', 'text/csv;charset=utf-8');
+  const exportDerived = () => downloadText(JSON.stringify({ baseline: 'endpoint', acceptedCandidate, integration, fractions: data?.fractions ?? [] }, null, 2), 'chromatography-derived.json', 'application/json;charset=utf-8');
+  const fraction = data?.fractions.find(item => item.label === selectedFraction);
+  return <section class="space-y-5"><div class="grid gap-4 lg:grid-cols-2"><label class="text-sm font-medium">Chromatogram CSV or TSV<textarea aria-label="Chromatogram CSV or TSV" value={source} onInput={event => { setSource((event.target as HTMLTextAreaElement).value); setAccepted(null); setSelectedFraction(null); }} placeholder="Volume,UV 280,Fraction" rows={8} class={`${FIELD} mt-1 font-mono text-xs`} /></label><div class="grid content-start gap-3">{selector('volumeMl', 'Volume column')}{selector('uv280', 'UV 280 column')}{selector('fraction', 'Fraction column')}<p class="text-xs text-slate-500">Map columns explicitly when instrument headings are nonstandard. Raw instrument UV values remain mAU; derived analysis converts them to AU.</p></div></div>{result.error && <p role="alert" class="text-sm text-rose-700">{result.error}</p>}{data && <><TracePlot raw={raw} derived={derived} /><div class="grid gap-4 lg:grid-cols-2"><section><h2 class="font-semibold">Candidate peaks</h2><p class="text-xs text-slate-500">Candidates are not derived records until explicitly accepted.</p>{candidates.length === 0 ? <p class="mt-2 text-sm text-slate-500">No candidate peaks meet the current trace thresholds.</p> : candidates.map((candidate, index) => <div class="mt-2 rounded border p-2 text-sm"><span>Candidate {index + 1}: apex {candidate.apexVolumeMl.toFixed(2)} mL</span><button type="button" onClick={() => setAccepted(index)} class="ml-3 rounded border px-2 py-1 text-xs">Accept candidate {index + 1}</button></div>)}</section><section><h2 class="font-semibold">Fractions ({data.fractions.length})</h2>{data.fractions.length ? <ul class="mt-2 space-y-1 text-sm">{data.fractions.map(item => <li><button type="button" aria-pressed={selectedFraction === item.label} onClick={() => setSelectedFraction(item.label)} class="rounded border px-2 py-1">Select fraction {item.label}</button></li>)}</ul> : <p class="mt-2 text-sm text-slate-500">No fractions were supplied.</p>}</section></div>{fraction && <section class="rounded border p-3 text-sm"><strong>Fraction details: {fraction.label}</strong><p>{fraction.startVolumeMl === undefined ? 'Instrument label retained; no collection bounds were supplied.' : `${fraction.startVolumeMl}–${fraction.endVolumeMl} mL`}</p></section>}{acceptedCandidate && integration && <section class="rounded border border-blue-200 bg-blue-50 p-3 text-sm dark:bg-blue-950/20"><h2 class="font-semibold">Accepted peak details</h2><p>Apex {acceptedCandidate.apexVolumeMl.toFixed(2)} mL; integration {integration.areaAuMl.toExponential(3)} AU·mL.</p></section>}<div class="flex flex-wrap gap-2"><button type="button" onClick={exportRaw} class="rounded border px-3 py-1.5 text-sm">Export raw CSV</button><button type="button" onClick={exportRawJson} class="rounded border px-3 py-1.5 text-sm">Export raw JSON</button><button type="button" onClick={exportDerivedCsv} class="rounded border px-3 py-1.5 text-sm">Export derived CSV</button><button type="button" onClick={exportDerived} class="rounded border px-3 py-1.5 text-sm">Export derived JSON</button></div>{data.notices.map(notice => <p role="alert" class="text-xs text-amber-700">Warning: {notice}</p>)}</>}</section>;
+}
+
+function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
+  const [source, setSource] = useState('');
+  const [mapping, setMapping] = useState<Partial<Record<ChromatogramColumnName, string>>>({});
+  const [baselineMode, setBaselineMode] = useState<BaselineMode>('none');
+  const [accepted, setAccepted] = useState<number | null>(null);
+  const [selectedFraction, setSelectedFraction] = useState<string | null>(null);
+  const [manualStart, setManualStart] = useState('');
+  const [manualEnd, setManualEnd] = useState('');
+  const [manualAccepted, setManualAccepted] = useState(false);
+  const [amountInputs, setAmountInputs] = useState({ a280: '', epsilonMolar: '', molecularWeightGPerMol: '', pathCm: '', fractionVolumeMl: '' });
+
+  const result = useMemo<{ data?: ChromatogramImport; error?: string }>(() => {
+    if (!source.trim()) return {};
+    try {
+      const columns = Object.fromEntries(Object.entries(mapping).flatMap(([key, value]) => value === undefined || value === '' ? [] : [[key, Number(value)]]));
+      return { data: parseChromatogram(source, columns) };
+    } catch (error) { return { error: error instanceof Error ? error.message : 'Could not parse chromatogram.' }; }
+  }, [source, mapping]);
+  const data = result.data;
+  const raw = (data?.points ?? []).flatMap(point => point.volumeMl !== undefined && point.uv280 !== undefined ? [{ volumeMl: point.volumeMl, signalAu: point.uv280 / 1000 }] : []);
+  const baseline = useMemo(() => applyBaseline(raw, baselineMode), [raw, baselineMode]);
+  const derived = baseline.points.map(point => ({ volumeMl: point.volumeMl, signalAu: point.correctedSignalAu }));
+  const candidates = useMemo(() => detectPeakCandidates(derived, { minimumProminenceAu: 0.0001, minimumWidthMl: 0 }), [derived]);
+  const acceptedCandidate: PeakCandidate | undefined = accepted === null ? undefined : candidates[accepted];
+  const candidateIntegration = acceptedCandidate ? integratePeak(derived, acceptedCandidate.startVolumeMl, acceptedCandidate.endVolumeMl) : undefined;
+  const manualResult = useMemo<{ integration?: ReturnType<typeof integratePeak>; error?: string }>(() => {
+    if (!manualAccepted) return {};
+    const start = numberOrUndefined(manualStart); const end = numberOrUndefined(manualEnd);
+    if (start === undefined || end === undefined) return { error: 'Manual peak start and end volumes are required.' };
+    try { return { integration: integratePeak(derived, start, end) }; } catch (error) { return { error: error instanceof Error ? error.message : 'Manual peak bounds are invalid.' }; }
+  }, [derived, manualAccepted, manualStart, manualEnd]);
+  const fraction = data?.fractions.find(item => item.label === selectedFraction);
+  const amount = useMemo(() => estimateFractionAmount({
+    a280: numberOrUndefined(amountInputs.a280), epsilonMolar: numberOrUndefined(amountInputs.epsilonMolar), molecularWeightGPerMol: numberOrUndefined(amountInputs.molecularWeightGPerMol), pathCm: numberOrUndefined(amountInputs.pathCm), fractionVolumeMl: numberOrUndefined(amountInputs.fractionVolumeMl),
+  }), [amountInputs]);
+  const setColumn = (field: ChromatogramColumnName, value: string) => { setMapping(current => ({ ...current, [field]: value })); setAccepted(null); };
+  const headers = data?.sourceHeaders ?? (source.split(/\r?\n/)[0]?.split(/[\t,;]/) ?? []);
+  const selector = (field: ChromatogramColumnName, label: string) => <label class="block text-sm">{label}<select aria-label={label} value={mapping[field] ?? ''} onChange={event => setColumn(field, (event.target as HTMLSelectElement).value)} class={`${FIELD} mt-1`}><option value="">Auto / not mapped</option>{headers.map((header, index) => <option value={String(index)}>{index}: {header}</option>)}</select></label>;
+  const auditRecord = (kind: 'raw' | 'derived') => ({
+    app: 'Chromatography Workbench', recordType: kind, exportedAt: new Date().toISOString(),
+    source: { filename: 'pasted-chromatogram.csv', sourceText: source, sourceHeaders: data?.sourceHeaders ?? [], mappedHeaders: data?.mappedHeaders ?? {}, parserNotices: data?.notices ?? [], mapping },
+    baseline: baselineMode, candidates, acceptedCandidate, candidateIntegration, manualBounds: { startVolumeMl: numberOrUndefined(manualStart), endVolumeMl: numberOrUndefined(manualEnd), accepted: manualAccepted, integration: manualResult.integration },
+    fractionSelection: fraction, opticalInputs: { ...audit.opticalInputs, fractionAmountInputs: amountInputs }, amountEstimate: amount, methodSettings: audit.methodSettings, findings: audit.findings, rawPoints: kind === 'raw' ? data?.points ?? [] : undefined, derivedPoints: kind === 'derived' ? derived : undefined,
+  });
+  const exportJson = (kind: 'raw' | 'derived') => downloadText(JSON.stringify(auditRecord(kind), null, 2), `chromatography-${kind}.json`, 'application/json;charset=utf-8');
+  const exportCsv = (kind: 'raw' | 'derived') => downloadText(kind === 'raw' ? toCsv([['volume_ml', 'uv280_mAU'], ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? ''])]) : toCsv([['record', 'start_volume_ml', 'end_or_apex_volume_ml', 'area_au_ml'], ...candidates.map((candidate, index) => [`candidate_${index + 1}`, candidate.startVolumeMl, candidate.apexVolumeMl, candidate.areaAuMl]), ...(manualResult.integration ? [['manual_accepted', manualResult.integration.startVolumeMl, manualResult.integration.endVolumeMl, manualResult.integration.areaAuMl] as (string | number)[]] : [])]), `chromatography-${kind}.csv`, 'text/csv;charset=utf-8');
+  const setAmount = (field: keyof typeof amountInputs, value: string) => setAmountInputs(current => ({ ...current, [field]: value }));
+
+  return <section class="space-y-5">
+    <div class="grid gap-4 lg:grid-cols-2"><label class="text-sm font-medium">Chromatogram CSV or TSV<textarea aria-label="Chromatogram CSV or TSV" value={source} onInput={event => { setSource((event.target as HTMLTextAreaElement).value); setAccepted(null); setSelectedFraction(null); setManualAccepted(false); }} placeholder="Volume,UV 280,Fraction" rows={8} class={`${FIELD} mt-1 font-mono text-xs`} /></label><div class="grid content-start gap-3">{selector('volumeMl', 'Volume column')}{selector('uv280', 'UV 280 column')}{selector('fraction', 'Fraction column')}<label class="block text-sm">Baseline correction<select aria-label="Baseline correction" value={baselineMode} onChange={event => setBaselineMode((event.target as HTMLSelectElement).value as BaselineMode)} class={`${FIELD} mt-1`}><option value="none">none</option><option value="endpoint">endpoint</option><option value="rolling-minimum">rolling-minimum</option></select></label><p class="text-xs text-slate-500">Raw instrument UV values remain mAU; derived analysis is AU. Baseline: {baselineMode}.</p></div></div>
+    {result.error && <p role="alert" class="text-sm text-rose-700">{result.error}</p>}
+    {data && <><TracePlot raw={raw} derived={derived} /><div class="grid gap-4 lg:grid-cols-2"><section><h2 class="font-semibold">Candidate peaks</h2><p class="text-xs text-slate-500">Candidates are not derived records until explicitly accepted.</p>{candidates.length === 0 ? <p class="mt-2 text-sm text-slate-500">No candidate peaks meet the current trace thresholds.</p> : candidates.map((candidate, index) => <div class="mt-2 rounded border p-2 text-sm"><span>Candidate {index + 1}: apex {candidate.apexVolumeMl.toFixed(2)} mL</span><button type="button" onClick={() => setAccepted(index)} class="ml-3 rounded border px-2 py-1 text-xs">Accept candidate {index + 1}</button></div>)}</section><section><h2 class="font-semibold">Fractions ({data.fractions.length})</h2>{data.fractions.length ? <ul class="mt-2 space-y-1 text-sm">{data.fractions.map(item => <li><button type="button" aria-pressed={selectedFraction === item.label} onClick={() => setSelectedFraction(item.label)} class="rounded border px-2 py-1">Select fraction {item.label}</button></li>)}</ul> : <p class="mt-2 text-sm text-slate-500">No fractions were supplied.</p>}</section></div>
+    <section class="rounded border p-3"><h2 class="font-semibold">Manual peak integration</h2><div class="mt-2 grid gap-2 sm:grid-cols-3"><label class="text-sm">Manual peak start<input aria-label="Manual peak start" value={manualStart} onInput={event => { setManualStart((event.target as HTMLInputElement).value); setManualAccepted(false); }} class={`${FIELD} mt-1`} /></label><label class="text-sm">Manual peak end<input aria-label="Manual peak end" value={manualEnd} onInput={event => { setManualEnd((event.target as HTMLInputElement).value); setManualAccepted(false); }} class={`${FIELD} mt-1`} /></label><button type="button" onClick={() => setManualAccepted(true)} class="self-end rounded border px-3 py-2 text-sm">Accept manual peak bounds</button></div>{manualResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{manualResult.error}</p>}{manualResult.integration && <p class="mt-2 text-sm"><strong>Manual accepted peak details</strong>: {manualResult.integration.startVolumeMl.toFixed(2)}–{manualResult.integration.endVolumeMl.toFixed(2)} mL; {manualResult.integration.areaAuMl.toExponential(3)} AU·mL.</p>}</section>
+    {fraction && <section class="rounded border p-3 text-sm"><strong>Fraction details: {fraction.label}</strong><p>{fraction.startVolumeMl === undefined ? 'Instrument label retained; no collection bounds were supplied.' : `${fraction.startVolumeMl}–${fraction.endVolumeMl} mL`}</p><h3 class="mt-3 font-semibold">Fraction amount estimate</h3><div class="mt-2 grid gap-2 sm:grid-cols-5">{([['a280', 'Fraction A280'], ['epsilonMolar', 'Protein epsilon'], ['molecularWeightGPerMol', 'Protein molecular weight'], ['pathCm', 'Path length'], ['fractionVolumeMl', 'Fraction volume']] as const).map(([field, label]) => <label class="text-xs">{label}<input aria-label={label} value={amountInputs[field]} onInput={event => setAmount(field, (event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>)}</div><p class={amount.status === 'derived' ? 'mt-2 text-emerald-700' : 'mt-2 text-amber-700'}>{amount.status === 'derived' ? `Amount estimate: ${amount.amountMg?.toFixed(4)} mg` : `Amount estimate blocked: ${amount.blockers.join(', ')}`}</p></section>}
+    {acceptedCandidate && candidateIntegration && <section class="rounded border border-blue-200 bg-blue-50 p-3 text-sm dark:bg-blue-950/20"><h2 class="font-semibold">Accepted peak details</h2><p>Apex {acceptedCandidate.apexVolumeMl.toFixed(2)} mL; integration {candidateIntegration.areaAuMl.toExponential(3)} AU·mL.</p></section>}
+    <div class="flex flex-wrap gap-2"><button type="button" onClick={() => exportCsv('raw')} class="rounded border px-3 py-1.5 text-sm">Export raw CSV</button><button type="button" onClick={() => exportJson('raw')} class="rounded border px-3 py-1.5 text-sm">Export raw JSON</button><button type="button" onClick={() => exportCsv('derived')} class="rounded border px-3 py-1.5 text-sm">Export derived CSV</button><button type="button" onClick={() => exportJson('derived')} class="rounded border px-3 py-1.5 text-sm">Export derived JSON</button></div>{data.notices.map(notice => <p role="alert" class="text-xs text-amber-700">Warning: {notice}</p>)}</>}</section>;
+}
+
+function MethodPlannerPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAudit>) => void }) {
+  const [sequence, setSequence] = useState('');
+  const [targetPh, setTargetPh] = useState('6');
+  const [bufferA, setBufferA] = useState('Editable low-salt ion-exchange starting buffer.');
+  const [bufferB, setBufferB] = useState('Editable higher-salt ion-exchange elution buffer.');
+  const [columnVolume, setColumnVolume] = useState('1');
+  const [flow, setFlow] = useState('1');
+  const [startB, setStartB] = useState('0');
+  const [endB, setEndB] = useState('100');
+  const [gradientCv, setGradientCv] = useState('10');
+  const protein = useMemo(() => sequence.trim() ? summarize(sequence) : undefined, [sequence]);
+  const advice = useMemo(() => protein && protein.length > 0 && numberOrUndefined(targetPh) !== undefined ? suggestIonExchange({ proteinPi: protein.pI, targetPh: Number(targetPh) }) : undefined, [protein, targetPh]);
+  const gradientResult = useMemo<{ data?: ReturnType<typeof simulateGradient>; error?: string }>(() => {
+    const values = [columnVolume, flow, startB, endB, gradientCv].map(numberOrUndefined);
+    if (!values.every((value): value is number => value !== undefined)) return { error: 'All gradient settings must be finite numbers.' };
+    try { return { data: simulateGradient({ columnVolumeMl: values[0]!, flowMlPerMin: values[1]!, startPercentB: values[2]!, endPercentB: values[3]!, gradientCv: values[4]! }) }; }
+    catch (error) { return { error: error instanceof Error ? error.message : 'Gradient settings are invalid.' }; }
+  }, [columnVolume, flow, startB, endB, gradientCv]);
+  const gradient = gradientResult.data;
+  useEffect(() => onAudit({
+    methodSettings: { sequence, targetPh, bufferA, bufferB, columnVolume, flow, startB, endB, gradientCv, gradientError: gradientResult.error },
+    findings: advice?.findings.map(finding => `${finding.severity}: ${finding.message}`) ?? [],
+  }), [advice, bufferA, bufferB, columnVolume, endB, flow, gradientCv, gradientResult.error, onAudit, sequence, startB, targetPh]);
+  const field = (label: string, value: string, setter: (value: string) => void) => <label class="block text-sm">{label}<input aria-label={label} value={value} onInput={event => setter((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>;
+  return <section class="space-y-5"><div class="grid gap-4 lg:grid-cols-2"><label class="text-sm">Protein sequence<textarea aria-label="Protein sequence" value={sequence} onInput={event => setSequence((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1 font-mono`} rows={5} /></label><div class="space-y-3">{field('Target pH', targetPh, setTargetPh)}{protein && <p class="text-sm">Sequence pI: <strong>{protein.pI.toFixed(2)}</strong>; ε280: <strong>{protein.ext.cystines.toLocaleString()} M⁻¹cm⁻¹</strong>.</p>}{advice ? <div class={advice.status === 'review-required' ? 'rounded border border-amber-300 bg-amber-50 p-3 text-sm' : 'rounded border border-emerald-300 bg-emerald-50 p-3 text-sm'}><strong>{advice.status === 'review-required' ? 'Review required' : `Suggested ${advice.mode}`}</strong><p>{advice.findings[0]?.message}</p></div> : <p class="text-sm text-slate-500">Add a protein sequence to receive pI-informed advice.</p>}</div></div><div class="grid gap-3 md:grid-cols-2"><label class="rounded border p-3 text-sm">Buffer A description<textarea aria-label="Buffer A description" value={bufferA} onInput={event => setBufferA((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1`} rows={3} /></label><label class="rounded border p-3 text-sm">Buffer B description<textarea aria-label="Buffer B description" value={bufferB} onInput={event => setBufferB((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1`} rows={3} /></label></div><section><h2 class="font-semibold">Gradient planner</h2><div class="mt-2 grid gap-3 sm:grid-cols-5">{field('Column volume (mL)', columnVolume, setColumnVolume)}{field('Flow (mL/min)', flow, setFlow)}{field('Start %B', startB, setStartB)}{field('End %B', endB, setEndB)}{field('Gradient (CV)', gradientCv, setGradientCv)}</div>{gradientResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{gradientResult.error}</p>}{gradient && <><svg aria-label="Gradient plan" viewBox="0 0 560 180" class="mt-4 w-full rounded border"><line x1="45" y1="145" x2="530" y2="145" stroke="#94a3b8" /><polyline fill="none" stroke="#2563eb" stroke-width="3" points={gradient.points.map(point => `${45 + point.columnVolumes / Math.max(gradient.totalColumnVolumes, 1) * 485},${145 - point.percentB / 100 * 110}`).join(' ')} /><text x="45" y="166" font-size="10">0 CV</text><text x="485" y="166" font-size="10">{gradient.totalColumnVolumes.toFixed(1)} CV</text></svg><p class="mt-2 text-sm">Gradient end: {gradient.atGradientEnd.volumeMl.toFixed(1)} mL / {gradient.atGradientEnd.timeMin.toFixed(1)} min; total {gradient.totalTimeMin.toFixed(1)} min.</p></>}</section></section>;
+}
+
+function SpectraPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAudit>) => void }) {
+  const [source, setSource] = useState('');
+  const [scatterEnabled, setScatterEnabled] = useState(false);
+  const [dyeAbsorbance, setDyeAbsorbance] = useState('');
+  const [dyeEpsilon, setDyeEpsilon] = useState('');
+  const [correctionFactor, setCorrectionFactor] = useState('');
+  const [proteinEpsilon, setProteinEpsilon] = useState('');
+  const imported = useMemo<{ data?: SpectrumImport; error?: string }>(() => { if (!source.trim()) return {}; try { return { data: parseSpectrum(source) }; } catch (error) { return { error: error instanceof Error ? error.message : 'Could not parse spectrum.' }; } }, [source]);
+  const observed = imported.data?.points.find(point => point.wavelengthNm === 280)?.absorbance;
+  const scatterFit = useMemo(() => imported.data ? fitLogScatter(imported.data.points) : undefined, [imported.data]);
+  const scatter = scatterEnabled && observed !== undefined && scatterFit ? correctA280ForScatter(observed, scatterFit) : undefined;
+  const dol = calculateDyeLabeling({ a280: observed, dyeAbsorbance: numberOrUndefined(dyeAbsorbance), dyeEpsilon: numberOrUndefined(dyeEpsilon), correctionFactor280: numberOrUndefined(correctionFactor), proteinEpsilon: numberOrUndefined(proteinEpsilon), pathCm: 1, scatterCorrection: scatterEnabled ? scatter : undefined });
+  useEffect(() => onAudit({ opticalInputs: { spectrumSourceText: source, observedA280: observed, scatterEnabled, dyeAbsorbance, dyeEpsilon, correctionFactor280: correctionFactor, proteinEpsilon, dolStatus: dol.status } }), [correctionFactor, dyeAbsorbance, dyeEpsilon, dol.status, observed, onAudit, proteinEpsilon, scatterEnabled, source]);
+  const yMax = Math.max(0.01, ...(imported.data?.points.map(point => point.absorbance) ?? [0]));
+  const plot = (imported.data?.points ?? []).map((point, index, all) => `${index ? 'L' : 'M'} ${45 + (point.wavelengthNm - all[0]!.wavelengthNm) / Math.max(1, all.at(-1)!.wavelengthNm - all[0]!.wavelengthNm) * 500} ${155 - point.absorbance / yMax * 120}`).join(' ');
+  const field = (label: string, value: string, setter: (value: string) => void) => <label class="block text-sm">{label}<input aria-label={label} value={value} onInput={event => setter((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>;
+  return <section class="space-y-5"><label class="block text-sm">Spectrum CSV or TSV<textarea aria-label="Spectrum CSV or TSV" value={source} onInput={event => setSource((event.target as HTMLTextAreaElement).value)} placeholder="Wavelength,Absorbance" rows={6} class={`${FIELD} mt-1 font-mono text-xs`} /></label>{imported.error && <p role="alert" class="text-sm text-rose-700">{imported.error}</p>}{imported.data && <><svg aria-label="UV-Vis spectrum" viewBox="0 0 560 180" class="w-full rounded border"><line x1="45" y1="155" x2="545" y2="155" stroke="#94a3b8" /><path d={plot} fill="none" stroke="#7c3aed" stroke-width="3" /></svg><div class="grid gap-3 sm:grid-cols-2"><div class="rounded border p-3 text-sm"><strong>Observed A280</strong><p>{observed === undefined ? 'No 280 nm observation' : observed.toFixed(4)}</p></div><label class="rounded border p-3 text-sm"><input aria-label="Apply 300–340 nm scatter correction" type="checkbox" checked={scatterEnabled} onChange={event => setScatterEnabled((event.target as HTMLInputElement).checked)} /> Apply 300–340 nm scatter correction{scatterEnabled && <p class="mt-2"><strong>Scatter-corrected A280</strong>: {scatter?.correctedA280?.toFixed(4) ?? 'unavailable'}</p>}</label></div><div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr><th>Wavelength</th><th>Absorbance</th></tr></thead><tbody>{imported.data.points.map(point => <tr><td>{point.wavelengthNm} nm</td><td>{point.absorbance.toFixed(4)}</td></tr>)}</tbody></table></div>{scatter?.warnings.map(warning => <p role="alert" class="text-xs text-amber-700">Warning: {warning}</p>)}</>}<section class="rounded border p-4"><h2 class="font-semibold">Dye-to-protein labeling (DOL)</h2><p class="mt-1 text-xs text-slate-500">Supply dye ε and CF280 from the dye manufacturer; this calculator does not infer either coefficient.</p><div class="mt-3 grid gap-3 sm:grid-cols-2">{field('Dye absorbance', dyeAbsorbance, setDyeAbsorbance)}{field('Dye epsilon', dyeEpsilon, setDyeEpsilon)}{field('CF280', correctionFactor, setCorrectionFactor)}{field('Protein epsilon', proteinEpsilon, setProteinEpsilon)}</div><p class={dol.status === 'derived' ? 'mt-3 text-sm text-emerald-700' : 'mt-3 text-sm text-amber-700'}>{dol.status === 'derived' ? `DOL: ${dol.dol?.toFixed(3)}` : `DOL blocked: ${dol.blockers.join(', ') || 'enter a spectrum and manufacturer coefficients'}`}</p>{dol.warnings.map(warning => <p role="alert" class="mt-1 text-xs text-amber-700">Warning: {warning}</p>)}</section></section>;
+}
+
+export default function SecView() {
+  const [tab, setTab] = useState<WorkbenchTab>('calibration');
+  const [audit, setAudit] = useState<WorkbenchAudit>({ opticalInputs: {}, methodSettings: {}, findings: [] });
+  const updateAudit = useCallback((patch: Partial<WorkbenchAudit>) => setAudit(current => ({ ...current, ...patch })), []);
+  return <div class="mx-auto max-w-[92rem]"><header class="px-3 pt-3 sm:px-4"><h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1><p class="text-sm text-slate-600 dark:text-slate-300">SEC calibration, run review, method planning, and UV-Vis analysis on the stable SEC route.</p><nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">{WORKBENCH_TABS.map(item => <button type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} class={tab === item.id ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white' : 'rounded-lg border px-3 py-1.5 text-sm'}>{item.label}</button>)}</nav></header><div class="p-3 sm:p-4">{tab === 'calibration' && <CalibrationPanel />}{tab === 'run' && <RunFractionsPanel audit={audit} />}{tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}{tab === 'spectra' && <SpectraPanel onAudit={updateAudit} />}</div></div>;
 }
