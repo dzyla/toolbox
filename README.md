@@ -27,6 +27,21 @@ npm test
 ```
 See `CONTRIBUTING.md` for the science rules and how to add a tool.
 
+## Plasmid workspace
+
+The Plasmid Viewer & Map opens pasted raw DNA, FASTA, and GenBank records, plus
+FASTA, GenBank, and SnapGene sequence files. Projects saved from this workspace stay
+in the browser's local storage on the device; they are not uploaded or synchronized.
+
+Select a base, range, annotation, ORF, or restriction site to keep the maps, sequence,
+and inspectors synchronized. Imported annotations remain an editable imported layer.
+Predicted ORFs are a separate analysis layer and become CDS annotations only when you
+explicitly promote them.
+
+Download the current document as GenBank or FASTA, and download the active circular or
+linear map as SVG. SnapGene files can be imported, but native SnapGene export is not
+available.
+
 ## Citing
 See `CITATION.cff`; GitHub shows a "Cite this repository" button.
 

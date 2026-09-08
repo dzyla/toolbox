@@ -26,6 +26,24 @@ test('dark mode toggle persists', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(dark);
 });
 
+test('plasmid workspace navigation keeps the sequence viewport stable while selecting a base', async ({ page }) => {
+  await page.goto('/#/t/plasmid');
+  await expect(page.getByRole('heading', { name: /Plasmid Viewer & Map/ })).toBeVisible();
+  await expect(page.getByTestId('plasmid-orf-summary')).toHaveText('7 ORFs · 50.7% GC');
+
+  await page.getByRole('tab', { name: 'Sequence', exact: true }).click();
+  const viewport = page.getByTestId('plasmid-sequence-viewport');
+  await expect(viewport).toBeVisible();
+  await viewport.evaluate(element => { element.scrollTop = 160; });
+  await expect.poll(() => viewport.evaluate(element => element.scrollTop)).toBe(160);
+
+  const base = page.getByRole('button', { name: 'Base 1', exact: true });
+  await base.dispatchEvent('click');
+  await expect(base).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('1–1 bp · forward', { exact: true })).toBeVisible();
+  await expect.poll(() => viewport.evaluate(element => element.scrollTop)).toBe(160);
+});
+
 test('service worker registers for offline use', async ({ page }) => {
   await page.goto('/');
   const ok = await page.evaluate(() => Promise.race([
