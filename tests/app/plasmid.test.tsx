@@ -13,6 +13,23 @@ import type { DocumentOrf, DocumentRestrictionSite } from '@/core/plasmid/analys
 import type { PlasmidDocument } from '@/core/plasmid/model';
 import type { Selection } from '@/tools/plasmid/selection';
 import { route } from '@/app/router';
+import { getProject, listRecent, saveProject } from '@/lib/projects';
+import { importPlasmidText } from '@/core/plasmid/import';
+import { exportGenBank } from '@/core/plasmid/export';
+import { locationSequence } from '@/core/plasmid/coordinates';
+
+const IMPORTED_GENBANK = `LOCUS       imported 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    2..8
+                     /label="Imported annotation"
+ORIGIN
+        1 aaacccgggttt
+//`;
+
+function openText(text: string) {
+  fireEvent.input(screen.getByLabelText(/Paste FASTA, GenBank, or raw DNA/i), { target: { value: text } });
+  fireEvent.click(screen.getByRole('button', { name: 'Open sequence' }));
+}
 
 const MAP_DOCUMENT: PlasmidDocument = {
   id: 'puc19',
@@ -423,40 +440,39 @@ describe('Plasmid Viewer tool view', () => {
     render(<PlasmidView />);
 
     // Linear Map
-    const linearBtn = screen.getByRole('button', { name: /Linear Map/ });
+    const linearBtn = screen.getByRole('tab', { name: /Linear/ });
     fireEvent.click(linearBtn);
-    expect(screen.getByText(/Linear Plasmid Track/)).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Linear map of pUC19' })).toBeTruthy();
 
     // Sequence & ORFs
-    const seqBtn = screen.getByRole('button', { name: /Sequence & ORFs/ });
+    const seqBtn = screen.getByRole('tab', { name: /Sequence/ });
     fireEvent.click(seqBtn);
-    expect(screen.getByText(/Detected Open Reading Frames/)).toBeTruthy();
-    expect(screen.getByText(/Nucleotide Sequence/)).toBeTruthy();
+    expect(screen.getByTestId('plasmid-sequence-viewport')).toBeTruthy();
 
     // Features Table
-    const tableBtn = screen.getByRole('button', { name: /Features Table/ });
+    const tableBtn = screen.getByRole('tab', { name: /Annotations/ });
     fireEvent.click(tableBtn);
-    expect(screen.getByText(/Feature Annotations/)).toBeTruthy();
-    expect(screen.getByLabelText('Annotation name: AmpR (bla)')).toBeTruthy();
+    expect(screen.getByRole('table', { name: 'Annotations' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /AmpR \(bla\)/ })).toBeTruthy();
   });
 
   it('switches preset vectors to pET-28a(+)', async () => {
     route.value = { name: 'tool', toolId: 'plasmid' };
     render(<PlasmidView />);
 
-    const select = screen.getByRole('combobox');
+    const select = screen.getByLabelText('Preset vector');
     fireEvent.change(select, { target: { value: 'pet-28a' } });
 
     expect(screen.getAllByText(/pET-28a\(\+\)/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/5,369 bp/).length).toBeGreaterThan(0);
   });
 
-  it('renders sequence view with separated strands and calculates GC% and Tm upon selection', async () => {
+  it('preserves the composed viewport, ORF count, URL, and undo history when selecting bases', async () => {
     route.value = { name: 'tool', toolId: 'plasmid' };
     render(<PlasmidView />);
 
     // Switch to Sequence & ORFs
-    const seqBtn = screen.getByRole('button', { name: /Sequence & ORFs/ });
+    const seqBtn = screen.getByRole('tab', { name: /Sequence/ });
     fireEvent.click(seqBtn);
 
     // Strands are labeled with 5' and 3'
@@ -464,44 +480,192 @@ describe('Plasmid Viewer tool view', () => {
     expect(screen.getAllByText('3′').length).toBeGreaterThan(0);
     expect(screen.getAllByText('aa').length).toBeGreaterThan(0);
 
-    // Click base 1 to trigger selection
-    const base1 = screen.getByTitle('bp 1: T');
-    fireEvent.click(base1);
-
-    // Verify selection bar appears with GC and Tm
-    expect(screen.getByText(/Coordinates:/)).toBeTruthy();
-    expect(screen.getByText(/GC:/)).toBeTruthy();
-    expect(screen.getByText(/Copy DNA/)).toBeTruthy();
+    const viewport = screen.getByTestId('plasmid-sequence-viewport');
+    const summary = screen.getByTestId('plasmid-orf-summary');
+    const summaryText = summary.textContent;
+    const parent = viewport.parentElement;
+    const url = window.location.href;
+    viewport.scrollTop = 180;
+    viewport.scrollLeft = 65;
+    fireEvent.click(screen.getByLabelText('Base 2'));
+    expect(screen.getByTestId('plasmid-sequence-viewport')).toBe(viewport);
+    expect(viewport.parentElement).toBe(parent);
+    expect(viewport.scrollTop).toBe(180);
+    expect(viewport.scrollLeft).toBe(65);
+    expect(screen.getByTestId('plasmid-orf-summary')).toBe(summary);
+    expect(summary.textContent).toBe(summaryText);
+    expect(window.location.href).toBe(url);
+    expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('complementary', { name: 'Annotation inspector' }).textContent).toContain('2–2 bp');
   });
 
   it('displays min and max of found ORF sequences and updates filters', async () => {
     route.value = { name: 'tool', toolId: 'plasmid' };
     render(<PlasmidView />);
 
-    expect(screen.getByText(/Minimum ORF Size:/)).toBeTruthy();
-    expect(screen.getByText(/Maximum ORF Size:/)).toBeTruthy();
-    expect(screen.getByText(/Found Sequences:/)).toBeTruthy();
-    expect(screen.getByText(/Min \/ Max Length:/)).toBeTruthy();
+    expect(screen.getByLabelText('Minimum ORF size (aa)')).toBeTruthy();
+    expect(screen.getByLabelText('Maximum ORF size (aa)')).toBeTruthy();
+    fireEvent.input(screen.getByLabelText('Minimum ORF size (aa)'), { target: { value: '100000' } });
+    expect(screen.getByTestId('plasmid-orf-summary').textContent).toContain('0 ORFs');
   });
 
   it('loads an annotated GenBank document through the plasmid import control', async () => {
     route.value = { name: 'tool', toolId: 'plasmid' };
     render(<PlasmidView />);
-    fireEvent.input(screen.getByPlaceholderText(/Paste FASTA, GenBank, or raw DNA sequence/i), {
-      target: { value: `LOCUS       imported 12 bp DNA circular
-FEATURES             Location/Qualifiers
-     misc_feature    2..8
-                     /label="Imported annotation"
-ORIGIN
-        1 aaacccgggttt
-//` },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Load Sequence' }));
-    fireEvent.click(screen.getByRole('button', { name: /Features Table/ }));
+    openText(IMPORTED_GENBANK);
+    fireEvent.click(screen.getByRole('tab', { name: 'Annotations' }));
+    fireEvent.click(screen.getByRole('button', { name: /Imported annotation, 2–8/ }));
+    fireEvent.input(screen.getByLabelText('Annotation name'), { target: { value: 'Renamed annotation' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    expect(screen.getByRole('button', { name: /Renamed annotation, 2–8/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByRole('button', { name: /Imported annotation, 2–8/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Redo' }));
+    expect(screen.getByRole('button', { name: /Renamed annotation, 2–8/ })).toBeTruthy();
+  });
+});
 
-    expect(await screen.findByLabelText('Annotation name: Imported annotation')).toBeTruthy();
-    expect(screen.getAllByText(/imported/i).length).toBeGreaterThan(0);
-    fireEvent.input(screen.getByLabelText('Annotation name: Imported annotation'), { target: { value: 'Renamed annotation' } });
-    expect(await screen.findByLabelText('Annotation name: Renamed annotation')).toBeTruthy();
+describe('Composed document workspace', () => {
+  it('saves a created annotation as schema v2 and restores the current document', async () => {
+    const view = render(<PlasmidView />);
+    openText(IMPORTED_GENBANK);
+    fireEvent.click(screen.getByRole('tab', { name: 'Sequence' }));
+    fireEvent.click(screen.getByLabelText('Base 2'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create annotation from selection' }));
+    fireEvent.input(screen.getByLabelText('Annotation name'), { target: { value: 'Selected base' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save locally' }));
+    expect(await screen.findByText(/Saved imported locally/)).toBeTruthy();
+    const saved = (await listRecent()).find(project => project.name === 'imported')!;
+    expect(saved.version).toBe(2);
+    expect(saved.state).toMatchObject({ schemaVersion: 2, document: { sequence: 'AAACCCGGGTTT', annotations: [{ name: 'Imported annotation' }, { name: 'Selected base', location: { segments: [{ start: 1, end: 2 }] } }] } });
+    expect(Object.keys(saved.state as object).sort()).toEqual(['document', 'schemaVersion']);
+    view.unmount();
+    render(<PlasmidView projectId={saved.id} />);
+    expect(await screen.findByText(/Restored local project/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Annotations' }));
+    expect(screen.getByRole('button', { name: /Selected base, 2–2/ })).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('migrates raw document projects and preserves parser warnings through resaving', async () => {
+    const document = importPlasmidText(IMPORTED_GENBANK).document;
+    document.provenance.warnings = [{ code: 'test-warning', message: 'An unsupported display property was omitted.' }];
+    await saveProject({ id: 'plasmid-legacy-migration', toolId: 'plasmid', name: document.name, version: 1, state: document });
+    render(<PlasmidView projectId="plasmid-legacy-migration" />);
+    expect(await screen.findByText(document.provenance.warnings[0]!.message)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save locally' }));
+    await screen.findByText(/Saved imported locally/);
+    expect((await getProject('plasmid-legacy-migration'))!.state).toMatchObject({ schemaVersion: 2, document });
+  });
+
+  it('shows dismissible parser errors without replacing the open document', () => {
+    render(<PlasmidView />);
+    openText('LOCUS       broken');
+    expect(screen.getByRole('alert').textContent).toContain('missing ORIGIN');
+    expect(screen.getByRole('img', { name: 'Circular map of pUC19' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss error' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    openText('not DNA!');
+    expect(screen.getByRole('alert').textContent).toContain('invalid DNA');
+  });
+
+  it('keeps invalid saved documents out of the workspace', async () => {
+    await saveProject({ id: 'invalid-plasmid', toolId: 'plasmid', name: 'Broken', version: 2, state: { schemaVersion: 2, document: { name: 'Broken' } } });
+    render(<PlasmidView projectId="invalid-plasmid" />);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Circular map of pUC19' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save locally' }));
+    await screen.findByText(/Saved pUC19 locally/);
+    expect((await getProject('invalid-plasmid'))!.state).toEqual({ schemaVersion: 2, document: { name: 'Broken' } });
+  });
+
+  it('exports current edited annotations, DNA, and the selected map as downloadable artifacts', async () => {
+    const blobs: Blob[] = [];
+    const capture = vi.spyOn(URL, 'createObjectURL').mockImplementation(blob => { blobs.push(blob as Blob); return 'blob:plasmid-export'; });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    try {
+      render(<PlasmidView />);
+      openText(IMPORTED_GENBANK);
+      fireEvent.click(screen.getByRole('tab', { name: 'Annotations' }));
+      fireEvent.click(screen.getByRole('button', { name: /Imported annotation, 2–8/ }));
+      fireEvent.input(screen.getByLabelText('Annotation name'), { target: { value: 'Current annotation' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Download GenBank' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Download FASTA' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Linear map' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Download SVG' }));
+      expect(blobs).toHaveLength(3);
+      expect(await blobs[0]!.text()).toContain('/label="Current annotation"');
+      expect(await blobs[1]!.text()).toBe('>imported\nAAACCCGGGTTT\n');
+      expect(await blobs[2]!.text()).toContain('Linear map of imported');
+    } finally { capture.mockRestore(); click.mockRestore(); }
+  });
+
+  it('shares only document metadata and omits sequence, selection, and URL state', async () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    try {
+      render(<PlasmidView />);
+      openText(IMPORTED_GENBANK);
+      fireEvent.click(screen.getByRole('tab', { name: 'Sequence' }));
+      fireEvent.click(screen.getByLabelText('Base 2'));
+      const url = window.location.href;
+      fireEvent.click(screen.getByRole('button', { name: 'Copy summary' }));
+      expect((await screen.findByLabelText(/Summary to copy/) as HTMLTextAreaElement).value).toBe('imported\n12 bp · circular\n1 annotations');
+      expect(window.location.href).toBe(url);
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  });
+
+  it('promotes analysis predictions into the shared document and exposes them in maps and the table', () => {
+    render(<PlasmidView />);
+    openText('>ORF fixture\nATGAAATAA');
+    fireEvent.input(screen.getByLabelText('Minimum ORF size (aa)'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Promote ORF 1 to CDS' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Annotations' }));
+    expect(screen.getByRole('row', { name: /Predicted CDS/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Linear map' }));
+    expect(screen.getAllByRole('button', { name: /Predicted ORF \+1/ }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Annotations' }));
+    expect(screen.queryByRole('row', { name: /Predicted CDS/ })).toBeNull();
+  });
+
+  it('opens sequence files with metadata and offers safe copy fallback in the composed inspector', async () => {
+    render(<PlasmidView />);
+    const file = new Blob([IMPORTED_GENBANK]);
+    Object.defineProperty(file, 'name', { value: 'annotated.gbk' });
+    fireEvent.change(screen.getByLabelText('Open sequence file'), { target: { files: [file] } });
+    expect(await screen.findByText(/annotated.gbk/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sequence' }));
+    fireEvent.click(screen.getByLabelText('Base 2'));
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy DNA', exact: true }));
+      expect((await screen.findByLabelText('Sequence to copy') as HTMLTextAreaElement).value).toBe('A');
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  });
+
+  it('complements all IUPAC bases when copying reverse-strand canonical locations', () => {
+    expect(locationSequence('ACGTRYSWKMBDHVN', { strand: -1, segments: [{ start: 0, end: 15 }] })).toBe('NBDHVKMWSRYACGT');
+  });
+
+  it('exports a renamed annotation using its current name while retaining other qualifiers', () => {
+    const document = importPlasmidText(IMPORTED_GENBANK).document;
+    document.annotations[0]!.name = 'Renamed annotation';
+    document.annotations[0]!.qualifiers.note = ['First', 'Second'];
+    const exported = exportGenBank(document);
+    expect(exported).toContain('/label="Renamed annotation"');
+    expect(exported).toContain('/note="First"');
+    expect(exported).toContain('/note="Second"');
+    expect(document.annotations[0]!.qualifiers.label).toEqual(['Imported annotation']);
   });
 });

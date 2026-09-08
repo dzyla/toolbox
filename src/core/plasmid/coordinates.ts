@@ -43,6 +43,8 @@ function reverseComplement(sequence: string): string {
   const complements: Record<string, string> = {
     A: 'T', T: 'A', G: 'C', C: 'G', N: 'N',
     a: 't', t: 'a', g: 'c', c: 'g', n: 'n',
+    R: 'Y', Y: 'R', S: 'S', W: 'W', K: 'M', M: 'K', B: 'V', V: 'B', D: 'H', H: 'D',
+    r: 'y', y: 'r', s: 's', w: 'w', k: 'm', m: 'k', b: 'v', v: 'b', d: 'h', h: 'd',
   };
   return sequence.split('').reverse().map(base => complements[base] ?? base).join('');
 }

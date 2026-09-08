@@ -8,7 +8,8 @@ function locationText(annotation: Annotation): string {
 
 function qualifierLines(annotation: Annotation): string[] {
   const qualifiers = { ...annotation.qualifiers };
-  if (!qualifiers.label) qualifiers.label = [annotation.name];
+  // The editable name is authoritative; a retained imported label can be stale after a rename.
+  qualifiers.label = [annotation.name];
   if (annotation.color && !qualifiers.ApEinfo_fwdcolor) qualifiers.ApEinfo_fwdcolor = [annotation.color];
   return Object.entries(qualifiers).flatMap(([key, values]) => values.map(value => `                     /${key}="${value.replace(/"/g, '""')}"`));
 }
