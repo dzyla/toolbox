@@ -1,9 +1,66 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/preact';
+import { useState } from 'preact/hooks';
 import PlasmidView from '@/tools/plasmid/View';
+import { CircularMap } from '@/tools/plasmid/CircularMap';
+import { LinearMap } from '@/tools/plasmid/LinearMap';
+import type { PlasmidDocument } from '@/core/plasmid/model';
+import type { Selection } from '@/tools/plasmid/selection';
 import { route } from '@/app/router';
 
+const MAP_DOCUMENT: PlasmidDocument = {
+  id: 'puc19',
+  name: 'pUC19',
+  sequence: 'A'.repeat(2686),
+  topology: 'circular',
+  annotations: [
+    {
+      id: 'ampR',
+      name: 'AmpR',
+      type: 'CDS',
+      location: { strand: 1, segments: [{ start: 0, end: 861 }] },
+      qualifiers: {},
+      source: 'imported',
+    },
+    {
+      id: 'wrapped-origin',
+      name: 'Origin crossing',
+      type: 'rep_origin',
+      location: { strand: -1, segments: [{ start: 2500, end: 2686 }, { start: 0, end: 140 }] },
+      qualifiers: {},
+      source: 'imported',
+    },
+  ],
+  provenance: { format: 'genbank', parserVersion: 'test', warnings: [] },
+};
+
+function CircularMapHarness() {
+  const [selection, setSelection] = useState<Selection | undefined>();
+  return <CircularMap document={MAP_DOCUMENT} selection={selection} onSelect={setSelection} />;
+}
+
+function LinearMapHarness() {
+  const [selection, setSelection] = useState<Selection | undefined>();
+  return <LinearMap document={MAP_DOCUMENT} selection={selection} onSelect={setSelection} />;
+}
+
 describe('Plasmid Viewer tool view', () => {
+  it('selects a canonical circular annotation with its one-based display coordinates', () => {
+    render(<CircularMapHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: /AmpR.*1.*861/i }));
+
+    expect(screen.getByTestId('plasmid-selection').textContent).toContain('AmpR');
+    expect(screen.getByTestId('plasmid-selection').textContent).toContain('1–861');
+  });
+
+  it('renders a keyboard-accessible linear map and preserves origin-spanning annotation segments', () => {
+    render(<LinearMapHarness />);
+
+    expect(screen.getByRole('img', { name: 'Linear map of pUC19' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Origin crossing/i })).toHaveLength(2);
+  });
+
   it('renders plasmid viewer with default pUC19 plasmid', async () => {
     route.value = { name: 'tool', toolId: 'plasmid' };
     render(<PlasmidView />);
