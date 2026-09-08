@@ -60,7 +60,6 @@ function importGenBank(text: string): ImportResult {
         const value = quoted ? rawValue.slice(1, closes ? -1 : undefined) : rawValue;
         current.qualifiers[key!] = [...(current.qualifiers[key!] || []), value];
         continuation = quoted && !closes ? { annotation: current, key: key!, valueIndex: current.qualifiers[key!]!.length - 1 } : null;
-        if (key === 'label' || key === 'gene') current.name = value;
         if (/^apeinfo_(?:fwd|rev)color$/i.test(key!)) current.color = value;
         continue;
       }
@@ -75,6 +74,12 @@ function importGenBank(text: string): ImportResult {
         }
       }
     }
+  }
+  for (const annotation of annotations) {
+    const label = annotation.qualifiers.label?.[0];
+    const gene = annotation.qualifiers.gene?.[0];
+    if (label !== undefined) annotation.name = label;
+    else if (gene !== undefined) annotation.name = gene;
   }
   const document: PlasmidDocument = { id: 'imported-genbank', name, sequence: bases, topology, annotations, provenance: { format: 'genbank', parserVersion: 'plasmid-import-1', warnings: [] } };
   const validation = validateDocument(document);
