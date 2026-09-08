@@ -36,6 +36,105 @@ export interface MrcData {
   getMaxProjection(axis: 'xy' | 'xz' | 'yz', startIdx?: number, endIdx?: number): { width: number; height: number; data: Float32Array };
 }
 
+export interface ProjectionAngles {
+  /** Euler rotations in degrees, applied X then Y then Z. */
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ProjectionImage {
+  width: number;
+  height: number;
+  data: Float32Array;
+}
+
+export interface ProjectionOrientation extends ProjectionAngles {
+  /** Unit viewing direction before conversion to Euler controls. */
+  direction: [number, number, number];
+}
+
+const DEG_TO_RAD = Math.PI / 180;
+
+function trilinearSample(mrcData: MrcData, x: number, y: number, z: number): number {
+  const { nx, ny, nz } = mrcData.header;
+  if (x < 0 || x > nx - 1 || y < 0 || y > ny - 1 || z < 0 || z > nz - 1) return 0;
+
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  const x1 = Math.min(x0 + 1, nx - 1), y1 = Math.min(y0 + 1, ny - 1), z1 = Math.min(z0 + 1, nz - 1);
+  const tx = x - x0, ty = y - y0, tz = z - z0;
+  const at = (xx: number, yy: number, zz: number) => mrcData.slices[zz]![yy * nx + xx]!;
+
+  const c00 = at(x0, y0, z0) * (1 - tx) + at(x1, y0, z0) * tx;
+  const c10 = at(x0, y1, z0) * (1 - tx) + at(x1, y1, z0) * tx;
+  const c01 = at(x0, y0, z1) * (1 - tx) + at(x1, y0, z1) * tx;
+  const c11 = at(x0, y1, z1) * (1 - tx) + at(x1, y1, z1) * tx;
+  return (c00 * (1 - ty) + c10 * ty) * (1 - tz) + (c01 * (1 - ty) + c11 * ty) * tz;
+}
+
+/**
+ * Rotate a density map around its centre and integrate it along its Z axis.
+ * The inverse transform is sampled so that every output pixel maps back into
+ * the unrotated source map, avoiding holes in the projected image.
+ */
+export function projectVolume(mrcData: MrcData, angles: ProjectionAngles): ProjectionImage {
+  const { nx, ny, nz } = mrcData.header;
+  const data = new Float32Array(nx * ny);
+  const ax = -angles.x * DEG_TO_RAD;
+  const ay = -angles.y * DEG_TO_RAD;
+  const az = -angles.z * DEG_TO_RAD;
+  const cosX = Math.cos(ax), sinX = Math.sin(ax);
+  const cosY = Math.cos(ay), sinY = Math.sin(ay);
+  const cosZ = Math.cos(az), sinZ = Math.sin(az);
+  const cx = (nx - 1) / 2, cy = (ny - 1) / 2, cz = (nz - 1) / 2;
+
+  for (let y = 0; y < ny; y++) {
+    for (let x = 0; x < nx; x++) {
+      let density = 0;
+      for (let z = 0; z < nz; z++) {
+        const dx = x - cx, dy = y - cy, dz = z - cz;
+        // R^-1 = Rx(-x) · Ry(-y) · Rz(-z), where R = Rz · Ry · Rx.
+        const zx = dx * cosZ - dy * sinZ;
+        const zy = dx * sinZ + dy * cosZ;
+        const yx = zx * cosY + dz * sinY;
+        const yz = -zx * sinY + dz * cosY;
+        const sx = yx;
+        const sy = zy * cosX - yz * sinX;
+        const sz = zy * sinX + yz * cosX;
+        density += trilinearSample(mrcData, sx + cx, sy + cy, sz + cz);
+      }
+      data[y * nx + x] = density;
+    }
+  }
+  return { width: nx, height: ny, data };
+}
+
+/**
+ * Approximate CryoSPARC-style equal-area viewing directions. The requested
+ * angular spacing sets the spherical density; a Fibonacci sphere avoids pole
+ * crowding and creates a deterministic template order.
+ */
+export function sampleProjectionOrientations(spacingDeg: number, maxCount = 256): ProjectionOrientation[] {
+  const safeSpacing = Math.max(1, Math.min(90, Number.isFinite(spacingDeg) ? spacingDeg : 20));
+  const requestedCount = Math.ceil((4 * Math.PI) / Math.pow(safeSpacing * DEG_TO_RAD, 2));
+  const count = Math.max(4, Math.min(maxCount, requestedCount));
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+  return Array.from({ length: count }, (_, index) => {
+    const directionY = 1 - (2 * (index + 0.5)) / count;
+    const radius = Math.sqrt(Math.max(0, 1 - directionY * directionY));
+    const theta = goldenAngle * index;
+    const directionX = Math.cos(theta) * radius;
+    const directionZ = Math.sin(theta) * radius;
+    return {
+      x: Math.asin(-directionY) / DEG_TO_RAD,
+      y: Math.atan2(directionX, directionZ) / DEG_TO_RAD,
+      z: 0,
+      direction: [directionX, directionY, directionZ],
+    };
+  });
+}
+
 export function buildMrcData(header: MrcHeader, slices: Float32Array[]): MrcData {
   const nx = header.nx;
   const ny = header.ny;

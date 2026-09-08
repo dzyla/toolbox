@@ -8,6 +8,21 @@ import {
   generateCtfProfile, generateThonRingsMatrix,
   generateMultiDefocusProfile, generateMultiDefocusThonRingsMatrix,
 } from '@/core/cryoem';
+import { buildMrcData, projectVolume, sampleProjectionOrientations, type MrcHeader } from '@/core/cryoem/mrc';
+
+const projectionHeader: MrcHeader = {
+  nx: 3, ny: 3, nz: 3, mode: 2,
+  nxstart: 0, nystart: 0, nzstart: 0,
+  mx: 3, my: 3, mz: 3,
+  cellA: [3, 3, 3], cellAngles: [90, 90, 90],
+  mapc: 1, mapr: 2, maps: 3,
+  dmin: 0, dmax: 3, dmean: 1, ispg: 1, nsymbt: 0, rms: 1,
+  pixelSize: 1, is3DVolume: true,
+};
+
+function projectionVolume(slices: number[][]) {
+  return buildMrcData(projectionHeader, slices.map(slice => Float32Array.from(slice)));
+}
 
 describe('cryo-em geometry and sampling', () => {
   it('computes Nyquist as 2 × pixel size', () => {
@@ -49,6 +64,38 @@ describe('cryo-em geometry and sampling', () => {
     expect(cmp.raw.nyquist).toBe(2.0);
     expect(cmp.binned.nyquist).toBe(4.0);
     expect(cmp.binned.bin).toBe(2.0);
+  });
+});
+
+describe('cryo-em volume projections', () => {
+  it('sums density through an unrotated map', () => {
+    const volume = projectionVolume([
+      Array(9).fill(1),
+      Array(9).fill(2),
+      Array(9).fill(3),
+    ]);
+
+    expect(projectVolume(volume, { x: 0, y: 0, z: 0 })).toMatchObject({ width: 3, height: 3 });
+    expect(Array.from(projectVolume(volume, { x: 0, y: 0, z: 0 }).data)).toEqual(Array(9).fill(6));
+  });
+
+  it('changes the projection when an asymmetric map rotates', () => {
+    const volume = projectionVolume([
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ]);
+
+    const unrotated = projectVolume(volume, { x: 0, y: 0, z: 0 });
+    const rotated = projectVolume(volume, { x: 0, y: 90, z: 0 });
+    expect(Array.from(rotated.data)).not.toEqual(Array.from(unrotated.data));
+  });
+
+  it('samples near-even viewing directions across the sphere from angular spacing', () => {
+    const orientations = sampleProjectionOrientations(30);
+    expect(orientations).toHaveLength(46);
+    expect(orientations[0]!.y).toBeGreaterThanOrEqual(0);
+    expect(orientations.some(orientation => orientation.y < 0)).toBe(true);
   });
 });
 

@@ -4,7 +4,12 @@ import {
   parseMrc,
   generateDemoClasses,
   generateDemo3DVolume,
+  projectVolume,
   renderSliceToCanvas,
+  sampleProjectionOrientations,
+  type ProjectionAngles,
+  type ProjectionImage,
+  type ProjectionOrientation,
 } from "@/core/cryoem";
 
 interface MrcViewerProps {
@@ -14,7 +19,7 @@ interface MrcViewerProps {
 
 export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
   const [mrcData, setMrcData] = useState<MrcData>(() => generateDemoClasses(12, 64));
-  const [viewMode, setViewMode] = useState<"gallery" | "orthoslice" | "mip">("gallery");
+  const [viewMode, setViewMode] = useState<"gallery" | "project" | "templates" | "orthoslice" | "mip">("gallery");
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(() => new Set(Array.from({ length: 12 }, (_, i) => i)));
   const [blackLevel, setBlackLevel] = useState<number>(0.05);
   const [whiteLevel, setWhiteLevel] = useState<number>(0.95);
@@ -44,6 +49,12 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
     end: Math.max(0, mrcData.header.nz - 1),
   }));
 
+  // Projection Studio: a density sum through a rotated map, distinct from MIP.
+  const [projectionAngles, setProjectionAngles] = useState<ProjectionAngles>({ x: 0, y: 0, z: 0 });
+  const [projection, setProjection] = useState<ProjectionImage | null>(null);
+  const [templateSpacingDeg, setTemplateSpacingDeg] = useState<number>(20);
+  const [templateProjections, setTemplateProjections] = useState<Array<{ orientation: ProjectionOrientation; image: ProjectionImage }>>([]);
+
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,8 +68,11 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
   const canvasMipXzRef = useRef<HTMLCanvasElement>(null);
   const canvasMipYzRef = useRef<HTMLCanvasElement>(null);
   const canvasMipSingleRef = useRef<HTMLCanvasElement>(null);
+  const canvasProjectionRef = useRef<HTMLCanvasElement>(null);
+  const templateCanvasRefs = useRef<HTMLCanvasElement[]>([]);
 
   const totalSlices = mrcData.slices.length;
+  const templateCount = sampleProjectionOrientations(templateSpacingDeg).length;
 
   // Keep orthoslice and MIP coordinates inside bounds when dataset changes
   useEffect(() => {
@@ -67,14 +81,33 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
     setOrthoZ(Math.floor(mrcData.header.nz / 2));
     setMipSlabRange({ start: 0, end: Math.max(0, mrcData.header.nz - 1) });
     setSelectedIndices(new Set(Array.from({ length: mrcData.slices.length }, (_, i) => i)));
+    setProjectionAngles({ x: 0, y: 0, z: 0 });
+    setProjection(mrcData.header.is3DVolume ? projectVolume(mrcData, { x: 0, y: 0, z: 0 }) : null);
+    setTemplateProjections([]);
     if (mrcData.header.is3DVolume) {
-      if (viewMode === "gallery") {
-        setViewMode("orthoslice");
-      }
+      setViewMode("project");
     } else {
       setViewMode("gallery");
     }
   }, [mrcData]);
+
+  useEffect(() => {
+    if (viewMode !== "project" || !projection || !canvasProjectionRef.current) return;
+    renderSliceToCanvas(canvasProjectionRef.current, projection.data, projection.width, projection.height, {
+      blackLevel, whiteLevel, invert, gamma,
+    });
+  }, [viewMode, projection, blackLevel, whiteLevel, invert, gamma]);
+
+  useEffect(() => {
+    if (viewMode !== "templates") return;
+    templateProjections.forEach((template, index) => {
+      const canvas = templateCanvasRefs.current[index];
+      if (!canvas) return;
+      renderSliceToCanvas(canvas, template.image.data, template.image.width, template.image.height, {
+        blackLevel, whiteLevel, invert, gamma,
+      });
+    });
+  }, [viewMode, templateProjections, blackLevel, whiteLevel, invert, gamma]);
 
   // Update orthoslice canvases
   useEffect(() => {
@@ -325,6 +358,24 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
     a.click();
   }
 
+  function exportProjectionPng() {
+    const canvas = canvasProjectionRef.current;
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `cryoem_projection_x${projectionAngles.x}_y${projectionAngles.y}_z${projectionAngles.z}.png`;
+    a.click();
+  }
+
+  function generateTemplateSeries() {
+    const orientations = sampleProjectionOrientations(templateSpacingDeg);
+    templateCanvasRefs.current = [];
+    setTemplateProjections(orientations.map(orientation => ({
+      orientation,
+      image: projectVolume(mrcData, orientation),
+    })));
+  }
+
   // Export Selected as MRCS binary file
   function exportSelectedMrcs() {
     const selectedList = Array.from(selectedIndices).sort((a, b) => a - b);
@@ -473,42 +524,22 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           </span>
         </div>
 
-        {/* View mode (segmented) + primary export actions */}
+        {/* Task switcher: 3D projection work is primary; inspection stays available but quiet. */}
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setViewMode("gallery")}
-              class={`px-3 py-1.5 rounded-md transition ${
-                viewMode === "gallery"
-                  ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-              }`}
-            >
+            {mrcData.header.is3DVolume ? <>
+              <button type="button" onClick={() => setViewMode("project")} class={`px-3 py-1.5 rounded-md transition ${viewMode === "project" ? "bg-cyan-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}>
+                Project map
+              </button>
+              <button type="button" onClick={() => setViewMode("templates")} class={`px-3 py-1.5 rounded-md transition ${viewMode === "templates" ? "bg-amber-500 text-slate-950 shadow-xs" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}>
+                Template series
+              </button>
+              <button type="button" onClick={() => setViewMode("orthoslice")} class={`px-3 py-1.5 rounded-md transition ${viewMode === "orthoslice" || viewMode === "mip" ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}>
+                Inspect map
+              </button>
+            </> : <button type="button" onClick={() => setViewMode("gallery")} class="px-3 py-1.5 rounded-md bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100">
               2D Classes ({totalSlices})
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("orthoslice")}
-              class={`px-3 py-1.5 rounded-md transition ${
-                viewMode === "orthoslice"
-                  ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-              }`}
-            >
-              3D Orthoslices
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("mip")}
-              class={`px-3 py-1.5 rounded-md transition ${
-                viewMode === "mip"
-                  ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-              }`}
-            >
-              3D MIP
-            </button>
+            </button>}
           </div>
 
           {viewMode === "gallery" && (
@@ -546,6 +577,12 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
             >
               Export MIP (PNG)
+            </button>
+          )}
+
+          {viewMode === "project" && (
+            <button type="button" onClick={exportProjectionPng} class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 shadow-xs transition">
+              Export projection (PNG)
             </button>
           )}
         </div>
@@ -728,6 +765,76 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
         </div>
       </div>
 
+      {viewMode === "project" && mrcData.header.is3DVolume && (
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl" aria-label="Map projection studio">
+          <div class="grid lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div class="min-w-0 p-4 sm:p-6">
+              <div class="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h3 class="text-base font-bold text-slate-100">Density projection</h3>
+                  <p class="mt-1 max-w-xl text-xs leading-5 text-slate-400">Rotate the map, then integrate density through the viewing axis. This is a cryo-EM-style projection, not a maximum-intensity projection.</p>
+                </div>
+                <span class="shrink-0 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-200">{mrcData.header.nx} × {mrcData.header.ny} px</span>
+              </div>
+              <div class="flex min-h-[18rem] items-center justify-center rounded-xl border border-slate-700/80 bg-black p-3">
+                <canvas ref={canvasProjectionRef} class="max-h-[32rem] w-full max-w-[36rem] object-contain [image-rendering:auto]" />
+              </div>
+            </div>
+            <aside class="border-t border-slate-800 bg-slate-900/70 p-4 sm:p-5 lg:border-l lg:border-t-0">
+              <p class="mb-4 text-xs font-semibold text-slate-200">Rotation (degrees)</p>
+              <div class="space-y-4">
+                <label class="block text-xs text-slate-400" for="projection-rotate-x">Rotate X <span class="float-right font-mono text-cyan-200">{projectionAngles.x}°</span>
+                  <input id="projection-rotate-x" aria-label="Rotate X" type="range" min="-180" max="180" step="1" value={projectionAngles.x} onInput={(e) => setProjectionAngles({ ...projectionAngles, x: parseFloat((e.target as HTMLInputElement).value) })} class="mt-2 w-full accent-cyan-400" />
+                </label>
+                <label class="block text-xs text-slate-400" for="projection-rotate-y">Rotate Y <span class="float-right font-mono text-cyan-200">{projectionAngles.y}°</span>
+                  <input id="projection-rotate-y" aria-label="Rotate Y" type="range" min="-180" max="180" step="1" value={projectionAngles.y} onInput={(e) => setProjectionAngles({ ...projectionAngles, y: parseFloat((e.target as HTMLInputElement).value) })} class="mt-2 w-full accent-cyan-400" />
+                </label>
+                <label class="block text-xs text-slate-400" for="projection-rotate-z">Rotate Z <span class="float-right font-mono text-cyan-200">{projectionAngles.z}°</span>
+                  <input id="projection-rotate-z" aria-label="Rotate Z" type="range" min="-180" max="180" step="1" value={projectionAngles.z} onInput={(e) => setProjectionAngles({ ...projectionAngles, z: parseFloat((e.target as HTMLInputElement).value) })} class="mt-2 w-full accent-cyan-400" />
+                </label>
+              </div>
+              <div class="mt-5 grid grid-cols-3 gap-1.5 text-[11px]">
+                <button type="button" onClick={() => setProjectionAngles({ x: 0, y: 0, z: 0 })} class="rounded-md border border-slate-700 px-2 py-1.5 text-slate-300 hover:border-cyan-400/60 hover:text-white">Front</button>
+                <button type="button" onClick={() => setProjectionAngles({ x: 0, y: 90, z: 0 })} class="rounded-md border border-slate-700 px-2 py-1.5 text-slate-300 hover:border-cyan-400/60 hover:text-white">Side</button>
+                <button type="button" onClick={() => setProjectionAngles({ x: 90, y: 0, z: 0 })} class="rounded-md border border-slate-700 px-2 py-1.5 text-slate-300 hover:border-cyan-400/60 hover:text-white">Top</button>
+              </div>
+              <button type="button" onClick={() => setProjection(projectVolume(mrcData, projectionAngles))} class="mt-5 w-full rounded-lg bg-cyan-500 px-3 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-400">Update projection</button>
+            </aside>
+          </div>
+        </section>
+      )}
+
+      {viewMode === "templates" && mrcData.header.is3DVolume && (
+        <section class="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm dark:border-amber-900/60 dark:bg-slate-950 sm:p-5">
+          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-amber-200/70 pb-4 dark:border-slate-800">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Template series</h3>
+              <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-600 dark:text-slate-400">Evenly distribute viewing directions over the enclosing sphere, then generate a bank of density projections for template selection.</p>
+            </div>
+            <div class="rounded-lg bg-amber-100 px-3 py-2 text-right dark:bg-amber-400/10">
+              <span class="block text-[10px] font-semibold text-amber-800 dark:text-amber-300">OUTPUT</span>
+              <span class="text-sm font-bold text-amber-950 dark:text-amber-100">{templateCount} evenly distributed views</span>
+            </div>
+          </div>
+          <div class="mt-4 flex flex-wrap items-end gap-3">
+            <label for="template-angular-spacing" class="block text-xs font-medium text-slate-700 dark:text-slate-300">Angular spacing (degrees)
+              <input id="template-angular-spacing" aria-label="Angular spacing" type="number" min="1" max="90" step="1" value={templateSpacingDeg} onInput={(e) => setTemplateSpacingDeg(Math.max(1, Math.min(90, parseFloat((e.target as HTMLInputElement).value) || 20)))} class="mt-1.5 block w-36 rounded-lg border border-amber-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
+            </label>
+            <button type="button" onClick={generateTemplateSeries} class="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-amber-950 transition hover:bg-amber-300">Generate templates</button>
+            <p class="pb-2 text-[11px] text-slate-500 dark:text-slate-400">Sampling is capped at 256 views to keep processing in-browser.</p>
+          </div>
+          {templateProjections.length > 0 && <div class="mt-5 border-t border-amber-200 pt-4 dark:border-slate-800">
+            <div class="mb-3 flex items-center justify-between"><h4 class="text-sm font-bold text-slate-900 dark:text-slate-100">Generated templates</h4><span class="text-xs text-slate-500">{templateProjections.length} projections</span></div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {templateProjections.map((template, index) => <figure key={index} class="overflow-hidden rounded-lg border border-slate-200 bg-black dark:border-slate-800">
+                <canvas ref={(canvas) => { if (canvas) templateCanvasRefs.current[index] = canvas; }} class="block aspect-square w-full" />
+                <figcaption class="bg-white px-2 py-1.5 font-mono text-[10px] text-slate-500 dark:bg-slate-900 dark:text-slate-400">X {template.orientation.x.toFixed(0)}° · Y {template.orientation.y.toFixed(0)}°</figcaption>
+              </figure>)}
+            </div>
+          </div>}
+        </section>
+      )}
+
       {/* 2D Gallery Mode */}
       {viewMode === "gallery" && (
         <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
@@ -842,15 +949,16 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
             <div>
               <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                Orthogonal Slicer (XY, XZ, YZ)
+                Inspect map
               </h3>
               <p class="text-xs text-slate-500">
                 Scrub the sliders to inspect the volume from all three axes.
               </p>
             </div>
-            <span class="text-xs font-mono text-slate-400">
-              Voxel size: {mrcData.header.pixelSize.toFixed(3)} Å
-            </span>
+            <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 text-xs font-semibold dark:bg-slate-800">
+              <button type="button" onClick={() => setViewMode("orthoslice")} class="rounded-md bg-white px-2.5 py-1 text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100">3D Orthoslices</button>
+              <button type="button" onClick={() => setViewMode("mip")} class="rounded-md px-2.5 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">3D MIP</button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

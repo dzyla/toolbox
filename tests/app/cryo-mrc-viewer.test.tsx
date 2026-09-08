@@ -66,7 +66,8 @@ describe('Cryo-EM / NS MRC Viewer UI', () => {
     // Load 3D volume
     fireEvent.click(screen.getByRole('button', { name: /Demo 3D Volume/i }));
 
-    // Switch to MIP mode
+    // Inspect mode keeps diagnostic MIP separate from the projection workflow.
+    fireEvent.click(screen.getByRole('button', { name: /Inspect map/i }));
     const mipBtn = screen.getByRole('button', { name: /3D MIP/i });
     fireEvent.click(mipBtn);
 
@@ -88,6 +89,28 @@ describe('Cryo-EM / NS MRC Viewer UI', () => {
 
     // Export MIP button is present
     expect(screen.getByRole('button', { name: /Export MIP \(PNG\)/i })).toBeTruthy();
+  });
+
+  it('projects a rotated map and generates an evenly sampled template series', async () => {
+    route.value = { name: 'tool', toolId: 'cryoem' };
+    render(<CryoEmView />);
+
+    fireEvent.click(screen.getByRole('button', { name: /2D Classes & 3D Volume/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Demo 3D Volume/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Project map/i }));
+    expect(await screen.findByText(/Density projection/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Rotate Y/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Template series/i }));
+    const spacing = screen.getByLabelText(/Angular spacing/i) as HTMLInputElement;
+    fireEvent.input(spacing, { target: { value: '30' } });
+    expect(screen.getByText(/46 evenly distributed views/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Generate templates/i }));
+    expect(await screen.findByText(/Generated templates/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Inspect map/i }));
+    expect(screen.getByRole('button', { name: /3D MIP/i })).toBeTruthy();
   });
 
   it('supports contrast presets including Negative Stain (NS) inversion', async () => {
