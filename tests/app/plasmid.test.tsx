@@ -1,11 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/preact';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/preact';
 import { useState } from 'preact/hooks';
 import PlasmidView from '@/tools/plasmid/View';
 import { CircularMap } from '@/tools/plasmid/CircularMap';
 import { LinearMap } from '@/tools/plasmid/LinearMap';
 import { SequenceView } from '@/tools/plasmid/SequenceView';
-import { initialWorkspace, selectRange } from '@/tools/plasmid/workspace';
+import { AnnotationInspector } from '@/tools/plasmid/AnnotationInspector';
+import { AnnotationTable } from '@/tools/plasmid/AnnotationTable';
+import { AnalysisPanel } from '@/tools/plasmid/AnalysisPanel';
+import { initialWorkspace, selectRange, undoWorkspace } from '@/tools/plasmid/workspace';
 import type { DocumentOrf, DocumentRestrictionSite } from '@/core/plasmid/analysis';
 import type { PlasmidDocument } from '@/core/plasmid/model';
 import type { Selection } from '@/tools/plasmid/selection';
@@ -112,6 +115,132 @@ const SEQUENCE_DOCUMENT: PlasmidDocument = {
     { ...MAP_DOCUMENT.annotations[1]!, name: 'Reverse feature', location: { strand: -1, segments: [{ start: 3, end: 6 }] } },
   ],
 };
+
+const PANEL_DOCUMENT: PlasmidDocument = {
+  ...SEQUENCE_DOCUMENT,
+  sequence: 'ATGAAACCCGGGTTTCAT',
+  annotations: [
+    { ...MAP_DOCUMENT.annotations[0]!, name: 'Zulu imported', location: { strand: -1, segments: [{ start: 0, end: 3 }, { start: 12, end: 18 }] }, qualifiers: { note: ['original', 'preserved'], translation: ['STALE'] } },
+    { ...MAP_DOCUMENT.annotations[1]!, name: 'Alpha imported', location: { strand: 0, segments: [{ start: 3, end: 9 }] } },
+  ],
+};
+const PANEL_ORF: DocumentOrf = {
+  ...MAP_ORF, id: 'orf-panel', start: 12, end: 3, strand: -1, frame: -1,
+  location: { strand: -1, segments: [{ start: 12, end: 18 }, { start: 0, end: 3 }] },
+  lengthBp: 9, lengthAa: 3, protein: 'HNE',
+};
+const PANEL_SITE: DocumentRestrictionSite = {
+  ...MAP_RESTRICTION_SITE, start: 14, end: 2, cutPosition: 15, crossesOrigin: true,
+  location: { strand: 1, segments: [{ start: 14, end: 18 }, { start: 0, end: 2 }] },
+};
+
+function PanelsHarness({ selected = false }: { selected?: boolean }) {
+  const [workspace, setWorkspace] = useState(() => selectRange(initialWorkspace(PANEL_DOCUMENT), {
+    start: 0, end: 12, source: 'sequence', ...(selected ? { annotationId: 'ampR' } : {}),
+  }));
+  return <>
+    <AnnotationInspector workspace={workspace} onWorkspaceChange={setWorkspace} orfs={[PANEL_ORF]} />
+    <AnnotationTable document={workspace.document} selection={workspace.selection} onSelect={selection => setWorkspace(value => selectRange(value, selection))} />
+    <AnalysisPanel workspace={workspace} onWorkspaceChange={setWorkspace} orfs={[PANEL_ORF]} restrictionSites={[PANEL_SITE]} />
+    <button onClick={() => setWorkspace(undoWorkspace)}>Undo panel edit</button>
+    <output data-testid="panel-workspace">{JSON.stringify(workspace)}</output>
+  </>;
+}
+
+function panelState() {
+  return JSON.parse(screen.getByTestId('panel-workspace').textContent!);
+}
+
+describe('Canonical workspace panels', () => {
+  it('creates an annotation from selection and records an undoable immutable document edit', () => {
+    render(<PanelsHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Create annotation from selection' }));
+    fireEvent.input(screen.getByLabelText('Annotation name'), { target: { value: 'insert' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    expect(screen.getByRole('button', { name: /insert.*1.*12/ })).toBeTruthy();
+    const state = panelState();
+    expect(state.document.annotations[2]).toMatchObject({ name: 'insert', source: 'manual', location: { strand: 1, segments: [{ start: 0, end: 12 }] } });
+    expect(state.history.past).toHaveLength(1);
+    expect(PANEL_DOCUMENT.annotations).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo panel edit' }));
+    expect(panelState().document.annotations).toHaveLength(2);
+  });
+
+  it('validates edits and saves all fields while preserving imported provenance', () => {
+    render(<PanelsHarness selected />);
+    fireEvent.input(screen.getByLabelText('Annotation segments (1-based inclusive)'), { target: { value: '0..3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(panelState().history.past).toHaveLength(0);
+    fireEvent.input(screen.getByLabelText('Annotation name'), { target: { value: 'Edited CDS' } });
+    fireEvent.input(screen.getByLabelText('Annotation type'), { target: { value: 'CDS' } });
+    fireEvent.input(screen.getByLabelText('Annotation color'), { target: { value: '#aabbcc' } });
+    fireEvent.change(screen.getByLabelText('Annotation strand'), { target: { value: '0' } });
+    fireEvent.input(screen.getByLabelText('Annotation segments (1-based inclusive)'), { target: { value: '13..18, 1..3' } });
+    fireEvent.input(screen.getByLabelText('Annotation qualifiers (JSON)'), { target: { value: '{"note":["edited","second"]}' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    const state = panelState();
+    expect(state.document.annotations[0]).toMatchObject({ name: 'Edited CDS', type: 'CDS', color: '#aabbcc', source: 'imported', location: { strand: 0, segments: [{ start: 12, end: 18 }, { start: 0, end: 3 }] }, qualifiers: { note: ['edited', 'second'] } });
+    expect(state.document.provenance).toEqual(PANEL_DOCUMENT.provenance);
+    expect(PANEL_DOCUMENT.annotations[0]!.name).toBe('Zulu imported');
+    expect(state.history.past).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
+    expect(panelState().document.annotations).toHaveLength(1);
+    expect(panelState().selection).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo panel edit' }));
+    expect(panelState().document.annotations[0].name).toBe('Edited CDS');
+  });
+
+  it('filters and sorts a copy of table rows and selects compound annotations without history edits', () => {
+    render(<PanelsHarness />);
+    const original = panelState().document;
+    fireEvent.change(screen.getByLabelText('Sort annotations'), { target: { value: 'name' } });
+    const table = screen.getByRole('table', { name: 'Annotations' });
+    expect(within(table).getAllByRole('row')[1]!.textContent).toContain('Alpha imported');
+    fireEvent.input(screen.getByLabelText('Filter annotations'), { target: { value: 'Zulu' } });
+    expect(within(table).queryByText('Alpha imported')).toBeNull();
+    fireEvent.click(within(table).getByRole('button', { name: /Zulu imported.*1.*3.*13.*18/ }));
+    expect(panelState().selection).toEqual({ start: 0, end: 18, annotationId: 'ampR', source: 'table' });
+    expect(panelState().history.past).toHaveLength(0);
+    expect(panelState().document).toEqual(original);
+  });
+
+  it('keeps predictions separate, selects canonical wrapped ranges, and promotes a new predicted CDS', () => {
+    render(<PanelsHarness />);
+    fireEvent.click(screen.getByRole('button', { name: /Select ORF 1/ }));
+    expect(panelState().selection).toEqual({ start: 12, end: 3, source: 'analysis', annotationId: 'orf-panel' });
+    fireEvent.click(screen.getByRole('button', { name: /Select EcoRI/ }));
+    expect(panelState().selection).toEqual({ start: 14, end: 2, source: 'analysis' });
+    expect(panelState().history.past).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Promote ORF 1 to CDS' }));
+    expect(screen.getByRole('row', { name: /Predicted CDS/ })).toBeTruthy();
+    const state = panelState();
+    expect(state.document.annotations.slice(0, 2)).toEqual(PANEL_DOCUMENT.annotations);
+    expect(state.document.annotations[2]).toMatchObject({ type: 'CDS', confidence: 'predicted', source: 'detected', location: PANEL_ORF.location });
+    expect(state.history.past).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Promote ORF 1 to CDS' }));
+    expect(panelState().document.annotations[3].id).not.toBe(state.document.annotations[2].id);
+  });
+
+  it('copies reverse compound DNA and freshly translated protein with a manual textarea fallback', async () => {
+    const previousClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    try {
+      render(<PanelsHarness selected />);
+      fireEvent.click(screen.getByRole('button', { name: 'Copy DNA', exact: true }));
+      await waitFor(() => expect((screen.getByLabelText('Sequence to copy') as HTMLTextAreaElement).value).toBe('ATGAAACAT'));
+      fireEvent.click(screen.getByRole('button', { name: 'Copy protein', exact: true }));
+      await waitFor(() => expect((screen.getByLabelText('Sequence to copy') as HTMLTextAreaElement).value).toBe('MKH'));
+      fireEvent.click(screen.getByRole('button', { name: /Select ORF 1/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Copy DNA', exact: true }));
+      await waitFor(() => expect((screen.getByLabelText('Sequence to copy') as HTMLTextAreaElement).value).toBe('CATATGAAA'));
+      expect(panelState().history.past).toHaveLength(0);
+    } finally {
+      if (previousClipboard) Object.defineProperty(navigator, 'clipboard', previousClipboard);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  });
+});
 
 function SequenceHarness() {
   const [workspace, setWorkspace] = useState(() => initialWorkspace(SEQUENCE_DOCUMENT));
