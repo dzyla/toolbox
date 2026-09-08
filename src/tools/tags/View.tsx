@@ -60,6 +60,17 @@ export default function View() {
   const [hoveredBand, setHoveredBand] = useState<VirtualGelBand | null>(null);
   const [seqDisplayMode, setSeqDisplayMode] = useState<'annotated' | 'product'>('annotated');
   const [toastMessage, setToastMessage] = useState<string>('');
+  const isSumoBuilder = current.builderTag === 'sumo';
+  const builderProtease = isSumoBuilder
+    ? 'ulp1'
+    : current.builderProtease === 'ulp1'
+      ? 'tev'
+      : current.builderProtease;
+  const builderOrientation = isSumoBuilder ? 'N-term' : current.builderOrientation;
+  const builderLinker = isSumoBuilder ? '' : current.builderLinker;
+  const builderProteases = Object.values(PROTEASE_DATABASE).filter(protease =>
+    isSumoBuilder ? protease.id === 'ulp1' : protease.id !== 'ulp1'
+  );
 
   const copyFinalProduct = async (seq?: string) => {
     const s = seq || simulation.targetFragment?.seq;
@@ -131,20 +142,41 @@ export default function View() {
     });
   };
 
-  const applyBuilderConstruct = () => {
-    const constructed = buildFusionConstruct(
-      current.builderTag,
-      current.builderProtease,
-      current.builderTargetSeq,
-      current.builderOrientation,
-      current.builderLinker
-    );
+  const setBuilderTag = (builderTag: string) => {
+    if (builderTag === 'sumo') {
+      set({
+        builderTag,
+        builderProtease: 'ulp1',
+        builderOrientation: 'N-term',
+        builderLinker: '',
+      });
+      return;
+    }
     set({
-      sequence: constructed,
-      proteaseId: current.builderProtease,
-      selectedSiteIndex: null,
-      tab: 'simulator',
+      builderTag,
+      builderProtease: builderProtease,
     });
+  };
+
+  const applyBuilderConstruct = () => {
+    try {
+      const constructed = buildFusionConstruct(
+        current.builderTag,
+        builderProtease,
+        current.builderTargetSeq,
+        builderOrientation,
+        builderLinker
+      );
+      set({
+        sequence: constructed,
+        proteaseId: builderProtease,
+        selectedSiteIndex: null,
+        tab: 'simulator',
+      });
+    } catch (error) {
+      setToastMessage(error instanceof Error ? error.message : 'Unable to assemble this fusion construct.');
+      setTimeout(() => setToastMessage(''), 4000);
+    }
   };
 
   return (
@@ -357,13 +389,14 @@ export default function View() {
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label for="builder-tag" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Affinity Tag
                   </label>
                   <select
+                    id="builder-tag"
                     class={SELECT}
                     value={current.builderTag}
-                    onChange={e => set({ builderTag: (e.target as HTMLSelectElement).value })}
+                    onChange={e => setBuilderTag((e.target as HTMLSelectElement).value)}
                   >
                     {Object.values(TAG_DATABASE).map(t => (
                       <option key={t.id} value={t.id}>
@@ -374,15 +407,16 @@ export default function View() {
                 </div>
 
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label for="builder-protease" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Protease Cleavage Site
                   </label>
                   <select
+                    id="builder-protease"
                     class={SELECT}
-                    value={current.builderProtease}
+                    value={builderProtease}
                     onChange={e => set({ builderProtease: (e.target as HTMLSelectElement).value })}
                   >
-                    {Object.values(PROTEASE_DATABASE).map(p => (
+                    {builderProteases.map(p => (
                       <option key={p.id} value={p.id}>
                         {p.shortName} ({p.recognitionMotif})
                       </option>
@@ -393,12 +427,13 @@ export default function View() {
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label for="builder-orientation" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Tag Orientation
                   </label>
                   <select
+                    id="builder-orientation"
                     class={SELECT}
-                    value={current.builderOrientation}
+                    value={builderOrientation}
                     onChange={e =>
                       set({
                         builderOrientation: (e.target as HTMLSelectElement).value as 'N-term' | 'C-term',
@@ -406,29 +441,37 @@ export default function View() {
                     }
                   >
                     <option value="N-term">N-terminal Fusion (Standard)</option>
-                    <option value="C-term">C-terminal Fusion</option>
+                    <option value="C-term" disabled={isSumoBuilder}>C-terminal Fusion</option>
                   </select>
                 </div>
 
                 <div>
-                  <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label for="builder-linker" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Linker Sequence
                   </label>
                   <input
+                    id="builder-linker"
                     type="text"
                     class={FIELD}
-                    value={current.builderLinker}
+                    value={builderLinker}
+                    disabled={isSumoBuilder}
                     onInput={e => set({ builderLinker: (e.target as HTMLInputElement).value })}
-                    placeholder="e.g. SSG or GSAGSA"
+                    placeholder={isSumoBuilder ? 'Locked for native SUMO cleavage' : 'e.g. SSG or GSAGSA'}
                   />
+                  {isSumoBuilder && (
+                    <p class="mt-1 text-[11px] text-violet-700 dark:text-violet-300">
+                      SUMO ends in GG↓ and must join the target directly for native N-terminal release.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label for="builder-target-sequence" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Target Protein Sequence
                 </label>
                 <textarea
+                  id="builder-target-sequence"
                   rows={4}
                   class={`${FIELD} mono text-xs uppercase resize-y`}
                   value={current.builderTargetSeq}

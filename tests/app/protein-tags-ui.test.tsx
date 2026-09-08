@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { describe, expect, it } from 'vitest';
 import { route } from '@/app/router';
+import { encodeState } from '@/lib/url-state';
 import TagsView from '@/tools/tags/View';
 
 describe('Tag Library & Protease Cleavage Simulator UI (tools/tags/View)', () => {
@@ -69,6 +70,43 @@ describe('Tag Library & Protease Cleavage Simulator UI (tools/tags/View)', () =>
     expect(screen.getByText(/6xHis Tag \(Hexahistidine\)/i)).toBeTruthy();
     expect(screen.getByText(/Glutathione S-Transferase/i)).toBeTruthy();
     expect(screen.getByText(/Maltose-Binding Protein/i)).toBeTruthy();
+  });
+
+  it('configures SUMO for scarless N-terminal Ulp1 cleavage in the builder', async () => {
+    route.value = { name: 'tool', toolId: 'tags' };
+    render(<TagsView />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Construct Builder/i }));
+    const [tagSelect, proteaseSelect, orientationSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
+    const linkerInput = screen.getByRole('textbox', { name: /Linker Sequence/i }) as HTMLInputElement;
+
+    fireEvent.change(tagSelect!, { target: { value: 'sumo' } });
+
+    expect(proteaseSelect!.value).toBe('ulp1');
+    expect(orientationSelect!.value).toBe('N-term');
+    expect(linkerInput.value).toBe('');
+    expect([...proteaseSelect!.options].map(option => option.value)).toEqual(['ulp1']);
+    expect(orientationSelect!.querySelector('option[value="C-term"]')).toHaveProperty('disabled', true);
+    expect(linkerInput.disabled).toBe(true);
+  });
+
+  it('normalizes incompatible SUMO options from an existing shared builder link', () => {
+    route.value = {
+      name: 'tool',
+      toolId: 'tags',
+      state: encodeState({
+        tab: 'builder',
+        builderTag: 'sumo',
+        builderProtease: 'tev',
+        builderOrientation: 'C-term',
+        builderLinker: 'SSG',
+      }),
+    };
+    render(<TagsView />);
+
+    expect((screen.getByRole('combobox', { name: /Protease Cleavage Site/i }) as HTMLSelectElement).value).toBe('ulp1');
+    expect((screen.getByRole('combobox', { name: /Tag Orientation/i }) as HTMLSelectElement).value).toBe('N-term');
+    expect((screen.getByRole('textbox', { name: /Linker Sequence/i }) as HTMLInputElement).value).toBe('');
   });
 
   it('toggles virtual gel theme between dark Coomassie and classic blue', async () => {

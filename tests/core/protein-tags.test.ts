@@ -8,6 +8,7 @@ import {
   calculateMobilityY,
   getVirtualGelLanes,
   buildFusionConstruct,
+  CONSTRUCT_PRESETS,
   STANDARD_LADDER_KDA,
 } from '@/core/protein/tags';
 import { LYSOZYME } from './protein.test';
@@ -381,6 +382,29 @@ describe('Tag Library & Protease Cleavage Simulator (core/protein/tags)', () => 
       const sim = simulateCleavage(constructed, 'tev');
       expect(sim.cleavageSite).not.toBeNull();
       expect(sim.targetFragment!.seq).toBe('G' + LYSOZYME);
+    });
+
+    it('builds a direct SUMO-Ulp1 junction that releases the exact target sequence', () => {
+      const constructed = buildFusionConstruct('sumo', 'ulp1', LYSOZYME, 'N-term', 'SSG');
+
+      expect(constructed).toBe(TAG_DATABASE.sumo.sequence + LYSOZYME);
+
+      const sim = simulateCleavage(constructed, 'ulp1');
+      expect(sim.cleavageSite).not.toBeNull();
+      expect(sim.targetFragment!.seq).toBe(LYSOZYME);
+    });
+
+    it('rejects configurations that cannot produce a valid scarless SUMO cleavage', () => {
+      expect(() => buildFusionConstruct('sumo', 'tev', LYSOZYME)).toThrow(/SUMO.*Ulp1/i);
+      expect(() => buildFusionConstruct('sumo', 'ulp1', LYSOZYME, 'C-term')).toThrow(/N-terminal/i);
+      expect(() => buildFusionConstruct('sumo', 'ulp1', LYSOZYME, 'N-term', 'SSG')).not.toThrow();
+    });
+
+    it('keeps every benchmark construct connected to a registered tag and protease', () => {
+      for (const preset of CONSTRUCT_PRESETS) {
+        expect(TAG_DATABASE[preset.tagId as keyof typeof TAG_DATABASE]).toBeDefined();
+        expect(PROTEASE_DATABASE[preset.proteaseId as keyof typeof PROTEASE_DATABASE]).toBeDefined();
+      }
     });
   });
 });

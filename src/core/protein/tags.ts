@@ -1202,7 +1202,7 @@ export const CONSTRUCT_PRESETS: ConstructPreset[] = [
     id: 'factor_xa_lysozyme',
     name: 'MBP–Factor Xa–Lysozyme',
     proteaseId: 'factor_xa',
-    tagId: 'factor_xa',
+    tagId: 'mbp',
     description: 'MBP fusion with Factor Xa cleavage site (IEGR↓) yielding authentic native N-terminus.',
     sequence:
       TAG_DATABASE.mbp!.sequence +
@@ -1222,7 +1222,28 @@ export function buildFusionConstruct(
 ): string {
   const { seq: cleanTarget } = sanitize(targetSeq);
   const tag = (TAG_DATABASE as Record<string, AffinityTagDefinition | undefined>)[tagId];
-  const tagSeq = tag ? tag.sequence : '';
+  const protease = (PROTEASE_DATABASE as Record<string, ProteaseDefinition | undefined>)[proteaseId];
+
+  if (!tag) throw new Error(`Unknown fusion tag: ${tagId}`);
+  if (!protease) throw new Error(`Unknown cleavage protease: ${proteaseId}`);
+  if (!cleanTarget) throw new Error('A target protein sequence is required to build a fusion construct.');
+  if (tagId === 'sumo' && proteaseId !== 'ulp1') {
+    throw new Error('SUMO fusions require Ulp1 protease for specific cleavage.');
+  }
+  if (tagId === 'sumo' && orientation !== 'N-term') {
+    throw new Error('SUMO must be an N-terminal fusion for Ulp1 cleavage.');
+  }
+  if (tagId !== 'sumo' && proteaseId === 'ulp1') {
+    throw new Error('Ulp1 cleavage is only supported for N-terminal SUMO fusions.');
+  }
+
+  const tagSeq = tag.sequence;
+  const cleanLinker = sanitize(linker).seq;
+  // Ulp1 recognizes the SUMO fold and cleaves exactly after its C-terminal
+  // diglycine motif. Any sequence between SUMO and the target becomes a scar.
+  const linkerSeq = tagId === 'sumo' && proteaseId === 'ulp1' && orientation === 'N-term'
+    ? ''
+    : cleanLinker;
 
   let proteaseMotif = '';
   switch (proteaseId) {
@@ -1249,11 +1270,11 @@ export function buildFusionConstruct(
   }
 
   if (orientation === 'N-term') {
-    const leader = [tagSeq, linker, proteaseMotif].filter(Boolean).join('');
+    const leader = [tagSeq, linkerSeq, proteaseMotif].filter(Boolean).join('');
     return (leader.startsWith('M') ? leader : `M${leader}`) + cleanTarget;
   } else {
     // C-terminal tag
-    const trailer = [proteaseMotif, linker, tagSeq].filter(Boolean).join('');
+    const trailer = [proteaseMotif, linkerSeq, tagSeq].filter(Boolean).join('');
     return cleanTarget + trailer;
   }
 }
