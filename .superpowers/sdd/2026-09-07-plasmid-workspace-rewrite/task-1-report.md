@@ -46,4 +46,44 @@ npm run test:unit                 # 97 files passed, 697 tests passed
 
 ## Concerns
 
-No blocking concerns. If a later document edit shortens the sequence, the existing selection is intentionally preserved for undo/redo continuity; callers should normalize any selection they create against the active document.
+No blocking concerns. Retained selections are now normalized against every destination document; a selection clipped to zero length is cleared.
+
+## Review follow-up: destination-document selection normalization
+
+### RED
+
+Added tests before changing production code for `applyDocumentEdit`, `undoWorkspace`, and `redoWorkspace` across a shorter document and circular-to-linear topology changes, plus a fully clipped range. The focused run failed as expected:
+
+```text
+npm run test:unit -- tests/core/plasmid-workspace.test.ts
+4 failed, 6 passed (10 tests)
+
+Failures showed retained selections still had { start: 18, end: 3 } instead of
+the normalized linear { start: 3, end: 6 }, and a fully clipped range remained
+instead of becoming undefined.
+```
+
+### GREEN
+
+Implemented `selectionForDocument` in `src/tools/plasmid/workspace.ts`. Each document transition now normalizes the retained selection against its destination document, reorders origin-spanning coordinates when entering a linear document, and clears zero-length results.
+
+Focused verification:
+
+```text
+npm run test:unit -- tests/core/plasmid-workspace.test.ts
+1 test file passed, 10 tests passed
+```
+
+Broader verification after the follow-up:
+
+```text
+npm run typecheck                 # passed
+npm run lint -- --quiet           # passed
+git diff --check                  # passed
+npm run test:unit                 # 97 files passed, 701 tests passed
+```
+
+Files changed in this follow-up:
+
+- `src/tools/plasmid/workspace.ts`: normalize or clear retained selections on apply, undo, and redo destination transitions.
+- `tests/core/plasmid-workspace.test.ts`: add four regression tests for shorter-document and topology transitions, including full-range clipping.

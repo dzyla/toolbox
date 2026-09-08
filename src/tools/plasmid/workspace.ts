@@ -19,10 +19,17 @@ export function initialWorkspace(document: PlasmidDocument): WorkspaceState {
   return { document, history: { past: [], future: [] } };
 }
 
+function selectionForDocument(document: PlasmidDocument, selection?: Selection): Selection | undefined {
+  if (!selection) return undefined;
+  const normalized = normalizeSelection(document, selection);
+  return normalized.start === normalized.end ? undefined : normalized;
+}
+
 export function applyDocumentEdit(state: WorkspaceState, document: PlasmidDocument): WorkspaceState {
   return {
     ...state,
     document,
+    selection: selectionForDocument(document, state.selection),
     history: {
       past: [...state.history.past.slice(-49), state.document],
       future: [],
@@ -37,6 +44,7 @@ export function undoWorkspace(state: WorkspaceState): WorkspaceState {
   return {
     ...state,
     document: previous,
+    selection: selectionForDocument(previous, state.selection),
     history: {
       past: state.history.past.slice(0, -1),
       future: [...state.history.future, state.document],
@@ -51,6 +59,7 @@ export function redoWorkspace(state: WorkspaceState): WorkspaceState {
   return {
     ...state,
     document: next,
+    selection: selectionForDocument(next, state.selection),
     history: {
       past: [...state.history.past, state.document],
       future: state.history.future.slice(0, -1),
