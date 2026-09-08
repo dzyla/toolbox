@@ -76,3 +76,66 @@ npm run build                     # passed
 No blocking concerns. The promotion counter is process-local, which is
 appropriate for an unpersisted derived result; annotation insertion still
 validates collisions against the canonical document.
+
+## Review follow-up: canonical-coordinate repairs
+
+### RED
+
+Added the following regressions before changing production code:
+
+- A reverse-complement ORF spanning the circular origin must retain
+  `start: 90`, `end: 6`, strand `-1`, and compound segments
+  `90..96` then `0..6`.
+- An ambiguity base before an ORF (`NATGAAATAA`) and an EcoRI site
+  (`NGAATTC`) must retain their document offsets rather than shift to zero.
+- A complete one-circle ORF with equal display endpoints must produce a
+  valid compound full-circle `Location`.
+
+```text
+npm run test:unit -- tests/core/plasmid-analysis.test.ts
+```
+
+Result: 3 failures and 6 passes, as expected. The reverse result was flattened
+to `start: 5, end: 91`; the IUPAC fixture reported `start: 0, end: 9`; and the
+full-circle ORF was absent because scanning stopped before its terminator.
+
+### GREEN
+
+The core ORF and restriction scanners now retain uppercase IUPAC characters
+instead of stripping them, and reverse complement supports the corresponding
+IUPAC complement pairs. Circular scanning considers starts from the first
+traversal through one complete traversal, while rejecting an ORF longer than
+one circle. Reverse ORF endpoints are preserved without min/max normalization.
+The document adapter turns an equal-endpoint, sequence-length ORF into valid
+compound segments, retaining its biologically meaningful start coordinate.
+
+```text
+npm run test:unit -- tests/core/plasmid-analysis.test.ts  # 1 file, 9 tests passed
+npm run typecheck                                         # passed
+npm run lint -- --quiet                                   # passed
+git diff --check                                          # passed
+npm run test:unit                                         # 98 files, 710 tests passed
+npm run build                                             # passed
+```
+
+### Changed files
+
+- `src/core/plasmid/index.ts`: preserve IUPAC positions in ORF/restriction
+  scans, complete IUPAC reverse complements, retain directed reverse wrapping,
+  and allow one complete circular traversal without duplicate second-copy
+  starts.
+- `src/core/plasmid/analysis.ts`: materialize equal-endpoint full-circle ORFs
+  as valid compound canonical locations.
+- `tests/core/plasmid-analysis.test.ts`: add the three canonical-coordinate
+  regressions and full-circle validation assertion.
+
+### Follow-up self-review
+
+- Linear calls retain the original bounded scan and cannot wrap because only
+  circular calls duplicate their search sequence.
+- Ambiguous bases no longer compress document positions; they simply fail exact
+  start/stop/enzyme matching when they occur within a candidate sequence.
+- Reverse and forward circular outputs use the same `start > end` convention
+  for an origin crossing; promotion remains immutable and keeps its fresh ID.
+- Full-circle ranges use two non-empty segments unless their start is zero,
+  where the equivalent single `0..length` segment is valid.

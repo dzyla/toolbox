@@ -47,8 +47,9 @@ function circularCoordinate(value: number, sequenceLength: number): number {
   return ((value % sequenceLength) + sequenceLength) % sequenceLength;
 }
 
-function locationForRange(start: number, end: number, sequenceLength: number): Location {
-  if (start > end) {
+function locationForRange(start: number, end: number, sequenceLength: number, fullCircle = false): Location {
+  if (start > end || (fullCircle && start === end)) {
+    if (start === 0) return { strand: 1, segments: [{ start: 0, end: sequenceLength }] };
     return {
       strand: 1,
       segments: [{ start, end: sequenceLength }, { start: 0, end }],
@@ -91,7 +92,7 @@ export function findDocumentOrfs(document: PlasmidDocument, options: FindDocumen
       completeStop: true,
       source: 'detected' as const,
       confidence: 'predicted' as const,
-      location: { ...locationForRange(start, end, sequenceLength), strand: orf.strand },
+      location: { ...locationForRange(start, end, sequenceLength, orf.lengthBp === sequenceLength), strand: orf.strand },
     }];
   });
 }

@@ -93,7 +93,11 @@ export function calculateGC(seq: string): number {
 export function reverseComplement(dna: string): string {
   const complement: Record<string, string> = {
     A: 'T', T: 'A', G: 'C', C: 'G',
+    R: 'Y', Y: 'R', S: 'S', W: 'W', K: 'M', M: 'K',
+    B: 'V', V: 'B', D: 'H', H: 'D',
     a: 't', t: 'a', g: 'c', c: 'g',
+    r: 'y', y: 'r', s: 's', w: 'w', k: 'm', m: 'k',
+    b: 'v', v: 'b', d: 'h', h: 'd',
     N: 'N', n: 'n',
   };
   return dna.split('').reverse().map(b => complement[b] || b).join('');
@@ -132,7 +136,7 @@ export function translateDNA(dna: string): string {
 
 /** Find all restriction enzyme cleavage sites in plasmid */
 export function findRestrictionSites(dna: string, isCircular = true): RestrictionSite[] {
-  const clean = dna.toUpperCase().replace(/[^ACGT]/g, '');
+  const clean = dna.toUpperCase();
   const len = clean.length;
   if (!len) return [];
 
@@ -176,25 +180,26 @@ export function findRestrictionSites(dna: string, isCircular = true): Restrictio
 
 /** Detect Open Reading Frames (ORFs) across 6 reading frames */
 export function findORFs(dna: string, minLengthAa = 30, isCircular = true, maxLengthAa?: number): ORF[] {
-  const clean = dna.toUpperCase().replace(/[^ACGT]/g, '');
+  const clean = dna.toUpperCase();
   const len = clean.length;
   if (len < 3) return [];
 
   const orfs: ORF[] = [];
   const searchDna = isCircular ? clean + clean : clean;
   const searchLen = searchDna.length;
+  const searchLimit = isCircular ? len * 2 : len;
 
   // Forward frames (+1, +2, +3)
   for (let frame = 0; frame < 3; frame++) {
     let currentStart = -1;
-    for (let i = frame; i + 2 < (isCircular ? len + len / 2 : len); i += 3) {
+    for (let i = frame; i + 2 < searchLimit; i += 3) {
       const codon = searchDna.slice(i, i + 3);
-      if (codon === 'ATG' && currentStart === -1) {
+      if (codon === 'ATG' && currentStart === -1 && (!isCircular || i < len)) {
         currentStart = i;
       } else if ((codon === 'TAA' || codon === 'TAG' || codon === 'TGA') && currentStart !== -1) {
         const orfDna = searchDna.slice(currentStart, i + 3);
         const aaLen = orfDna.length / 3 - 1; // excluding stop
-        if (aaLen >= minLengthAa && (!maxLengthAa || maxLengthAa <= 0 || aaLen <= maxLengthAa)) {
+        if (orfDna.length <= len && aaLen >= minLengthAa && (!maxLengthAa || maxLengthAa <= 0 || aaLen <= maxLengthAa)) {
           const start1 = (currentStart % len) + 1;
           const end1 = ((i + 2) % len) + 1;
           orfs.push({
@@ -217,22 +222,22 @@ export function findORFs(dna: string, minLengthAa = 30, isCircular = true, maxLe
   const revDna = reverseComplement(searchDna);
   for (let frame = 0; frame < 3; frame++) {
     let currentStart = -1;
-    for (let i = frame; i + 2 < (isCircular ? len + len / 2 : len); i += 3) {
+    for (let i = frame; i + 2 < searchLimit; i += 3) {
       const codon = revDna.slice(i, i + 3);
-      if (codon === 'ATG' && currentStart === -1) {
+      if (codon === 'ATG' && currentStart === -1 && (!isCircular || i < len)) {
         currentStart = i;
       } else if ((codon === 'TAA' || codon === 'TAG' || codon === 'TGA') && currentStart !== -1) {
         const orfDna = revDna.slice(currentStart, i + 3);
         const aaLen = orfDna.length / 3 - 1;
-        if (aaLen >= minLengthAa && (!maxLengthAa || maxLengthAa <= 0 || aaLen <= maxLengthAa)) {
+        if (orfDna.length <= len && aaLen >= minLengthAa && (!maxLengthAa || maxLengthAa <= 0 || aaLen <= maxLengthAa)) {
           // Convert back to original 5' coordinate
           const origEnd = (searchLen - currentStart) % len || len;
           const origStart = (searchLen - (i + 2)) % len || len;
           orfs.push({
             id: `orf--${frame + 1}-${origStart}-${origEnd}`,
             frame: -(frame + 1),
-            start: Math.min(origStart, origEnd),
-            end: Math.max(origStart, origEnd),
+            start: origStart,
+            end: origEnd,
             strand: -1,
             lengthBp: orfDna.length,
             lengthAa: aaLen,
