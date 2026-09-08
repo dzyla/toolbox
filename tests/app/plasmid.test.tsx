@@ -11,6 +11,9 @@ describe('Plasmid Viewer tool view', () => {
     expect(screen.getAllByText(/pUC19/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/2,686 bp/).length).toBeGreaterThan(0);
     expect(screen.getByRole('img', { name: /Circular map of pUC19/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download GenBank' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download FASTA' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save locally' })).toBeTruthy();
   });
 
   it('switches between circular, linear, sequence, and table view modes', async () => {
@@ -32,7 +35,7 @@ describe('Plasmid Viewer tool view', () => {
     const tableBtn = screen.getByRole('button', { name: /Features Table/ });
     fireEvent.click(tableBtn);
     expect(screen.getByText(/Feature Annotations/)).toBeTruthy();
-    expect(screen.getByText(/AmpR \(bla\)/)).toBeTruthy();
+    expect(screen.getByLabelText('Annotation name: AmpR (bla)')).toBeTruthy();
   });
 
   it('switches preset vectors to pET-28a(+)', async () => {
@@ -77,5 +80,26 @@ describe('Plasmid Viewer tool view', () => {
     expect(screen.getByText(/Maximum ORF Size:/)).toBeTruthy();
     expect(screen.getByText(/Found Sequences:/)).toBeTruthy();
     expect(screen.getByText(/Min \/ Max Length:/)).toBeTruthy();
+  });
+
+  it('loads an annotated GenBank document through the plasmid import control', async () => {
+    route.value = { name: 'tool', toolId: 'plasmid' };
+    render(<PlasmidView />);
+    fireEvent.input(screen.getByPlaceholderText(/Paste FASTA, GenBank, or raw DNA sequence/i), {
+      target: { value: `LOCUS       imported 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    2..8
+                     /label="Imported annotation"
+ORIGIN
+        1 aaacccgggttt
+//` },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Load Sequence' }));
+    fireEvent.click(screen.getByRole('button', { name: /Features Table/ }));
+
+    expect(await screen.findByLabelText('Annotation name: Imported annotation')).toBeTruthy();
+    expect(screen.getAllByText(/imported/i).length).toBeGreaterThan(0);
+    fireEvent.input(screen.getByLabelText('Annotation name: Imported annotation'), { target: { value: 'Renamed annotation' } });
+    expect(await screen.findByLabelText('Annotation name: Renamed annotation')).toBeTruthy();
   });
 });

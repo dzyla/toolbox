@@ -71,7 +71,7 @@ export const TOOLS: ToolMeta[] = [
     status: 'ready', load: () => import('./sequence/View') },
   { id: 'plasmid', name: 'Plasmid Viewer', category: 'sequences', icon: '⭕',
     blurb: 'Circular & linear plasmid maps, ORFs, features, restriction sites', keywords: ['plasmid', 'snapgene', 'map', 'circular', 'restriction', 'orf', 'vector'],
-    status: 'ready', load: () => import('./plasmid/View') },
+    status: 'ready', hasProjects: true, load: () => import('./plasmid/View') },
   { id: 'cloning', name: 'Cloning Suite', category: 'sequences', icon: '🧬',
     blurb: 'Unified cloning suite: Gibson/In-Fusion, Mutagenesis, Restriction & Ligation, Golden Gate', keywords: ['cloning', 'gibson', 'infusion', 'mutagenesis', 'restriction', 'ligation', 'golden gate', 'assembly'],
     status: 'ready', load: () => import('./cloning/View') },

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'preact/hooks';
+import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
 import {
   type Plasmid,
   type PlasmidFeature,
@@ -9,13 +9,21 @@ import {
   findRestrictionSites,
   findORFs,
   detectPlasmidElements,
-  parseFastaPlasmid,
   flipPlasmid,
   setPlasmidOrigin,
   linearizePlasmid,
   translateDNA,
   reverseComplement,
 } from '@/core/plasmid';
+import { importPlasmidFile, importPlasmidText } from '@/core/plasmid/import';
+import { documentToLegacyPlasmid, legacyPlasmidToDocument } from '@/core/plasmid/legacy';
+import { deleteAnnotation, replaceAnnotation } from '@/core/plasmid/document';
+import { exportFasta, exportGenBank } from '@/core/plasmid/export';
+import { downloadText } from '@/lib/export';
+import { getProject, saveProject } from '@/lib/projects';
+import { newId } from '@/lib/id';
+import type { ToolProps } from '@/tools/registry';
+import type { PlasmidDocument } from '@/core/plasmid/model';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
@@ -72,12 +80,19 @@ function renderLinearChevron(x: number, y: number, w: number, h: number, strand:
   }
 }
 
-export default function PlasmidView() {
+function isPlasmidDocument(value: unknown): value is PlasmidDocument {
+  const candidate = value as Partial<PlasmidDocument> | null;
+  return !!candidate && typeof candidate.name === 'string' && typeof candidate.sequence === 'string' && Array.isArray(candidate.annotations) && (candidate.topology === 'circular' || candidate.topology === 'linear');
+}
+
+export default function PlasmidView({ projectId }: ToolProps) {
   const [stateSig, shareUrl] = useUrlState<State>('plasmid', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
   const [plasmid, setPlasmid] = useState<Plasmid>(() => PRESET_PLASMIDS[0]!);
+  const [documentModel, setDocumentModel] = useState(() => legacyPlasmidToDocument(PRESET_PLASMIDS[0]!));
+  const [localProjectId, setLocalProjectId] = useState(projectId);
   const [customFastaInput, setCustomFastaInput] = useState<string>('');
   const [detectionNotice, setDetectionNotice] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
@@ -95,6 +110,20 @@ export default function PlasmidView() {
   const seqContainerRef = useRef<HTMLDivElement>(null);
   const [isSelectingSeq, setIsSelectingSeq] = useState(false);
   const [selectionAnchorBp, setSelectionAnchorBp] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    void getProject(projectId).then(project => {
+      if (!active || !project || project.toolId !== 'plasmid' || !isPlasmidDocument(project.state)) return;
+      setDocumentModel(project.state);
+      setPlasmid(documentToLegacyPlasmid(project.state));
+      setLocalProjectId(project.id);
+      set({ presetId: 'custom', selectedFeatureId: '', selectedRange: undefined });
+      setDetectionNotice(`Restored local project: ${project.name}.`);
+    });
+    return () => { active = false; };
+  }, [projectId]);
 
   function handleCopyDna(start: number, end: number, strand: 1 | -1 = 1, label = 'Feature') {
     let dna = '';
@@ -311,6 +340,7 @@ export default function PlasmidView() {
     const p = PRESET_PLASMIDS.find(item => item.id === id);
     if (p) {
       setPlasmid(p);
+      setDocumentModel(legacyPlasmidToDocument(p));
       setDetectionNotice(null);
     }
   }
@@ -358,15 +388,57 @@ export default function PlasmidView() {
 
   function handleCustomFastaSubmit() {
     if (!customFastaInput.trim()) return;
-    const parsed = parseFastaPlasmid(customFastaInput);
-    if (parsed) {
-      // Auto-detect elements on custom sequence
-      const autoElements = detectPlasmidElements(parsed.seq, parsed.isCircular);
-      parsed.features = autoElements;
+    try {
+      const result = importPlasmidText(customFastaInput);
+      const parsed = documentToLegacyPlasmid(result.document);
       setPlasmid(parsed);
+      setDocumentModel(result.document);
       set({ presetId: 'custom', selectedFeatureId: '', selectedRange: undefined });
-      setDetectionNotice(`Loaded custom plasmid with ${autoElements.length} auto-detected features.`);
+      setDetectionNotice(`Loaded ${result.document.name} (${result.document.provenance.format}) with ${result.document.annotations.length} preserved annotation${result.document.annotations.length === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setDetectionNotice(error instanceof Error ? error.message : 'Unable to import this sequence.');
     }
+  }
+
+  async function handleImportFile(file: File) {
+    try {
+      const result = await importPlasmidFile(file);
+      setPlasmid(documentToLegacyPlasmid(result.document));
+      setDocumentModel(result.document);
+      set({ presetId: 'custom', selectedFeatureId: '', selectedRange: undefined });
+      setDetectionNotice(`Loaded ${file.name}: ${result.document.annotations.length} annotation${result.document.annotations.length === 1 ? '' : 's'} preserved from ${result.document.provenance.format}.`);
+    } catch (error) {
+      setDetectionNotice(error instanceof Error ? error.message : 'Unable to import this file.');
+    }
+  }
+
+  async function handleSaveLocal() {
+    const id = localProjectId || newId();
+    await saveProject({ id, toolId: 'plasmid', name: documentModel.name, version: 1, state: documentModel });
+    setLocalProjectId(id);
+    setDetectionNotice(`Saved ${documentModel.name} locally. It is available from Recent projects.`);
+  }
+
+  function handleRenameAnnotation(annotationId: string, name: string) {
+    const annotation = documentModel.annotations.find(item => item.id === annotationId);
+    if (annotation) {
+      const next = replaceAnnotation(documentModel, { ...annotation, name: name || annotation.name, qualifiers: { ...annotation.qualifiers, label: [name || annotation.name] } });
+      setDocumentModel(next);
+      setPlasmid(documentToLegacyPlasmid(next));
+      return;
+    }
+    setPlasmid(current => ({ ...current, features: current.features.map(feature => feature.id === annotationId ? { ...feature, name } : feature) }));
+  }
+
+  function handleDeleteAnnotation(annotationId: string) {
+    if (documentModel.annotations.some(annotation => annotation.id === annotationId)) {
+      const next = deleteAnnotation(documentModel, annotationId);
+      setDocumentModel(next);
+      setPlasmid(documentToLegacyPlasmid(next));
+    } else {
+      setPlasmid(current => ({ ...current, features: current.features.filter(feature => feature.id !== annotationId) }));
+    }
+    set({ selectedFeatureId: '', selectedRange: undefined });
   }
 
   function handleSelectFeatureRange(start: number, end: number, name: string, featId?: string) {
@@ -549,11 +621,11 @@ export default function PlasmidView() {
           {/* Custom Sequence Paste / Upload */}
           <details open={s.presetId === 'custom'} class="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900/50 text-xs space-y-2">
             <summary class="cursor-pointer font-semibold text-slate-700 dark:text-slate-300 select-none">
-              Import Sequence or File (FASTA)
+              Import Sequence or File (FASTA, GenBank, SnapGene)
             </summary>
             <textarea
               rows={4}
-              placeholder="Paste FASTA or raw DNA sequence..."
+              placeholder="Paste FASTA, GenBank, or raw DNA sequence..."
               value={customFastaInput}
               onInput={(e) => setCustomFastaInput((e.target as HTMLTextAreaElement).value)}
               class="w-full p-2 mono text-[11px] rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-950 resize-y"
@@ -576,28 +648,37 @@ export default function PlasmidView() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".fasta,.fa,.dna,.txt,.gb"
+                accept=".fasta,.fa,.seq,.dna,.txt,.gb,.gbk"
                 class="hidden"
                 onChange={(e) => {
                   const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      const txt = ev.target?.result as string;
-                      if (txt) {
-                        setCustomFastaInput(txt);
-                        const parsed = parseFastaPlasmid(txt);
-                        if (parsed) {
-                          parsed.features = detectPlasmidElements(parsed.seq, parsed.isCircular);
-                          setPlasmid(parsed);
-                          set({ presetId: 'custom' });
-                        }
-                      }
-                    };
-                    reader.readAsText(file);
-                  }
+                  if (file) void handleImportFile(file);
+                  (e.target as HTMLInputElement).value = '';
                 }}
               />
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => void handleSaveLocal()}
+                class="py-1 border border-accent-300 bg-accent-50 text-accent-800 dark:border-accent-800 dark:bg-accent-950 dark:text-accent-200 rounded-lg text-xs font-semibold hover:bg-accent-100 dark:hover:bg-accent-900 transition"
+              >
+                Save locally
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadText(exportGenBank(documentModel), `${plasmid.name.replace(/\s+/g, '_') || 'plasmid'}.gb`, 'text/plain;charset=utf-8')}
+                class="py-1 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Download GenBank
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadText(exportFasta(documentModel), `${plasmid.name.replace(/\s+/g, '_') || 'plasmid'}.fasta`, 'text/plain;charset=utf-8')}
+                class="col-span-2 py-1 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Download FASTA
+              </button>
             </div>
           </details>
 
@@ -1634,7 +1715,12 @@ export default function PlasmidView() {
                       <tr key={f.id} class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                         <td class="py-2 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                           <span class="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: f.color || FEATURE_COLORS[f.type] }} />
-                          <span>{f.name}</span>
+                          <input
+                            aria-label={`Annotation name: ${f.name}`}
+                            value={f.name}
+                            onInput={(event) => handleRenameAnnotation(f.id, (event.target as HTMLInputElement).value)}
+                            class="min-w-28 bg-transparent font-semibold outline-none ring-0 focus:bg-white focus:px-1 focus:ring-1 focus:ring-accent-400 dark:focus:bg-slate-950 rounded"
+                          />
                         </td>
                         <td class="py-2 text-slate-500 uppercase text-[10px] font-bold">{f.type}</td>
                         <td class="py-2 mono">{f.start}</td>
@@ -1647,6 +1733,13 @@ export default function PlasmidView() {
                             class="px-2 py-0.5 text-[11px] font-semibold bg-accent-50 text-accent-700 dark:bg-accent-950 dark:text-accent-300 rounded hover:bg-accent-100"
                           >
                             Zoom
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAnnotation(f.id)}
+                            class="ml-1 px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 rounded hover:bg-rose-100"
+                          >
+                            Delete
                           </button>
                         </td>
                       </tr>

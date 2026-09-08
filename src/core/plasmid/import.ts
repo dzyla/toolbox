@@ -1,5 +1,6 @@
 import { type Annotation, type PlasmidDocument, validateDocument } from './model';
 import type { Location, Segment, Strand } from './coordinates';
+import { parseSnapGene } from './snapgene';
 
 export interface ImportResult { document: PlasmidDocument }
 
@@ -10,7 +11,7 @@ function parseLocation(raw: string): Location {
     strand = -1;
     text = text.slice(11, -1);
   }
-  if (text.startsWith('join(') && text.endsWith(')')) text = text.slice(5, -1);
+  if ((text.startsWith('join(') || text.startsWith('order(')) && text.endsWith(')')) text = text.slice(text.indexOf('(') + 1, -1);
   const segments: Segment[] = text.split(',').map(part => {
     const match = part.match(/^(\d+)\.\.(\d+)$/);
     if (!match) throw new Error(`Unsupported GenBank location: ${raw}`);
@@ -43,18 +44,35 @@ function importGenBank(text: string): ImportResult {
   const featureStart = lines.findIndex(line => line.startsWith('FEATURES'));
   const annotations: Annotation[] = [];
   let current: Annotation | null = null;
+  let continuation: { annotation: Annotation; key: string; valueIndex: number } | null = null;
   if (featureStart >= 0) {
     for (const line of lines.slice(featureStart + 1, origin)) {
       const feature = line.match(/^\s{5}(\S+)\s+(.+)$/);
       if (feature) {
         current = { id: `feature-${annotations.length + 1}`, name: feature[1]!, type: feature[1]!, location: parseLocation(feature[2]!), qualifiers: {}, source: 'imported', confidence: 'annotated' };
-        annotations.push(current); continue;
+        annotations.push(current); continuation = null; continue;
       }
-      const qualifier = line.match(/^\s+\/(\S+?)="?(.*?)"?$/);
+      const qualifier = line.match(/^\s+\/([^=\s]+)(?:=(.*))?$/);
       if (qualifier && current) {
-        const [, key, value] = qualifier;
-        current.qualifiers[key!] = [...(current.qualifiers[key!] || []), value!];
-        if (key === 'label' || key === 'gene') current.name = value!;
+        const [, key, rawValue = ''] = qualifier;
+        const quoted = rawValue.startsWith('"');
+        const closes = quoted && rawValue.length > 1 && rawValue.endsWith('"');
+        const value = quoted ? rawValue.slice(1, closes ? -1 : undefined) : rawValue;
+        current.qualifiers[key!] = [...(current.qualifiers[key!] || []), value];
+        continuation = quoted && !closes ? { annotation: current, key: key!, valueIndex: current.qualifiers[key!]!.length - 1 } : null;
+        if (key === 'label' || key === 'gene') current.name = value;
+        if (/^apeinfo_(?:fwd|rev)color$/i.test(key!)) current.color = value;
+        continue;
+      }
+      if (continuation) {
+        const fragment = line.trim();
+        if (fragment) {
+          const closes = fragment.endsWith('"');
+          const value = fragment.slice(0, closes ? -1 : undefined);
+          const values = continuation.annotation.qualifiers[continuation.key]!;
+          values[continuation.valueIndex] = `${values[continuation.valueIndex]} ${value}`.trim();
+          if (closes) continuation = null;
+        }
       }
     }
   }
@@ -68,4 +86,13 @@ export function importPlasmidText(text: string): ImportResult {
   const trimmed = text.trim();
   if (!trimmed) throw new Error('No plasmid text was provided.');
   return trimmed.startsWith('LOCUS') ? importGenBank(trimmed) : importFasta(trimmed);
+}
+
+/** Choose a parser from bytes so a `.dna` file is never mistaken for text. */
+export async function importPlasmidFile(file: Blob): Promise<ImportResult> {
+  const bytes = await file.arrayBuffer();
+  const header = new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 13));
+  const magic = new TextDecoder('ascii').decode(header.slice(5, 13));
+  if (header[0] === 0x09 && magic === 'SnapGene') return parseSnapGene(bytes);
+  return importPlasmidText(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
 }

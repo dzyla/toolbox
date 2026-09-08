@@ -6,7 +6,7 @@ import {
   type Location,
 } from '@/core/plasmid/coordinates';
 import { validateDocument, type PlasmidDocument } from '@/core/plasmid/model';
-import { legacyPlasmidToDocument } from '@/core/plasmid/legacy';
+import { documentToLegacyPlasmid, legacyPlasmidToDocument } from '@/core/plasmid/legacy';
 
 describe('plasmid coordinate model', () => {
   it('represents a circular origin-crossing location in biological order', () => {
@@ -59,5 +59,18 @@ describe('plasmid coordinate model', () => {
     expect(document.topology).toBe('circular');
     expect(document.annotations[0]?.location.segments).toEqual([{ start: 6, end: 9 }]);
     expect(document.annotations[0]?.qualifiers.note).toEqual(['imported before migration']);
+  });
+
+  it('adapts imported annotations into a map-compatible plasmid without dropping metadata', () => {
+    const document: PlasmidDocument = {
+      id: 'native', name: 'Native', sequence: 'AAACCCGGGTTT', topology: 'circular',
+      annotations: [{ id: 'feature-1', name: 'wrapped', type: 'CDS', color: '#e11d48', source: 'imported', qualifiers: { note: ['kept'] }, location: { strand: -1, segments: [{ start: 9, end: 12 }, { start: 0, end: 3 }] } }],
+      provenance: { format: 'snapgene', parserVersion: 'test', warnings: [] },
+    };
+
+    expect(documentToLegacyPlasmid(document)).toMatchObject({
+      name: 'Native', isCircular: true,
+      features: [{ name: 'wrapped', start: 10, end: 3, strand: -1, color: '#e11d48', notes: 'kept' }],
+    });
   });
 });
