@@ -178,7 +178,7 @@ export function findRestrictionSites(dna: string, isCircular = true): Restrictio
 export function findORFs(dna: string, minLengthAa = 30, isCircular = true, maxLengthAa?: number): ORF[] {
   const clean = dna.toUpperCase().replace(/[^ACGT]/g, '');
   const len = clean.length;
-  if (len < 90) return [];
+  if (len < 3) return [];
 
   const orfs: ORF[] = [];
   const searchDna = isCircular ? clean + clean : clean;
@@ -485,3 +485,4 @@ export function linearizePlasmid(plasmid: Plasmid, cutBp: number): Plasmid {
   };
 }
 
+export * from './analysis';
