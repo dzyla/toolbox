@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/preact';
 import { useState } from 'preact/hooks';
 import PlasmidView from '@/tools/plasmid/View';
 import { CircularMap } from '@/tools/plasmid/CircularMap';
 import { LinearMap } from '@/tools/plasmid/LinearMap';
+import { SequenceView } from '@/tools/plasmid/SequenceView';
+import { initialWorkspace, selectRange } from '@/tools/plasmid/workspace';
 import type { DocumentOrf, DocumentRestrictionSite } from '@/core/plasmid/analysis';
 import type { PlasmidDocument } from '@/core/plasmid/model';
 import type { Selection } from '@/tools/plasmid/selection';
@@ -101,6 +103,127 @@ function LinearMapHarness() {
   const [selection, setSelection] = useState<Selection | undefined>();
   return <LinearMap document={MAP_DOCUMENT} selection={selection} onSelect={setSelection} />;
 }
+
+const SEQUENCE_DOCUMENT: PlasmidDocument = {
+  ...MAP_DOCUMENT,
+  sequence: 'ATG'.repeat(60),
+  annotations: [
+    { ...MAP_DOCUMENT.annotations[0]!, name: 'Joined CDS', location: { strand: 1, segments: [{ start: 0, end: 3 }, { start: 9, end: 12 }] } },
+    { ...MAP_DOCUMENT.annotations[1]!, name: 'Reverse feature', location: { strand: -1, segments: [{ start: 3, end: 6 }] } },
+  ],
+};
+
+function SequenceHarness() {
+  const [workspace, setWorkspace] = useState(() => initialWorkspace(SEQUENCE_DOCUMENT));
+  return <>
+    <SequenceView document={workspace.document} selection={workspace.selection} onSelect={selection => setWorkspace(value => selectRange(value, selection))} />
+    <output data-testid="sequence-selection">{workspace.selection ? `${workspace.selection.start + 1}–${workspace.selection.end}` : 'None'}</output>
+    <output data-testid="sequence-history">{workspace.history.past.length}</output>
+  </>;
+}
+
+function captureBoundary(element: HTMLElement) {
+  const set = vi.fn();
+  const release = vi.fn();
+  Object.defineProperties(element, {
+    setPointerCapture: { value: set, configurable: true },
+    releasePointerCapture: { value: release, configurable: true },
+  });
+  return { set, release };
+}
+
+describe('Canonical sequence viewport', () => {
+  it('keeps a drag active across mouseleave and preserves the viewport and local document history', () => {
+    render(<SequenceHarness />);
+    const viewport = screen.getByTestId('plasmid-sequence-viewport');
+    viewport.scrollTop = 180;
+    const originalUrl = window.location.href;
+    const originalDocument = JSON.stringify(SEQUENCE_DOCUMENT);
+    const base = screen.getByLabelText('Base 1');
+    const capture = captureBoundary(base);
+    fireEvent.pointerDown(base, { pointerId: 4, button: 0 });
+    expect(capture.set).toHaveBeenCalledWith(4);
+    fireEvent.mouseLeave(viewport);
+    fireEvent.pointerEnter(screen.getByLabelText('Base 12'), { pointerId: 4 });
+    fireEvent.pointerUp(viewport, { pointerId: 4 });
+    expect(screen.getByTestId('sequence-selection').textContent).toBe('1–12');
+    expect(capture.release).toHaveBeenCalledWith(4);
+    expect(screen.getByTestId('plasmid-sequence-viewport')).toBe(viewport);
+    expect(viewport.scrollTop).toBe(180);
+    expect(screen.getByTestId('sequence-history').textContent).toBe('0');
+    expect(window.location.href).toBe(originalUrl);
+    expect(JSON.stringify(SEQUENCE_DOCUMENT)).toBe(originalDocument);
+    expect(screen.queryByTestId('plasmid-selection')).toBeNull();
+  });
+
+  it('uses the captured pointer position to extend a backwards drag, ignoring other pointers and ending on cancel', () => {
+    render(<SequenceHarness />);
+    const base = screen.getByLabelText('Base 12');
+    const capture = captureBoundary(base);
+    const hit = vi.spyOn(document, 'elementFromPoint').mockReturnValue(screen.getByLabelText('Base 1'));
+    try {
+      fireEvent.pointerDown(base, { pointerId: 4, button: 0 });
+      fireEvent.pointerMove(base, { pointerId: 8, clientX: 100, clientY: 100 });
+      fireEvent.pointerUp(base, { pointerId: 8 });
+      fireEvent.pointerDown(screen.getByLabelText('Base 4'), { pointerId: 8, button: 0 });
+      expect(screen.getByTestId('sequence-selection').textContent).toBe('12–12');
+      fireEvent.pointerMove(base, { pointerId: 4, clientX: 100, clientY: 100 });
+      expect(screen.getByTestId('sequence-selection').textContent).toBe('1–12');
+      fireEvent.pointerCancel(base, { pointerId: 4 });
+      expect(capture.release).toHaveBeenCalledWith(4);
+      fireEvent.pointerEnter(screen.getByLabelText('Base 20'), { pointerId: 4 });
+      expect(screen.getByTestId('sequence-selection').textContent).toBe('1–12');
+    } finally { hit.mockRestore(); }
+  });
+
+  it('ignores secondary-button drags and supports keyboard activation of a base', () => {
+    render(<SequenceHarness />);
+    fireEvent.pointerDown(screen.getByLabelText('Base 3'), { pointerId: 4, button: 2 });
+    expect(screen.getByTestId('sequence-selection').textContent).toBe('None');
+    fireEvent.click(screen.getByRole('button', { name: 'Base 3', exact: true }), { detail: 0 });
+    expect(screen.getByTestId('sequence-selection').textContent).toBe('3–3');
+  });
+
+  it('highlights actual compound segments independently from selection and shows the complement strand', () => {
+    render(<SequenceView document={SEQUENCE_DOCUMENT} selection={{ start: 0, end: 2, source: 'sequence' }} onSelect={() => undefined} />);
+    expect(screen.getByLabelText('Base 1').title).toContain('Joined CDS');
+    expect(screen.getByLabelText('Base 10').title).toContain('Joined CDS');
+    expect(screen.getByLabelText('Base 7').title).not.toContain('Joined CDS');
+    expect(screen.getByLabelText('Complement base 4').title).toContain('Reverse feature');
+    expect(screen.getByLabelText('Complement base 1').textContent).toBe('T');
+    expect(screen.getByLabelText('Base 1').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByLabelText('Base 10').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('scrolls to a validated coordinate inside the viewport without selecting or moving the page', () => {
+    render(<SequenceHarness />);
+    const viewport = screen.getByTestId('plasmid-sequence-viewport');
+    const target = screen.getByLabelText('Base 121');
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 50 } as DOMRect);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 350 } as DOMRect);
+    fireEvent.input(screen.getByLabelText('Go to coordinate'), { target: { value: '121' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Go', exact: true }));
+    expect(viewport.scrollTop).toBe(300);
+    expect(document.activeElement).toBe(target);
+    expect(screen.getByTestId('sequence-selection').textContent).toBe('None');
+    fireEvent.input(screen.getByLabelText('Go to coordinate'), { target: { value: '181' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Go', exact: true }));
+    expect(screen.getByRole('alert').textContent).toContain('180');
+    expect(viewport.scrollTop).toBe(300);
+  });
+
+  it('changes translation presentation without changing selection or document history', () => {
+    render(<SequenceHarness />);
+    expect(screen.getAllByLabelText('Amino acid M, bases 1–3')).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText('Translation display'), { target: { value: 'frame2' } });
+    expect(screen.getByLabelText('Amino acid *, bases 2–4')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Translation display'), { target: { value: 'none' } });
+    expect(screen.queryByLabelText(/Amino acid/)).toBeNull();
+    expect(screen.queryByText('aa')).toBeNull();
+    expect(screen.getByTestId('sequence-selection').textContent).toBe('None');
+    expect(screen.getByTestId('sequence-history').textContent).toBe('0');
+  });
+});
 
 describe('Plasmid Viewer tool view', () => {
   it('selects a canonical circular annotation with its one-based display coordinates', () => {
