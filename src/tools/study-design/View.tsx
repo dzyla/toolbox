@@ -25,11 +25,14 @@ const DEFAULTS: Record<Field, string> = {
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900';
 const BUTTON = 'rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-slate-700';
 
-function solverFailureFields(objective: Objective, effectInput: EffectInput, allocationRatio: number | undefined, message: string): Field[] {
+function solverFailureFields(objective: Objective, effectInput: EffectInput, allocationRatio: number | undefined, message: string, alsoFailsWithEqualAllocation: boolean): Field[] {
   const effectFields: Field[] = effectInput === 'standardized' ? ['d'] : ['difference', 'sd'];
   if (message.includes('target power could not be reached')) {
     // A non-equal allocation can constrain either group at the bounded-search limit.
-    return objective === 'sample-size' && allocationRatio !== 1 ? ['ratio'] : effectFields;
+    if (objective === 'sample-size' && allocationRatio !== 1) {
+      return alsoFailsWithEqualAllocation ? [...effectFields, 'ratio'] : ['ratio'];
+    }
+    return effectFields;
   }
   if (message.includes('dropout-adjusted enrollment')) return ['dropout'];
   if (objective === 'effect') return ['n1', 'n2', 'alpha', 'target'];
@@ -72,8 +75,9 @@ export default function StudyDesign() {
     const n2 = objective !== 'sample-size' ? groupSize('n2') : undefined;
     if (Object.keys(errors).length) return { errors };
 
+    let effectSize = NaN;
     try {
-      const effectSize = objective === 'effect'
+      effectSize = objective === 'effect'
         ? minimumDetectableEffect({ n1: n1!, n2: n2!, alpha, alternative, targetPower: targetPower! })
         : effectInput === 'difference' ? cohensD(difference!, sd!) : directD!;
       const design = objective === 'sample-size'
@@ -105,7 +109,16 @@ export default function StudyDesign() {
       return { errors, result: { headline, enrollment, effectSize, power, n1: analysisN1, n2: analysisN2, summary } };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unable to calculate this design';
-      const fieldsToCorrect = solverFailureFields(objective, effectInput, ratio, message);
+      let alsoFailsWithEqualAllocation = false;
+      if (objective === 'sample-size' && Number.isFinite(effectSize) && ratio !== 1 && message.includes('target power could not be reached')) {
+        try {
+          requiredSampleSize({ effectSize, alpha, alternative, targetPower: targetPower!, allocationRatio: 1, dropoutFraction: dropout! / 100 });
+        } catch (equalAllocationError) {
+          alsoFailsWithEqualAllocation = equalAllocationError instanceof Error
+            && equalAllocationError.message.includes('target power could not be reached');
+        }
+      }
+      const fieldsToCorrect = solverFailureFields(objective, effectInput, ratio, message, alsoFailsWithEqualAllocation);
       const correction = `Calculation blocked: adjust ${fieldsToCorrect.map(field => LABELS[field]).join(' or ')}. ${message}.`;
       for (const field of fieldsToCorrect) errors[field] = correction;
       return { errors, error: correction };

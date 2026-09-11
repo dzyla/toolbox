@@ -71,6 +71,21 @@ describe('study design planner', () => {
     expect((screen.getByRole('button', { name: 'Copy design summary' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('identifies both effect size and allocation when each prevents a supported sample-size plan', () => {
+    render(<StudyDesign />);
+    select('Effect size input', 'standardized');
+    input("Cohen's d", '1e-8');
+    advanced();
+    input('Allocation ratio (group 2 / group 1)', '0.5');
+    const alert = screen.getByRole('alert').textContent;
+    expect(alert).toContain("Cohen's d");
+    expect(alert).toContain('Allocation ratio (group 2 / group 1)');
+    expect(screen.getByLabelText("Cohen's d").getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByLabelText('Allocation ratio (group 2 / group 1)').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.queryByText('64 analysable samples per group')).toBeNull();
+    expect((screen.getByRole('button', { name: 'Copy design summary' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('recomputes one-sided power, unequal allocation, and dropout enrollment', () => {
     render(<StudyDesign />);
     advanced();
