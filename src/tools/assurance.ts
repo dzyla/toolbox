@@ -16,6 +16,7 @@ const reviewed = '2026-09-11';
  * describe software-method evidence, not wet-lab, assay, or clinical validity.
  */
 export const ASSURANCE: Record<ToolId, ToolAssurance> = {
+  'study-design': { status: 'reference-tested', reviewed, scope: 'Planning estimates for independent two-group pooled-variance t-test sample size, power, and detectable effect.', verification: 'Independent noncentral-t numerical fixtures and UI tests cover supported designs; software checks do not validate experiments or assays.' },
   molarity: { status: 'method-documented', reviewed, scope: 'Molarity, mass-concentration, and C1V1 dilution arithmetic.', verification: 'Calculator behavior tests cover representative inputs.' },
   buffers: { status: 'reference-tested', reviewed, scope: 'Buffer recipes from declared stocks, solids, and hydrate forms.', verification: 'Audited supplier molecular-weight fixtures cover chemical data.' },
   centrifuge: { status: 'reference-tested', reviewed, scope: 'RPM/RCF conversion and rotor k-factor timing calculations.', verification: 'Rotor preset and conversion fixtures exercise the core formulas.' },

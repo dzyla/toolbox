@@ -24,6 +24,9 @@ export const CATEGORIES: Record<Category, { label: string; blurb: string; order:
 };
 
 export const TOOLS: ToolMeta[] = [
+  { id: 'study-design', name: 'Experimental Design & Power Planner', category: 'calculators', icon: '📐',
+    blurb: 'Plan sample size, power, and detectable effect for two independent groups', keywords: ['study design', 'experimental design', 'sample size', 'power', 'cohen', 'effect size', 'dropout', 't-test'],
+    status: 'ready', load: () => import('./study-design/View') },
   { id: 'molarity', name: 'Molarity & Dilution', category: 'calculators', icon: '⚖️',
     blurb: 'Mass, moles, concentration and C1V1 = C2V2', keywords: ['molarity', 'dilution', 'c1v1', 'mass', 'moles', 'mw', 'stock'],
     status: 'ready', load: () => import('./molarity/View') },
