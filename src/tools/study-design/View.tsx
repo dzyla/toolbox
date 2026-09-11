@@ -25,6 +25,18 @@ const DEFAULTS: Record<Field, string> = {
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900';
 const BUTTON = 'rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-slate-700';
 
+function solverFailureFields(objective: Objective, effectInput: EffectInput, allocationRatio: number | undefined, message: string): Field[] {
+  const effectFields: Field[] = effectInput === 'standardized' ? ['d'] : ['difference', 'sd'];
+  if (message.includes('target power could not be reached')) {
+    // The allocation limit is distinct; otherwise the active effect estimate is too small for the bounded search.
+    return objective === 'sample-size' && allocationRatio! > 1 ? ['ratio'] : effectFields;
+  }
+  if (message.includes('dropout-adjusted enrollment')) return ['dropout'];
+  if (objective === 'effect') return ['n1', 'n2', 'alpha', 'target'];
+  if (objective === 'power') return ['n1', 'n2', 'alpha', ...effectFields];
+  return [...effectFields, 'alpha', 'target', 'ratio', 'dropout'];
+}
+
 export default function StudyDesign() {
   const [objective, setObjective] = useState<Objective>('sample-size');
   const [effectInput, setEffectInput] = useState<EffectInput>('difference');
@@ -92,7 +104,11 @@ export default function StudyDesign() {
         ...settings, headline, ...(enrollment ? [enrollment] : []), '', scienceText(SCIENCE)].join('\n');
       return { errors, result: { headline, enrollment, effectSize, power, n1: analysisN1, n2: analysisN2, summary } };
     } catch (error) {
-      return { errors, error: `Calculation blocked: ${error instanceof Error ? error.message : 'unable to calculate this design'}. Review the design settings.` };
+      const message = error instanceof Error ? error.message : 'unable to calculate this design';
+      const fieldsToCorrect = solverFailureFields(objective, effectInput, ratio, message);
+      const correction = `Calculation blocked: adjust ${fieldsToCorrect.map(field => LABELS[field]).join(' or ')}. ${message}.`;
+      for (const field of fieldsToCorrect) errors[field] = correction;
+      return { errors, error: correction };
     }
   }, [fields, objective, effectInput, alternative]);
   const result = calculation.result;
