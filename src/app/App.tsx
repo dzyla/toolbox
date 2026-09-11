@@ -5,6 +5,7 @@ import { initTheme } from './theme';
 import { Nav } from './components/Nav';
 import { Footer } from './components/Footer';
 import { Home } from './pages/Home';
+import { Assurance } from './pages/Assurance';
 import { ToolPage } from './pages/ToolPage';
 import { NotFound } from './pages/NotFound';
 
@@ -18,6 +19,7 @@ export function App() {
       <Nav />
       <main class="flex-1 w-full max-w-full overflow-x-clip">
         {r.name === 'home' && <Home />}
+        {r.name === 'assurance' && <Assurance />}
         {r.name === 'tool' && <ToolPage toolId={r.toolId} projectId={r.projectId} />}
         {r.name === 'notfound' && <NotFound />}
       </main>

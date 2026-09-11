@@ -92,6 +92,7 @@ export function Home() {
             <p class="text-[11.5px] text-amber-800 dark:text-amber-300/90">
               This workbench is an experimental research preview. Core biophysical equations are verified against published literature, but complex interactive features are actively being built and refined—some tools might not work completely yet.
             </p>
+            <a href="#/assurance" class="inline-block rounded py-1 font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2">Methods & Assurance</a>
           </div>
         </div>
 
