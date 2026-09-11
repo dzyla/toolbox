@@ -9,16 +9,18 @@ on your device.
 
 ## Why
 - Every result carries its formula, assumptions and references.
-- Every calculation is tested against published reference values on every change.
+- Methods & Assurance records each tool's stated method scope and software evidence.
+- Reference-value fixtures apply only where a tool is labelled reference-tested; documented and review-required workflows state their different evidence and limits.
 - No accounts, no tokens, no tracking, no server.
 - AGPL-3.0: anyone can use, host and improve it; hosted forks must stay open.
 
 ## Status
 Rebuild in progress. The original tools were audited on 2026-09-02
-(`docs/science-audit-2026-09-02.md`); every calculation is being ported into `src/core`
-with tests pinned to published reference values. The design is in
-`docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`. The frozen originals are
-kept in `legacy/` for reference only and are not deployed.
+(`docs/science-audit-2026-09-02.md`); calculations are being ported into `src/core` with
+tool-specific tests and methods records. Reference-value fixtures are used where the
+Methods & Assurance status says reference-tested. The design is in
+`docs/superpowers/specs/2026-09-02-bio-bench-rebuild-design.md`. The frozen originals
+are kept in `legacy/` for reference only and are not deployed.
 
 ## Develop
 ```bash

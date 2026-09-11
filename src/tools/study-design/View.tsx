@@ -85,6 +85,8 @@ export default function StudyDesign() {
         : undefined;
       const analysisN1 = design?.n1 ?? n1!;
       const analysisN2 = design?.n2 ?? n2!;
+      const realizedAllocationRatio = analysisN2 / analysisN1;
+      const realizedAllocationText = Number(realizedAllocationRatio.toPrecision(6)).toString();
       const power = design?.achievedPower ?? twoSamplePower({ n1: analysisN1, n2: analysisN2, effectSize, alpha, alternative }).power;
       const headline = objective === 'sample-size'
         ? analysisN1 === analysisN2 ? `${analysisN1} analysable samples per group`
@@ -99,14 +101,15 @@ export default function StudyDesign() {
         `Cohen's d: ${effectSize}`, `Alpha: ${alpha}`,
         ...(targetPower !== undefined ? [`Target power: ${targetPower}`] : []),
         `Sidedness: ${alternative}`,
-        `Allocation ratio (group 2 / group 1): ${ratio ?? analysisN2 / analysisN1}`,
+        ...(ratio !== undefined ? [`Requested allocation ratio (group 2 / group 1): ${ratio}`] : []),
+        `Realized allocation ratio (group 2 / group 1): ${analysisN2} / ${analysisN1} = ${realizedAllocationText}`,
         ...(dropout !== undefined ? [`Dropout (%): ${dropout}`] : ['Dropout: not applied; group sizes are analysable samples']),
         `Analysable samples in group 1: ${analysisN1}`, `Analysable samples in group 2: ${analysisN2}`,
         `Degrees of freedom: ${analysisN1 + analysisN2 - 2}`, `Achieved power: ${power}`,
       ];
       const summary = ['Two independent groups — Planning estimate', 'Planner version: 1 (2026-09-11)',
         ...settings, headline, ...(enrollment ? [enrollment] : []), '', scienceText(SCIENCE)].join('\n');
-      return { errors, result: { headline, enrollment, effectSize, power, n1: analysisN1, n2: analysisN2, summary } };
+      return { errors, result: { headline, enrollment, effectSize, power, n1: analysisN1, n2: analysisN2, requestedAllocationRatio: ratio, realizedAllocationText, summary } };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unable to calculate this design';
       let alsoFailsWithEqualAllocation = false;
@@ -201,6 +204,8 @@ export default function StudyDesign() {
         <dl class="grid grid-cols-2 gap-4 border-y border-slate-200 py-4 text-sm dark:border-slate-700">
           <div><dt>Group 1 analysable samples</dt><dd class="font-mono font-semibold">{result.n1}</dd></div>
           <div><dt>Group 2 analysable samples</dt><dd class="font-mono font-semibold">{result.n2}</dd></div>
+          {result.requestedAllocationRatio !== undefined && <div><dt>Requested allocation ratio</dt><dd class="font-mono font-semibold">{result.requestedAllocationRatio}</dd></div>}
+          <div><dt>Realized allocation ratio</dt><dd class="font-mono font-semibold">{result.n2} / {result.n1} = {result.realizedAllocationText}</dd></div>
           <div><dt>Cohen's d magnitude</dt><dd class="font-mono font-semibold">{result.effectSize.toPrecision(5)}</dd></div>
           <div><dt>Calculated power</dt><dd class="font-mono font-semibold">{(result.power * 100).toFixed(2)}%</dd></div>
         </dl>

@@ -101,6 +101,35 @@ describe('study design planner', () => {
     expect(screen.getByText('Enroll 60 in group 1 and 120 in group 2')).toBeTruthy();
   });
 
+  it('distinguishes a requested allocation ratio from the integer-realized ratio in results and export', async () => {
+    const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    render(<StudyDesign />);
+    advanced();
+    input('Allocation ratio (group 2 / group 1)', '1.1');
+    expect(screen.getByText('Requested allocation ratio')).toBeTruthy();
+    expect(screen.getByText('1.1', { exact: true })).toBeTruthy();
+    expect(screen.getByText('Realized allocation ratio')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy design summary' }));
+    await waitFor(() => expect(copy).toHaveBeenCalled());
+    const summary = copy.mock.calls[0]![0];
+    expect(summary).toContain('Requested allocation ratio (group 2 / group 1): 1.1');
+    expect(summary).toMatch(/Realized allocation ratio \(group 2 \/ group 1\): \d+ \/ \d+ = /);
+  });
+
+  it.each([
+    ['direct Cohen’s d', () => select('Effect size input', 'standardized'), ["Cohen's d"]],
+    ['difference and common SD', () => {}, ['Anticipated difference', 'Common standard deviation']],
+  ])('marks only allocation for a ratio-only bounded search in %s mode', (_mode, selectEffectInput, effectLabels) => {
+    render(<StudyDesign />);
+    selectEffectInput();
+    advanced();
+    input('Allocation ratio (group 2 / group 1)', '1000000');
+    expect(screen.getByLabelText('Allocation ratio (group 2 / group 1)').getAttribute('aria-invalid')).toBe('true');
+    for (const effectLabel of effectLabels) {
+      expect(screen.getByLabelText(effectLabel).getAttribute('aria-invalid')).toBeNull();
+    }
+  });
+
   it('solves planned power and minimum detectable effect for labelled analysable group sizes', () => {
     render(<StudyDesign />);
     select('Objective', 'power');
@@ -131,7 +160,8 @@ describe('study design planner', () => {
     const summary = copy.mock.calls[0]![0];
     for (const expected of ['Two independent groups', 'Planning estimate', 'Anticipated difference: 2',
       'Common standard deviation: 4', "Cohen's d: 0.5", 'Alpha: 0.05', 'Target power: 0.8',
-      'Sidedness: two-sided', 'Allocation ratio (group 2 / group 1): 1', 'Dropout (%): 20',
+      'Sidedness: two-sided', 'Requested allocation ratio (group 2 / group 1): 1',
+      'Realized allocation ratio (group 2 / group 1): 64 / 64 = 1', 'Dropout (%): 20',
       'Enroll 80 in group 1 and 80 in group 2', 'Method:', 'noncentral t', 'Assumptions:',
       'Cohen', 'power.t.test', 'G*Power', 'does not validate', 'Planner version:']) {
       expect(summary).toContain(expected);
