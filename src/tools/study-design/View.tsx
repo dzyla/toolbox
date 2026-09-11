@@ -28,8 +28,8 @@ const BUTTON = 'rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibo
 function solverFailureFields(objective: Objective, effectInput: EffectInput, allocationRatio: number | undefined, message: string): Field[] {
   const effectFields: Field[] = effectInput === 'standardized' ? ['d'] : ['difference', 'sd'];
   if (message.includes('target power could not be reached')) {
-    // The allocation limit is distinct; otherwise the active effect estimate is too small for the bounded search.
-    return objective === 'sample-size' && allocationRatio! > 1 ? ['ratio'] : effectFields;
+    // A non-equal allocation can constrain either group at the bounded-search limit.
+    return objective === 'sample-size' && allocationRatio !== 1 ? ['ratio'] : effectFields;
   }
   if (message.includes('dropout-adjusted enrollment')) return ['dropout'];
   if (objective === 'effect') return ['n1', 'n2', 'alpha', 'target'];

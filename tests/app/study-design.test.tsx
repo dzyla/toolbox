@@ -61,6 +61,7 @@ describe('study design planner', () => {
   it.each([
     ["Cohen's d", () => { select('Effect size input', 'standardized'); input("Cohen's d", '1e-8'); }],
     ['Allocation ratio (group 2 / group 1)', () => { advanced(); input('Allocation ratio (group 2 / group 1)', '1000000'); }],
+    ['Allocation ratio (group 2 / group 1)', () => { advanced(); input('Allocation ratio (group 2 / group 1)', '0.000001'); }],
   ])('identifies %s when valid values exceed the supported sample-size search', (label, makeInfeasible) => {
     render(<StudyDesign />);
     makeInfeasible();
