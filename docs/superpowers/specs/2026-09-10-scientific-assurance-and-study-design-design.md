@@ -1,6 +1,6 @@
 # Scientific assurance and study-design workbench
 
-**Status:** approved for autonomous implementation
+**Status:** implemented and release-verified on 2026-09-11; 38 registered tools
 
 **Date:** 2026-09-10
 
@@ -8,10 +8,10 @@
 
 Bio-Bench is useful only when a researcher can tell what a result means, when
 it is appropriate to use, and when the supplied data cannot support a claim.
-The app already includes 39 scientific tools, each with a methods panel and
-tests. This release makes that evidence discoverable and actionable across the
-application, then adds a browser-local experimental-design tool that prevents
-avoidable underpowered studies before data collection.
+The app began with 37 scientific tools, each with a methods panel and tests.
+This release makes that evidence discoverable and actionable across the
+application, then adds the browser-local experimental-design tool as the 38th
+tool to help prevent avoidable underpowered studies before data collection.
 
 The quality bar is practical rather than promotional: results must either be
 calculated from supported inputs with their method and limits visible, or be
@@ -90,7 +90,7 @@ has text labels rather than color-only status.
 
 `ToolPage` reads an `assurance` query flag. When present, it loads the tool and
 opens its existing Science panel, so the assurance index is a navigation layer
-instead of duplicating 39 bodies of scientific prose.
+instead of duplicating 38 bodies of scientific prose.
 
 ### Study-design core
 
@@ -156,4 +156,3 @@ are named inline. No raw scientific data is stored or uploaded.
   Research*, 3rd ed. Chapman & Hall/CRC, 2017. Two-sample t-test power design.
 - R `stats::power.t.test` documentation and G*Power 3.1 methodology are used
   as independent numerical comparators for fixture values.
-

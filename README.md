@@ -1,8 +1,9 @@
 # Bio-Bench
 
 Free, open-source lab tools that show their work: calculators, protein and DNA tools,
-binding and alignment, and gel analysis. Runs entirely in your browser, installs as an
-app on phones and laptops, works offline, and keeps your projects on your device.
+binding and alignment, gel analysis, and a study-design planner. Runs entirely in your
+browser, installs as an app on phones and laptops, works offline, and keeps your projects
+on your device.
 
 **Live app:** https://dzyla.github.io/toolbox/
 
@@ -26,6 +27,16 @@ npm run dev
 npm test
 ```
 See `CONTRIBUTING.md` for the science rules and how to add a tool.
+
+## Methods, assurance, and study design
+
+Use **Methods & Assurance** in the app to find each tool's method scope and software
+evidence. It distinguishes source-tested methods from documented methods and workflows
+that require review; these labels are not experimental, assay, or clinical certification.
+
+**Experimental Design & Power Planner** provides local planning estimates for two
+independent groups. Its outputs aid study planning and do not replace assay validation,
+protocol controls, or a statistical analysis plan.
 
 ## Plasmid workspace
 
