@@ -5,6 +5,10 @@ import { saveProject } from '@/lib/projects';
 import { relativeTime } from '@/lib/format';
 
 describe('Home', () => {
+  it('links the research preview to its methods and assurance inventory', () => {
+    render(<Home />);
+    expect(screen.getByRole('link', { name: 'Methods & Assurance' }).getAttribute('href')).toBe('#/assurance');
+  });
   it('filters tools by search', async () => {
     render(<Home />);
     const box = screen.getByRole('searchbox');

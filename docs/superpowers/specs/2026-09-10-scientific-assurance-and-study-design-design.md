@@ -1,6 +1,6 @@
 # Scientific assurance and study-design workbench
 
-**Status:** approved for autonomous implementation
+**Status:** implemented and release-verified on 2026-09-11; 38 registered tools
 
 **Date:** 2026-09-10
 
@@ -8,10 +8,10 @@
 
 Bio-Bench is useful only when a researcher can tell what a result means, when
 it is appropriate to use, and when the supplied data cannot support a claim.
-The app already includes 39 scientific tools, each with a methods panel and
-tests. This release makes that evidence discoverable and actionable across the
-application, then adds a browser-local experimental-design tool that prevents
-avoidable underpowered studies before data collection.
+The app began with 37 scientific tools, each with a methods panel and tests.
+This release makes that evidence discoverable and actionable across the
+application, then adds the browser-local experimental-design tool as the 38th
+tool to help prevent avoidable underpowered studies before data collection.
 
 The quality bar is practical rather than promotional: results must either be
 calculated from supported inputs with their method and limits visible, or be
@@ -84,13 +84,13 @@ hard-coded.
 
 The page is a plain, searchable table/card layout with: coverage summary,
 status filter, category filter, each tool's short scope note, review date, and
-two links (open tool and open its methods). It is reachable at `/assurance`.
+one methods-intent link to the tool (`?methods=1`). It is reachable at `/assurance`.
 It remains useful on a phone: summary cards stack, filters wrap, and each row
 has text labels rather than color-only status.
 
-`ToolPage` reads an `assurance` query flag. When present, it loads the tool and
-opens its existing Science panel, so the assurance index is a navigation layer
-instead of duplicating 39 bodies of scientific prose.
+The link preserves methods intent in the tool URL; users open the existing
+methods panel inside the tool. The assurance index is therefore a navigation
+layer rather than a duplicate of 38 bodies of scientific prose.
 
 ### Study-design core
 
@@ -101,10 +101,10 @@ integer search for the smallest per-group sample sizes whose noncentral-t
 power meets the target. The same solver can invert for achieved power or
 minimum detectable effect.
 
-Numerical functions have finite-input checks, bounded iteration, and explicit
-failure results. The core returns a discriminated result containing input
-settings, group sizes, degrees of freedom, achieved power/effect, and warnings.
-It never converts a non-finite value into a plausible result.
+Numerical functions have finite-input checks and bounded iteration. They return
+calculated values on success or throw named, bounded errors for invalid input,
+unreachable targets, or failed numerical convergence. They never convert a
+non-finite value into a plausible result.
 
 The planner accepts standardized effect size directly or derives it from a
 meaningful absolute difference and expected common standard deviation. It
@@ -124,12 +124,12 @@ Invalid fields remain beside their inputs; no computed recommendation appears
 until the design is valid. An explicit `Planning estimate` status explains that
 the calculator helps choose a design and does not validate the experiment,
 assay, distribution, or statistical analysis plan. Copy and CSV/text export
-include settings, method, assumptions, version, and warnings.
+include settings, method, assumptions, version, and planning limitations.
 
 ## Data flow and errors
 
-`planner controls → validated core inputs → exact solver → status-bearing
-result → visible summary / export`.
+`planner controls → validated core inputs → exact solver → calculated values or
+named bounded error → visible summary / export`.
 
 All parsing happens locally. Bad numbers, alpha outside `(0,1)`, nonpositive
 effect or SD, invalid allocation, impossible power targets, and nonconvergence
@@ -156,4 +156,3 @@ are named inline. No raw scientific data is stored or uploaded.
   Research*, 3rd ed. Chapman & Hall/CRC, 2017. Two-sample t-test power design.
 - R `stats::power.t.test` documentation and G*Power 3.1 methodology are used
   as independent numerical comparators for fixture values.
-

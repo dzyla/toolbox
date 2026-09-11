@@ -53,6 +53,18 @@ test('service worker registers for offline use', async ({ page }) => {
   expect(ok).toBe(true);
 });
 
+test('methods index and study planner avoid horizontal overflow on phone and desktop', async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/assurance');
+    await expect(page.getByRole('heading', { name: /methods & assurance/i })).toBeVisible();
+    await expect(page.locator('body')).toHaveJSProperty('scrollWidth', viewport.width);
+    await page.goto('/#/t/study-design');
+    await expect(page.getByText('Planning estimate', { exact: true })).toBeVisible();
+    await expect(page.locator('body')).toHaveJSProperty('scrollWidth', viewport.width);
+  }
+});
+
 test('all ready tools open without page errors', async ({ page }) => {
   const readyTools = [
     'molarity', 'buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate',
@@ -61,6 +73,7 @@ test('all ready tools open without page errors', async ({ page }) => {
     'cloning', 'rare-codons', 'align', 'seq-matrix', 'binding', 'primers', 'tags', 'gel', 'measure', 'colonies', 'hemocytometer',
     'tally', 'plate', 'culture', 'timers', 'protocols', 'colors',
     'plate-reader',
+    'study-design',
   ];
   for (const id of readyTools) {
     const errors: string[] = [];
