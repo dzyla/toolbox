@@ -5,6 +5,7 @@ import {
   validateAnnotations,
   type SequenceAnnotation,
 } from '@/core/sequence-annotator';
+import { detectSequenceFeatures } from '@/tools/sequence/features';
 
 const annotation = (overrides: Partial<SequenceAnnotation> = {}): SequenceAnnotation => ({
   id: 'domain-1',
@@ -38,5 +39,14 @@ describe('sequence annotation document', () => {
 
   it('removes an annotation that is fully deleted', () => {
     expect(transformAnnotationsForEdit([annotation()], 6, 5, 0, 15)).toEqual([]);
+  });
+});
+
+describe('Sequence Annotator protein feature adapter', () => {
+  it('reuses Protein Workbench tag detection but does not scan nucleic acid', () => {
+    expect(detectSequenceFeatures('AAHHHHHHGG', 'protein')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'His-Tag (6x)', start: 3, end: 8, kind: 'tag' }),
+    ]));
+    expect(detectSequenceFeatures('ACGTACGT', 'DNA')).toEqual([]);
   });
 });
