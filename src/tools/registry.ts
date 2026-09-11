@@ -10,6 +10,9 @@ export interface ToolMeta {
   load?: () => Promise<{ default: ComponentType<ToolProps> }>;
 }
 
+/** Identifier used by the tool registry and its cross-tool metadata indexes. */
+export type ToolId = ToolMeta['id'];
+
 export const CATEGORIES: Record<Category, { label: string; blurb: string; order: number }> = {
   calculators: { label: 'Calculators', blurb: 'Molarity, buffers, centrifuge, mixes', order: 1 },
   sequences:   { label: 'Sequences & Proteins', blurb: 'Protein parameters, DNA tools, alignment, binding', order: 2 },
