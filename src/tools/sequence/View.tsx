@@ -40,6 +40,12 @@ function editBetween(before: string, after: string) {
   return { start: prefix + 1, deleted: before.length - prefix - suffix, inserted: after.length - prefix - suffix };
 }
 
+function selectionPreview(sequence: string, limit = 36) {
+  if (sequence.length <= limit) return sequence;
+  const edge = Math.floor((limit - 1) / 2);
+  return `${sequence.slice(0, edge)}…${sequence.slice(-edge)}`;
+}
+
 function proteinColour(residue: string, mode: ColourMode, charge: number) {
   if (mode === 'plain') return 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-200';
   if (mode === 'charge') return charge > 0.15 ? 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-100' : charge < -0.15 ? 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-100' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
@@ -107,7 +113,7 @@ export default function SequenceView() {
       <div class="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60">{parsed.kind === 'protein' ? <a class="font-semibold text-accent-700 hover:underline dark:text-accent-300" href={proteinHref}>Open sequence in Protein Workbench →</a> : <a class="font-semibold text-accent-700 hover:underline dark:text-accent-300" href={plasmidHref}>Open sequence in Plasmid Viewer →</a>}</div>
     </div>}
     results={<div class="space-y-4">
-      {selection ? <div class="rounded-xl border border-accent-200 bg-accent-50 p-3 text-sm dark:border-accent-800 dark:bg-accent-950/40"><strong>Selection: {selection.start}–{selection.end}</strong> <span class="mono text-xs">{selectedSeq}</span></div> : <p class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Click a residue/base or drag across the canvas to select a range. Shift-click extends from the selection start.</p>}
+      {selection ? <div class="flex min-h-12 items-center gap-3 overflow-hidden rounded-xl border border-accent-200 bg-accent-50 px-3 py-2 text-sm dark:border-accent-800 dark:bg-accent-950/40"><div class="shrink-0"><strong>Selection: {selection.start}–{selection.end}</strong><span class="ml-2 text-xs text-slate-600 dark:text-slate-300">{selectedSeq.length} {parsed.kind === 'protein' ? 'aa' : 'nt'} selected</span></div><span class="mono min-w-0 truncate text-xs text-slate-700 dark:text-slate-200" title={selectedSeq}>{selectionPreview(selectedSeq)}</span></div> : <p class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Drag across residues or bases to select a range. Shift-drag extends from the current selection start.</p>}
       <SequenceCanvas sequence={parsed.seq} annotations={s.annotations} selection={selection} residuesPerRow={s.residuesPerRow} colourFor={(residue, position) => parsed.kind === 'protein' ? proteinColour(residue, s.colourMode, chargeValues[position - 1] ?? 0) : nucleicColour(residue, s.colourMode)} onSelectionChange={next => set({ selection: next })} />
       {proteinRange && <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><h2 class="text-sm font-bold">Selected protein range</h2><dl class="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3"><div><dt>Length</dt><dd class="mono font-bold">{selectedSeq.length} aa</dd></div><div><dt>Average mass</dt><dd class="mono font-bold">{proteinRange.mw.toFixed(2)} Da</dd></div><div><dt>Monoisotopic mass</dt><dd class="mono font-bold">{proteinRange.mono.toFixed(4)} Da</dd></div><div><dt>Theoretical pI</dt><dd class="mono font-bold">{proteinRange.pI.toFixed(2)}</dd></div><div><dt>Net charge at pH {s.pH.toFixed(1)}</dt><dd class="mono font-bold">{proteinRange.charge.toFixed(2)} e</dd></div><div><dt>ε280 (reduced)</dt><dd class="mono font-bold">{proteinRange.ext.reduced.toFixed(0)} M⁻¹cm⁻¹</dd></div></dl></section>}
       {nucleicRange && <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><h2 class="text-sm font-bold">Selected nucleic-acid range</h2><dl class="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt>Length</dt><dd class="mono font-bold">{selectedSeq.length} nt</dd></div><div><dt>GC content</dt><dd class="mono font-bold">{nucleicRange.gc.toFixed(1)}%</dd></div><div class="col-span-2"><dt>Reverse complement</dt><dd class="mono break-all font-bold">{nucleicRange.reverseComplement}</dd></div></dl></section>}

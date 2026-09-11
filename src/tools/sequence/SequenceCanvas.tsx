@@ -1,3 +1,4 @@
+import type { JSX } from 'preact';
 import { useRef } from 'preact/hooks';
 import { normaliseSelection, type Selection, type SequenceAnnotation } from '@/core/sequence-annotator';
 
@@ -24,8 +25,7 @@ export function SequenceCanvas({
   onSelectionChange,
   onAnnotationSelect,
 }: Props) {
-  const anchor = useRef<number | null>(null);
-  const dragged = useRef(false);
+  const drag = useRef<{ anchor: number; pointerId: number; target: HTMLButtonElement; lastPosition: number }>();
   const width = Math.max(10, Math.min(120, residuesPerRow));
   const rows = Array.from({ length: Math.ceil(sequence.length / width) }, (_, index) => ({
     start: index * width + 1,
@@ -36,22 +36,44 @@ export function SequenceCanvas({
     onSelectionChange(normaliseSelection(start, end, sequence.length));
   }
 
-  function begin(position: number, extend: boolean) {
-    const start = extend && selection ? selection.start : position;
-    anchor.current = start;
-    dragged.current = false;
-    select(start, position);
+  function startDrag(event: JSX.TargetedPointerEvent<HTMLButtonElement>, position: number) {
+    if (event.button !== 0 || drag.current) return;
+    event.preventDefault();
+    const anchor = event.shiftKey && selection ? selection.start : position;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { anchor, pointerId: event.pointerId, target: event.currentTarget, lastPosition: position };
+    select(anchor, position);
   }
 
-  function extend(position: number) {
-    if (anchor.current !== null) {
-      dragged.current ||= position !== anchor.current;
-      select(anchor.current, position);
-    }
+  function extendDrag(event: PointerEvent, position: number) {
+    if (!drag.current || drag.current.pointerId !== event.pointerId || drag.current.lastPosition === position) return;
+    drag.current.lastPosition = position;
+    select(drag.current.anchor, position);
+  }
+
+  function moveDrag(event: JSX.TargetedPointerEvent<HTMLElement>) {
+    if (!drag.current || drag.current.pointerId !== event.pointerId) return;
+    const residue = event.currentTarget.ownerDocument.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-sequence-position]');
+    if (residue && event.currentTarget.contains(residue)) extendDrag(event, Number(residue.dataset.sequencePosition));
+  }
+
+  function endDrag(event: PointerEvent) {
+    if (!drag.current || drag.current.pointerId !== event.pointerId) return;
+    const { target, pointerId } = drag.current;
+    drag.current = undefined;
+    if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
   }
 
   return (
-    <section aria-label="Interactive sequence canvas" class="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+    <section
+      aria-label="Interactive sequence canvas"
+      class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/40"
+      style={{ userSelect: 'none', touchAction: 'none' }}
+      onPointerMove={moveDrag}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onLostPointerCapture={event => { if (drag.current?.pointerId === event.pointerId) drag.current = undefined; }}
+    >
       {annotations.length > 0 && (
         <div class="mb-3 flex flex-wrap gap-1.5 border-b border-slate-200 pb-3 dark:border-slate-800" aria-label="Annotation tracks">
           {annotations.map(annotation => (
@@ -74,11 +96,11 @@ export function SequenceCanvas({
         </div>
       )}
 
-      <div class="min-w-max space-y-1.5 font-mono text-sm leading-none" onMouseLeave={() => { anchor.current = null; }}>
+      <div class="space-y-2 font-mono text-sm leading-none">
         {rows.map(row => (
-          <div key={row.start} class="flex items-center gap-3">
-            <span class="w-12 shrink-0 select-none text-right text-[11px] text-slate-400">{row.start}</span>
-            <div class="flex rounded-md ring-1 ring-slate-200 dark:ring-slate-800" onMouseUp={() => { anchor.current = null; }}>
+          <div key={row.start} class="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-2">
+            <span class="select-none text-right text-[11px] text-slate-400">{row.start}</span>
+            <div class="grid overflow-hidden rounded-md ring-1 ring-slate-200 dark:ring-slate-800" style={{ gridTemplateColumns: `repeat(${row.text.length}, minmax(0, 1fr))` }}>
               {[...row.text].map((residue, index) => {
                 const position = row.start + index;
                 const selected = isSelected(position, selection);
@@ -88,14 +110,12 @@ export function SequenceCanvas({
                     key={position}
                     type="button"
                     aria-label={`Residue ${position}: ${residue}`}
-                    onMouseDown={event => begin(position, event.shiftKey)}
-                    onMouseEnter={() => extend(position)}
-                    onMouseUp={() => { anchor.current = null; }}
-                    onClick={() => {
-                      if (dragged.current) { dragged.current = false; return; }
-                      select(position, position);
-                    }}
-                    class={`relative h-8 w-5 border-r border-slate-200 text-xs font-bold last:border-r-0 dark:border-slate-800 ${colourFor(residue, position)} ${selected ? 'z-10 outline outline-2 outline-offset-[-2px] outline-accent-600' : ''}`}
+                    aria-pressed={selected}
+                    data-sequence-position={position}
+                    onPointerDown={event => startDrag(event, position)}
+                    onPointerEnter={event => extendDrag(event, position)}
+                    onClick={event => { if (event.detail === 0) select(position, position); }}
+                    class={`relative h-8 min-w-0 border-r border-slate-200 text-xs font-bold last:border-r-0 dark:border-slate-800 ${colourFor(residue, position)} ${selected ? 'z-10 outline outline-2 outline-offset-[-2px] outline-accent-600' : ''}`}
                     style={coveringAnnotation ? { boxShadow: `inset 0 3px 0 ${coveringAnnotation.color}` } : undefined}
                   >
                     {residue}
@@ -104,7 +124,7 @@ export function SequenceCanvas({
                 );
               })}
             </div>
-            <span class="w-12 shrink-0 select-none text-[11px] text-slate-400">{row.start + row.text.length - 1}</span>
+            <span class="select-none text-[11px] text-slate-400">{row.start + row.text.length - 1}</span>
           </div>
         ))}
       </div>
