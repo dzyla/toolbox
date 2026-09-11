@@ -98,19 +98,13 @@ describe('Nucleic Acids tool', () => {
   });
 });
 
-describe('Sequence Viewer & Analysis tool', () => {
-  it('renders sequence analysis and translation', async () => {
+describe('Sequence Annotator tool', () => {
+  it('renders the selectable annotation workspace', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
-    expect(await screen.findByText(/Sequence Viewer & Analysis/)).toBeTruthy();
-    expect(screen.getByTestId('sequence-overview-result')).toBeTruthy();
-    expect(screen.getByText(/Detected Type/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: '6-Frame Translation' }));
-    expect(await screen.findByTestId('sequence-translation-result')).toBeTruthy();
-    expect(screen.getByText(/Frame \+1/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'ORFs' }));
-    expect(await screen.findByTestId('sequence-orfs-result')).toBeTruthy();
+    expect(await screen.findByText(/Sequence Annotator/)).toBeTruthy();
+    expect(screen.getByLabelText('Sequence input')).toBeTruthy();
+    expect(screen.getByLabelText('Interactive sequence canvas')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Export annotations JSON' })).toBeTruthy();
   });
 });

@@ -1,458 +1,118 @@
 import { useMemo } from 'preact/hooks';
-import { useUrlState } from '@/lib/url-state';
+import { useUrlState, encodeState } from '@/lib/url-state';
+import { toHash } from '@/app/router';
+import { downloadText } from '@/lib/export';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
-import { LineChart } from '@/app/components/LineChart';
+import { cleanNucleic, detectType, gcContent, reverseComplement } from '@/core/nucleic/sequence';
+import { AA_KD, extinctionCoefficients, netCharge, sanitize, summarize } from '@/core/protein';
+import { chargeProfile } from '@/core/protein/profiles';
+import { normaliseSelection, transformAnnotationsForEdit, type Selection, type SequenceAnnotation, type SequenceKind } from '@/core/sequence-annotator';
+import { AnnotationEditor } from './AnnotationEditor';
+import { SequenceCanvas } from './SequenceCanvas';
 import { SCIENCE } from './science';
-import {
-  cleanNucleic, detectType, reverseComplement, gcContent, gcProfile,
-  sixFrames, findOrfs, digestSummary, restrictionSites,
-  CODON_TABLES,
-} from '@/core/nucleic/sequence';
-import { summarize, sanitize } from '@/core/protein';
 
-interface State {
-  raw: string;
-  tableId: number;
-  minOrfAa: number;
-  gcWindow: number;
-  circular: boolean;
-  activeTab: 'details' | 'translation' | 'orfs' | 'gc' | 'restriction';
+type ColourMode = 'plain' | 'type' | 'charge' | 'hydropathy' | 'gc';
+interface State { raw: string; annotations: SequenceAnnotation[]; selection: Selection | null; pH: number; residuesPerRow: number; colourMode: ColourMode; }
+const DEFAULTS: State = { raw: `>example_dna\nATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG`, annotations: [], selection: null, pH: 7, residuesPerRow: 30, colourMode: 'type' };
+const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900';
+
+function parseInput(raw: string): { header: string; seq: string; kind: SequenceKind; removed: number } {
+  const lines = raw.replace(/\r/g, '').split('\n');
+  const headerLine = lines.find(line => line.trim().startsWith('>'));
+  const header = headerLine?.trim().replace(/^>\s*/, '') || 'Untitled sequence';
+  const content = lines.filter(line => !line.trim().startsWith('>')).join('');
+  const kind = detectType(content) as SequenceKind;
+  if (kind === 'protein') {
+    const result = sanitize(content);
+    return { header, seq: result.seq, kind, removed: Object.values(result.removed).reduce((sum, value) => sum + value, 0) };
+  }
+  const result = cleanNucleic(content);
+  return { header, seq: result.seq, kind, removed: result.removed.whitespace + result.removed.digits + result.removed.other };
 }
 
-const DEFAULTS: State = {
-  raw: `>example_dna
-ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG`,
-  tableId: 1,
-  minOrfAa: 4,
-  gcWindow: 10,
-  circular: false,
-  activeTab: 'details',
-};
+function editBetween(before: string, after: string) {
+  let prefix = 0;
+  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix]) prefix++;
+  let suffix = 0;
+  while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
+  return { start: prefix + 1, deleted: before.length - prefix - suffix, inserted: after.length - prefix - suffix };
+}
 
-const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
+function proteinColour(residue: string, mode: ColourMode, charge: number) {
+  if (mode === 'plain') return 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-200';
+  if (mode === 'charge') return charge > 0.15 ? 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-100' : charge < -0.15 ? 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-100' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+  if (mode === 'hydropathy') {
+    const value = AA_KD[residue] ?? 0;
+    return value >= 1.5 ? 'bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-50' : value <= -1.5 ? 'bg-cyan-100 text-cyan-950 dark:bg-cyan-950 dark:text-cyan-50' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+  }
+  if ('KRH'.includes(residue)) return 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-100';
+  if ('DE'.includes(residue)) return 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-100';
+  if ('ILVAMFWY'.includes(residue)) return 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-50';
+  if ('STNQ'.includes(residue)) return 'bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-50';
+  if ('GP'.includes(residue)) return 'bg-violet-100 text-violet-950 dark:bg-violet-950 dark:text-violet-50';
+  return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+}
+
+function nucleicColour(base: string, mode: ColourMode) {
+  if (mode === 'plain') return 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-200';
+  if (mode === 'gc') return 'GC'.includes(base) ? 'bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-50' : 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-50';
+  if ('AG'.includes(base)) return 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-100';
+  if ('CTU'.includes(base)) return 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-100';
+  return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+}
 
 export default function SequenceView() {
-  const [state] = useUrlState('bb.sequence', DEFAULTS);
+  const [state, shareUrl] = useUrlState<State>('bb.sequence', DEFAULTS);
   const s = state.value;
   const set = (patch: Partial<State>) => { state.value = { ...state.value, ...patch }; };
+  const parsed = useMemo(() => parseInput(s.raw), [s.raw]);
+  const selection = normaliseSelection(s.selection?.start ?? 0, s.selection?.end ?? 0, parsed.seq.length);
+  const selectedSeq = selection ? parsed.seq.slice(selection.start - 1, selection.end) : '';
+  const chargeValues = useMemo(() => parsed.kind === 'protein' ? chargeProfile(parsed.seq, s.pH, 1) : [], [parsed, s.pH]);
+  const proteinRange = useMemo(() => {
+    if (parsed.kind !== 'protein' || !selectedSeq) return null;
+    const summary = summarize(selectedSeq);
+    return { ...summary, charge: netCharge(summary.counts, s.pH, 'bjellqvist', selectedSeq), ext: extinctionCoefficients(summary.counts, summary.mw, 'native') };
+  }, [parsed.kind, selectedSeq, s.pH]);
+  const nucleicRange = useMemo(() => parsed.kind !== 'protein' && selectedSeq ? { gc: gcContent(selectedSeq) * 100, reverseComplement: reverseComplement(selectedSeq, parsed.kind) } : null, [parsed.kind, selectedSeq]);
 
-  const parsed = useMemo(() => {
-    let header = 'Sequence';
-    let content = s.raw;
-    if (s.raw.trim().startsWith('>')) {
-      const lines = s.raw.trim().split('\n');
-      header = lines[0]!.replace(/^>\s*/, '');
-      content = lines.slice(1).join('');
-    }
-    const kind = detectType(content);
-    if (kind === 'protein') {
-      const prot = sanitize(content);
-      return {
-        header,
-        seq: prot.seq,
-        removed: {
-          whitespace: prot.removed.whitespace,
-          digits: prot.removed.digits,
-          other: prot.removed.dashes + prot.removed.stars + prot.removed.punctuation + prot.removed.other,
-        },
-        kind,
-      };
-    }
-    const clean = cleanNucleic(content);
-    return { header, seq: clean.seq, removed: clean.removed, kind };
-  }, [s.raw]);
+  function updateRaw(raw: string) {
+    const prior = parseInput(s.raw);
+    const next = parseInput(raw);
+    const edit = editBetween(prior.seq, next.seq);
+    const annotations = prior.kind === next.kind ? transformAnnotationsForEdit(s.annotations, edit.start, edit.deleted, edit.inserted, next.seq.length) : [];
+    set({ raw, annotations, selection: null });
+  }
+  function addAnnotation(input: Omit<SequenceAnnotation, 'id' | 'start' | 'end' | 'evidence'>) {
+    if (!selection) return;
+    set({ annotations: [...s.annotations, { ...input, id: `annotation-${Date.now()}-${s.annotations.length}`, start: selection.start, end: selection.end, evidence: 'user' }] });
+  }
+  function exportJson() { downloadText(JSON.stringify({ schemaVersion: 1, header: parsed.header, sequence: parsed.seq, kind: parsed.kind, annotations: s.annotations }, null, 2), 'sequence-annotations.json', 'application/json;charset=utf-8'); }
 
-  const revComp = useMemo(() => {
-    if (parsed.kind === 'protein' || !parsed.seq) return '';
-    return reverseComplement(parsed.seq, parsed.kind === 'RNA' ? 'RNA' : 'DNA');
-  }, [parsed.seq, parsed.kind]);
+  const proteinHref = toHash({ name: 'tool', toolId: 'protein', state: encodeState({ fasta: `>${parsed.header}\n${parsed.seq}`, selection }) });
+  const plasmidHref = toHash({ name: 'tool', toolId: 'plasmid', state: encodeState({ sequence: parsed.seq, selection }) });
+  const copyText = () => `${parsed.header}\n${parsed.kind} · ${parsed.seq.length} residues\n${selection ? `Selection: ${selection.start}–${selection.end} (${selectedSeq})` : 'No selection'}\nAnnotations: ${s.annotations.length}\n\n${scienceText(SCIENCE)}`;
 
-  const gc = useMemo(() => {
-    if (parsed.kind === 'protein' || !parsed.seq) return { pct: 0, profile: null };
-    const pct = gcContent(parsed.seq) * 100;
-    const windowSize = Math.max(3, Math.min(s.gcWindow, parsed.seq.length));
-    const profile = parsed.seq.length >= windowSize ? gcProfile(parsed.seq, windowSize) : null;
-    return { pct, profile };
-  }, [parsed.seq, parsed.kind, s.gcWindow]);
-
-  const translations = useMemo(() => {
-    if (parsed.kind === 'protein' || !parsed.seq) return [];
-    return sixFrames(parsed.seq, s.tableId);
-  }, [parsed.seq, parsed.kind, s.tableId]);
-
-  const orfs = useMemo(() => {
-    if (parsed.kind === 'protein' || !parsed.seq) return [];
-    return findOrfs(parsed.seq, { minAa: s.minOrfAa, tableId: s.tableId });
-  }, [parsed.seq, parsed.kind, s.minOrfAa, s.tableId]);
-
-  const digest = useMemo(() => {
-    if (parsed.kind === 'protein' || !parsed.seq) return { sites: [], summary: [] };
-    const sites = restrictionSites(parsed.seq, undefined, { circular: s.circular });
-    const summary = digestSummary(parsed.seq, undefined, { circular: s.circular });
-    return { sites, summary };
-  }, [parsed.seq, parsed.kind, s.circular]);
-
-  const proteinSummary = useMemo(() => {
-    if (parsed.kind !== 'protein' || !parsed.seq) return null;
-    try {
-      return summarize(parsed.seq);
-    } catch {
-      return null;
-    }
-  }, [parsed.seq, parsed.kind]);
-
-  const copyText = () => {
-    const lines = [
-      `Sequence: ${parsed.header}`,
-      `Type: ${parsed.kind}, Length: ${parsed.seq.length}`,
-    ];
-    if (parsed.kind !== 'protein') {
-      lines.push(`GC Content: ${gc.pct.toFixed(1)}%`);
-      lines.push(`Reverse complement: ${revComp}`);
-      lines.push(`Found ${orfs.length} ORFs (≥${s.minOrfAa} aa), ${digest.sites.length} restriction sites`);
-    } else if (proteinSummary) {
-      lines.push(`MW: ${proteinSummary.mw.toFixed(2)} Da, pI: ${proteinSummary.pI.toFixed(2)}`);
-    }
-    return `${lines.join('\n')}\n\n${scienceText(SCIENCE)}`;
-  };
-
-  return (
-    <ToolLayout
-      icon="🔤"
-      title="Sequence Viewer & Analysis"
-      blurb="Six-frame translation, ORF discovery, restriction site mapping, GC profile and protein parameter calculation."
-      inputs={
-        <div class="space-y-4">
-          <div>
-            <div class="flex items-baseline justify-between mb-1">
-              <label class="block text-sm font-medium">Input Sequence (FASTA or raw)</label>
-              <span class="text-xs text-slate-500">{parsed.seq.length} residues · {parsed.kind}</span>
-            </div>
-            <textarea
-              rows={6}
-              class={`${FIELD} mono text-xs`}
-              value={s.raw}
-              onInput={e => set({ raw: (e.target as HTMLTextAreaElement).value })}
-            />
-            {parsed.removed.whitespace + parsed.removed.digits + parsed.removed.other > 0 && (
-              <p class="mt-1 text-xs text-slate-500">
-                Ignored non-letter characters ({parsed.removed.whitespace} spaces, {parsed.removed.digits} digits, {parsed.removed.other} other)
-              </p>
-            )}
-          </div>
-
-          <label class="block">
-            <span class="mb-1 block text-sm font-medium">Upload Sequence File</span>
-            <input
-              type="file"
-              accept=".fasta,.fa,.dna,.txt,text/plain"
-              class="block min-h-11 w-full text-sm"
-              onChange={async e => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) set({ raw: await file.text() });
-              }}
-            />
-          </label>
-
-          {parsed.kind !== 'protein' && (
-            <div class="space-y-3 pt-2">
-              <div>
-                <label class="block text-sm font-medium mb-1">Genetic Code (Translation Table)</label>
-                <select
-                  class={FIELD}
-                  value={s.tableId}
-                  onChange={e => set({ tableId: Number((e.target as HTMLSelectElement).value) })}
-                >
-                  {CODON_TABLES.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.id}: {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Min ORF length (aa)</label>
-                  <input
-                    type="number"
-                    min="2"
-                    class={FIELD}
-                    value={s.minOrfAa}
-                    onInput={e => set({ minOrfAa: Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1) })}
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">GC Window (nt)</label>
-                  <input
-                    type="number"
-                    min="3"
-                    class={FIELD}
-                    value={s.gcWindow}
-                    onInput={e => set({ gcWindow: Math.max(3, parseInt((e.target as HTMLInputElement).value) || 3) })}
-                  />
-                </div>
-              </div>
-
-              <label class="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-slate-300"
-                  checked={s.circular}
-                  onChange={e => set({ circular: (e.target as HTMLInputElement).checked })}
-                />
-                Circular topology (wrap restriction sites around ends)
-              </label>
-            </div>
-          )}
-        </div>
-      }
-      results={
-        <div class="space-y-4">
-          {/* Tabs */}
-          <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
-            {(
-              [
-                ['details', 'Overview'],
-                ['translation', '6-Frame Translation'],
-                ['orfs', 'ORFs'],
-                ['gc', 'GC Profile'],
-                ['restriction', 'Restriction Digest'],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                class={`min-h-9 rounded-lg px-3 text-sm font-medium transition ${
-                  s.activeTab === id
-                    ? 'bg-accent-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                }`}
-                onClick={() => set({ activeTab: id })}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab 1: Overview */}
-          {s.activeTab === 'details' && (
-            <div class="space-y-4" data-testid="sequence-overview-result">
-              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Detected Type</div>
-                  <div class="mono text-xl font-bold text-accent-600">{parsed.kind}</div>
-                </div>
-
-                <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Length</div>
-                  <div class="mono text-xl font-bold">{parsed.seq.length}</div>
-                </div>
-
-                {parsed.kind !== 'protein' ? (
-                  <>
-                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">GC Content</div>
-                      <div class="mono text-xl font-bold">{gc.pct.toFixed(1)}%</div>
-                    </div>
-
-                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">ORFs Found</div>
-                      <div class="mono text-xl font-bold">{orfs.length}</div>
-                    </div>
-                  </>
-                ) : proteinSummary ? (
-                  <>
-                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Molecular Weight</div>
-                      <div class="mono text-xl font-bold">{proteinSummary.mw.toFixed(1)} Da</div>
-                    </div>
-
-                    <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Isoelectric Point</div>
-                      <div class="mono text-xl font-bold">{proteinSummary.pI.toFixed(2)}</div>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-
-              {/* Formatted Sequence Display */}
-              <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                <div class="flex justify-between items-center mb-2">
-                  <h3 class="font-medium text-sm">Sequence Display</h3>
-                  <button
-                    type="button"
-                    class="text-xs text-accent-600 underline"
-                    onClick={() => navigator.clipboard.writeText(parsed.seq)}
-                  >
-                    Copy Clean Sequence
-                  </button>
-                </div>
-                <div class="overflow-x-auto max-h-48 rounded bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <pre class="mono text-xs whitespace-pre-wrap break-all leading-relaxed">
-                    {parsed.seq}
-                  </pre>
-                </div>
-              </div>
-
-              {revComp && (
-                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                  <div class="flex justify-between items-center mb-2">
-                    <h3 class="font-medium text-sm">Reverse Complement</h3>
-                    <button
-                      type="button"
-                      class="text-xs text-accent-600 underline"
-                      onClick={() => navigator.clipboard.writeText(revComp)}
-                    >
-                      Copy Reverse Complement
-                    </button>
-                  </div>
-                  <div class="overflow-x-auto max-h-48 rounded bg-slate-50 p-3 dark:bg-slate-800/50">
-                    <pre class="mono text-xs whitespace-pre-wrap break-all leading-relaxed">
-                      {revComp}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab 2: 6-Frame Translation */}
-          {s.activeTab === 'translation' && (
-            <div class="space-y-4" data-testid="sequence-translation-result">
-              {translations.length === 0 ? (
-                <p class="text-slate-500">Translation is available for nucleotide sequences.</p>
-              ) : (
-                translations.map(t => (
-                  <div key={t.frame} class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="flex justify-between items-center mb-1">
-                      <span class="text-xs font-semibold uppercase text-slate-500">
-                        Frame {t.frame > 0 ? `+${t.frame}` : t.frame}
-                      </span>
-                      <button
-                        type="button"
-                        class="text-xs text-accent-600 hover:underline"
-                        onClick={() => navigator.clipboard.writeText(t.protein)}
-                      >
-                        Copy
-                      </button>
-                    </div>
-                    <pre class="mono text-xs whitespace-pre-wrap break-all bg-slate-50 p-2 rounded dark:bg-slate-800/40">
-                      {t.protein}
-                    </pre>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* Tab 3: ORFs */}
-          {s.activeTab === 'orfs' && (
-            <div class="space-y-4" data-testid="sequence-orfs-result">
-              <div class="flex justify-between items-center">
-                <h3 class="font-semibold text-sm">Identified Open Reading Frames (≥{s.minOrfAa} aa)</h3>
-                <span class="text-xs text-slate-500">{orfs.length} ORFs</span>
-              </div>
-
-              {orfs.length === 0 ? (
-                <p class="text-sm text-slate-500">No ORFs found meeting the criteria.</p>
-              ) : (
-                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                  <table class="w-full text-left text-xs">
-                    <thead>
-                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
-                        <th class="p-2">Frame</th>
-                        <th class="p-2">Start</th>
-                        <th class="p-2">End</th>
-                        <th class="p-2">Length</th>
-                        <th class="p-2">Protein</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orfs.map((orf, i) => (
-                        <tr key={i} class="border-b border-slate-100 dark:border-slate-800">
-                          <td class="p-2 mono">{orf.frame > 0 ? `+${orf.frame}` : orf.frame}</td>
-                          <td class="p-2 mono">{orf.start}</td>
-                          <td class="p-2 mono">{orf.end}</td>
-                          <td class="p-2 mono">{orf.lengthAa} aa ({orf.lengthNt} nt)</td>
-                          <td class="p-2 mono truncate max-w-xs">{orf.protein}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab 4: GC Profile */}
-          {s.activeTab === 'gc' && (
-            <div class="space-y-4" data-testid="sequence-gc-result">
-              {gc.profile ? (
-                <LineChart
-                  title={`GC Content Profile (${s.gcWindow} nt window)`}
-                  xLabel="Position (nt)"
-                  yLabel="GC Content (%)"
-                  series={[
-                    {
-                      name: 'GC %',
-                      x: gc.profile.x,
-                      y: gc.profile.y,
-                      color: '#0891b2',
-                    },
-                  ]}
-                  exportName="sequence-gc-profile"
-                />
-              ) : (
-                <p class="text-sm text-slate-500">Sequence too short for current GC window.</p>
-              )}
-            </div>
-          )}
-
-          {/* Tab 5: Restriction Digest */}
-          {s.activeTab === 'restriction' && (
-            <div class="space-y-4" data-testid="sequence-digest-result">
-              <div class="flex justify-between items-center">
-                <h3 class="font-semibold text-sm">Restriction Sites</h3>
-                <span class="text-xs text-slate-500">{digest.sites.length} total cutting sites</span>
-              </div>
-
-              <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                <table class="w-full text-left text-xs">
-                  <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
-                      <th class="p-2">Enzyme</th>
-                      <th class="p-2">Site</th>
-                      <th class="p-2">Overhang</th>
-                      <th class="p-2">Cuts</th>
-                      <th class="p-2">Cut Positions</th>
-                      <th class="p-2">Fragment Sizes (bp)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {digest.summary
-                      .filter(d => d.cuts > 0)
-                      .map((d, i) => (
-                        <tr key={i} class="border-b border-slate-100 dark:border-slate-800">
-                          <td class="p-2 font-semibold">{d.enzyme}</td>
-                          <td class="p-2 mono">{d.site}</td>
-                          <td class="p-2 mono">{d.overhang}</td>
-                          <td class="p-2 mono">{d.cuts}</td>
-                          <td class="p-2 mono">{d.positions.join(', ')}</td>
-                          <td class="p-2 mono">{d.fragments.join(', ')}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      }
-      actions={<ActionBar onCopy={copyText} />}
-      science={<SciencePanel science={SCIENCE} />}
-    />
-  );
+  return <ToolLayout
+    icon="🔤" title="Sequence Annotator" blurb="Select, colour, annotate, and analyse linear protein, DNA, and RNA sequences locally."
+    inputs={<div class="space-y-4">
+      <label for="sequence-input" class="block"><span class="mb-1 block text-sm font-medium">Sequence input</span><textarea id="sequence-input" aria-label="Sequence input" rows={8} class={`${FIELD} mono text-xs`} value={s.raw} onInput={event => updateRaw((event.target as HTMLTextAreaElement).value)} /></label>
+      <p class="text-xs text-slate-500">{parsed.header} · {parsed.seq.length.toLocaleString()} {parsed.kind === 'protein' ? 'aa' : 'nt'} · {parsed.kind}{parsed.removed ? ` · ${parsed.removed} non-sequence character${parsed.removed === 1 ? '' : 's'} ignored` : ''}</p>
+      <label class="block text-xs font-medium">Colour mode<select class={`${FIELD} mt-1`} value={s.colourMode} onChange={event => set({ colourMode: (event.target as HTMLSelectElement).value as ColourMode })}><option value="plain">Plain</option><option value="type">{parsed.kind === 'protein' ? 'Chemical class' : 'Base class'}</option>{parsed.kind === 'protein' ? <><option value="charge">Charge at pH</option><option value="hydropathy">Hydropathy</option></> : <option value="gc">GC vs AT(U)</option>}</select></label>
+      <label class="block text-xs font-medium">Residues per row<select class={`${FIELD} mt-1`} value={s.residuesPerRow} onChange={event => set({ residuesPerRow: Number((event.target as HTMLSelectElement).value) })}><option value={30}>30</option><option value={60}>60</option><option value={100}>100</option></select></label>
+      {parsed.kind === 'protein' && <label class="block text-xs font-medium">Charge pH<input aria-label="Charge pH" class="mt-1 w-full" type="range" min="0" max="14" step="0.1" value={s.pH} onInput={event => set({ pH: Number((event.target as HTMLInputElement).value) })} /><span class="mono text-accent-600">{s.pH.toFixed(1)}</span></label>}
+      <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-slate-800"><button type="button" onClick={exportJson} class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Export annotations JSON</button><button type="button" onClick={() => downloadText(`>${parsed.header}\n${parsed.seq}\n`, 'sequence.fasta', 'text/x-fasta;charset=utf-8')} class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Export FASTA</button></div>
+      <div class="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60">{parsed.kind === 'protein' ? <a class="font-semibold text-accent-700 hover:underline dark:text-accent-300" href={proteinHref}>Open sequence in Protein Workbench →</a> : <a class="font-semibold text-accent-700 hover:underline dark:text-accent-300" href={plasmidHref}>Open sequence in Plasmid Viewer →</a>}</div>
+    </div>}
+    results={<div class="space-y-4">
+      {selection ? <div class="rounded-xl border border-accent-200 bg-accent-50 p-3 text-sm dark:border-accent-800 dark:bg-accent-950/40"><strong>Selection: {selection.start}–{selection.end}</strong> <span class="mono text-xs">{selectedSeq}</span></div> : <p class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Click a residue/base or drag across the canvas to select a range. Shift-click extends from the selection start.</p>}
+      <SequenceCanvas sequence={parsed.seq} annotations={s.annotations} selection={selection} residuesPerRow={s.residuesPerRow} colourFor={(residue, position) => parsed.kind === 'protein' ? proteinColour(residue, s.colourMode, chargeValues[position - 1] ?? 0) : nucleicColour(residue, s.colourMode)} onSelectionChange={next => set({ selection: next })} />
+      {proteinRange && <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><h2 class="text-sm font-bold">Selected protein range</h2><dl class="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3"><div><dt>Length</dt><dd class="mono font-bold">{selectedSeq.length} aa</dd></div><div><dt>Average mass</dt><dd class="mono font-bold">{proteinRange.mw.toFixed(2)} Da</dd></div><div><dt>Monoisotopic mass</dt><dd class="mono font-bold">{proteinRange.mono.toFixed(4)} Da</dd></div><div><dt>Theoretical pI</dt><dd class="mono font-bold">{proteinRange.pI.toFixed(2)}</dd></div><div><dt>Net charge at pH {s.pH.toFixed(1)}</dt><dd class="mono font-bold">{proteinRange.charge.toFixed(2)} e</dd></div><div><dt>ε280 (reduced)</dt><dd class="mono font-bold">{proteinRange.ext.reduced.toFixed(0)} M⁻¹cm⁻¹</dd></div></dl></section>}
+      {nucleicRange && <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><h2 class="text-sm font-bold">Selected nucleic-acid range</h2><dl class="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt>Length</dt><dd class="mono font-bold">{selectedSeq.length} nt</dd></div><div><dt>GC content</dt><dd class="mono font-bold">{nucleicRange.gc.toFixed(1)}%</dd></div><div class="col-span-2"><dt>Reverse complement</dt><dd class="mono break-all font-bold">{nucleicRange.reverseComplement}</dd></div></dl></section>}
+      <AnnotationEditor selection={selection} annotations={s.annotations} onCreate={addAnnotation} onSelect={annotation => set({ selection: { start: annotation.start, end: annotation.end } })} onRemove={id => set({ annotations: s.annotations.filter(annotation => annotation.id !== id) })} />
+    </div>}
+    actions={<ActionBar onCopy={copyText} shareUrl={shareUrl} />} science={<SciencePanel science={SCIENCE} />}
+  />;
 }
