@@ -10,12 +10,15 @@ import { AA_KD, extinctionCoefficients, netCharge, sanitize, summarize } from '@
 import { chargeProfile } from '@/core/protein/profiles';
 import { normaliseSelection, transformAnnotationsForEdit, type Selection, type SequenceAnnotation, type SequenceKind } from '@/core/sequence-annotator';
 import { AnnotationEditor } from './AnnotationEditor';
+import { DetectedFeatures } from './DetectedFeatures';
+import { detectSequenceFeatures } from './features';
+import { RangeInspector } from './RangeInspector';
 import { SequenceCanvas } from './SequenceCanvas';
 import { SCIENCE } from './science';
 
 type ColourMode = 'plain' | 'type' | 'charge' | 'hydropathy' | 'gc';
 interface State { raw: string; annotations: SequenceAnnotation[]; selection: Selection | null; pH: number; residuesPerRow: number; colourMode: ColourMode; }
-const DEFAULTS: State = { raw: `>example_dna\nATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG`, annotations: [], selection: null, pH: 7, residuesPerRow: 30, colourMode: 'type' };
+const DEFAULTS: State = { raw: `>example_dna\nATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG`, annotations: [], selection: null, pH: 7, residuesPerRow: 60, colourMode: 'type' };
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900';
 
 function parseInput(raw: string): { header: string; seq: string; kind: SequenceKind; removed: number } {
@@ -38,12 +41,6 @@ function editBetween(before: string, after: string) {
   let suffix = 0;
   while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
   return { start: prefix + 1, deleted: before.length - prefix - suffix, inserted: after.length - prefix - suffix };
-}
-
-function selectionPreview(sequence: string, limit = 36) {
-  if (sequence.length <= limit) return sequence;
-  const edge = Math.floor((limit - 1) / 2);
-  return `${sequence.slice(0, edge)}…${sequence.slice(-edge)}`;
 }
 
 function proteinColour(residue: string, mode: ColourMode, charge: number) {
@@ -77,6 +74,7 @@ export default function SequenceView() {
   const selection = normaliseSelection(s.selection?.start ?? 0, s.selection?.end ?? 0, parsed.seq.length);
   const selectedSeq = selection ? parsed.seq.slice(selection.start - 1, selection.end) : '';
   const chargeValues = useMemo(() => parsed.kind === 'protein' ? chargeProfile(parsed.seq, s.pH, 1) : [], [parsed, s.pH]);
+  const detectedFeatures = useMemo(() => detectSequenceFeatures(parsed.seq, parsed.kind), [parsed.kind, parsed.seq]);
   const proteinRange = useMemo(() => {
     if (parsed.kind !== 'protein' || !selectedSeq) return null;
     const summary = summarize(selectedSeq);
@@ -107,18 +105,23 @@ export default function SequenceView() {
       <label for="sequence-input" class="block"><span class="mb-1 block text-sm font-medium">Sequence input</span><textarea id="sequence-input" aria-label="Sequence input" rows={8} class={`${FIELD} mono text-xs`} value={s.raw} onInput={event => updateRaw((event.target as HTMLTextAreaElement).value)} /></label>
       <p class="text-xs text-slate-500">{parsed.header} · {parsed.seq.length.toLocaleString()} {parsed.kind === 'protein' ? 'aa' : 'nt'} · {parsed.kind}{parsed.removed ? ` · ${parsed.removed} non-sequence character${parsed.removed === 1 ? '' : 's'} ignored` : ''}</p>
       <label class="block text-xs font-medium">Colour mode<select class={`${FIELD} mt-1`} value={s.colourMode} onChange={event => set({ colourMode: (event.target as HTMLSelectElement).value as ColourMode })}><option value="plain">Plain</option><option value="type">{parsed.kind === 'protein' ? 'Chemical class' : 'Base class'}</option>{parsed.kind === 'protein' ? <><option value="charge">Charge at pH</option><option value="hydropathy">Hydropathy</option></> : <option value="gc">GC vs AT(U)</option>}</select></label>
-      <label class="block text-xs font-medium">Residues per row<select class={`${FIELD} mt-1`} value={s.residuesPerRow} onChange={event => set({ residuesPerRow: Number((event.target as HTMLSelectElement).value) })}><option value={30}>30</option><option value={60}>60</option><option value={100}>100</option></select></label>
+      <label class="block text-xs font-medium">Residues per row<select class={`${FIELD} mt-1`} value={s.residuesPerRow} onChange={event => set({ residuesPerRow: Number((event.target as HTMLSelectElement).value) })}><option value={30}>30</option><option value={45}>45</option><option value={60}>60</option></select></label>
       {parsed.kind === 'protein' && <label class="block text-xs font-medium">Charge pH<input aria-label="Charge pH" class="mt-1 w-full" type="range" min="0" max="14" step="0.1" value={s.pH} onInput={event => set({ pH: Number((event.target as HTMLInputElement).value) })} /><span class="mono text-accent-600">{s.pH.toFixed(1)}</span></label>}
       <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-slate-800"><button type="button" onClick={exportJson} class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Export annotations JSON</button><button type="button" onClick={() => downloadText(`>${parsed.header}\n${parsed.seq}\n`, 'sequence.fasta', 'text/x-fasta;charset=utf-8')} class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Export FASTA</button></div>
       <div class="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60">{parsed.kind === 'protein' ? <a class="font-semibold text-accent-700 hover:underline dark:text-accent-300" href={proteinHref}>Open sequence in Protein Workbench →</a> : <a class="font-semibold text-accent-700 hover:underline dark:text-accent-300" href={plasmidHref}>Open sequence in Plasmid Viewer →</a>}</div>
     </div>}
     results={<div class="space-y-4">
-      {selection ? <div class="flex min-h-12 items-center gap-3 overflow-hidden rounded-xl border border-accent-200 bg-accent-50 px-3 py-2 text-sm dark:border-accent-800 dark:bg-accent-950/40"><div class="shrink-0"><strong>Selection: {selection.start}–{selection.end}</strong><span class="ml-2 text-xs text-slate-600 dark:text-slate-300">{selectedSeq.length} {parsed.kind === 'protein' ? 'aa' : 'nt'} selected</span></div><span class="mono min-w-0 truncate text-xs text-slate-700 dark:text-slate-200" title={selectedSeq}>{selectionPreview(selectedSeq)}</span></div> : <p class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Drag across residues or bases to select a range. Shift-drag extends from the current selection start.</p>}
-      <SequenceCanvas sequence={parsed.seq} annotations={s.annotations} selection={selection} residuesPerRow={s.residuesPerRow} colourFor={(residue, position) => parsed.kind === 'protein' ? proteinColour(residue, s.colourMode, chargeValues[position - 1] ?? 0) : nucleicColour(residue, s.colourMode)} onSelectionChange={next => set({ selection: next })} />
+      <RangeInspector selection={selection} length={parsed.seq.length} kind={parsed.kind} preview={selectedSeq} onSelectionChange={next => set({ selection: next })} />
+      <section aria-label="Sequence workbench" class="rounded-2xl border border-slate-200 bg-slate-50/40 p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-950/20">
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2"><div><h2 class="text-sm font-bold">Sequence workspace</h2><p class="mt-0.5 text-xs text-slate-500">Fixed-pitch residues; annotations are top marks, detected protein features are lower marks.</p></div><span class="font-mono text-xs text-slate-500">{s.residuesPerRow} per row</span></div>
+        <SequenceCanvas sequence={parsed.seq} annotations={s.annotations} features={detectedFeatures} selection={selection} residuesPerRow={s.residuesPerRow} colourFor={(residue, position) => parsed.kind === 'protein' ? proteinColour(residue, s.colourMode, chargeValues[position - 1] ?? 0) : nucleicColour(residue, s.colourMode)} onSelectionChange={next => set({ selection: next })} />
+      </section>
+      {parsed.kind === 'protein' && <DetectedFeatures features={detectedFeatures} onSelect={feature => set({ selection: { start: feature.start, end: feature.end } })} />}
       {proteinRange && <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><h2 class="text-sm font-bold">Selected protein range</h2><dl class="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3"><div><dt>Length</dt><dd class="mono font-bold">{selectedSeq.length} aa</dd></div><div><dt>Average mass</dt><dd class="mono font-bold">{proteinRange.mw.toFixed(2)} Da</dd></div><div><dt>Monoisotopic mass</dt><dd class="mono font-bold">{proteinRange.mono.toFixed(4)} Da</dd></div><div><dt>Theoretical pI</dt><dd class="mono font-bold">{proteinRange.pI.toFixed(2)}</dd></div><div><dt>Net charge at pH {s.pH.toFixed(1)}</dt><dd class="mono font-bold">{proteinRange.charge.toFixed(2)} e</dd></div><div><dt>ε280 (reduced)</dt><dd class="mono font-bold">{proteinRange.ext.reduced.toFixed(0)} M⁻¹cm⁻¹</dd></div></dl></section>}
       {nucleicRange && <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><h2 class="text-sm font-bold">Selected nucleic-acid range</h2><dl class="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt>Length</dt><dd class="mono font-bold">{selectedSeq.length} nt</dd></div><div><dt>GC content</dt><dd class="mono font-bold">{nucleicRange.gc.toFixed(1)}%</dd></div><div class="col-span-2"><dt>Reverse complement</dt><dd class="mono break-all font-bold">{nucleicRange.reverseComplement}</dd></div></dl></section>}
       <AnnotationEditor selection={selection} annotations={s.annotations} onCreate={addAnnotation} onSelect={annotation => set({ selection: { start: annotation.start, end: annotation.end } })} onRemove={id => set({ annotations: s.annotations.filter(annotation => annotation.id !== id) })} />
     </div>}
     actions={<ActionBar onCopy={copyText} shareUrl={shareUrl} />} science={<SciencePanel science={SCIENCE} />}
+    wide
   />;
 }

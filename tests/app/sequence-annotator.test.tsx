@@ -90,10 +90,11 @@ describe('SequenceCanvas', () => {
     }
   });
 
-  it('keeps the residue grid responsive rather than creating a horizontal scroller', () => {
+  it('keeps residues at a fixed readable pitch and allows intentional density scrolling', () => {
     render(<CanvasHarness />);
     const canvas = screen.getByLabelText('Interactive sequence canvas');
-    expect(canvas.className).not.toContain('overflow-x-auto');
+    expect(canvas.className).toContain('overflow-x-auto');
+    expect(screen.getByRole('button', { name: 'Residue 1: A' }).className).toContain('w-[0.9rem]');
     expect(canvas.style.userSelect).toBe('none');
     expect(canvas.style.touchAction).toBe('none');
   });
@@ -106,6 +107,36 @@ describe('SequenceCanvas', () => {
 });
 
 describe('Sequence Annotator route', () => {
+  it('shows Protein Workbench detection evidence and selects a detected feature', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'AAHHHHHHGG' } });
+
+    expect(await screen.findByText('Detected protein features')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Detected feature: His-Tag \(6x\), residues 3–8/ }));
+    expect(await screen.findByText('Selection: 3–8')).toBeTruthy();
+    expect(screen.getByText(/Immobilized Metal Affinity Chromatography/)).toBeTruthy();
+  });
+
+  it('lets a mouse-made selection be corrected start-first by exact coordinates', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'M'.repeat(250) } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Residue 100: M' }));
+
+    const end = screen.getByLabelText('Selection end');
+    const start = screen.getByLabelText('Selection start');
+    fireEvent.input(end, { target: { value: '200' } });
+    fireEvent.blur(end);
+    fireEvent.input(start, { target: { value: '201' } });
+    fireEvent.blur(start);
+    fireEvent.input(end, { target: { value: '250' } });
+    fireEvent.blur(end);
+
+    expect(await screen.findByText('Selection: 201–250')).toBeTruthy();
+    expect(screen.getByText('50 aa selected')).toBeTruthy();
+  });
+
   it('creates a durable user annotation from the active pointer selection', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
