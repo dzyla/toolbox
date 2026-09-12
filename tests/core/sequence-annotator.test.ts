@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   normaliseSelection,
+  foldQuickRna,
+  sequenceTypeHint,
   transformAnnotationsForEdit,
   validateAnnotations,
   type SequenceAnnotation,
@@ -48,5 +50,26 @@ describe('Sequence Annotator protein feature adapter', () => {
       expect.objectContaining({ name: 'His-Tag (6x)', start: 3, end: 8, kind: 'tag' }),
     ]));
     expect(detectSequenceFeatures('ACGTACGT', 'DNA')).toEqual([]);
+  });
+});
+
+describe('explicit sequence-type guidance and quick RNA structure', () => {
+  it('offers advisory type hints without selecting a type for the caller', () => {
+    expect(sequenceTypeHint('ATCGATCG')).toMatchObject({ kind: 'DNA', confidence: 'possible', label: 'Possibly DNA' });
+    expect(sequenceTypeHint('ACGUACGU')).toMatchObject({ kind: 'RNA', confidence: 'possible', label: 'Possibly RNA' });
+    expect(sequenceTypeHint('MKWVTFIS')).toMatchObject({ kind: 'protein', confidence: 'likely', label: 'Likely protein' });
+    expect(sequenceTypeHint('ACGTU')).toMatchObject({ kind: null, confidence: 'uncertain' });
+  });
+
+  it('returns nested non-pseudoknotted RNA base pairs as dot-bracket notation', () => {
+    expect(foldQuickRna('GGGAAACCC')).toEqual({
+      dotBracket: '(((...)))',
+      pairs: [[1, 9], [2, 8], [3, 7]],
+      pairCount: 3,
+    });
+  });
+
+  it('rejects selections over the quick RNA folding limit', () => {
+    expect(() => foldQuickRna('A'.repeat(401))).toThrow('up to 400 nt');
   });
 });

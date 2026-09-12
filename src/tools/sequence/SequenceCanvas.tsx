@@ -12,6 +12,7 @@ interface Props {
   colourFor: (residue: string, position: number) => string;
   onSelectionChange: (selection: Selection | null) => void;
   onAnnotationSelect?: (annotation: SequenceAnnotation) => void;
+  onFeatureSelect?: (feature: ProteinFeature) => void;
 }
 
 function isSelected(position: number, selection: Selection | null) {
@@ -27,6 +28,7 @@ export function SequenceCanvas({
   colourFor,
   onSelectionChange,
   onAnnotationSelect,
+  onFeatureSelect,
 }: Props) {
   const drag = useRef<{ anchor: number; pointerId: number; target: HTMLButtonElement; lastPosition: number }>();
   const width = Math.max(10, Math.min(120, residuesPerRow));
@@ -122,7 +124,10 @@ export function SequenceCanvas({
                     data-sequence-position={position}
                     onPointerDown={event => startDrag(event, position)}
                     onPointerEnter={event => extendDrag(event, position)}
-                    onClick={event => { if (event.detail === 0) select(position, position); }}
+                    onClick={event => {
+                      if (event.detail === 0) select(position, position);
+                      if (event.detail > 0 && coveringFeature) onFeatureSelect?.(coveringFeature);
+                    }}
                     title={`${position}: ${residue}${coveringFeature ? ` · ${coveringFeature.name}` : ''}`}
                     class={`relative h-8 w-[0.9rem] shrink-0 border-r border-slate-200 text-xs font-bold last:border-r-0 dark:border-slate-800 ${colourFor(residue, position)} ${selected ? 'z-10 outline outline-2 outline-offset-[-2px] outline-accent-600' : ''}`}
                     style={boxShadow ? { boxShadow } : undefined}

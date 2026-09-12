@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { fireEvent, render, screen } from '@testing-library/preact';
+import { fireEvent, render, screen, within } from '@testing-library/preact';
 import { describe, expect, it, vi } from 'vitest';
 import { SequenceCanvas } from '@/tools/sequence/SequenceCanvas';
 import type { Selection } from '@/core/sequence-annotator';
@@ -107,20 +107,27 @@ describe('SequenceCanvas', () => {
 });
 
 describe('Sequence Annotator route', () => {
-  it('shows Protein Workbench detection evidence and selects a detected feature', async () => {
+  it('keeps opt-in protein feature hits compact and shows their detail in the inspector', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
     fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'AAHHHHHHGG' } });
 
-    expect(await screen.findByText('Detected protein features')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Detected feature: His-Tag \(6x\), residues 3–8/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Protein feature candidates' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Residue 5: H' }), { detail: 1 });
     expect(await screen.findByText('Selection: 3–8')).toBeTruthy();
-    expect(screen.getByText(/Immobilized Metal Affinity Chromatography/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: /Feature candidate: His-Tag \(6x\), residues 3–8/ }));
+    expect(await screen.findByText('Selection: 3–8')).toBeTruthy();
+    const inspector = screen.getByLabelText('Selection inspector');
+    expect(within(inspector).getByText('His-Tag (6x)', { selector: 'strong' })).toBeTruthy();
+    expect(within(inspector).getByText(/Immobilized Metal Affinity Chromatography/)).toBeTruthy();
+    expect(screen.queryByLabelText('Detected protein features')).toBeNull();
   });
 
   it('lets a mouse-made selection be corrected start-first by exact coordinates', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
     fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'M'.repeat(250) } });
     fireEvent.click(await screen.findByRole('button', { name: 'Residue 100: M' }));
 
@@ -137,11 +144,28 @@ describe('Sequence Annotator route', () => {
     expect(screen.getByText('50 aa selected')).toBeTruthy();
   });
 
+  it('updates the canvas selection immediately when either coordinate is edited', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'M'.repeat(250) } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Residue 100: M' }));
+
+    fireEvent.input(screen.getByLabelText('Selection start'), { target: { value: '120' } });
+    expect(await screen.findByText('Selection: 100–120')).toBeTruthy();
+    expect(screen.getByText('21 aa selected')).toBeTruthy();
+
+    fireEvent.input(screen.getByLabelText('Selection end'), { target: { value: '150' } });
+    expect(await screen.findByText('Selection: 120–150')).toBeTruthy();
+    expect(screen.getByText('31 aa selected')).toBeTruthy();
+  });
+
   it('creates a durable user annotation from the active pointer selection', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
 
     expect(await screen.findByRole('heading', { name: /Sequence Annotator/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
     fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ACDEFG' } });
     const start = await screen.findByRole('button', { name: 'Residue 2: C' });
     makePointerCapturable(start);
@@ -157,6 +181,7 @@ describe('Sequence Annotator route', () => {
   it('keeps a long selected sequence preview concise', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
     const sequence = 'ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY';
     fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: sequence } });
     const start = await screen.findByRole('button', { name: 'Residue 1: A' });
@@ -170,19 +195,78 @@ describe('Sequence Annotator route', () => {
     expect(screen.queryByText(sequence)).toBeNull();
   });
 
-  it('shows protein range mass and pI but DNA range GC percentage', async () => {
+  it('shows protein mass and pI but DNA GC percentage in the selection inspector', async () => {
     route.value = { name: 'tool', toolId: 'sequence' };
     render(<SequenceView />);
 
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
     fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ACDEFG' } });
     fireEvent.click(await screen.findByRole('button', { name: 'Residue 1: A' }));
-    expect(await screen.findByText('Selected protein range')).toBeTruthy();
-    expect(screen.getByText('Monoisotopic mass')).toBeTruthy();
-    expect(screen.getByText('Theoretical pI')).toBeTruthy();
+    expect(within(screen.getByLabelText('Selection inspector')).getByText('Monoisotopic mass')).toBeTruthy();
+    expect(within(screen.getByLabelText('Selection inspector')).getByText('Theoretical pI')).toBeTruthy();
 
+    fireEvent.click(screen.getByRole('radio', { name: 'DNA' }));
     fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ACGTAC' } });
     fireEvent.click(await screen.findByRole('button', { name: 'Residue 1: A' }));
-    expect(await screen.findByText('Selected nucleic-acid range')).toBeTruthy();
-    expect(screen.getByText('GC content')).toBeTruthy();
+    expect(within(screen.getByLabelText('Selection inspector')).getByText('GC content')).toBeTruthy();
+  });
+
+  it('keeps selection metrics in the fixed inspector, including quick nucleic Tm', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ACDEFG' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Residue 1: A' }));
+    const proteinInspector = screen.getByLabelText('Selection inspector');
+    expect(within(proteinInspector).getByText('Theoretical pI')).toBeTruthy();
+    expect(within(proteinInspector).getByText('Monoisotopic mass')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'DNA' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ACGTACGTACGTACGT' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Residue 1: A' }));
+    const nucleicInspector = screen.getByLabelText('Selection inspector');
+    expect(within(nucleicInspector).getByText('GC content')).toBeTruthy();
+    expect(within(nucleicInspector).getByText(/Quick oligo Tm/)).toBeTruthy();
+  });
+
+  it('uses an explicit sequence kind while showing detection as non-mutating advice', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ATCGATCG' } });
+    expect(screen.getByText('Possibly DNA')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Protein' }).getAttribute('aria-checked')).toBe('true');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'RNA' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'ACGUACGU' } });
+    expect(screen.getByRole('radio', { name: 'RNA' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText(/8 nt · RNA/)).toBeTruthy();
+  });
+
+  it('keeps protein candidate scanning off until its optional analysis layer is enabled', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Protein' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'AAHHHHHHGG' } });
+    expect(screen.queryByLabelText('Detected protein features')).toBeNull();
+    const layer = screen.getByRole('checkbox', { name: 'Protein feature candidates' });
+    expect((layer as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(layer);
+    expect((layer as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('renders an opt-in quick RNA pairing sketch in the stable inspector', async () => {
+    route.value = { name: 'tool', toolId: 'sequence' };
+    render(<SequenceView />);
+    fireEvent.click(screen.getByRole('radio', { name: 'RNA' }));
+    fireEvent.input(screen.getByLabelText('Sequence input'), { target: { value: 'GGGAAACCC' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Residue 1: G' }));
+    fireEvent.input(screen.getByLabelText('Selection end'), { target: { value: '9' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'RNA secondary structure' }));
+
+    const inspector = screen.getByLabelText('Selection inspector');
+    expect(within(inspector).getByLabelText('Quick RNA secondary structure')).toBeTruthy();
+    expect(within(inspector).getByText('(((...)))')).toBeTruthy();
+    expect(within(inspector).getByLabelText('RNA base-pair arc map')).toBeTruthy();
   });
 });

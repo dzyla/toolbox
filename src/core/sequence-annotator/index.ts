@@ -1,6 +1,8 @@
 /** Durable, linear sequence annotation primitives. Coordinates are 1-based inclusive. */
 
 export type SequenceKind = 'protein' | 'DNA' | 'RNA';
+export { sequenceTypeHint, type SequenceTypeHint } from './type';
+export { foldQuickRna, QUICK_RNA_MAX_LENGTH, type QuickRnaStructure } from './rna-structure';
 export type AnnotationEvidence = 'user' | 'imported';
 
 export interface Selection {
