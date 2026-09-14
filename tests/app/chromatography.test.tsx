@@ -123,6 +123,28 @@ describe('Chromatography Workbench', () => {
     expect(screen.getByRole('button', { name: /Cond \(mS\/cm\)/i }).getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('shows injection-relative ÅKTA annotations and lets active trace colors and viewport be controlled', () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), { target: { value: [
+      'Chrom.1\t\tChrom.1\t\tChrom.1\t\tChrom.1\t',
+      'Fraction\t\tInjection\t\tCond\t\tUV\t',
+      'ml\tFraction\tml\tInjection\tml\tmS/cm\tml\tmAU',
+      '4\t"A1"\t2\t\t2\t30\t2\t0',
+      '5\t"A2"\t\t\t3\t31\t3\t4',
+      '6\t"A3"\t\t\t4\t32\t4\t0',
+    ].join('\n') } });
+
+    expect(screen.getByLabelText(/Chromatogram analysis plot/i)).toBeTruthy();
+    expect(screen.getByText(/Injection at 0\.00 mL/i)).toBeTruthy();
+    expect(screen.getAllByText('A1')).toHaveLength(2);
+    const color = screen.getByLabelText(/Color for UV/i) as HTMLInputElement;
+    fireEvent.input(color, { target: { value: '#dc2626' } });
+    expect(color.value).toBe('#dc2626');
+    fireEvent.click(screen.getByRole('button', { name: /Focus selected fractions/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Reset zoom/i }));
+  });
+
   it('keeps UV-Vis correction out of the chromatography workbench', () => {
     render(<SecView />);
     expect(screen.queryByRole('button', { name: /UV-Vis spectra/i })).toBeNull();
