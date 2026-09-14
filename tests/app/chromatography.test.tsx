@@ -34,6 +34,7 @@ describe('Chromatography Workbench', () => {
     expect(baseline.value).toBe('none');
     fireEvent.change(baseline, { target: { value: 'rolling-minimum' } });
     expect(screen.getByText(/Baseline: rolling-minimum/i)).toBeTruthy();
+    expect(screen.getByText(/Baseline-corrected UV/i)).toBeTruthy();
 
     fireEvent.input(screen.getByLabelText(/Manual peak start/i), { target: { value: '1' } });
     fireEvent.input(screen.getByLabelText(/Manual peak end/i), { target: { value: '3' } });
@@ -68,6 +69,31 @@ describe('Chromatography Workbench', () => {
     expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"sourceText"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
     expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"baseline"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
     expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"methodSettings"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
+  });
+
+  it('exports injection-relative display and multi-peak review state only in derived records', () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), { target: { value: [
+      'Chrom.1\t\tChrom.1\t\tChrom.1\t',
+      'Fraction\t\tInjection\t\tUV\t',
+      'ml\tFraction\tml\tInjection\tml\tmAU',
+      '3\t"A1"\t1\t\t1\t0',
+      '4\t"A2"\t\t\t2\t4',
+      '5\t"A3"\t\t\t3\t0',
+      '6\t"A4"\t\t\t4\t5',
+      '7\t"A5"\t\t\t5\t0',
+    ].join('\n') } });
+    fireEvent.click(screen.getByRole('button', { name: /Accept candidate 1/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Accept candidate 2/i }));
+    fireEvent.input(screen.getByLabelText(/Color for UV/i), { target: { value: '#dc2626' } });
+    fireEvent.click(screen.getByRole('button', { name: 'A1' }));
+    fireEvent.click(screen.getByRole('button', { name: /Focus selected fractions/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Export derived JSON/i }));
+
+    expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"acceptedPeaks"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
+    expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"displayVolumeOffsetMl"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
+    expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"traceSettings"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
   });
 
   it('maps an imported trace and requires accepting a candidate before derived peak details appear', () => {

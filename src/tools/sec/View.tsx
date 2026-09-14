@@ -1005,11 +1005,26 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const auditRecord = (kind: 'raw' | 'derived') => ({
     app: 'Chromatography Workbench', recordType: kind, exportedAt: new Date().toISOString(),
     source: { filename: sourceFilename || 'pasted-chromatogram.csv', sourceText: source, sourceHeaders: data?.sourceHeaders ?? [], mappedHeaders: data?.mappedHeaders ?? {}, parserNotices: data?.notices ?? [], mapping },
-    baseline: { mode: baselineMode, anchors: manualBaselineAnchors }, candidates, acceptedPeaks: acceptedPeakDetails, manualBounds: { startVolumeMl: numberOrUndefined(manualStart), endVolumeMl: numberOrUndefined(manualEnd), accepted: manualAccepted, integration: manualResult.integration },
-    fractionSelection: fraction, opticalInputs: { ...audit.opticalInputs, fractionAmountInputs: amountInputs }, amountEstimate: amount, methodSettings: audit.methodSettings, findings: audit.findings, rawPoints: kind === 'raw' ? data?.points ?? [] : undefined, derivedPoints: kind === 'derived' ? derived : undefined,
+    ...(kind === 'derived' ? {
+      displayVolumeOffsetMl: displayOffset,
+      traceSettings,
+      viewport,
+      showFractions,
+      selectedFractionLabels,
+      baseline: { mode: baselineMode, anchors: manualBaselineAnchors },
+      candidates,
+      acceptedPeaks: acceptedPeakDetails,
+      manualBounds: { startVolumeMl: numberOrUndefined(manualStart), endVolumeMl: numberOrUndefined(manualEnd), accepted: manualAccepted, integration: manualResult.integration },
+      fractionSelection: fraction,
+      opticalInputs: { ...audit.opticalInputs, fractionAmountInputs: amountInputs },
+      amountEstimate: amount,
+      methodSettings: audit.methodSettings,
+      findings: audit.findings,
+      derivedPoints: derived,
+    } : { rawPoints: data?.points ?? [], fractionEvents: data?.fractionEvents ?? [], injectionVolumeMl: data?.injectionVolumeMl }),
   });
   const exportJson = (kind: 'raw' | 'derived') => downloadText(JSON.stringify(auditRecord(kind), null, 2), `chromatography-${kind}.json`, 'application/json;charset=utf-8');
-  const exportCsv = (kind: 'raw' | 'derived') => downloadText(kind === 'raw' ? toCsv([['volume_ml', 'uv280_mAU'], ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? ''])]) : toCsv([['record', 'start_volume_ml', 'end_or_apex_volume_ml', 'area_au_ml'], ...candidates.map((candidate, index) => [`candidate_${index + 1}`, candidate.startVolumeMl, candidate.apexVolumeMl, candidate.areaAuMl]), ...(manualResult.integration ? [['manual_accepted', manualResult.integration.startVolumeMl, manualResult.integration.endVolumeMl, manualResult.integration.areaAuMl] as (string | number)[]] : [])]), `chromatography-${kind}.csv`, 'text/csv;charset=utf-8');
+  const exportCsv = (kind: 'raw' | 'derived') => downloadText(kind === 'raw' ? toCsv([['volume_ml', 'uv280_mAU'], ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? ''])]) : toCsv([['peak_id', 'source', 'start_volume_ml', 'end_volume_ml', 'apex_volume_ml', 'area_au_ml'], ...acceptedPeakDetails.map(peak => ['error' in peak ? peak.id : peak.id, peak.source, peak.startVolumeMl, peak.endVolumeMl, peak.apexVolumeMl ?? '', 'integration' in peak ? peak.integration.areaAuMl : ''])]), `chromatography-${kind}.csv`, 'text/csv;charset=utf-8');
   const setAmount = (field: keyof typeof amountInputs, value: string) => setAmountInputs(current => ({ ...current, [field]: value }));
 
   return <section class="space-y-5">

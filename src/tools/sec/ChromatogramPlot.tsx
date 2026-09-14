@@ -120,6 +120,7 @@ export function ChromatogramPlot({
       })}
       <label class="flex items-center gap-1 text-xs"><input aria-label="Show fraction bands" type="checkbox" checked={showFractions} onChange={event => onShowFractionsChange((event.target as HTMLInputElement).checked)} /> Show fraction bands</label>
       {baseline.mode === 'manual-linear' && <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Manual baseline</span>}
+      {baseline.mode !== 'none' && <span class="text-xs font-medium text-teal-700 dark:text-teal-300">Baseline-corrected UV</span>}
     </div>
     {imported.injectionVolumeMl !== undefined && <p class="mb-2 text-xs font-medium text-violet-700 dark:text-violet-300">Injection at 0.00 mL (instrument volume {imported.injectionVolumeMl.toFixed(3)} mL)</p>}
     {bands.length > 0 && <div class="mb-2 flex max-h-20 flex-wrap gap-1 overflow-y-auto" aria-label="Fraction selections">{bands.map(band => <button type="button" key={`${band.label}-${band.startVolumeMl}`} aria-pressed={selectedFractionLabels.includes(band.label)} onClick={() => toggleFraction(band.label)} class={selectedFractionLabels.includes(band.label) ? 'rounded bg-violet-600 px-2 py-1 text-xs text-white' : 'rounded border px-2 py-1 text-xs'}>{band.label}</button>)}</div>}
@@ -132,6 +133,7 @@ export function ChromatogramPlot({
         const setting = traceSettings.find(item => item.id === trace.id) ?? { id: trace.id, visible: true, color: DEFAULT_COLORS[index % DEFAULT_COLORS.length]! };
         return setting.visible && <path key={trace.id} d={linePath(trace.points, offset, viewport, x, y)} fill="none" stroke={setting.color} stroke-width="2.5" />;
       })}
+      {baseline.mode !== 'none' && <path d={linePath(correctedUv.map(point => ({ volumeMl: point.volumeMl, value: point.signalAu })), offset, viewport, x, y)} fill="none" stroke="#0f766e" stroke-width="2" stroke-dasharray="6 4" />}
       {baseline.mode !== 'none' && <path d={linePath(baseline.points.map(point => ({ volumeMl: point.volumeMl, value: point.baselineAu })), offset, viewport, x, y)} fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3" />}
       <text x={left} y={height - 24} font-size="12" fill="currentColor">Elution volume relative to injection (mL)</text>
       <text x={left} y={top - 16} font-size="12" fill="currentColor">Relative signal per trace</text>
