@@ -155,6 +155,95 @@ function pointFromRow(row: string[], mapping: ChromatogramColumnMapping, rowNumb
   return point;
 }
 
+type AktaChannel = Exclude<ChromatogramChannel, 'volumeMl' | 'timeMin'>;
+
+interface AktaPair {
+  channel: AktaChannel;
+  axisColumn: number;
+  valueColumn: number;
+  header: string;
+  bareUv?: boolean;
+  values: Array<{ axis: number; value: number }>;
+}
+
+function aktaChannel(name: string): { channel: AktaChannel; bareUv?: boolean } | undefined {
+  const normalized = normalizeHeader(name);
+  if (normalized === 'uv') return { channel: 'uv280', bareUv: true };
+  if (normalized.includes('uv') && normalized.includes('280')) return { channel: 'uv280' };
+  if (normalized.includes('% cond') || normalized.includes('percent cond') || normalized.includes('buffer b') || normalized === '%b') return { channel: 'percentB' };
+  if (normalized.includes('cond')) return { channel: 'conductivityMsCm' };
+  if (normalized.includes('pressure')) return { channel: 'pressureBar' };
+  if (normalized === 'ph') return { channel: 'ph' };
+  return undefined;
+}
+
+/** Parses the paired axis/value ASCII layout emitted by older and newer ÅKTA/UNICORN exports. */
+function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefined {
+  for (let headerRow = 0; headerRow < Math.min(lines.length - 2, 3); headerRow += 1) {
+    const names = parseDelimitedLine(lines[headerRow]!, '\t');
+    const units = parseDelimitedLine(lines[headerRow + 1]!, '\t');
+    const pairCount = Math.floor(Math.min(names.length, units.length) / 2);
+    if (pairCount === 0 || !Array.from({ length: pairCount }, (_, index) => normalizeHeader(units[index * 2]!) === 'ml').some(Boolean)) continue;
+
+    const pairs: AktaPair[] = [];
+    for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+      const descriptor = aktaChannel(names[pairIndex * 2]!);
+      if (!descriptor) continue;
+      const unit = units[pairIndex * 2 + 1]?.trim();
+      pairs.push({
+        channel: descriptor.channel,
+        bareUv: descriptor.bareUv,
+        axisColumn: pairIndex * 2,
+        valueColumn: pairIndex * 2 + 1,
+        header: `${names[pairIndex * 2]!.trim()} (${unit || 'value'})`,
+        values: [],
+      });
+    }
+    const uvPair = pairs.find(pair => pair.channel === 'uv280');
+    if (!uvPair) continue;
+
+    const notices: string[] = [];
+    for (let rowIndex = headerRow + 2; rowIndex < lines.length; rowIndex += 1) {
+      const row = parseDelimitedLine(lines[rowIndex]!, '\t');
+      pairs.forEach(pair => {
+        const axis = parseNumber(row[pair.axisColumn]);
+        const value = parseNumber(row[pair.valueColumn]);
+        if (axis === undefined || value === undefined) {
+          if (row.some(cell => cell.trim())) notices.push(`Row ${rowIndex + 1}: invalid ${pair.header} pair omitted.`);
+          return;
+        }
+        pair.values.push({ axis, value });
+      });
+    }
+    if (uvPair.values.length === 0) continue;
+
+    if (uvPair.bareUv) notices.push('ÅKTA export contains a bare UV channel; verify that the detector wavelength is 280 nm before using it as A280.');
+    const valuesFor = (channel: AktaChannel): Map<number, number> => new Map(pairs.find(pair => pair.channel === channel)?.values.map(item => [item.axis, item.value]));
+    const conductivity = valuesFor('conductivityMsCm');
+    const percentB = valuesFor('percentB');
+    const pressure = valuesFor('pressureBar');
+    const ph = valuesFor('ph');
+    const points = uvPair.values.map(({ axis, value }) => {
+      const point: ChromatogramPoint = { volumeMl: axis, uv280: value };
+      const conductivityValue = conductivity.get(axis); if (conductivityValue !== undefined) point.conductivityMsCm = conductivityValue;
+      const percentBValue = percentB.get(axis); if (percentBValue !== undefined) point.percentB = percentBValue;
+      const pressureValue = pressure.get(axis); if (pressureValue !== undefined) point.pressureBar = pressureValue;
+      const phValue = ph.get(axis); if (phValue !== undefined) point.ph = phValue;
+      return point;
+    });
+    const sourceHeaders = pairs.map(pair => pair.header);
+    const columnMapping: ChromatogramColumnMapping = { volumeMl: uvPair.axisColumn, uv280: uvPair.valueColumn };
+    const mappedHeaders: ChromatogramImport['mappedHeaders'] = { volumeMl: uvPair.header, uv280: uvPair.header };
+    pairs.forEach(pair => {
+      if (pair.channel === 'uv280') return;
+      columnMapping[pair.channel] = pair.valueColumn;
+      mappedHeaders[pair.channel] = pair.header;
+    });
+    return { sourceHeaders, columnMapping, mappedHeaders, points, fractions: [], notices };
+  }
+  return undefined;
+}
+
 /** Converts a raw UV 280 mAU point value to absorbance units without changing the imported data. */
 export function uv280MilliAbsorbanceToAu(point: ChromatogramPoint): number | undefined {
   return point.uv280 === undefined ? undefined : point.uv280 / 1000;
@@ -164,6 +253,12 @@ export function uv280MilliAbsorbanceToAu(point: ChromatogramPoint): number | und
 export function parseChromatogram(text: string, options: ChromatogramMapping = {}): ChromatogramImport {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim().length > 0);
   if (lines.length === 0) throw new Error('Chromatogram input must contain a header row.');
+
+  const aktaImport = parseAktaPairedChannels(lines);
+  if (aktaImport) {
+    aktaImport.fractions.push(...(options.fractionBounds ?? []));
+    return aktaImport;
+  }
 
   const delimiter = selectDelimiter(lines[0]!);
   const sourceHeaders = parseDelimitedLine(lines[0]!, delimiter);
