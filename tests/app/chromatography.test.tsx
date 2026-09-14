@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/preact';
+import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
 
 const { downloadText } = vi.hoisted(() => ({ downloadText: vi.fn() }));
 vi.mock('@/lib/export', async importOriginal => ({
@@ -94,19 +94,22 @@ describe('Chromatography Workbench', () => {
     expect(screen.getByText(/Fraction details: F2/i)).toBeTruthy();
   });
 
-  it('keeps scatter correction opt-in and blocks DOL until manufacturer coefficients are supplied', () => {
+  it('loads a chromatogram file and retains its filename in derived exports', async () => {
     render(<SecView />);
-    fireEvent.click(screen.getByRole('button', { name: /UV-Vis spectra/i }));
-    fireEvent.input(screen.getByLabelText(/Spectrum CSV or TSV/i), {
-      target: { value: 'Wavelength,Absorbance\n280,1.00\n300,0.40\n320,0.30\n340,0.24\n' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    const file = new File(['volume,uv280\n1,0\n2,4\n3,0\n'], 'run.asc', { type: 'text/plain' });
 
-    expect(screen.getByText(/Observed A280/i)).toBeTruthy();
-    expect(screen.queryByText(/Scatter-corrected A280/i)).toBeNull();
-    fireEvent.click(screen.getByLabelText(/Apply 300–340 nm scatter correction/i));
-    expect(screen.getByText(/Scatter-corrected A280/i)).toBeTruthy();
-    expect(screen.getByText(/DOL blocked/i)).toBeTruthy();
-    expect(screen.getByText(/dye epsilon/i)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Import chromatogram file/i), { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText(/Imported: run\.asc/i)).toBeTruthy());
+    expect(screen.getByText(/Candidate peaks/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Export derived JSON/i }));
+    expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"filename": "run.asc"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
+  });
+
+  it('keeps UV-Vis correction out of the chromatography workbench', () => {
+    render(<SecView />);
+    expect(screen.queryByRole('button', { name: /UV-Vis spectra/i })).toBeNull();
   });
 
   it('routes sequence pI into planner advice and exposes review-required status', () => {

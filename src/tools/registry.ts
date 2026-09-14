@@ -49,7 +49,7 @@ export const TOOLS: ToolMeta[] = [
     blurb: 'Fit 4PL (EC50), linear, Michaelis-Menten, and exponential models', keywords: ['fit', 'curve', 'regression', 'logistic', '4pl', 'ic50', 'ec50', 'exponential', 'michaelis-menten', 'linear', 'r2', 'residuals'],
     status: 'ready', load: () => import('./fitting/View') },
   { id: 'sec', name: 'Chromatography Workbench', category: 'calculators', icon: '🧪',
-    blurb: 'SEC calibration, chromatogram review, method planning, and UV-Vis analysis', keywords: ['sec', 'gel filtration', 'chromatography', 'superdex', 'superose', 'kav', 'stokes radius', 'molecular weight', 'fplc', 'akta', 'ion exchange', 'uv-vis', 'dol'],
+    blurb: 'SEC calibration, ÅKTA chromatogram review, and method planning', keywords: ['sec', 'gel filtration', 'chromatography', 'superdex', 'superose', 'kav', 'stokes radius', 'molecular weight', 'fplc', 'akta', 'ion exchange'],
     status: 'ready', load: () => import('./sec/View') },
   { id: 'diafiltration', name: 'Ultrafiltration & Dialysis', category: 'calculators', icon: '🔄',
     blurb: 'Centrifugal spin concentrator cycles (DFV) and dialysis kinetics', keywords: ['diafiltration', 'ultrafiltration', 'dialysis', 'amicon', 'vivaspin', 'mwco', 'buffer exchange', 'desalting', 'dfv'],

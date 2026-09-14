@@ -12,6 +12,28 @@ describe('chromatogram import', () => {
     });
   });
 
+  it('imports paired-channel ÅKTA ASCII exports and flags an unlabelled UV detector', () => {
+    const parsed = parseChromatogram([
+      'Chrom.1\t\tChrom.1\t\tChrom.1\t',
+      'Cond\t\t% Cond\t\tUV\t',
+      'ml\tmS/cm\tml\t%\tml\tmAU',
+      '0\t30.5\t0\t30.5\t0\t0.012',
+      '0.1\t30.6\t0.1\t31\t0.1\t0.020',
+    ].join('\n'));
+
+    expect(parsed.points).toEqual([
+      { volumeMl: 0, uv280: 0.012, conductivityMsCm: 30.5, percentB: 30.5 },
+      { volumeMl: 0.1, uv280: 0.02, conductivityMsCm: 30.6, percentB: 31 },
+    ]);
+    expect(parsed.notices).toContain('ÅKTA export contains a bare UV channel; verify that the detector wavelength is 280 nm before using it as A280.');
+    expect(parsed.mappedHeaders).toMatchObject({
+      volumeMl: 'UV (mAU)',
+      uv280: 'UV (mAU)',
+      conductivityMsCm: 'Cond (mS/cm)',
+      percentB: '% Cond (%)',
+    });
+  });
+
   it('uses a caller-selected mapping for generic CSV columns', () => {
     const parsed = parseChromatogram('position,signal\n2.5,321\n', { volumeMl: 0, uv280: 1 });
 

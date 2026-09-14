@@ -63,7 +63,8 @@ describe('methods and assurance navigation', () => {
     try {
       render(<App />);
       expect(screen.getByRole('heading', { name: 'Methods & Assurance' })).toBeTruthy();
-      expect(screen.getByRole('link', { name: 'Methods & Assurance' }).getAttribute('aria-current')).toBe('page');
+      expect(screen.queryByRole('banner')?.textContent).not.toMatch(/Methods & Assurance/);
+      expect(screen.getByRole('contentinfo').querySelector('a[href="#/assurance"]')?.textContent).toBe('Methods & Assurance');
     } finally {
       route.value = { name: 'home' };
     }

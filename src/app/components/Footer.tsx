@@ -20,6 +20,7 @@ export function Footer() {
         <a class="underline" href={`${REPO}/issues/new?template=wrong-value.yml`}>Report a wrong value</a>
         <a class="underline" href={`${REPO}/issues/new?template=tool-request.yml`}>Request a tool</a>
         <a class="underline" href={`${REPO}#citing`}>Cite</a>
+        <a class="underline" href="#/assurance">Methods &amp; Assurance</a>
         <a class="underline" href={REPO}>Source</a>
       </p>
     </footer>

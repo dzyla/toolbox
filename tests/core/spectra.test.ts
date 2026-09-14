@@ -15,7 +15,21 @@ describe('UV-Vis spectra', () => {
     ], 300, 340);
 
     expect(fit.slope).toBeCloseTo(-2, 6);
-    expect(correctA280ForScatter(1, fit).correctedA280).toBeLessThan(1);
+    expect(correctA280ForScatter(1, fit).correctedA280).toBeGreaterThan(1);
+  });
+
+  it('uses the requested log-space subtraction for the A280 adjustment', () => {
+    const fit = fitLogScatter([
+      { wavelengthNm: 300, absorbance: 0.3 },
+      { wavelengthNm: 320, absorbance: 0.25 },
+      { wavelengthNm: 340, absorbance: 0.22 },
+    ]);
+
+    const correction = correctA280ForScatter(1, fit);
+    const expected = 10 ** (Math.log10(1) - (fit.slope! * Math.log10(280) + fit.intercept!));
+
+    expect(correction.predictedScatterLogA280).toBeCloseTo(fit.slope! * Math.log10(280) + fit.intercept!, 10);
+    expect(correction.correctedA280).toBeCloseTo(expected, 10);
   });
 
   it('calculates DOL from user-supplied manufacturer coefficients', () => {
@@ -82,8 +96,8 @@ describe('UV-Vis spectra', () => {
     });
 
     expect(withoutScatter.a280AfterScatter).toBe(0.8);
-    expect(withScatter.a280AfterScatter).toBeLessThan(0.8);
-    expect(withScatter.dol).toBeGreaterThan(withoutScatter.dol!);
+    expect(withScatter.a280AfterScatter).toBeGreaterThan(0.8);
+    expect(withScatter.dol).toBeLessThan(withoutScatter.dol!);
   });
 
   it('blocks DOL when input is nonpositive or its corrected protein A280 is nonpositive', () => {

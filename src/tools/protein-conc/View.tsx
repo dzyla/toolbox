@@ -8,6 +8,7 @@ import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SCIENCE } from './science';
+import { SpectrumCorrection } from './SpectrumCorrection';
 
 const FIELD = 'mono w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
 
@@ -195,6 +196,8 @@ export default function View() {
                 <span class="mb-1 block text-sm font-medium">A280 absorbance</span>
                 <input id="conc-absorbance" class={FIELD} type="number" min="0" step="any" value={current.absorbance} onInput={event => set({ absorbance: Number((event.target as HTMLInputElement).value) })} />
               </label>
+
+              <SpectrumCorrection onUseA280={absorbance => set({ absorbance })} />
 
               <label for="conc-epsilon" class="block">
                 <span class="mb-1 block text-sm font-medium">Extinction coefficient ε₂₈₀ (M⁻¹cm⁻¹)</span>
@@ -438,4 +441,3 @@ export default function View() {
     />
   );
 }
-

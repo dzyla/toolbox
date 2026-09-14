@@ -815,14 +815,13 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
   );
 }
 
-type WorkbenchTab = 'calibration' | 'run' | 'planner' | 'spectra';
+type WorkbenchTab = 'calibration' | 'run' | 'planner';
 type WorkbenchAudit = { opticalInputs: Record<string, string | number | boolean | undefined>; methodSettings: Record<string, string | number | boolean | undefined>; findings: string[] };
 
 const WORKBENCH_TABS: Array<{ id: WorkbenchTab; label: string }> = [
   { id: 'calibration', label: 'SEC calibration' },
   { id: 'run', label: 'Run & fractions' },
   { id: 'planner', label: 'Method planner' },
-  { id: 'spectra', label: 'UV-Vis spectra' },
 ];
 
 function numberOrUndefined(value: string): number | undefined {
@@ -879,6 +878,8 @@ function _LegacyRunFractionsPanel() {
 
 function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const [source, setSource] = useState('');
+  const [sourceFilename, setSourceFilename] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
   const [mapping, setMapping] = useState<Partial<Record<ChromatogramColumnName, string>>>({});
   const [baselineMode, setBaselineMode] = useState<BaselineMode>('none');
   const [accepted, setAccepted] = useState<number | null>(null);
@@ -912,12 +913,28 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const amount = useMemo(() => estimateFractionAmount({
     a280: numberOrUndefined(amountInputs.a280), epsilonMolar: numberOrUndefined(amountInputs.epsilonMolar), molecularWeightGPerMol: numberOrUndefined(amountInputs.molecularWeightGPerMol), pathCm: numberOrUndefined(amountInputs.pathCm), fractionVolumeMl: numberOrUndefined(amountInputs.fractionVolumeMl),
   }), [amountInputs]);
+  const resetReview = () => { setAccepted(null); setSelectedFraction(null); setManualAccepted(false); };
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/\.(asc|csv|tsv|txt)$/i.test(file.name)) {
+      setImportError('Choose an ÅKTA .asc, CSV, TSV, or text export.');
+      return;
+    }
+    try {
+      setSource(await file.text());
+      setSourceFilename(file.name);
+      setImportError(null);
+      resetReview();
+    } catch {
+      setImportError(`Could not read ${file.name}.`);
+    }
+  };
   const setColumn = (field: ChromatogramColumnName, value: string) => { setMapping(current => ({ ...current, [field]: value })); setAccepted(null); };
   const headers = data?.sourceHeaders ?? (source.split(/\r?\n/)[0]?.split(/[\t,;]/) ?? []);
   const selector = (field: ChromatogramColumnName, label: string) => <label class="block text-sm">{label}<select aria-label={label} value={mapping[field] ?? ''} onChange={event => setColumn(field, (event.target as HTMLSelectElement).value)} class={`${FIELD} mt-1`}><option value="">Auto / not mapped</option>{headers.map((header, index) => <option value={String(index)}>{index}: {header}</option>)}</select></label>;
   const auditRecord = (kind: 'raw' | 'derived') => ({
     app: 'Chromatography Workbench', recordType: kind, exportedAt: new Date().toISOString(),
-    source: { filename: 'pasted-chromatogram.csv', sourceText: source, sourceHeaders: data?.sourceHeaders ?? [], mappedHeaders: data?.mappedHeaders ?? {}, parserNotices: data?.notices ?? [], mapping },
+    source: { filename: sourceFilename || 'pasted-chromatogram.csv', sourceText: source, sourceHeaders: data?.sourceHeaders ?? [], mappedHeaders: data?.mappedHeaders ?? {}, parserNotices: data?.notices ?? [], mapping },
     baseline: baselineMode, candidates, acceptedCandidate, candidateIntegration, manualBounds: { startVolumeMl: numberOrUndefined(manualStart), endVolumeMl: numberOrUndefined(manualEnd), accepted: manualAccepted, integration: manualResult.integration },
     fractionSelection: fraction, opticalInputs: { ...audit.opticalInputs, fractionAmountInputs: amountInputs }, amountEstimate: amount, methodSettings: audit.methodSettings, findings: audit.findings, rawPoints: kind === 'raw' ? data?.points ?? [] : undefined, derivedPoints: kind === 'derived' ? derived : undefined,
   });
@@ -926,7 +943,8 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const setAmount = (field: keyof typeof amountInputs, value: string) => setAmountInputs(current => ({ ...current, [field]: value }));
 
   return <section class="space-y-5">
-    <div class="grid gap-4 lg:grid-cols-2"><label class="text-sm font-medium">Chromatogram CSV or TSV<textarea aria-label="Chromatogram CSV or TSV" value={source} onInput={event => { setSource((event.target as HTMLTextAreaElement).value); setAccepted(null); setSelectedFraction(null); setManualAccepted(false); }} placeholder="Volume,UV 280,Fraction" rows={8} class={`${FIELD} mt-1 font-mono text-xs`} /></label><div class="grid content-start gap-3">{selector('volumeMl', 'Volume column')}{selector('uv280', 'UV 280 column')}{selector('fraction', 'Fraction column')}<label class="block text-sm">Baseline correction<select aria-label="Baseline correction" value={baselineMode} onChange={event => setBaselineMode((event.target as HTMLSelectElement).value as BaselineMode)} class={`${FIELD} mt-1`}><option value="none">none</option><option value="endpoint">endpoint</option><option value="rolling-minimum">rolling-minimum</option></select></label><p class="text-xs text-slate-500">Raw instrument UV values remain mAU; derived analysis is AU. Baseline: {baselineMode}.</p></div></div>
+    <div class="grid gap-4 lg:grid-cols-2"><label class="text-sm font-medium">Chromatogram CSV or TSV<textarea aria-label="Chromatogram CSV or TSV" value={source} onInput={event => { setSource((event.target as HTMLTextAreaElement).value); setSourceFilename(''); setImportError(null); resetReview(); }} placeholder="Volume,UV 280,Fraction" rows={8} class={`${FIELD} mt-1 font-mono text-xs`} /></label><div class="grid content-start gap-3"><label class="block rounded-lg border border-dashed border-slate-300 p-3 text-sm dark:border-slate-700" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void importFile(event.dataTransfer?.files[0]); }}><span class="font-medium">Drop an ÅKTA, CSV, or TSV export here</span><input aria-label="Import chromatogram file" type="file" accept=".asc,.csv,.tsv,.txt,text/plain,text/csv" class="mt-2 block w-full text-xs" onChange={event => void importFile((event.target as HTMLInputElement).files?.[0])} />{sourceFilename && <span class="mt-2 block text-xs text-slate-500">Imported: {sourceFilename}</span>}</label>{selector('volumeMl', 'Volume column')}{selector('uv280', 'UV 280 column')}{selector('fraction', 'Fraction column')}<label class="block text-sm">Baseline correction<select aria-label="Baseline correction" value={baselineMode} onChange={event => setBaselineMode((event.target as HTMLSelectElement).value as BaselineMode)} class={`${FIELD} mt-1`}><option value="none">none</option><option value="endpoint">endpoint</option><option value="rolling-minimum">rolling-minimum</option></select></label><p class="text-xs text-slate-500">Raw instrument UV values remain mAU; derived analysis is AU. Baseline: {baselineMode}.</p></div></div>
+    {importError && <p role="alert" class="text-sm text-rose-700">{importError}</p>}
     {result.error && <p role="alert" class="text-sm text-rose-700">{result.error}</p>}
     {data && <><TracePlot raw={raw} derived={derived} /><div class="grid gap-4 lg:grid-cols-2"><section><h2 class="font-semibold">Candidate peaks</h2><p class="text-xs text-slate-500">Candidates are not derived records until explicitly accepted.</p>{candidates.length === 0 ? <p class="mt-2 text-sm text-slate-500">No candidate peaks meet the current trace thresholds.</p> : candidates.map((candidate, index) => <div class="mt-2 rounded border p-2 text-sm"><span>Candidate {index + 1}: apex {candidate.apexVolumeMl.toFixed(2)} mL</span><button type="button" onClick={() => setAccepted(index)} class="ml-3 rounded border px-2 py-1 text-xs">Accept candidate {index + 1}</button></div>)}</section><section><h2 class="font-semibold">Fractions ({data.fractions.length})</h2>{data.fractions.length ? <ul class="mt-2 space-y-1 text-sm">{data.fractions.map(item => <li><button type="button" aria-pressed={selectedFraction === item.label} onClick={() => setSelectedFraction(item.label)} class="rounded border px-2 py-1">Select fraction {item.label}</button></li>)}</ul> : <p class="mt-2 text-sm text-slate-500">No fractions were supplied.</p>}</section></div>
     <section class="rounded border p-3"><h2 class="font-semibold">Manual peak integration</h2><div class="mt-2 grid gap-2 sm:grid-cols-3"><label class="text-sm">Manual peak start<input aria-label="Manual peak start" value={manualStart} onInput={event => { setManualStart((event.target as HTMLInputElement).value); setManualAccepted(false); }} class={`${FIELD} mt-1`} /></label><label class="text-sm">Manual peak end<input aria-label="Manual peak end" value={manualEnd} onInput={event => { setManualEnd((event.target as HTMLInputElement).value); setManualAccepted(false); }} class={`${FIELD} mt-1`} /></label><button type="button" onClick={() => setManualAccepted(true)} class="self-end rounded border px-3 py-2 text-sm">Accept manual peak bounds</button></div>{manualResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{manualResult.error}</p>}{manualResult.integration && <p class="mt-2 text-sm"><strong>Manual accepted peak details</strong>: {manualResult.integration.startVolumeMl.toFixed(2)}–{manualResult.integration.endVolumeMl.toFixed(2)} mL; {manualResult.integration.areaAuMl.toExponential(3)} AU·mL.</p>}</section>
@@ -962,7 +980,7 @@ function MethodPlannerPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAud
   return <section class="space-y-5"><div class="grid gap-4 lg:grid-cols-2"><label class="text-sm">Protein sequence<textarea aria-label="Protein sequence" value={sequence} onInput={event => setSequence((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1 font-mono`} rows={5} /></label><div class="space-y-3">{field('Target pH', targetPh, setTargetPh)}{protein && <p class="text-sm">Sequence pI: <strong>{protein.pI.toFixed(2)}</strong>; ε280: <strong>{protein.ext.cystines.toLocaleString()} M⁻¹cm⁻¹</strong>.</p>}{advice ? <div class={advice.status === 'review-required' ? 'rounded border border-amber-300 bg-amber-50 p-3 text-sm' : 'rounded border border-emerald-300 bg-emerald-50 p-3 text-sm'}><strong>{advice.status === 'review-required' ? 'Review required' : `Suggested ${advice.mode}`}</strong><p>{advice.findings[0]?.message}</p></div> : <p class="text-sm text-slate-500">Add a protein sequence to receive pI-informed advice.</p>}</div></div><div class="grid gap-3 md:grid-cols-2"><label class="rounded border p-3 text-sm">Buffer A description<textarea aria-label="Buffer A description" value={bufferA} onInput={event => setBufferA((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1`} rows={3} /></label><label class="rounded border p-3 text-sm">Buffer B description<textarea aria-label="Buffer B description" value={bufferB} onInput={event => setBufferB((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1`} rows={3} /></label></div><section><h2 class="font-semibold">Gradient planner</h2><div class="mt-2 grid gap-3 sm:grid-cols-5">{field('Column volume (mL)', columnVolume, setColumnVolume)}{field('Flow (mL/min)', flow, setFlow)}{field('Start %B', startB, setStartB)}{field('End %B', endB, setEndB)}{field('Gradient (CV)', gradientCv, setGradientCv)}</div>{gradientResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{gradientResult.error}</p>}{gradient && <><svg aria-label="Gradient plan" viewBox="0 0 560 180" class="mt-4 w-full rounded border"><line x1="45" y1="145" x2="530" y2="145" stroke="#94a3b8" /><polyline fill="none" stroke="#2563eb" stroke-width="3" points={gradient.points.map(point => `${45 + point.columnVolumes / Math.max(gradient.totalColumnVolumes, 1) * 485},${145 - point.percentB / 100 * 110}`).join(' ')} /><text x="45" y="166" font-size="10">0 CV</text><text x="485" y="166" font-size="10">{gradient.totalColumnVolumes.toFixed(1)} CV</text></svg><p class="mt-2 text-sm">Gradient end: {gradient.atGradientEnd.volumeMl.toFixed(1)} mL / {gradient.atGradientEnd.timeMin.toFixed(1)} min; total {gradient.totalTimeMin.toFixed(1)} min.</p></>}</section></section>;
 }
 
-function SpectraPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAudit>) => void }) {
+function _SpectraPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAudit>) => void }) {
   const [source, setSource] = useState('');
   const [scatterEnabled, setScatterEnabled] = useState(false);
   const [dyeAbsorbance, setDyeAbsorbance] = useState('');
@@ -985,5 +1003,5 @@ export default function SecView() {
   const [tab, setTab] = useState<WorkbenchTab>('calibration');
   const [audit, setAudit] = useState<WorkbenchAudit>({ opticalInputs: {}, methodSettings: {}, findings: [] });
   const updateAudit = useCallback((patch: Partial<WorkbenchAudit>) => setAudit(current => ({ ...current, ...patch })), []);
-  return <div class="mx-auto max-w-[92rem]"><header class="px-3 pt-3 sm:px-4"><h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1><p class="text-sm text-slate-600 dark:text-slate-300">SEC calibration, run review, method planning, and UV-Vis analysis on the stable SEC route.</p><nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">{WORKBENCH_TABS.map(item => <button type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} class={tab === item.id ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white' : 'rounded-lg border px-3 py-1.5 text-sm'}>{item.label}</button>)}</nav></header><div class="p-3 sm:p-4">{tab === 'calibration' && <CalibrationPanel embedded />}{tab === 'run' && <RunFractionsPanel audit={audit} />}{tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}{tab === 'spectra' && <SpectraPanel onAudit={updateAudit} />}</div></div>;
+  return <div class="mx-auto max-w-[92rem]"><header class="px-3 pt-3 sm:px-4"><h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1><p class="text-sm text-slate-600 dark:text-slate-300">SEC calibration, chromatogram review, and method planning.</p><nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">{WORKBENCH_TABS.map(item => <button type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} class={tab === item.id ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white' : 'rounded-lg border px-3 py-1.5 text-sm'}>{item.label}</button>)}</nav></header><div class="p-3 sm:p-4">{tab === 'calibration' && <CalibrationPanel embedded />}{tab === 'run' && <RunFractionsPanel audit={audit} />}{tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}</div></div>;
 }
