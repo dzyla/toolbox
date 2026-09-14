@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('Chromatography: maps a generic UV trace, accepts a peak, and opens spectra', async ({ page }) => {
+test('Chromatography: maps a generic UV trace, accepts a peak, and keeps spectrum work in protein concentration', async ({ page }) => {
   // The smoke suite intentionally registers the PWA worker. Remove its old
   // precache before asserting against a newly built lazy-loaded tool chunk.
   await page.goto('/');
@@ -26,6 +26,7 @@ test('Chromatography: maps a generic UV trace, accepts a peak, and opens spectra
   await page.getByRole('button', { name: 'Accept candidate 1' }).click();
   await expect(page.getByRole('heading', { name: 'Accepted peak details' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'UV-Vis spectra' }).click();
+  await page.goto('/#/t/protein-conc');
+  await page.getByText('Import spectrum and adjust A280 for scattering').click();
   await expect(page.getByLabel('Spectrum CSV or TSV')).toBeVisible();
 });
