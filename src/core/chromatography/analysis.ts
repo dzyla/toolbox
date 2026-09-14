@@ -3,7 +3,21 @@ export interface SignalPoint {
   signalAu: number;
 }
 
-export type BaselineMode = 'none' | 'endpoint' | 'rolling-minimum';
+export type BaselineMode = 'none' | 'endpoint' | 'rolling-minimum' | 'manual-linear';
+
+export interface BaselineAnchors {
+  start: SignalPoint;
+  end: SignalPoint;
+}
+
+export interface VolumeRange {
+  startVolumeMl: number;
+  endVolumeMl: number;
+}
+
+export interface FractionBand extends VolumeRange {
+  label: string;
+}
 
 export interface BaselinePoint extends SignalPoint {
   baselineAu: number;
@@ -86,18 +100,28 @@ function pointAt(points: SignalPoint[], volumeMl: number): SignalPoint {
   throw new Error('Integration bounds must lie within the imported trace range.');
 }
 
-export function applyBaseline(points: SignalPoint[], mode: BaselineMode): BaselineResult {
+export function applyBaseline(points: SignalPoint[], mode: BaselineMode, anchors?: BaselineAnchors): BaselineResult {
   const ordered = orderedPoints(points);
   const first = ordered[0];
   const last = ordered.at(-1);
   if (!first || !last) return { mode, points: [] };
+
+  if (mode === 'manual-linear' && (!anchors
+    || !Number.isFinite(anchors.start.volumeMl) || !Number.isFinite(anchors.start.signalAu)
+    || !Number.isFinite(anchors.end.volumeMl) || !Number.isFinite(anchors.end.signalAu)
+    || anchors.start.volumeMl === anchors.end.volumeMl)) {
+    throw new Error('Manual baseline requires two finite anchors at distinct volumes.');
+  }
 
   const span = last.volumeMl - first.volumeMl;
   return {
     mode,
     points: ordered.map((point, index) => {
       const rollingWindow = ordered.slice(Math.max(0, index - 2), Math.min(ordered.length, index + 3));
-      const baselineAu = mode === 'endpoint' && span !== 0
+      const baselineAu = mode === 'manual-linear'
+        ? anchors!.start.signalAu + ((point.volumeMl - anchors!.start.volumeMl)
+          / (anchors!.end.volumeMl - anchors!.start.volumeMl)) * (anchors!.end.signalAu - anchors!.start.signalAu)
+        : mode === 'endpoint' && span !== 0
         ? first.signalAu + ((point.volumeMl - first.volumeMl) / span) * (last.signalAu - first.signalAu)
         : mode === 'endpoint' ? first.signalAu
           : mode === 'rolling-minimum' ? Math.min(...rollingWindow.map(candidate => candidate.signalAu))
@@ -105,6 +129,32 @@ export function applyBaseline(points: SignalPoint[], mode: BaselineMode): Baseli
       return { ...point, baselineAu, correctedSignalAu: point.signalAu - baselineAu };
     }),
   };
+}
+
+/** Turns ordered fraction-collector events into contiguous visible bands. */
+export function buildFractionBands(
+  events: Array<{ label: string; volumeMl: number }>,
+  traceEndVolumeMl: number,
+): FractionBand[] {
+  if (!Number.isFinite(traceEndVolumeMl)) throw new Error('Fraction bands require a finite trace end volume.');
+  const ordered = [...events]
+    .filter(event => event.label.trim().length > 0 && Number.isFinite(event.volumeMl))
+    .sort((left, right) => left.volumeMl - right.volumeMl);
+  return ordered.flatMap((event, index) => {
+    const endVolumeMl = ordered[index + 1]?.volumeMl ?? traceEndVolumeMl;
+    return endVolumeMl > event.volumeMl ? [{ label: event.label, startVolumeMl: event.volumeMl, endVolumeMl }] : [];
+  });
+}
+
+/** Clamps a requested viewport to a finite trace extent, falling back to the full extent if collapsed. */
+export function constrainViewport(requested: VolumeRange, extent: VolumeRange): VolumeRange {
+  if (!Number.isFinite(extent.startVolumeMl) || !Number.isFinite(extent.endVolumeMl)
+    || extent.endVolumeMl <= extent.startVolumeMl) {
+    throw new Error('Viewport extent requires finite ascending volumes.');
+  }
+  const startVolumeMl = Math.max(extent.startVolumeMl, Math.min(requested.startVolumeMl, extent.endVolumeMl));
+  const endVolumeMl = Math.max(extent.startVolumeMl, Math.min(requested.endVolumeMl, extent.endVolumeMl));
+  return endVolumeMl > startVolumeMl ? { startVolumeMl, endVolumeMl } : { ...extent };
 }
 
 export function integratePeak(points: SignalPoint[], startVolumeMl: number, endVolumeMl: number): PeakIntegration {

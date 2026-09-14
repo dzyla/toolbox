@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyBaseline,
+  buildFractionBands,
+  constrainViewport,
   detectPeakCandidates,
   estimateFractionAmount,
   integratePeak,
@@ -60,6 +62,34 @@ describe('chromatography analysis', () => {
 
     expect(rolling.points.map(point => point.baselineAu)).toEqual([1, 1, 1, 1, 1]);
     expect(endpoint.points[1]?.correctedSignalAu).toBe(-1);
+  });
+
+  it('subtracts a manually anchored linear baseline without changing the raw signal', () => {
+    const result = applyBaseline([
+      { volumeMl: 0, signalAu: 1 },
+      { volumeMl: 1, signalAu: 3 },
+      { volumeMl: 2, signalAu: 3 },
+    ], 'manual-linear', {
+      start: { volumeMl: 0, signalAu: 1 },
+      end: { volumeMl: 2, signalAu: 3 },
+    });
+
+    expect(result.points.map(point => point.signalAu)).toEqual([1, 3, 3]);
+    expect(result.points.map(point => point.correctedSignalAu)).toEqual([0, 1, 0]);
+  });
+
+  it('creates sequential fraction bands and constrains a requested viewport to the trace extent', () => {
+    expect(buildFractionBands([
+      { label: 'A1', volumeMl: 7 },
+      { label: 'A2', volumeMl: 8 },
+    ], 9)).toEqual([
+      { label: 'A1', startVolumeMl: 7, endVolumeMl: 8 },
+      { label: 'A2', startVolumeMl: 8, endVolumeMl: 9 },
+    ]);
+    expect(constrainViewport(
+      { startVolumeMl: -1, endVolumeMl: 12 },
+      { startVolumeMl: 0, endVolumeMl: 10 },
+    )).toEqual({ startVolumeMl: 0, endVolumeMl: 10 });
   });
 
   it('reports a candidate peak that touches the imported range boundary', () => {
