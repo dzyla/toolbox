@@ -79,7 +79,7 @@ describe('Chromatography Workbench', () => {
     fireEvent.change(screen.getByLabelText(/Volume column/i), { target: { value: '0' } });
     fireEvent.change(screen.getByLabelText(/UV 280 column/i), { target: { value: '1' } });
 
-    expect(screen.getByText(/Raw trace/i)).toBeTruthy();
+    expect(screen.getByText(/Trace viewer/i)).toBeTruthy();
     expect(screen.getByText(/Candidate peaks/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Export raw CSV/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Export raw JSON/i })).toBeTruthy();

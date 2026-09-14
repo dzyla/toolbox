@@ -49,6 +49,8 @@ export interface ChromatogramImport {
   points: ChromatogramPoint[];
   fractions: Fraction[];
   notices: string[];
+  /** Native instrument channels retain their own sampling axes and units. */
+  traces?: Array<{ id: string; label: string; unit: string; points: Array<{ volumeMl: number; value: number }> }>;
 }
 
 const FRACTION_ALIASES = ['fraction', 'fractions', 'fraction name'] as const;
@@ -162,6 +164,7 @@ interface AktaPair {
   axisColumn: number;
   valueColumn: number;
   header: string;
+  unit: string;
   bareUv?: boolean;
   values: Array<{ axis: number; value: number }>;
 }
@@ -189,13 +192,13 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
     for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
       const descriptor = aktaChannel(names[pairIndex * 2]!);
       if (!descriptor) continue;
-      const unit = units[pairIndex * 2 + 1]?.trim();
+      const unit = units[pairIndex * 2 + 1]?.trim() || 'value';
       pairs.push({
         channel: descriptor.channel,
         bareUv: descriptor.bareUv,
         axisColumn: pairIndex * 2,
         valueColumn: pairIndex * 2 + 1,
-        header: `${names[pairIndex * 2]!.trim()} (${unit || 'value'})`,
+        header: `${names[pairIndex * 2]!.trim()} (${unit})`, unit,
         values: [],
       });
     }
@@ -209,7 +212,9 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
         const axis = parseNumber(row[pair.axisColumn]);
         const value = parseNumber(row[pair.valueColumn]);
         if (axis === undefined || value === undefined) {
-          if (row.some(cell => cell.trim())) notices.push(`Row ${rowIndex + 1}: invalid ${pair.header} pair omitted.`);
+          // ÅKTA exports are ragged: a channel can end while another continues.
+          // A fully blank pair is its normal end-of-trace marker, not an error.
+          if ((axis !== undefined || value !== undefined) && pair.values.length === 0) notices.push(`Row ${rowIndex + 1}: incomplete ${pair.header} pair omitted.`);
           return;
         }
         pair.values.push({ axis, value });
@@ -239,7 +244,8 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
       columnMapping[pair.channel] = pair.valueColumn;
       mappedHeaders[pair.channel] = pair.header;
     });
-    return { sourceHeaders, columnMapping, mappedHeaders, points, fractions: [], notices };
+    const traces = pairs.map(pair => ({ id: `${pair.channel}-${pair.valueColumn}`, label: names[pair.axisColumn]!.trim(), unit: pair.unit, points: pair.values.map(item => ({ volumeMl: item.axis, value: item.value })) }));
+    return { sourceHeaders, columnMapping, mappedHeaders, points, fractions: [], notices, traces };
   }
   return undefined;
 }

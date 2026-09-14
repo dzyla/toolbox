@@ -34,6 +34,22 @@ describe('chromatogram import', () => {
     });
   });
 
+  it('treats ended auxiliary channels as normal sparse traces instead of emitting one warning per UV row', () => {
+    const parsed = parseChromatogram([
+      'Chrom.1\t\tChrom.1\t\tChrom.1\t',
+      'Cond\t\t% Cond\t\tUV\t',
+      'ml\tmS/cm\tml\t%\tml\tmAU',
+      '0\t30\t0\t20\t0\t1',
+      '\t\t\t\t0.1\t2',
+      '\t\t\t\t0.2\t3',
+    ].join('\n'));
+
+    expect(parsed.notices.filter(notice => /invalid/i.test(notice))).toEqual([]);
+    expect(parsed.traces?.map(trace => [trace.label, trace.points.length])).toEqual([
+      ['Cond', 1], ['% Cond', 1], ['UV', 3],
+    ]);
+  });
+
   it('uses a caller-selected mapping for generic CSV columns', () => {
     const parsed = parseChromatogram('position,signal\n2.5,321\n', { volumeMl: 0, uv280: 1 });
 
