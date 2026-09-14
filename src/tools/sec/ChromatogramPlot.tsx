@@ -119,6 +119,7 @@ export function ChromatogramPlot({
         </div>;
       })}
       <label class="flex items-center gap-1 text-xs"><input aria-label="Show fraction bands" type="checkbox" checked={showFractions} onChange={event => onShowFractionsChange((event.target as HTMLInputElement).checked)} /> Show fraction bands</label>
+      {baseline.mode === 'manual-linear' && <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Manual baseline</span>}
     </div>
     {imported.injectionVolumeMl !== undefined && <p class="mb-2 text-xs font-medium text-violet-700 dark:text-violet-300">Injection at 0.00 mL (instrument volume {imported.injectionVolumeMl.toFixed(3)} mL)</p>}
     {bands.length > 0 && <div class="mb-2 flex max-h-20 flex-wrap gap-1 overflow-y-auto" aria-label="Fraction selections">{bands.map(band => <button type="button" key={`${band.label}-${band.startVolumeMl}`} aria-pressed={selectedFractionLabels.includes(band.label)} onClick={() => toggleFraction(band.label)} class={selectedFractionLabels.includes(band.label) ? 'rounded bg-violet-600 px-2 py-1 text-xs text-white' : 'rounded border px-2 py-1 text-xs'}>{band.label}</button>)}</div>}

@@ -94,6 +94,29 @@ describe('Chromatography Workbench', () => {
     expect(screen.getByText(/Fraction details: F2/i)).toBeTruthy();
   });
 
+  it('retains multiple accepted peaks with editable bounds and exposes a manual linear baseline', () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), {
+      target: { value: 'volume,uv280\n1,0\n2,4\n3,0\n4,5\n5,0\n' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Accept candidate 1/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Accept candidate 2/i }));
+    expect(screen.getAllByRole('heading', { name: /Accepted peak/i })).toHaveLength(2);
+    fireEvent.input(screen.getByLabelText(/Peak 1 start/i), { target: { value: '1.5' } });
+    expect(screen.getByText(/Peak 1.*AU·mL/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Remove peak 2/i }));
+    expect(screen.getAllByRole('heading', { name: /Accepted peak/i })).toHaveLength(1);
+
+    fireEvent.change(screen.getByLabelText(/Baseline correction/i), { target: { value: 'manual-linear' } });
+    fireEvent.input(screen.getByLabelText(/Baseline start volume/i), { target: { value: '1' } });
+    fireEvent.input(screen.getByLabelText(/Baseline start signal/i), { target: { value: '0' } });
+    fireEvent.input(screen.getByLabelText(/Baseline end volume/i), { target: { value: '5' } });
+    fireEvent.input(screen.getByLabelText(/Baseline end signal/i), { target: { value: '0' } });
+    expect(screen.getByText(/Manual baseline/i)).toBeTruthy();
+  });
+
   it('loads a chromatogram file and retains its filename in derived exports', async () => {
     render(<SecView />);
     fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
