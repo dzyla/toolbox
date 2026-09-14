@@ -107,6 +107,22 @@ describe('Chromatography Workbench', () => {
     expect(downloadText).toHaveBeenCalledWith(expect.stringContaining('"filename": "run.asc"'), 'chromatography-derived.json', 'application/json;charset=utf-8');
   });
 
+  it('shows imported ÅKTA channels together and lets each trace be hidden independently', () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), { target: { value: [
+      'Chrom.1\t\tChrom.1\t\tChrom.1\t',
+      'Cond\t\t% Cond\t\tUV\t',
+      'ml\tmS/cm\tml\t%\tml\tmAU',
+      '0\t30\t0\t20\t0\t1',
+      '1\t31\t1\t40\t1\t3',
+    ].join('\n') } });
+    expect(screen.getByRole('button', { name: /Cond \(mS\/cm\)/i }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /% Cond \(%\)/i }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: /Cond \(mS\/cm\)/i }));
+    expect(screen.getByRole('button', { name: /Cond \(mS\/cm\)/i }).getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('keeps UV-Vis correction out of the chromatography workbench', () => {
     render(<SecView />);
     expect(screen.queryByRole('button', { name: /UV-Vis spectra/i })).toBeNull();

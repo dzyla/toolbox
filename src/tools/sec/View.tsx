@@ -833,10 +833,15 @@ function numberOrUndefined(value: string): number | undefined {
 function TracePlot({ raw, channels, derived: _derived }: { raw: Array<{ volumeMl: number; signalAu: number }>; channels?: ChromatogramImport['traces']; derived?: Array<{ volumeMl: number; signalAu: number }> }) {
   const fallback = [{ id: 'uv280', label: 'UV 280', unit: 'mAU', points: raw.map(point => ({ volumeMl: point.volumeMl, value: point.signalAu * 1000 })) }];
   const traces = channels?.length ? channels : fallback;
-  const [selected, setSelected] = useState(traces[0]?.id ?? 'uv280');
-  const active = traces.find(trace => trace.id === selected) ?? traces[0];
-  if (!active || active.points.length < 2) return <p class="text-sm text-slate-500">Import a mapped volume and detector trace to plot it.</p>;
-  return <section class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"><div class="mb-3 flex flex-wrap items-center gap-2"><strong class="text-sm">Trace viewer</strong><span class="text-xs text-slate-500">Hover the trace for the exact volume and value.</span>{traces.map(trace => <button type="button" aria-pressed={active.id === trace.id} onClick={() => setSelected(trace.id)} class={active.id === trace.id ? 'rounded-full bg-accent-600 px-3 py-1 text-xs font-semibold text-white' : 'rounded-full border px-3 py-1 text-xs'}>{trace.label} ({trace.unit})</button>)}</div><LineChart title="Chromatogram raw and derived overlays" series={[{ name: active.label, x: active.points.map(point => point.volumeMl), y: active.points.map(point => point.value), color: '#2563eb' }]} xLabel="Elution volume (mL)" yLabel={`${active.label} (${active.unit})`} exportName="chromatogram-trace" /></section>;
+  const [visible, setVisible] = useState(traces.map(trace => trace.id));
+  const shown = traces.filter(trace => visible.includes(trace.id));
+  if (shown.length === 0) return <section class="rounded-xl border p-3"><div class="flex flex-wrap gap-2">{traces.map(trace => <button type="button" aria-pressed="false" onClick={() => setVisible([trace.id])} class="rounded-full border px-3 py-1 text-xs">{trace.label} ({trace.unit})</button>)}</div><p class="mt-3 text-sm text-slate-500">Turn on a trace to view it.</p></section>;
+  const series = shown.map((trace, index) => {
+    const values = trace.points.map(point => point.value);
+    const low = Math.min(...values), high = Math.max(...values), span = high - low || 1;
+    return { name: `${trace.label} (${trace.unit})`, x: trace.points.map(point => point.volumeMl), y: values.map(value => (value - low) / span * 100), color: ['#2563eb', '#d97706', '#16a34a', '#7c3aed'][index % 4] };
+  });
+  return <section class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"><div class="mb-3 flex flex-wrap items-center gap-2"><strong class="text-sm">Trace viewer</strong><span class="text-xs text-slate-500">Each curve is independently scaled; hover for its trace readout.</span>{traces.map(trace => <button type="button" aria-pressed={visible.includes(trace.id)} onClick={() => setVisible(current => current.includes(trace.id) ? current.filter(id => id !== trace.id) : [...current, trace.id])} class={visible.includes(trace.id) ? 'rounded-full bg-accent-600 px-3 py-1 text-xs font-semibold text-white' : 'rounded-full border px-3 py-1 text-xs'}>{trace.label} ({trace.unit})</button>)}</div><LineChart title="Chromatogram raw and derived overlays" series={series} xLabel="Elution volume (mL)" yLabel="Relative signal (per trace, %)" exportName="chromatogram-trace" /></section>;
 }
 
 function _LegacyRunFractionsPanel() {
