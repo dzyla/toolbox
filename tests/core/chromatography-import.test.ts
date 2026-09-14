@@ -34,6 +34,24 @@ describe('chromatogram import', () => {
     });
   });
 
+  it('retains sparse ÅKTA fraction labels and the injection coordinate without changing the UV axis', () => {
+    const parsed = parseChromatogram([
+      'Chrom.1\t\tChrom.1\t\tChrom.1\t',
+      'Fraction\t\tInjection\t\tUV\t',
+      'ml\tFraction\tml\tInjection\tml\tmAU',
+      '7.5\t"A1"\t3.55\t\t3.5\t1',
+      '8\t"A2"\t\t\t4\t3',
+    ].join('\n'));
+
+    expect(parsed.injectionVolumeMl).toBe(3.55);
+    expect(parsed.fractionEvents).toEqual([
+      { label: 'A1', volumeMl: 7.5 },
+      { label: 'A2', volumeMl: 8 },
+    ]);
+    expect(parsed.points.map(point => point.volumeMl)).toEqual([3.5, 4]);
+    expect(parsed.traces?.map(trace => trace.label)).toEqual(['UV']);
+  });
+
   it('treats ended auxiliary channels as normal sparse traces instead of emitting one warning per UV row', () => {
     const parsed = parseChromatogram([
       'Chrom.1\t\tChrom.1\t\tChrom.1\t',

@@ -33,6 +33,12 @@ export interface Fraction {
   endTimeMin?: number;
 }
 
+/** A labelled fraction-collector event recorded on its native instrument volume axis. */
+export interface FractionEvent {
+  label: string;
+  volumeMl: number;
+}
+
 export type ChromatogramColumnMapping = Partial<Record<ChromatogramColumnName, number>>;
 
 export interface ChromatogramMapping extends ChromatogramColumnMapping {
@@ -48,6 +54,10 @@ export interface ChromatogramImport {
   mappedHeaders: Partial<Record<ChromatogramColumnName, string>>;
   points: ChromatogramPoint[];
   fractions: Fraction[];
+  /** Native ÅKTA fraction-collector events, retained separately from generic row labels. */
+  fractionEvents: FractionEvent[];
+  /** Native ÅKTA injection coordinate; viewers may display it as their zero-volume origin. */
+  injectionVolumeMl?: number;
   notices: string[];
   /** Native instrument channels retain their own sampling axes and units. */
   traces?: Array<{ id: string; label: string; unit: string; points: Array<{ volumeMl: number; value: number }> }>;
@@ -169,6 +179,15 @@ interface AktaPair {
   values: Array<{ axis: number; value: number }>;
 }
 
+type AktaAnnotation = 'fraction' | 'injection';
+
+interface AktaAnnotationPair {
+  annotation: AktaAnnotation;
+  axisColumn: number;
+  valueColumn: number;
+  header: string;
+}
+
 function aktaChannel(name: string): { channel: AktaChannel; bareUv?: boolean } | undefined {
   const normalized = normalizeHeader(name);
   if (normalized === 'uv') return { channel: 'uv280', bareUv: true };
@@ -177,6 +196,13 @@ function aktaChannel(name: string): { channel: AktaChannel; bareUv?: boolean } |
   if (normalized.includes('cond')) return { channel: 'conductivityMsCm' };
   if (normalized.includes('pressure')) return { channel: 'pressureBar' };
   if (normalized === 'ph') return { channel: 'ph' };
+  return undefined;
+}
+
+function aktaAnnotation(name: string): AktaAnnotation | undefined {
+  const normalized = normalizeHeader(name);
+  if (normalized === 'fraction' || normalized === 'fractions') return 'fraction';
+  if (normalized === 'injection') return 'injection';
   return undefined;
 }
 
@@ -189,16 +215,24 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
     if (pairCount === 0 || !Array.from({ length: pairCount }, (_, index) => normalizeHeader(units[index * 2]!) === 'ml').some(Boolean)) continue;
 
     const pairs: AktaPair[] = [];
+    const annotationPairs: AktaAnnotationPair[] = [];
     for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
-      const descriptor = aktaChannel(names[pairIndex * 2]!);
+      const name = names[pairIndex * 2]!;
+      const descriptor = aktaChannel(name);
+      const annotation = aktaAnnotation(name);
+      const axisColumn = pairIndex * 2;
+      const valueColumn = axisColumn + 1;
+      const unit = units[valueColumn]?.trim() || 'value';
+      if (annotation) {
+        annotationPairs.push({ annotation, axisColumn, valueColumn, header: `${name.trim()} (${unit})` });
+      }
       if (!descriptor) continue;
-      const unit = units[pairIndex * 2 + 1]?.trim() || 'value';
       pairs.push({
         channel: descriptor.channel,
         bareUv: descriptor.bareUv,
-        axisColumn: pairIndex * 2,
-        valueColumn: pairIndex * 2 + 1,
-        header: `${names[pairIndex * 2]!.trim()} (${unit})`, unit,
+        axisColumn,
+        valueColumn,
+        header: `${name.trim()} (${unit})`, unit,
         values: [],
       });
     }
@@ -206,6 +240,8 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
     if (!uvPair) continue;
 
     const notices: string[] = [];
+    const fractionEvents: FractionEvent[] = [];
+    let injectionVolumeMl: number | undefined;
     for (let rowIndex = headerRow + 2; rowIndex < lines.length; rowIndex += 1) {
       const row = parseDelimitedLine(lines[rowIndex]!, '\t');
       pairs.forEach(pair => {
@@ -218,6 +254,16 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
           return;
         }
         pair.values.push({ axis, value });
+      });
+      annotationPairs.forEach(pair => {
+        const axis = parseNumber(row[pair.axisColumn]);
+        if (axis === undefined) return;
+        if (pair.annotation === 'injection') {
+          injectionVolumeMl ??= axis;
+          return;
+        }
+        const label = row[pair.valueColumn]?.trim();
+        if (label) fractionEvents.push({ volumeMl: axis, label });
       });
     }
     if (uvPair.values.length === 0) continue;
@@ -245,7 +291,10 @@ function parseAktaPairedChannels(lines: string[]): ChromatogramImport | undefine
       mappedHeaders[pair.channel] = pair.header;
     });
     const traces = pairs.map(pair => ({ id: `${pair.channel}-${pair.valueColumn}`, label: names[pair.axisColumn]!.trim(), unit: pair.unit, points: pair.values.map(item => ({ volumeMl: item.axis, value: item.value })) }));
-    return { sourceHeaders, columnMapping, mappedHeaders, points, fractions: [], notices, traces };
+    return {
+      sourceHeaders, columnMapping, mappedHeaders, points, fractions: [], fractionEvents,
+      injectionVolumeMl, notices, traces,
+    };
   }
   return undefined;
 }
@@ -306,5 +355,5 @@ export function parseChromatogram(text: string, options: ChromatogramMapping = {
   }
 
   fractions.push(...(options.fractionBounds ?? []));
-  return { sourceHeaders, columnMapping, mappedHeaders, points, fractions, notices };
+  return { sourceHeaders, columnMapping, mappedHeaders, points, fractions, fractionEvents: [], notices };
 }
