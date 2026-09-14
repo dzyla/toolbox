@@ -26,6 +26,8 @@ export interface LogScatterFit {
 
 export interface ScatterCorrection {
   observedA280: number;
+  /** Fitted log10 scatter contribution at 280 nm. */
+  predictedScatterLogA280?: number;
   predictedScatterA280?: number;
   correctedA280?: number;
   warnings: string[];
@@ -202,7 +204,7 @@ export function fitLogScatter(points: SpectrumPoint[], startWavelengthNm = 300, 
   return { startWavelengthNm, endWavelengthNm, pointCount: valid.length, slope, intercept, rSquared, warnings };
 }
 
-/** Extrapolates a log-scatter fit to 280 nm without changing the observed value. */
+/** Applies the requested log-space scatter adjustment to an observed A280 without changing raw data. */
 export function correctA280ForScatter(observedA280: number, fit: LogScatterFit): ScatterCorrection {
   const warnings = [...fit.warnings];
   if (!Number.isFinite(observedA280) || observedA280 <= 0) {
@@ -213,10 +215,10 @@ export function correctA280ForScatter(observedA280: number, fit: LogScatterFit):
     warnings.push('Scatter correction is unavailable because the fit is undefined.');
     return { observedA280, warnings };
   }
-  const predictedScatterA280 = 10 ** (fit.slope * Math.log10(280) + fit.intercept);
-  const correctedA280 = observedA280 - predictedScatterA280;
-  if (correctedA280 <= 0) warnings.push('Scatter-corrected protein A280 is nonpositive.');
-  return { observedA280, predictedScatterA280, correctedA280, warnings };
+  const predictedScatterLogA280 = fit.slope * Math.log10(280) + fit.intercept;
+  const predictedScatterA280 = 10 ** predictedScatterLogA280;
+  const correctedA280 = 10 ** (Math.log10(observedA280) - predictedScatterLogA280);
+  return { observedA280, predictedScatterLogA280, predictedScatterA280, correctedA280, warnings };
 }
 
 function validPositive(value: number | undefined): boolean {
