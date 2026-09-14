@@ -39,4 +39,16 @@ describe('protein tools', () => {
     await waitFor(() => expect(screen.getByTestId('curve-result').textContent).toMatch(/1\.500/));
     expect(screen.getByTestId('curve-result').textContent).toMatch(/R² 1\.0000/);
   });
+
+  it('owns the optional log-space spectrum correction workflow', () => {
+    route.value = { name: 'tool', toolId: 'protein-conc' };
+    render(<ProteinConcentrationView />);
+    fireEvent.input(screen.getByLabelText(/Spectrum CSV or TSV/i), {
+      target: { value: 'Wavelength,Absorbance\n280,1\n300,0.4\n320,0.3\n340,0.24\n' },
+    });
+
+    expect(screen.getByText(/Observed A280/i)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/Apply 300–340 nm scatter correction/i));
+    expect(screen.getByText(/Log-space scattering-adjusted A280/i)).toBeTruthy();
+  });
 });

@@ -14,10 +14,6 @@ export function Nav() {
         </a>
         {tool && <span class="truncate text-xs sm:text-sm text-slate-500 dark:text-slate-400 min-w-0 flex-1">/ {tool.icon} {tool.name}</span>}
         <div class="flex-1 min-w-0" />
-        <a href="#/assurance" aria-current={r.name === 'assurance' ? 'page' : undefined}
-          class="rounded px-1 py-1 text-xs sm:text-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2">
-          Methods & Assurance
-        </a>
         <button type="button" onClick={cycle} aria-label="Toggle dark mode"
           class="shrink-0 rounded-full border border-slate-200 px-2.5 sm:px-3 py-1 text-xs sm:text-sm dark:border-slate-700">
           {resolvedDark.value ? '☀️ Light' : '🌙 Dark'}

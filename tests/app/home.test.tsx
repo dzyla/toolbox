@@ -5,9 +5,9 @@ import { saveProject } from '@/lib/projects';
 import { relativeTime } from '@/lib/format';
 
 describe('Home', () => {
-  it('links the research preview to its methods and assurance inventory', () => {
+  it('keeps the research preview focused on the tools', () => {
     render(<Home />);
-    expect(screen.getByRole('link', { name: 'Methods & Assurance' }).getAttribute('href')).toBe('#/assurance');
+    expect(screen.queryByRole('link', { name: 'Methods & Assurance' })).toBeNull();
   });
   it('filters tools by search', async () => {
     render(<Home />);
