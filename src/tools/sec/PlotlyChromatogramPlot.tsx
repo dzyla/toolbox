@@ -228,7 +228,7 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
   }, [props.model, status]);
 
   const activeTraces = props.model.traces.filter(trace => trace.visible).map(trace => trace.label).join(', ') || 'none';
-  const injectionSummary = props.model.injectionDisplayVolumeMl === undefined ? 'Instrument volume origin' : 'Injection at 0.00 mL';
+  const injectionSummary = props.model.injectionDisplayVolumeMl === undefined ? 'Instrument volume origin' : 'Display origin is injection volume 0.00 mL';
 
   return <div class="relative min-h-[28rem]">
     <div ref={graphRef} aria-label="Chromatogram analysis plot" class="min-h-[28rem] w-full" />

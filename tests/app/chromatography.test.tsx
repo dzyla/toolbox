@@ -1,10 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
 
-const { downloadText } = vi.hoisted(() => ({ downloadText: vi.fn() }));
+const { downloadText, plotlyApi } = vi.hoisted(() => ({
+  downloadText: vi.fn(),
+  plotlyApi: {
+    newPlot: vi.fn(async (root: HTMLElement) => {
+      Object.assign(root, { on: vi.fn() });
+      return root;
+    }),
+    react: vi.fn(async (root: HTMLElement) => root),
+    restyle: vi.fn(async (root: HTMLElement) => root),
+    relayout: vi.fn(async (root: HTMLElement) => root),
+    purge: vi.fn(),
+  },
+}));
 vi.mock('@/lib/export', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/export')>()),
   downloadText,
+}));
+vi.mock('@/tools/sec/plotly-runtime', () => ({
+  loadPlotly: vi.fn(async () => plotlyApi),
 }));
 
 import { TOOLS } from '@/tools/registry';
@@ -105,7 +120,7 @@ describe('Chromatography Workbench', () => {
     fireEvent.change(screen.getByLabelText(/Volume column/i), { target: { value: '0' } });
     fireEvent.change(screen.getByLabelText(/UV 280 column/i), { target: { value: '1' } });
 
-    expect(screen.getByText(/Trace viewer/i)).toBeTruthy();
+    expect(screen.getByText(/^Chromatogram$/i)).toBeTruthy();
     expect(screen.getByText(/Candidate peaks/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Export raw CSV/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Export raw JSON/i })).toBeTruthy();
@@ -186,12 +201,44 @@ describe('Chromatography Workbench', () => {
 
     expect(screen.getByLabelText(/Chromatogram analysis plot/i)).toBeTruthy();
     expect(screen.getByText(/Injection at 0\.00 mL/i)).toBeTruthy();
-    expect(screen.getAllByText('A1')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'A1', exact: true })).toBeTruthy();
     const color = screen.getByLabelText(/Color for UV/i) as HTMLInputElement;
     fireEvent.input(color, { target: { value: '#dc2626' } });
     expect(color.value).toBe('#dc2626');
     fireEvent.click(screen.getByRole('button', { name: /Focus selected fractions/i }));
     fireEvent.click(screen.getByRole('button', { name: /Reset zoom/i }));
+  });
+
+  it('uses a compact chart toolbar and inspector instead of an SVG trace viewer', async () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), {
+      target: { value: 'volume,uv280,fraction\n1,0,F1\n2,4,F2\n3,0,F3\n' },
+    });
+
+    expect(screen.getByRole('button', { name: /Fit run/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Trace display/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Use visible range/i })).toBeTruthy();
+    expect(screen.queryByText(/^Trace viewer$/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Use visible range/i }));
+    expect((screen.getByLabelText(/Manual peak start/i) as HTMLInputElement).value).toBe('1');
+    expect((screen.getByLabelText(/Manual peak end/i) as HTMLInputElement).value).toBe('3');
+    await waitFor(() => expect(screen.getByTestId('plotly-chromatogram-ready')).toBeTruthy());
+  });
+
+  it('bounds the legacy fraction-detail chooser for dense generic imports', () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), {
+      target: {
+        value: [
+          'volume,uv280,fraction',
+          ...Array.from({ length: 30 }, (_, index) => `${index},${index % 5},F${index + 1}`),
+        ].join('\n'),
+      },
+    });
+
+    expect(screen.getAllByRole('button', { name: /Select fraction/i })).toHaveLength(12);
   });
 
   it('keeps UV-Vis correction out of the chromatography workbench', () => {
