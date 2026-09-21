@@ -39,6 +39,14 @@ const model: ChromatogramChartModel = {
   peakOverlays: [],
 };
 
+const callbacks = {
+  onViewportCommit: vi.fn(),
+  onFractionSelect: vi.fn(),
+  onPeakSelect: vi.fn(),
+  onRangeSelect: vi.fn(),
+  onBaselineAnchorPick: vi.fn(),
+};
+
 describe('PlotlyChromatogramPlot', () => {
   beforeEach(() => {
     handlers.clear();
@@ -97,5 +105,44 @@ describe('PlotlyChromatogramPlot', () => {
     rendered.unmount();
 
     expect(plotlyApi.purge).toHaveBeenCalledWith(graph);
+  });
+
+  it('relayouts controlled Y limits without rebuilding the graph', async () => {
+    const rendered = render(<PlotlyChromatogramPlot
+      model={{ ...model, yRange: [10, 250] }}
+      {...callbacks}
+      interactionMode="inspect"
+      baselineAnchorTarget={null}
+    />);
+
+    await waitFor(() => expect(plotlyApi.newPlot).toHaveBeenCalledTimes(1));
+    rendered.rerender(<PlotlyChromatogramPlot
+      model={{ ...model, yRange: [25, 300] }}
+      {...callbacks}
+      interactionMode="inspect"
+      baselineAnchorTarget={null}
+    />);
+
+    await waitFor(() => expect(plotlyApi.relayout).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ 'yaxis.range': [25, 300] }),
+    ));
+    expect(plotlyApi.react).not.toHaveBeenCalled();
+  });
+
+  it('maps a Plotly selection to the active peak-select mode', async () => {
+    const onRangeSelect = vi.fn();
+    render(<PlotlyChromatogramPlot
+      model={model}
+      {...callbacks}
+      onRangeSelect={onRangeSelect}
+      interactionMode="peak-select"
+      baselineAnchorTarget={null}
+    />);
+
+    await waitFor(() => expect(handlers.get('plotly_selected')).toBeTypeOf('function'));
+    handlers.get('plotly_selected')?.({ range: { x: [1.25, 2.75] } });
+
+    expect(onRangeSelect).toHaveBeenCalledWith({ startVolumeMl: 1.25, endVolumeMl: 2.75 }, 'peak-select');
   });
 });

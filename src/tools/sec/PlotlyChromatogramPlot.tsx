@@ -9,9 +9,13 @@ export interface PlotlyChromatogramPlotProps {
   onViewportCommit: (range: VolumeRange) => void;
   onFractionSelect: (label: string) => void;
   onPeakSelect: (id: string) => void;
+  interactionMode?: ChartInteractionMode;
+  onRangeSelect?: (range: VolumeRange, mode: Exclude<ChartInteractionMode, 'inspect'>) => void;
   baselineAnchorTarget: 'start' | 'end' | null;
   onBaselineAnchorPick: (target: 'start' | 'end', point: { volumeMl: number; signalAu: number }) => void;
 }
+
+export type ChartInteractionMode = 'inspect' | 'peak-select' | 'fraction-select';
 
 interface PlotlyEventTarget extends HTMLElement {
   on: (name: string, listener: (event: Record<string, unknown>) => void) => void;
@@ -25,7 +29,6 @@ const chartConfig: Partial<Config> = {
 
 function traceData(model: ChromatogramChartModel): Data[] {
   const traces: Data[] = model.traces
-    .filter(trace => trace.visible)
     .map(trace => ({
       type: 'scattergl',
       mode: 'lines',
@@ -34,6 +37,7 @@ function traceData(model: ChromatogramChartModel): Data[] {
       name: `${trace.label} (${trace.unit})`,
       yaxis: trace.axis === 'overlay' ? 'y2' : 'y',
       line: { color: trace.color, width: 2 },
+      visible: trace.visible,
       meta: { chromatogramTraceId: trace.id, role: trace.axis === 'uv' ? 'uv' : 'overlay' },
       hovertemplate: `%{x:.3f} mL<br>%{y:.3g} ${trace.unit}<extra>${trace.label}</extra>`,
     } as Data));
@@ -77,7 +81,7 @@ function traceData(model: ChromatogramChartModel): Data[] {
   return traces;
 }
 
-function chartLayout(model: ChromatogramChartModel): Partial<Layout> {
+function chartLayout(model: ChromatogramChartModel, interactionMode: ChartInteractionMode = 'inspect'): Partial<Layout> {
   const fractionShapes = model.fractionAnnotations.bands.map((band, index) => ({
     type: 'rect' as const,
     xref: 'x' as const,
@@ -106,7 +110,7 @@ function chartLayout(model: ChromatogramChartModel): Partial<Layout> {
     autosize: true,
     margin: { l: 64, r: 64, t: 24, b: 78 },
     hovermode: 'x unified',
-    dragmode: 'zoom',
+    dragmode: interactionMode === 'inspect' ? 'zoom' : 'select',
     showlegend: false,
     xaxis: {
       title: { text: 'Elution volume relative to injection (mL)' },
@@ -119,6 +123,8 @@ function chartLayout(model: ChromatogramChartModel): Partial<Layout> {
       domain: [0.14, 1],
       zeroline: true,
       zerolinecolor: '#cbd5e1',
+      autorange: model.yRange === undefined,
+      range: model.yRange,
     },
     yaxis2: {
       title: { text: 'Overlay' },
@@ -163,11 +169,29 @@ function rangeFromRelayout(event: Record<string, unknown>, extent: VolumeRange):
   return constrainViewport({ startVolumeMl: start, endVolumeMl: end }, extent);
 }
 
+function selectionRange(event: Record<string, unknown>, extent: VolumeRange): VolumeRange | undefined {
+  const range = event.range as { x?: unknown } | undefined;
+  const values = Array.isArray(range?.x) ? range.x : [];
+  const start = Number(values[0]);
+  const end = Number(values[1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return undefined;
+  return constrainViewport({ startVolumeMl: start, endVolumeMl: end }, extent);
+}
+
+function traceSchema(model: ChromatogramChartModel): string {
+  return [
+    ...model.traces.map(trace => `signal:${trace.id}:${trace.axis}`),
+    ...(model.baseline ? ['baseline'] : []),
+    ...model.peakOverlays.flatMap(peak => [`peak-base:${peak.id}`, `peak-fill:${peak.id}`]),
+  ].join('|');
+}
+
 export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
   const graphRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<PlotlyApi>();
   const callbacksRef = useRef(props);
   const modelRef = useRef(props.model);
+  const schemaRef = useRef('');
   const [retryToken, setRetryToken] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   callbacksRef.current = props;
@@ -181,7 +205,7 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
     void loadPlotly().then(api => api.newPlot(
       graph,
       traceData(modelRef.current),
-      chartLayout(modelRef.current),
+      chartLayout(modelRef.current, callbacksRef.current.interactionMode),
       chartConfig,
     ).then(() => {
       if (disposed) {
@@ -189,6 +213,7 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
         return;
       }
       apiRef.current = api;
+      schemaRef.current = traceSchema(modelRef.current);
       const eventGraph = graph as unknown as PlotlyEventTarget;
       eventGraph.on('plotly_relayout', event => {
         const range = rangeFromRelayout(event, modelRef.current.extent);
@@ -209,6 +234,12 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
           }
         }
       });
+      eventGraph.on('plotly_selected', event => {
+        const mode = callbacksRef.current.interactionMode;
+        if (mode !== 'peak-select' && mode !== 'fraction-select') return;
+        const range = selectionRange(event, modelRef.current.extent);
+        if (range) callbacksRef.current.onRangeSelect?.(range, mode);
+      });
       setStatus('ready');
     })).catch(() => {
       if (!disposed) setStatus('error');
@@ -224,8 +255,28 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
     const graph = graphRef.current;
     const api = apiRef.current;
     if (!graph || !api || status !== 'ready') return;
-    void api.react(graph, traceData(props.model), chartLayout(props.model), chartConfig);
-  }, [props.model, status]);
+    const data = traceData(props.model);
+    const schema = traceSchema(props.model);
+    if (schema !== schemaRef.current) {
+      schemaRef.current = schema;
+      void api.react(graph, data, chartLayout(props.model, props.interactionMode), chartConfig);
+      return;
+    }
+    const indexes = data.map((_, index) => index);
+    void api.restyle(graph, {
+      x: data.map(trace => (trace as { x?: unknown }).x),
+      y: data.map(trace => (trace as { y?: unknown }).y),
+      visible: data.map(trace => (trace as { visible?: unknown }).visible ?? true),
+    }, indexes);
+    void api.relayout(graph, {
+      'xaxis.range': [props.model.viewport.startVolumeMl, props.model.viewport.endVolumeMl],
+      'yaxis.range': props.model.yRange,
+      'yaxis.autorange': props.model.yRange === undefined,
+      shapes: chartLayout(props.model, props.interactionMode).shapes,
+      annotations: chartLayout(props.model, props.interactionMode).annotations,
+      dragmode: (props.interactionMode ?? 'inspect') === 'inspect' ? 'zoom' : 'select',
+    });
+  }, [props.model, props.interactionMode, status]);
 
   const activeTraces = props.model.traces.filter(trace => trace.visible).map(trace => trace.label).join(', ') || 'none';
   const injectionSummary = props.model.injectionDisplayVolumeMl === undefined ? 'Instrument volume origin' : 'Display origin is injection volume 0.00 mL';

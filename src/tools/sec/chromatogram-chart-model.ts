@@ -64,6 +64,7 @@ export interface PeakOverlay {
 export interface ChromatogramChartModel {
   extent: VolumeRange;
   viewport: VolumeRange;
+  yRange?: [number, number];
   traces: ChartTrace[];
   fractionAnnotations: {
     bands: FractionAnnotation[];
