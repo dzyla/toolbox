@@ -90,6 +90,21 @@ describe('PlotlyChromatogramPlot', () => {
     expect(onViewportCommit).toHaveBeenCalledWith({ startVolumeMl: 1, endVolumeMl: 3 });
   });
 
+  it('does not feed a controlled viewport relayout back into parent state', async () => {
+    const onViewportCommit = vi.fn();
+    render(<PlotlyChromatogramPlot
+      model={model}
+      onViewportCommit={onViewportCommit}
+      onFractionSelect={vi.fn()}
+      onPeakSelect={vi.fn()}
+      baselineAnchorTarget={null}
+      onBaselineAnchorPick={vi.fn()}
+    />);
+    await waitFor(() => expect(handlers.get('plotly_relayout')).toBeTypeOf('function'));
+    handlers.get('plotly_relayout')?.({ 'xaxis.range[0]': 0, 'xaxis.range[1]': 4 });
+    expect(onViewportCommit).not.toHaveBeenCalled();
+  });
+
   it('purges the graph when the component unmounts', async () => {
     const rendered = render(<PlotlyChromatogramPlot
       model={model}

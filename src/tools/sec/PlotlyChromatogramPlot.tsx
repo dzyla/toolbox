@@ -217,7 +217,10 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
       const eventGraph = graph as unknown as PlotlyEventTarget;
       eventGraph.on('plotly_relayout', event => {
         const range = rangeFromRelayout(event, modelRef.current.extent);
-        if (range) callbacksRef.current.onViewportCommit(range);
+        const viewport = modelRef.current.viewport;
+        if (range && (range.startVolumeMl !== viewport.startVolumeMl || range.endVolumeMl !== viewport.endVolumeMl)) {
+          callbacksRef.current.onViewportCommit(range);
+        }
       });
       eventGraph.on('plotly_click', event => {
         const firstPoint = Array.isArray(event.points) ? event.points[0] as Record<string, unknown> | undefined : undefined;
