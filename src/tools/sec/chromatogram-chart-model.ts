@@ -115,6 +115,7 @@ interface NativeTrace {
 
 const DEFAULT_COLORS = ['#2563eb', '#d97706', '#16a34a', '#7c3aed', '#db2777'];
 const MIN_FRACTION_LABEL_WIDTH_PX = 64;
+const MAX_RENDERED_FRACTION_BANDS = 500;
 
 export function getDisplayExtent(points: SignalPoint[], displayOffsetMl: number): VolumeRange {
   const volumes = points
@@ -151,22 +152,25 @@ export function buildFractionAnnotations(input: FractionAnnotationInput): Chroma
     .filter(band => band.endVolumeMl >= input.viewport.startVolumeMl && band.startVolumeMl <= input.viewport.endVolumeMl);
   if (!visibleBands.length) return { bands: [], labels: [] };
 
-  const stride = Math.max(1, Math.ceil(visibleBands.length * MIN_FRACTION_LABEL_WIDTH_PX / Math.max(1, input.widthPx)));
-  const labelledIndexes = new Set<number>([0, visibleBands.length - 1]);
-  visibleBands.forEach((band, index) => {
-    if (index % stride === 0 || band.selected) labelledIndexes.add(index);
+  const bandStride = Math.max(1, Math.ceil(visibleBands.length / (MAX_RENDERED_FRACTION_BANDS - 2)));
+  const renderedBands = visibleBands.filter((band, index) =>
+    index % bandStride === 0 || index === visibleBands.length - 1 || band.selected);
+  const labelStride = Math.max(1, Math.ceil(renderedBands.length * MIN_FRACTION_LABEL_WIDTH_PX / Math.max(1, input.widthPx)));
+  const labelledIndexes = new Set<number>([0, renderedBands.length - 1]);
+  renderedBands.forEach((band, index) => {
+    if (index % labelStride === 0 || band.selected) labelledIndexes.add(index);
   });
   const labels = [...labelledIndexes]
     .sort((left, right) => left - right)
     .map(index => {
-      const band = visibleBands[index]!;
+      const band = renderedBands[index]!;
       return {
         id: band.id,
         text: band.label,
         volumeMl: Math.max(band.startVolumeMl, input.viewport.startVolumeMl),
       };
     });
-  return { bands: visibleBands, labels };
+  return { bands: renderedBands, labels };
 }
 
 function valueAt(points: SignalPoint[], volumeMl: number): number | undefined {

@@ -42,6 +42,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // The frozen /legacy/ pages are served from disk (copied by deploy), not from the precache —
         // the SPA fallback must not swallow their navigation requests.
         navigateFallbackDenylist: [/^\/legacy\//]

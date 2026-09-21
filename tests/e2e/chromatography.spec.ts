@@ -55,3 +55,29 @@ test('Chromatography: plots ÅKTA injection and fractions with editable multi-pe
   await page.getByLabel('Peak 1 start').fill('1.5');
   await expect(page.getByText(/Peak 1 candidate;.*AU·mL/)).toBeVisible();
 });
+
+test('Chromatography: keeps a dense run interactive without an unbounded fraction-control list', async ({ page }) => {
+  await page.goto('/#/t/sec');
+  await page.getByRole('button', { name: 'Run & fractions' }).click();
+  const rows = Array.from({ length: 25_000 }, (_, index) =>
+    `${index},${Math.round((Math.sin(index / 220) + 1) * 500)},F${index + 1}`);
+  const source = [
+    'volume,uv280,fraction',
+    ...rows,
+  ].join('\n');
+  await page.getByLabel('Import chromatogram file').setInputFiles({
+    name: 'dense-run.asc',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(source),
+  });
+
+  await expect(page.getByTestId('plotly-chromatogram-ready')).toBeVisible();
+  await expect(page.getByLabel('Chromatogram analysis plot')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Select fraction/i })).toHaveCount(12);
+  await page.getByRole('checkbox', { name: 'Show fractions' }).uncheck();
+  await page.getByRole('checkbox', { name: 'Show fractions' }).check();
+  await page.getByRole('button', { name: 'Use visible range' }).click();
+  await page.getByRole('button', { name: 'Accept manual peak bounds' }).click();
+  await expect(page.getByRole('heading', { name: /Accepted peak details/ })).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/chromatography-dense-desktop.png', fullPage: true });
+});

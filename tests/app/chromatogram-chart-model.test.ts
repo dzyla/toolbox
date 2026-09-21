@@ -34,6 +34,24 @@ describe('chromatogram chart model', () => {
     expect(annotations.labels.map(label => label.text)).toContain('F80');
   });
 
+  it('bounds rendered fraction bands for very dense collection records', () => {
+    const annotations = buildFractionAnnotations({
+      events: Array.from({ length: 2_000 }, (_, index) => ({
+        label: `F${index + 1}`,
+        volumeMl: index,
+      })),
+      endInstrumentVolumeMl: 2_000,
+      displayOffsetMl: 0,
+      viewport: { startVolumeMl: 0, endVolumeMl: 2_000 },
+      widthPx: 1_000,
+      selectedLabels: ['F1337'],
+      visible: true,
+    });
+
+    expect(annotations.bands.length).toBeLessThanOrEqual(500);
+    expect(annotations.bands.map(band => band.label)).toContain('F1337');
+  });
+
   it('builds each accepted-peak fill from only its local trace segment', () => {
     const overlays = buildPeakOverlays({
       correctedUv: [0, 1, 2, 3, 4].map(volumeMl => ({
