@@ -61,4 +61,9 @@ describe('ChromatogramWorkbench', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create fraction pool' }));
     expect(props.onCreatePool).toHaveBeenCalledWith('Main peak');
   });
+
+  it('shows created fraction pools beside the selected fractions', () => {
+    render(<ChromatogramWorkbench {...props} pools={[{ id: 'pool-1', name: 'Main peak', labels: ['F1', 'F2'] }]} />);
+    expect(screen.getByText('Main peak · F1, F2')).toBeTruthy();
+  });
 });

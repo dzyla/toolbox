@@ -15,7 +15,7 @@ import {
 } from './chromatogram-chart-model';
 import { PlotlyChromatogramPlot } from './PlotlyChromatogramPlot';
 import { ChromatogramWorkbench } from './ChromatogramWorkbench';
-import { createFractionPool, fractionLabelsIntersectingRange } from './chromatogram-workspace';
+import { createFractionPool, fractionLabelsIntersectingRange, type FractionPool } from './chromatogram-workspace';
 
 export interface TraceDisplaySetting extends Omit<ChartTraceSetting, 'axis'> {
   axis?: ChartTraceSetting['axis'];
@@ -56,7 +56,7 @@ export function ChromatogramPlot({
   const [selectedPeakId, setSelectedPeakId] = useState<string | null>(null);
   const [yRange, setYRange] = useState<[number, number] | undefined>();
   const [interactionMode, setInteractionMode] = useState<'inspect' | 'peak-select' | 'fraction-select'>('inspect');
-  const [poolCount, setPoolCount] = useState(0);
+  const [pools, setPools] = useState<FractionPool[]>([]);
   const displayOffsetMl = imported.injectionVolumeMl ?? 0;
   const traces = getChromatogramTraces(imported, rawUv);
   const chartTraceSettings = traces.map((trace, index): ChartTraceSetting => {
@@ -136,6 +136,7 @@ export function ChromatogramPlot({
     acceptedPeaks={acceptedPeaks.map(peak => ({ id: peak.id, source: peak.source ?? 'manual', startVolumeMl: peak.startVolumeMl, endVolumeMl: peak.endVolumeMl }))}
     runs={[{ id: 'active-run', name: 'Active run', visible: true }]}
     activeRunId="active-run"
+    pools={pools}
     interactionMode={interactionMode}
     onTraceSettingChange={onTraceSettingChange}
     onViewportChange={onViewportChange}
@@ -152,8 +153,8 @@ export function ChromatogramPlot({
     onActiveRunChange={() => undefined}
     onRunVisibilityChange={() => undefined}
     onCreatePool={name => {
-      const pool = createFractionPool({ id: `pool-${poolCount + 1}`, name, runId: 'active-run', imported, labels: selectedFractionLabels });
-      if (pool) setPoolCount(current => current + 1);
+      const pool = createFractionPool({ id: `pool-${pools.length + 1}`, name, runId: 'active-run', imported, labels: selectedFractionLabels });
+      if (pool) setPools(current => [...current, pool]);
     }}
   />;
 
