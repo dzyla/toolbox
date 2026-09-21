@@ -113,9 +113,75 @@ interface NativeTrace {
   points: Array<{ volumeMl: number; value: number }>;
 }
 
+interface XYPoint {
+  x: number;
+  y: number;
+  index: number;
+}
+
 const DEFAULT_COLORS = ['#2563eb', '#d97706', '#16a34a', '#7c3aed', '#db2777'];
 const MIN_FRACTION_LABEL_WIDTH_PX = 64;
 const MAX_RENDERED_FRACTION_BANDS = 500;
+
+function pointAtX(points: XYPoint[], x: number): XYPoint | undefined {
+  const exact = points.find(point => point.x === x);
+  if (exact) return { ...exact, x };
+  for (let index = 1; index < points.length; index += 1) {
+    const left = points[index - 1]!;
+    const right = points[index]!;
+    if (x > left.x && x < right.x) {
+      const proportion = (x - left.x) / (right.x - left.x);
+      return { x, y: left.y + (right.y - left.y) * proportion, index: left.index };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Produces a display-only min/max envelope. Analytical workflows keep using
+ * the original imported points, so zooming and integration never lose data.
+ */
+export function decimateTraceForViewport(input: {
+  x: number[];
+  y: number[];
+  viewport: VolumeRange;
+  widthPx: number;
+}): { x: number[]; y: number[] } {
+  if (!(input.viewport.endVolumeMl > input.viewport.startVolumeMl)) return { x: [], y: [] };
+  const points = input.x.flatMap((x, index) => {
+    const y = input.y[index];
+    return Number.isFinite(x) && Number.isFinite(y) ? [{ x, y: y!, index }] : [];
+  }).sort((left, right) => left.x - right.x || left.index - right.index);
+  if (!points.length) return { x: [], y: [] };
+
+  const start = Math.max(input.viewport.startVolumeMl, points[0]!.x);
+  const end = Math.min(input.viewport.endVolumeMl, points.at(-1)!.x);
+  if (!(end >= start)) return { x: [], y: [] };
+  const first = pointAtX(points, start);
+  const last = pointAtX(points, end);
+  if (!first || !last) return { x: [], y: [] };
+  if (start === end) return { x: [first.x], y: [first.y] };
+
+  const widthPx = Math.max(1, Math.floor(input.widthPx));
+  const span = end - start;
+  const buckets = new Map<number, { low: XYPoint; high: XYPoint }>();
+  points.forEach(point => {
+    if (point.x <= start || point.x >= end) return;
+    const bucket = Math.min(widthPx - 1, Math.max(0, Math.floor((point.x - start) / span * widthPx)));
+    const current = buckets.get(bucket);
+    if (!current) {
+      buckets.set(bucket, { low: point, high: point });
+      return;
+    }
+    if (point.y < current.low.y) current.low = point;
+    if (point.y > current.high.y) current.high = point;
+  });
+  const selected = [first, ...[...buckets.values()].flatMap(bucket =>
+    bucket.low.index <= bucket.high.index ? [bucket.low, bucket.high] : [bucket.high, bucket.low]), last]
+    .filter((point, index, all) => index === 0 || point.x !== all[index - 1]!.x || point.y !== all[index - 1]!.y)
+    .slice(0, widthPx * 2 + 4);
+  return { x: selected.map(point => point.x), y: selected.map(point => point.y) };
+}
 
 export function getDisplayExtent(points: SignalPoint[], displayOffsetMl: number): VolumeRange {
   const volumes = points
@@ -229,20 +295,32 @@ export function buildChromatogramChartModel(input: BuildChromatogramChartModelIn
       color: DEFAULT_COLORS[index % DEFAULT_COLORS.length]!,
       axis: trace.id === 'uv280' || trace.label.toLowerCase().includes('uv') ? 'uv' as const : 'overlay' as const,
     };
+    const display = decimateTraceForViewport({
+      x: trace.points.map(point => point.volumeMl - displayOffsetMl),
+      y: trace.points.map(point => point.value),
+      viewport: input.viewport,
+      widthPx: input.graphWidthPx,
+    });
     return {
       id: trace.id,
       label: trace.label,
       unit: trace.unit,
-      x: trace.points.map(point => point.volumeMl - displayOffsetMl),
-      y: trace.points.map(point => point.value),
+      x: display.x,
+      y: display.y,
       color: setting.color,
       axis: setting.axis,
       visible: setting.visible,
     };
   });
-  const baseline = input.baseline.mode === 'none' ? undefined : {
+  const baselineDisplay = decimateTraceForViewport({
     x: input.baseline.points.map(point => point.volumeMl - displayOffsetMl),
     y: input.baseline.points.map(point => point.baselineAu * 1000),
+    viewport: input.viewport,
+    widthPx: input.graphWidthPx,
+  });
+  const baseline = input.baseline.mode === 'none' ? undefined : {
+    x: baselineDisplay.x,
+    y: baselineDisplay.y,
     color: '#334155',
     dash: 'dash' as const,
   };

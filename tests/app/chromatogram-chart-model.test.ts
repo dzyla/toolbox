@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFractionAnnotations,
   buildPeakOverlays,
+  decimateTraceForViewport,
   getDisplayExtent,
 } from '@/tools/sec/chromatogram-chart-model';
 
@@ -80,5 +81,29 @@ describe('chromatogram chart model', () => {
     expect(overlays[1]?.x).toEqual([2, 3, 4]);
     expect(overlays[0]?.selected).toBe(false);
     expect(overlays[1]?.selected).toBe(true);
+  });
+
+  it('preserves viewport boundaries and local extrema while bounding a 30k trace', () => {
+    const x = Array.from({ length: 30_000 }, (_, index) => index / 100);
+    const y = x.map((_, index) => index === 15_123 ? 999 : Math.sin(index / 60));
+
+    const result = decimateTraceForViewport({
+      x,
+      y,
+      viewport: { startVolumeMl: 0, endVolumeMl: 300 },
+      widthPx: 600,
+    });
+
+    expect(result.x[0]).toBe(0);
+    expect(result.x.at(-1)).toBe(299.99);
+    expect(result.x.length).toBeLessThanOrEqual(1_204);
+    expect(result.y).toContain(999);
+  });
+
+  it('interpolates viewport boundaries before decimating', () => {
+    expect(decimateTraceForViewport({
+      x: [0, 2, 4], y: [0, 20, 40],
+      viewport: { startVolumeMl: 1, endVolumeMl: 3 }, widthPx: 10,
+    })).toEqual({ x: [1, 2, 3], y: [10, 20, 30] });
   });
 });
