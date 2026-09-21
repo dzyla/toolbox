@@ -14,6 +14,8 @@ import {
   type ChartTraceSetting,
 } from './chromatogram-chart-model';
 import { PlotlyChromatogramPlot } from './PlotlyChromatogramPlot';
+import { ChromatogramWorkbench } from './ChromatogramWorkbench';
+import { createFractionPool, fractionLabelsIntersectingRange } from './chromatogram-workspace';
 
 export interface TraceDisplaySetting extends Omit<ChartTraceSetting, 'axis'> {
   axis?: ChartTraceSetting['axis'];
@@ -52,6 +54,9 @@ export function ChromatogramPlot({
   onUseVisibleRange?: (viewport: VolumeRange) => void;
 }): JSX.Element {
   const [selectedPeakId, setSelectedPeakId] = useState<string | null>(null);
+  const [yRange, setYRange] = useState<[number, number] | undefined>();
+  const [interactionMode, setInteractionMode] = useState<'inspect' | 'peak-select' | 'fraction-select'>('inspect');
+  const [poolCount, setPoolCount] = useState(0);
   const displayOffsetMl = imported.injectionVolumeMl ?? 0;
   const traces = getChromatogramTraces(imported, rawUv);
   const chartTraceSettings = traces.map((trace, index): ChartTraceSetting => {
@@ -108,6 +113,50 @@ export function ChromatogramPlot({
     }, fullExtent));
   };
 
+  const autoscaleY = () => {
+    const visibleUv = chartModel.traces.filter(trace => trace.axis === 'uv' && trace.visible)
+      .flatMap(trace => trace.y)
+      .filter(Number.isFinite);
+    if (!visibleUv.length) return setYRange(undefined);
+    const min = Math.min(...visibleUv); const max = Math.max(...visibleUv);
+    const padding = (max - min || Math.max(1, Math.abs(max) * 0.1)) * 0.05;
+    setYRange([min - padding, max + padding]);
+  };
+
+  return <ChromatogramWorkbench
+    imported={imported}
+    rawUv={rawUv}
+    correctedUv={correctedUv}
+    baseline={baseline}
+    traceSettings={chartTraceSettings}
+    viewport={viewport}
+    yRange={yRange}
+    showFractions={showFractions}
+    selectedFractionLabels={selectedFractionLabels}
+    acceptedPeaks={acceptedPeaks.map(peak => ({ id: peak.id, source: peak.source ?? 'manual', startVolumeMl: peak.startVolumeMl, endVolumeMl: peak.endVolumeMl }))}
+    runs={[{ id: 'active-run', name: 'Active run', visible: true }]}
+    activeRunId="active-run"
+    interactionMode={interactionMode}
+    onTraceSettingChange={onTraceSettingChange}
+    onViewportChange={onViewportChange}
+    onUseVisibleRange={onUseVisibleRange}
+    onShowFractionsChange={onShowFractionsChange}
+    onSelectedFractionLabelsChange={onSelectedFractionLabelsChange}
+    onYAxisApply={setYRange}
+    onAutoscaleY={autoscaleY}
+    onInteractionModeChange={setInteractionMode}
+    onRangeSelect={(range, mode) => {
+      if (mode === 'peak-select') onUseVisibleRange?.(range);
+      else onSelectedFractionLabelsChange([...new Set([...selectedFractionLabels, ...fractionLabelsIntersectingRange(imported, range)])]);
+    }}
+    onActiveRunChange={() => undefined}
+    onRunVisibilityChange={() => undefined}
+    onCreatePool={name => {
+      const pool = createFractionPool({ id: `pool-${poolCount + 1}`, name, runId: 'active-run', imported, labels: selectedFractionLabels });
+      if (pool) setPoolCount(current => current + 1);
+    }}
+  />;
+
   return <section class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
       <div>
@@ -121,7 +170,7 @@ export function ChromatogramPlot({
         <button type="button" class="rounded border px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={!selectedFractionLabels.length} onClick={focusFractions}>Focus selected fractions</button>
       </div>
     </div>
-    {imported.injectionVolumeMl !== undefined && <p class="mt-3 text-xs font-medium text-violet-700 dark:text-violet-300">Injection at 0.00 mL (instrument volume {imported.injectionVolumeMl.toFixed(3)} mL)</p>}
+    {imported.injectionVolumeMl !== undefined && <p class="mt-3 text-xs font-medium text-violet-700 dark:text-violet-300">Injection at 0.00 mL (instrument volume {imported.injectionVolumeMl?.toFixed(3)} mL)</p>}
     {baseline.mode === 'manual-linear' && <p class="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">Manual baseline</p>}
     {baseline.mode !== 'none' && <p class="mt-1 text-xs font-medium text-teal-700 dark:text-teal-300">Baseline-corrected UV</p>}
     <div class="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_15rem]">
