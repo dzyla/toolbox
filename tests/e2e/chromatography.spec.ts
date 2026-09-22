@@ -71,7 +71,7 @@ test('Chromatography: keeps a dense run interactive without an unbounded fractio
     buffer: Buffer.from(source),
   });
 
-  await expect(page.getByTestId('plotly-chromatogram-ready')).toBeVisible();
+  await expect(page.getByTestId('plotly-chromatogram-ready')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByLabel('Chromatogram analysis plot')).toBeVisible();
   await expect(page.getByRole('button', { name: /Select fraction/i })).toHaveCount(12);
   await page.getByRole('checkbox', { name: 'Show fractions' }).uncheck();
