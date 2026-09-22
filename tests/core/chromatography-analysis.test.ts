@@ -126,6 +126,19 @@ describe('chromatography analysis', () => {
     ]);
   });
 
+  it('finds noisy 46k-point ÅKTA-scale candidates without blocking the interface', () => {
+    const points = Array.from({ length: 46_000 }, (_, index) => {
+      const volumeMl = index / 100;
+      return { volumeMl, signalAu: Math.sin(index * Math.PI / 12) };
+    });
+    const startedAt = performance.now();
+
+    const candidates = detectPeakCandidates(points, { minimumProminenceAu: 0.5, minimumWidthMl: 0.1 });
+
+    expect(candidates.length).toBeGreaterThan(1_000);
+    expect(performance.now() - startedAt).toBeLessThan(750);
+  });
+
   it('estimates fraction mass from Beer-Lambert concentration and molecular weight', () => {
     const result = estimateFractionAmount({
       a280: 0.5,

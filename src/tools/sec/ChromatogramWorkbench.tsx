@@ -50,6 +50,7 @@ export interface ChromatogramWorkbenchProps {
   onAutoscaleY: () => void;
   onInteractionModeChange: (mode: ChartInteractionMode) => void;
   onRangeSelect: (range: VolumeRange, mode: Exclude<ChartInteractionMode, 'inspect'>) => void;
+  onPeakBoundCommit?: (id: string, edge: 'start' | 'end', volumeMl: number) => void;
   onActiveRunChange: (runId: string) => void;
   onRunVisibilityChange: (runId: string, visible: boolean) => void;
   onCreatePool: (name: string) => void;
@@ -140,7 +141,7 @@ export function ChromatogramWorkbench(props: ChromatogramWorkbenchProps) {
     {props.baseline.mode === 'manual-linear' && <p class="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">Manual baseline</p>}
     {props.baseline.mode !== 'none' && <p class="mt-1 text-xs font-medium text-teal-700 dark:text-teal-300">Baseline-corrected UV</p>}
     <div class="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_17rem]">
-      <PlotlyChromatogramPlot model={model} interactionMode={mode} onViewportCommit={props.onViewportChange} onFractionSelect={toggleFraction} onPeakSelect={setSelectedPeakId} onRangeSelect={props.onRangeSelect} baselineAnchorTarget={null} onBaselineAnchorPick={() => undefined} />
+      <PlotlyChromatogramPlot model={model} interactionMode={mode} onViewportCommit={props.onViewportChange} onFractionSelect={toggleFraction} onPeakSelect={setSelectedPeakId} onRangeSelect={props.onRangeSelect} onPeakBoundCommit={props.onPeakBoundCommit} baselineAnchorTarget={null} onBaselineAnchorPick={() => undefined} />
       <aside aria-label="Chromatogram inspector" class="space-y-4 border-t pt-3 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0 dark:border-slate-700">
         <section><h3 class="text-sm font-semibold">Display range</h3><div class="mt-2 grid grid-cols-2 gap-2"><label class="text-xs">Y minimum<input aria-label="Y axis minimum" value={minimum} onInput={event => setMinimum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><label class="text-xs">Y maximum<input aria-label="Y axis maximum" value={maximum} onInput={event => setMaximum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label></div><div class="mt-2 flex gap-2"><button type="button" onClick={applyAxis} class="rounded border px-2.5 py-1.5 text-xs font-medium">Apply Y limits</button><button type="button" onClick={props.onAutoscaleY} class="rounded border px-2.5 py-1.5 text-xs">Autoscale Y</button></div>{axisError && <p role="alert" class="mt-2 text-xs text-rose-700">{axisError}</p>}</section>
         <section><h3 class="text-sm font-semibold">Runs</h3><div class="mt-2 space-y-1">{props.runs.map(run => <div key={run.id} class="flex items-center gap-2"><button type="button" aria-pressed={run.id === props.activeRunId} onClick={() => props.onActiveRunChange(run.id)} class="min-w-0 flex-1 rounded border px-2 py-1 text-left text-xs">{run.name}{run.id === props.activeRunId ? ' · active' : ' · compare'}</button><input aria-label={`Show ${run.name}`} type="checkbox" checked={run.visible} onChange={event => props.onRunVisibilityChange(run.id, (event.target as HTMLInputElement).checked)} /></div>)}</div></section>

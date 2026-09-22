@@ -193,19 +193,29 @@ export function detectPeakCandidates(points: SignalPoint[], options: PeakDetecti
   const isValley = (index: number): boolean => index > 0 && index < lastIndex
     && ordered[index]!.signalAu <= ordered[index - 1]!.signalAu
     && ordered[index]!.signalAu < ordered[index + 1]!.signalAu;
-  const nearestLeftValley = (apexIndex: number): number => {
-    for (let index = apexIndex - 1; index > 0; index -= 1) if (isValley(index)) return index;
-    return 0;
-  };
-  const nearestRightValley = (apexIndex: number): number => {
-    for (let index = apexIndex + 1; index < lastIndex; index += 1) if (isValley(index)) return index;
-    return lastIndex;
-  };
+  const nearestLeftValley = new Array<number>(ordered.length);
+  let leftValley = 0;
+  for (let index = 0; index <= lastIndex; index += 1) {
+    nearestLeftValley[index] = leftValley;
+    if (isValley(index)) leftValley = index;
+  }
+  const nearestRightValley = new Array<number>(ordered.length);
+  let rightValley = lastIndex;
+  for (let index = lastIndex; index >= 0; index -= 1) {
+    nearestRightValley[index] = rightValley;
+    if (isValley(index)) rightValley = index;
+  }
+  const cumulativeArea = new Array<number>(ordered.length).fill(0);
+  for (let index = 1; index <= lastIndex; index += 1) {
+    const left = ordered[index - 1]!;
+    const right = ordered[index]!;
+    cumulativeArea[index] = cumulativeArea[index - 1]! + ((left.signalAu + right.signalAu) / 2) * (right.volumeMl - left.volumeMl);
+  }
 
   return ordered.flatMap((apex, apexIndex) => {
     if (!isApex(apexIndex)) return [];
-    const startIndex = nearestLeftValley(apexIndex);
-    const endIndex = nearestRightValley(apexIndex);
+    const startIndex = nearestLeftValley[apexIndex]!;
+    const endIndex = nearestRightValley[apexIndex]!;
     const start = ordered[startIndex]!;
     const end = ordered[endIndex]!;
     const referenceSignalAu = startIndex === apexIndex
@@ -221,7 +231,7 @@ export function detectPeakCandidates(points: SignalPoint[], options: PeakDetecti
       heightAu: apex.signalAu,
       prominenceAu,
       widthMl,
-      areaAuMl: integratePeak(ordered, start.volumeMl, end.volumeMl).areaAuMl,
+      areaAuMl: cumulativeArea[endIndex]! - cumulativeArea[startIndex]!,
       touchesStartBoundary: startIndex === 0,
       touchesEndBoundary: endIndex === lastIndex,
     }];

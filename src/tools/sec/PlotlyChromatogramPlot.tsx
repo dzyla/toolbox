@@ -9,6 +9,7 @@ export interface PlotlyChromatogramPlotProps {
   onViewportCommit: (range: VolumeRange) => void;
   onFractionSelect: (label: string) => void;
   onPeakSelect: (id: string) => void;
+  onPeakBoundCommit?: (id: string, edge: 'start' | 'end', volumeMl: number) => void;
   interactionMode?: ChartInteractionMode;
   onRangeSelect?: (range: VolumeRange, mode: Exclude<ChartInteractionMode, 'inspect'>) => void;
   baselineAnchorTarget: 'start' | 'end' | null;
@@ -25,7 +26,26 @@ const chartConfig: Partial<Config> = {
   responsive: true,
   scrollZoom: true,
   displaylogo: false,
+  editable: true,
+  edits: {
+    annotationPosition: false,
+    annotationText: false,
+    axisTitleText: false,
+    colorbarPosition: false,
+    colorbarTitleText: false,
+    legendPosition: false,
+    legendText: false,
+    shapePosition: true,
+    titleText: false,
+  },
 };
+
+function peakFillColor(color: string, opacity: number): string {
+  const red = Number.parseInt(color.slice(1, 3), 16);
+  const green = Number.parseInt(color.slice(3, 5), 16);
+  const blue = Number.parseInt(color.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+}
 
 function traceData(model: ChromatogramChartModel): Data[] {
   const traces: Data[] = model.traces
@@ -72,8 +92,8 @@ function traceData(model: ChromatogramChartModel): Data[] {
       yaxis: 'y',
       name: `Peak ${peak.id}`,
       fill: 'tonexty',
-      fillcolor: peak.selected ? 'rgba(14, 165, 233, 0.32)' : 'rgba(14, 165, 233, 0.16)',
-      line: { color: '#0284c7', width: peak.selected ? 2.5 : 1.5 },
+      fillcolor: peakFillColor(peak.color, peak.selected ? 0.32 : 0.16),
+      line: { color: peak.color, width: peak.selected ? 2.5 : 1.5 },
       meta: { acceptedPeakId: peak.id, role: 'peak' },
       hovertemplate: `%{x:.3f} mL<br>%{y:.3g} mAU<extra>Peak ${peak.id}</extra>`,
     } as Data);
@@ -95,6 +115,7 @@ function chartLayout(model: ChromatogramChartModel, interactionMode: ChartIntera
       : index % 2 === 0 ? 'rgba(167, 139, 250, 0.20)' : 'rgba(196, 181, 253, 0.20)',
     line: { width: 0 },
     layer: 'below' as const,
+    editable: false,
   }));
   const injectionShapes = model.injectionDisplayVolumeMl === undefined ? [] : [{
     type: 'line' as const,
@@ -105,7 +126,25 @@ function chartLayout(model: ChromatogramChartModel, interactionMode: ChartIntera
     y0: 0,
     y1: 1,
     line: { color: '#7c3aed', width: 2, dash: 'dash' as const },
+    editable: false,
   }];
+  const peakBoundaryShapes = model.peakOverlays.flatMap(peak => {
+    const start = peak.x[0];
+    const end = peak.x.at(-1);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+    return [start, end].map(volumeMl => ({
+      type: 'line' as const,
+      xref: 'x' as const,
+      yref: 'paper' as const,
+      x0: volumeMl,
+      x1: volumeMl,
+      y0: 0.14,
+      y1: 1,
+      line: { color: peak.color, width: peak.selected ? 3 : 2, dash: 'dot' as const },
+      editable: true,
+      layer: 'above' as const,
+    }));
+  });
   return {
     autosize: true,
     margin: { l: 64, r: 64, t: 24, b: 78 },
@@ -132,7 +171,7 @@ function chartLayout(model: ChromatogramChartModel, interactionMode: ChartIntera
       side: 'right',
       showgrid: false,
     },
-    shapes: [...fractionShapes, ...injectionShapes],
+    shapes: [...fractionShapes, ...injectionShapes, ...peakBoundaryShapes],
     annotations: [
       ...model.fractionAnnotations.labels.map(label => ({
         xref: 'x' as const,
@@ -159,6 +198,15 @@ function chartLayout(model: ChromatogramChartModel, interactionMode: ChartIntera
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
   };
+}
+
+function peakBoundaryFromShapeIndex(model: ChromatogramChartModel, shapeIndex: number): { id: string; edge: 'start' | 'end' } | undefined {
+  const offset = model.fractionAnnotations.bands.length + (model.injectionDisplayVolumeMl === undefined ? 0 : 1);
+  const boundaryIndex = shapeIndex - offset;
+  if (boundaryIndex < 0) return undefined;
+  const peak = model.peakOverlays[Math.floor(boundaryIndex / 2)];
+  if (!peak) return undefined;
+  return { id: peak.id, edge: boundaryIndex % 2 === 0 ? 'start' : 'end' };
 }
 
 function rangeFromRelayout(event: Record<string, unknown>, extent: VolumeRange): VolumeRange | undefined {
@@ -216,6 +264,16 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
       schemaRef.current = traceSchema(modelRef.current);
       const eventGraph = graph as unknown as PlotlyEventTarget;
       eventGraph.on('plotly_relayout', event => {
+        const changedShapes = new Set<number>();
+        Object.keys(event).forEach(key => {
+          const match = /^shapes\[(\d+)\]\.x[01]$/.exec(key);
+          if (match) changedShapes.add(Number(match[1]));
+        });
+        changedShapes.forEach(shapeIndex => {
+          const boundary = peakBoundaryFromShapeIndex(modelRef.current, shapeIndex);
+          const volumeMl = Number(event[`shapes[${shapeIndex}].x0`] ?? event[`shapes[${shapeIndex}].x1`]);
+          if (boundary && Number.isFinite(volumeMl)) callbacksRef.current.onPeakBoundCommit?.(boundary.id, boundary.edge, volumeMl);
+        });
         const range = rangeFromRelayout(event, modelRef.current.extent);
         const viewport = modelRef.current.viewport;
         if (range && (range.startVolumeMl !== viewport.startVolumeMl || range.endVolumeMl !== viewport.endVolumeMl)) {

@@ -160,4 +160,47 @@ describe('PlotlyChromatogramPlot', () => {
 
     expect(onRangeSelect).toHaveBeenCalledWith({ startVolumeMl: 1.25, endVolumeMl: 2.75 }, 'peak-select');
   });
+
+  it('renders accepted peak areas in distinct colors', async () => {
+    render(<PlotlyChromatogramPlot
+      model={{
+        ...model,
+        peakOverlays: [
+          { id: 'candidate-1', x: [0, 1], baselineY: [0, 0], correctedY: [0, 2], color: '#0284c7', selected: false },
+          { id: 'candidate-2', x: [2, 3], baselineY: [0, 0], correctedY: [0, 3], color: '#d97706', selected: false },
+        ],
+      }}
+      {...callbacks}
+      baselineAnchorTarget={null}
+    />);
+
+    await waitFor(() => expect(plotlyApi.newPlot).toHaveBeenCalledTimes(1));
+    const peakFills = (plotlyApi.newPlot.mock.calls[0]?.[1] as Array<{ fillcolor?: string }>)
+      .filter(trace => trace.fillcolor)
+      .map(trace => trace.fillcolor);
+    expect(peakFills).toHaveLength(2);
+    expect(peakFills[0]).not.toBe(peakFills[1]);
+  });
+
+  it('commits a dragged left peak boundary', async () => {
+    const onPeakBoundCommit = vi.fn();
+    render(<PlotlyChromatogramPlot
+      model={{
+        ...model,
+        injectionDisplayVolumeMl: undefined,
+        peakOverlays: [
+          { id: 'candidate-1', x: [1, 2], baselineY: [0, 0], correctedY: [0, 2], color: '#0284c7', selected: false },
+        ],
+      }}
+      {...callbacks}
+      onPeakBoundCommit={onPeakBoundCommit}
+      baselineAnchorTarget={null}
+    />);
+
+    await waitFor(() => expect(handlers.get('plotly_relayout')).toBeTypeOf('function'));
+    handlers.get('plotly_relayout')?.({ 'shapes[0].x0': 1.25, 'shapes[0].x1': 1.25 });
+
+    expect(onPeakBoundCommit).toHaveBeenCalledTimes(1);
+    expect(onPeakBoundCommit).toHaveBeenCalledWith('candidate-1', 'start', 1.25);
+  });
 });

@@ -36,7 +36,7 @@ export { getChromatogramTraces as chromatogramTraces };
 export function ChromatogramPlot({
   imported, rawUv, correctedUv, baseline, traceSettings, viewport, showFractions,
   selectedFractionLabels, acceptedPeaks, onTraceSettingChange, onViewportChange,
-  onShowFractionsChange, onSelectedFractionLabelsChange, onUseVisibleRange,
+  onShowFractionsChange, onSelectedFractionLabelsChange, onUseVisibleRange, onAcceptedPeakBoundsChange,
 }: {
   imported: ChromatogramImport;
   rawUv: SignalPoint[];
@@ -52,6 +52,7 @@ export function ChromatogramPlot({
   onShowFractionsChange: (shown: boolean) => void;
   onSelectedFractionLabelsChange: (labels: string[]) => void;
   onUseVisibleRange?: (viewport: VolumeRange) => void;
+  onAcceptedPeakBoundsChange?: (id: string, edge: 'start' | 'end', volumeMl: number) => void;
 }): JSX.Element {
   const [selectedPeakId, setSelectedPeakId] = useState<string | null>(null);
   const [yRange, setYRange] = useState<[number, number] | undefined>();
@@ -150,6 +151,7 @@ export function ChromatogramPlot({
       if (mode === 'peak-select') onUseVisibleRange?.(range);
       else onSelectedFractionLabelsChange([...new Set([...selectedFractionLabels, ...fractionLabelsIntersectingRange(imported, range)])]);
     }}
+    onPeakBoundCommit={(id, edge, volumeMl) => onAcceptedPeakBoundsChange?.(id, edge, volumeMl + displayOffsetMl)}
     onActiveRunChange={() => undefined}
     onRunVisibilityChange={() => undefined}
     onCreatePool={name => {
