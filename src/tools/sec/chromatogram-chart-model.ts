@@ -122,14 +122,12 @@ interface XYPoint {
 }
 
 const DEFAULT_COLORS = ['#2563eb', '#d97706', '#16a34a', '#7c3aed', '#db2777'];
-const PEAK_COLORS = ['#0284c7', '#d97706', '#16a34a', '#7c3aed', '#db2777'];
 const MIN_FRACTION_LABEL_WIDTH_PX = 64;
 const MAX_RENDERED_FRACTION_BANDS = 500;
 
-function peakColor(id: string): string {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) hash = (hash * 31 + id.charCodeAt(index)) | 0;
-  return PEAK_COLORS[Math.abs(hash) % PEAK_COLORS.length]!;
+/** Uses golden-angle hue spacing so every displayed peak gets a distinct integration color. */
+export function peakColorForIndex(index: number): string {
+  return `hsl(${((index * 137.508) % 360).toFixed(1)} 72% 40%)`;
 }
 
 function pointAtX(points: XYPoint[], x: number): XYPoint | undefined {
@@ -279,7 +277,7 @@ export function buildPeakOverlays(input: PeakOverlayInput): PeakOverlay[] {
     volumeMl: point.volumeMl,
     signalAu: point.baselineAu,
   }));
-  return input.acceptedPeaks.flatMap(peak => {
+  return input.acceptedPeaks.flatMap((peak, index) => {
     if (!(peak.endVolumeMl > peak.startVolumeMl)) return [];
     const corrected = pointsWithinRange(input.correctedUv, peak.startVolumeMl, peak.endVolumeMl);
     const baseline = pointsWithinRange(baselinePoints, peak.startVolumeMl, peak.endVolumeMl);
@@ -289,7 +287,7 @@ export function buildPeakOverlays(input: PeakOverlayInput): PeakOverlay[] {
       x: corrected.map(point => point.volumeMl - input.displayOffsetMl),
       correctedY: corrected.map(point => point.signalAu * 1000),
       baselineY: baseline.map(point => point.signalAu * 1000),
-      color: peakColor(peak.id),
+      color: peakColorForIndex(index),
       selected: peak.id === input.selectedPeakId,
     }];
   });

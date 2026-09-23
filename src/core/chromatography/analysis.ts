@@ -70,6 +70,24 @@ export interface FractionAmountEstimate {
   amountMg?: number;
 }
 
+export interface PeakConcentrationInput {
+  areaAuMl: number;
+  startVolumeMl: number;
+  endVolumeMl: number;
+  epsilonMolar?: number;
+  molecularWeightGPerMol?: number;
+  pathCm?: number;
+}
+
+export interface PeakConcentrationEstimate {
+  status: 'derived' | 'blocked';
+  blockers: Array<'areaAuMl' | 'integrationRangeMl' | 'epsilonMolar' | 'molecularWeightGPerMol' | 'pathCm'>;
+  averageAbsorbanceAu?: number;
+  molarConcentrationM?: number;
+  concentrationMgPerMl?: number;
+  amountMg?: number;
+}
+
 function assertTrace(points: SignalPoint[]): void {
   if (points.some(point => !Number.isFinite(point.volumeMl) || !Number.isFinite(point.signalAu))) {
     throw new Error('Chromatogram points must have finite volumeMl and signalAu values.');
@@ -254,5 +272,29 @@ export function estimateFractionAmount(input: FractionAmountInput): FractionAmou
     molarConcentrationM,
     concentrationMgPerMl,
     amountMg: concentrationMgPerMl * input.fractionVolumeMl!,
+  };
+}
+
+/** Converts a baseline-corrected peak area into average concentration across its integration window. */
+export function estimatePeakConcentration(input: PeakConcentrationInput): PeakConcentrationEstimate {
+  const widthMl = input.endVolumeMl - input.startVolumeMl;
+  const blockers: PeakConcentrationEstimate['blockers'] = [];
+  if (!Number.isFinite(input.areaAuMl)) blockers.push('areaAuMl');
+  if (!Number.isFinite(widthMl) || widthMl <= 0) blockers.push('integrationRangeMl');
+  if (!Number.isFinite(input.epsilonMolar) || input.epsilonMolar === undefined || input.epsilonMolar <= 0) blockers.push('epsilonMolar');
+  if (!Number.isFinite(input.molecularWeightGPerMol) || input.molecularWeightGPerMol === undefined || input.molecularWeightGPerMol <= 0) blockers.push('molecularWeightGPerMol');
+  if (!Number.isFinite(input.pathCm) || input.pathCm === undefined || input.pathCm <= 0) blockers.push('pathCm');
+  if (blockers.length) return { status: 'blocked', blockers };
+
+  const averageAbsorbanceAu = input.areaAuMl / widthMl;
+  const molarConcentrationM = averageAbsorbanceAu / (input.epsilonMolar! * input.pathCm!);
+  const concentrationMgPerMl = molarConcentrationM * input.molecularWeightGPerMol!;
+  return {
+    status: 'derived',
+    blockers: [],
+    averageAbsorbanceAu,
+    molarConcentrationM,
+    concentrationMgPerMl,
+    amountMg: concentrationMgPerMl * widthMl,
   };
 }

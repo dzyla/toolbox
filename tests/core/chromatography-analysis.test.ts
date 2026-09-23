@@ -5,6 +5,7 @@ import {
   constrainViewport,
   detectPeakCandidates,
   estimateFractionAmount,
+  estimatePeakConcentration,
   integratePeak,
 } from '@/core/chromatography';
 
@@ -150,6 +151,24 @@ describe('chromatography analysis', () => {
 
     expect(result.amountMg).toBeCloseTo(0.02);
     expect(result.status).toBe('derived');
+  });
+
+  it('converts integrated peak area into average concentration and total mass', () => {
+    const result = estimatePeakConcentration({
+      areaAuMl: 2,
+      startVolumeMl: 1,
+      endVolumeMl: 5,
+      epsilonMolar: 50,
+      molecularWeightGPerMol: 100,
+      pathCm: 1,
+    });
+
+    expect(result).toMatchObject({
+      status: 'derived',
+      averageAbsorbanceAu: 0.5,
+      concentrationMgPerMl: 1,
+      amountMg: 4,
+    });
   });
 
   it.each([

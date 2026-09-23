@@ -83,6 +83,18 @@ describe('chromatogram chart model', () => {
     expect(overlays[1]?.selected).toBe(true);
   });
 
+  it('assigns every accepted peak a distinct integration color', () => {
+    const overlays = buildPeakOverlays({
+      correctedUv: Array.from({ length: 13 }, (_, volumeMl) => ({ volumeMl, signalAu: 1 })),
+      baseline: { mode: 'none', points: Array.from({ length: 13 }, (_, volumeMl) => ({ volumeMl, signalAu: 0, baselineAu: 0, correctedSignalAu: 0 })) },
+      acceptedPeaks: Array.from({ length: 6 }, (_, index) => ({ id: `peak-${index}`, source: 'manual' as const, startVolumeMl: index * 2, endVolumeMl: index * 2 + 2 })),
+      displayOffsetMl: 0,
+      selectedPeakId: null,
+    });
+
+    expect(new Set(overlays.map(overlay => overlay.color)).size).toBe(6);
+  });
+
   it('preserves viewport boundaries and local extrema while bounding a 30k trace', () => {
     const x = Array.from({ length: 30_000 }, (_, index) => index / 100);
     const y = x.map((_, index) => index === 15_123 ? 999 : Math.sin(index / 60));

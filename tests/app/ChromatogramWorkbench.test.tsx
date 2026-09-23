@@ -42,6 +42,14 @@ describe('ChromatogramWorkbench', () => {
     expect(props.onYAxisApply).toHaveBeenCalledWith([25, 400]);
   });
 
+  it('applies typed X limits through the inspector', () => {
+    render(<ChromatogramWorkbench {...props} />);
+    fireEvent.input(screen.getByLabelText('X axis minimum'), { target: { value: '1' } });
+    fireEvent.input(screen.getByLabelText('X axis maximum'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply X limits' }));
+    expect(props.onViewportChange).toHaveBeenCalledWith({ startVolumeMl: 1, endVolumeMl: 3 });
+  });
+
   it('keeps invalid Y limits out of the chart and announces the reason', () => {
     render(<ChromatogramWorkbench {...props} />);
     fireEvent.input(screen.getByLabelText('Y axis minimum'), { target: { value: '400' } });

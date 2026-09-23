@@ -158,6 +158,22 @@ describe('Chromatography Workbench', () => {
     expect(screen.getByText(/Manual baseline/i)).toBeTruthy();
   });
 
+  it('calculates average mg/mL from an accepted peak area and labels its chart color', () => {
+    render(<SecView />);
+    fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));
+    fireEvent.input(screen.getByLabelText(/Chromatogram CSV or TSV/i), {
+      target: { value: 'volume,uv280\n1,0\n2,1000\n3,0\n' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Accept candidate 1/i }));
+
+    fireEvent.input(screen.getByLabelText('Peak extinction coefficient'), { target: { value: '50' } });
+    fireEvent.input(screen.getByLabelText('Peak molecular weight'), { target: { value: '100' } });
+    fireEvent.input(screen.getByLabelText('Peak path (cm)'), { target: { value: '1' } });
+
+    expect(screen.getByText(/Average concentration: 1\.0000 mg\/mL/i)).toBeTruthy();
+    expect(screen.getByLabelText('Peak 1 chart color')).toBeTruthy();
+  });
+
   it('loads a chromatogram file and retains its filename in derived exports', async () => {
     render(<SecView />);
     fireEvent.click(screen.getByRole('button', { name: /Run & fractions/i }));

@@ -7,7 +7,7 @@ import {
   type SignalPoint,
   type VolumeRange,
 } from '@/core/chromatography';
-import { validateAxisRange } from './chromatogram-workspace';
+import { validateAxisRange, validateViewportRange } from './chromatogram-workspace';
 import {
   buildChromatogramChartModel,
   getChromatogramTraces,
@@ -60,7 +60,10 @@ export function ChromatogramWorkbench(props: ChromatogramWorkbenchProps) {
   const [selectedPeakId, setSelectedPeakId] = useState<string | null>(null);
   const [minimum, setMinimum] = useState(props.yRange?.[0]?.toString() ?? '');
   const [maximum, setMaximum] = useState(props.yRange?.[1]?.toString() ?? '');
+  const [xMinimum, setXMinimum] = useState(props.viewport.startVolumeMl.toString());
+  const [xMaximum, setXMaximum] = useState(props.viewport.endVolumeMl.toString());
   const [axisError, setAxisError] = useState<string | null>(null);
+  const [xAxisError, setXAxisError] = useState<string | null>(null);
   const [poolName, setPoolName] = useState('');
   const displayOffset = props.imported.injectionVolumeMl ?? 0;
   const extent = useMemo(() => getDisplayExtent(props.rawUv, displayOffset), [props.rawUv, displayOffset]);
@@ -93,6 +96,11 @@ export function ChromatogramWorkbench(props: ChromatogramWorkbenchProps) {
     setMaximum(props.yRange?.[1]?.toString() ?? '');
   }, [props.yRange]);
 
+  useEffect(() => {
+    setXMinimum(props.viewport.startVolumeMl.toString());
+    setXMaximum(props.viewport.endVolumeMl.toString());
+  }, [props.viewport]);
+
   const toggleFraction = (label: string) => props.onSelectedFractionLabelsChange(
     props.selectedFractionLabels.includes(label)
       ? props.selectedFractionLabels.filter(item => item !== label)
@@ -106,6 +114,15 @@ export function ChromatogramWorkbench(props: ChromatogramWorkbenchProps) {
     }
     setAxisError(null);
     props.onYAxisApply(result.range);
+  };
+  const applyViewport = () => {
+    const result = validateViewportRange(xMinimum, xMaximum);
+    if (!result.ok) {
+      setXAxisError(result.error);
+      return;
+    }
+    setXAxisError(null);
+    props.onViewportChange(constrainViewport({ startVolumeMl: result.range[0], endVolumeMl: result.range[1] }, extent));
   };
   const focusFractions = () => {
     const bands = buildFractionBands(props.imported.fractionEvents, extent.endVolumeMl + displayOffset)
@@ -143,7 +160,21 @@ export function ChromatogramWorkbench(props: ChromatogramWorkbenchProps) {
     <div class="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_17rem]">
       <PlotlyChromatogramPlot model={model} interactionMode={mode} onViewportCommit={props.onViewportChange} onFractionSelect={toggleFraction} onPeakSelect={setSelectedPeakId} onRangeSelect={props.onRangeSelect} onPeakBoundCommit={props.onPeakBoundCommit} baselineAnchorTarget={null} onBaselineAnchorPick={() => undefined} />
       <aside aria-label="Chromatogram inspector" class="space-y-4 border-t pt-3 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0 dark:border-slate-700">
-        <section><h3 class="text-sm font-semibold">Display range</h3><div class="mt-2 grid grid-cols-2 gap-2"><label class="text-xs">Y minimum<input aria-label="Y axis minimum" value={minimum} onInput={event => setMinimum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><label class="text-xs">Y maximum<input aria-label="Y axis maximum" value={maximum} onInput={event => setMaximum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label></div><div class="mt-2 flex gap-2"><button type="button" onClick={applyAxis} class="rounded border px-2.5 py-1.5 text-xs font-medium">Apply Y limits</button><button type="button" onClick={props.onAutoscaleY} class="rounded border px-2.5 py-1.5 text-xs">Autoscale Y</button></div>{axisError && <p role="alert" class="mt-2 text-xs text-rose-700">{axisError}</p>}</section>
+        <section>
+          <h3 class="text-sm font-semibold">Display range</h3>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <label class="text-xs">X minimum<input aria-label="X axis minimum" value={xMinimum} onInput={event => setXMinimum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>
+            <label class="text-xs">X maximum<input aria-label="X axis maximum" value={xMaximum} onInput={event => setXMaximum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>
+          </div>
+          <div class="mt-2 flex gap-2"><button type="button" onClick={applyViewport} class="rounded border px-2.5 py-1.5 text-xs font-medium">Apply X limits</button><button type="button" onClick={() => props.onViewportChange(extent)} class="rounded border px-2.5 py-1.5 text-xs">Fit X</button></div>
+          {xAxisError && <p role="alert" class="mt-2 text-xs text-rose-700">{xAxisError}</p>}
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <label class="text-xs">Y minimum<input aria-label="Y axis minimum" value={minimum} onInput={event => setMinimum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>
+            <label class="text-xs">Y maximum<input aria-label="Y axis maximum" value={maximum} onInput={event => setMaximum((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>
+          </div>
+          <div class="mt-2 flex gap-2"><button type="button" onClick={applyAxis} class="rounded border px-2.5 py-1.5 text-xs font-medium">Apply Y limits</button><button type="button" onClick={props.onAutoscaleY} class="rounded border px-2.5 py-1.5 text-xs">Autoscale Y</button></div>
+          {axisError && <p role="alert" class="mt-2 text-xs text-rose-700">{axisError}</p>}
+        </section>
         <section><h3 class="text-sm font-semibold">Runs</h3><div class="mt-2 space-y-1">{props.runs.map(run => <div key={run.id} class="flex items-center gap-2"><button type="button" aria-pressed={run.id === props.activeRunId} onClick={() => props.onActiveRunChange(run.id)} class="min-w-0 flex-1 rounded border px-2 py-1 text-left text-xs">{run.name}{run.id === props.activeRunId ? ' · active' : ' · compare'}</button><input aria-label={`Show ${run.name}`} type="checkbox" checked={run.visible} onChange={event => props.onRunVisibilityChange(run.id, (event.target as HTMLInputElement).checked)} /></div>)}</div></section>
         <section><h3 class="text-sm font-semibold">Trace display</h3><div class="mt-2 space-y-2">{traces.map((trace, index) => { const setting = settings[index]!; return <div class="flex items-center gap-2" key={trace.id}><button type="button" aria-pressed={setting.visible} onClick={() => props.onTraceSettingChange(trace.id, { visible: !setting.visible })} class={setting.visible ? 'min-w-0 flex-1 rounded px-2 py-1 text-left text-xs font-semibold text-white' : 'min-w-0 flex-1 rounded border px-2 py-1 text-left text-xs'} style={setting.visible ? { backgroundColor: setting.color } : undefined}>{trace.label} ({trace.unit})</button><input aria-label={`Color for ${trace.label}`} type="color" value={setting.color} onInput={event => props.onTraceSettingChange(trace.id, { color: (event.target as HTMLInputElement).value })} class="h-7 w-8 rounded border" /></div>; })}</div></section>
         <section><label class="flex items-center gap-2 text-xs font-medium"><input aria-label="Show fractions" type="checkbox" checked={props.showFractions} onChange={event => props.onShowFractionsChange((event.target as HTMLInputElement).checked)} /> Show fractions</label>{model.fractionAnnotations.labels.length > 0 && <div aria-label="Visible fraction labels" class="mt-2 flex max-h-28 flex-wrap content-start gap-1 overflow-y-auto">{model.fractionAnnotations.labels.map(fraction => <button type="button" key={fraction.id} aria-pressed={props.selectedFractionLabels.includes(fraction.text)} onClick={() => toggleFraction(fraction.text)} class={props.selectedFractionLabels.includes(fraction.text) ? 'rounded bg-violet-600 px-2 py-1 text-xs text-white' : 'rounded border px-2 py-1 text-xs'}>{fraction.text}</button>)}</div>}<button type="button" disabled={!props.selectedFractionLabels.length} onClick={focusFractions} class="mt-2 rounded border px-2.5 py-1.5 text-xs disabled:opacity-50">Focus selected fractions</button></section>

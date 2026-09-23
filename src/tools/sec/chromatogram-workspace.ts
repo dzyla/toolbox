@@ -48,6 +48,16 @@ export function validateAxisRange(min: string, max: string): AxisRangeValidation
   return { ok: true, range: [lower, upper] };
 }
 
+export function validateViewportRange(min: string, max: string): AxisRangeValidation {
+  const lower = Number(min);
+  const upper = Number(max);
+  if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+    return { ok: false, error: 'X limits must be finite numbers.' };
+  }
+  if (upper <= lower) return { ok: false, error: 'X maximum must be greater than X minimum.' };
+  return { ok: true, range: [lower, upper] };
+}
+
 export function fractionLabelsIntersectingRange(imported: ChromatogramImport, range: VolumeRange): string[] {
   const offset = imported.injectionVolumeMl ?? 0;
   return fractionBands(imported)
