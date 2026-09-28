@@ -3,6 +3,9 @@ import preact from '@preact/preset-vite';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/** Navigation requests for the frozen legacy pages, at any base path. */
+export const LEGACY_NAVIGATION = /\/legacy\//;
+
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0') },
@@ -42,12 +45,15 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        // The frozen /legacy/ pages are served from disk (copied by deploy), not from the precache —
-        // the SPA fallback must not swallow their navigation requests.
-        navigateFallbackDenylist: [/^\/legacy\//]
+        // Largest precached chunk is the Plotly scatter/scattergl partial bundle (~1.4 MB).
+        maximumFileSizeToCacheInBytes: 2.5 * 1024 * 1024,
+        // The frozen legacy pages are served from disk (copied by deploy), not from the precache —
+        // the SPA fallback must not swallow their navigation requests. Match under any base path
+        // (e.g. /toolbox/legacy/ on GitHub Pages), not only at the site root.
+        navigateFallbackDenylist: [LEGACY_NAVIGATION]
       }
     })
   ],
-  build: { target: 'es2022', sourcemap: true }
+  // The lazily loaded Plotly partial bundle (~1.4 MB, chromatography only) is the one intentionally large chunk.
+  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1500 }
 });

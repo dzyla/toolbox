@@ -26,6 +26,6 @@ export interface PlotlyApi {
 }
 
 export async function loadPlotly(): Promise<PlotlyApi> {
-  const module = await import('plotly.js-dist-min');
+  const module = await import('plotly.js-gl2d-dist-min');
   return module.default as unknown as PlotlyApi;
 }
