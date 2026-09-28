@@ -253,8 +253,8 @@ describe('Illustrative PDC Mass Model & SEC Screening', () => {
     expect(res.complexMwKDa).toBe(101.0);
     expect(res.proteinMassFraction).toBeCloseTo(45 / 101, 3);
     expect(res.detergentMassFraction).toBeCloseTo(56 / 101, 3);
-    expect(res.estimatedStokesRadiusNm).toBeGreaterThan(2.5);
-    expect(res.estimatedStokesRadiusNm).toBeLessThan(4.5);
+    // Rs = 1.25 × 0.066 × (101,000)^(1/3) ≈ 3.84 nm (Erickson 2009, f/f0 = 1.25).
+    expect(res.estimatedStokesRadiusNm).toBeCloseTo(1.25 * 0.066 * Math.cbrt(101000), 6);
 
     // Superdex 200 is a nominal mass-range match for a 101 kDa model.
     const s200 = res.secColumns.find(c => c.name.includes('Superdex 200'));

@@ -41,6 +41,16 @@ describe('Cell Culture and Doubling Time', () => {
     expect(res.populationDoublings).toBeCloseTo(3, 2);
   });
 
+  it('rejects no net growth instead of returning an infinite doubling time', () => {
+    expect(() => calculateDoublingTime(100_000, 100_000, 24)).toThrow(/no net growth/);
+  });
+
+  it('reports undefined viability when no cells were counted', () => {
+    const res = calculateHemocytometer({ squares: [{ live: 0, dead: 0 }], dilutionFactor: 2 });
+    expect(res.viabilityPercent).toBeNaN();
+    expect(res.liveCellsPerMl).toBe(0);
+  });
+
   it('computes vessel seeding requirements', () => {
     // T-75 flask (75 cm^2), target 20,000 cells/cm^2 -> 1,500,000 cells per flask
     // 3 flasks = 4,500,000 cells. Stock = 1,000,000 cells/mL -> 1.5 mL/flask, total 4.5 mL

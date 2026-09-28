@@ -5,6 +5,8 @@ import {
   fit4PL,
   fitMichaelisMenten,
   fitExpDecay,
+  ci95,
+  ci95Log,
 } from '@/core/fitting';
 
 describe('Curve Fitting Core Engine', () => {
@@ -88,5 +90,47 @@ describe('Curve Fitting Core Engine', () => {
     expect(res.r2).toBeGreaterThan(0.99);
     const halfLife = res.parameters.find(p => p.symbol === 't1/2')!;
     expect(halfLife.value).toBeCloseTo(6.93, 1);
+  });
+
+  describe('confidence intervals against SciPy 1.14 reference fits', () => {
+    it('uses the Student-t multiplier for linear regression CIs (scipy.stats.linregress)', () => {
+      const points = [0, 1, 2, 3, 4, 5].map((x, i) => ({ x, y: [0.9, 3.2, 4.8, 7.1, 9.2, 10.8][i]! }));
+      const res = fitLinear(points);
+      const slope = res.parameters.find(p => p.symbol === 'm')!;
+      const intercept = res.parameters.find(p => p.symbol === 'b')!;
+      expect(slope.value).toBeCloseTo(1.9942857142857142, 10);
+      expect(slope.standardError).toBeCloseTo(0.05062870041905454, 10);
+      // t(0.975, df = 4) = 2.776; z = 1.96 would give 1.8950 to 2.0935.
+      expect(slope.ci95Low).toBeCloseTo(1.8537179068247045, 8);
+      expect(slope.ci95High).toBeCloseTo(2.1348535217467237, 8);
+      expect(intercept.standardError).toBeCloseTo(0.1532860027512463, 10);
+      expect(intercept.ci95Low).toBeCloseTo(0.5886955422516802, 8);
+    });
+
+    it('matches scipy.optimize.curve_fit 4PL parameters and reports an asymmetric log-scale EC50 CI', () => {
+      const xs = [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100];
+      const ys = [2.1, 4.8, 9.5, 24.0, 47.2, 76.5, 90.1, 97.8, 99.0];
+      const res = fit4PL(xs.map((x, i) => ({ x, y: ys[i]! })));
+      const ec50 = res.parameters.find(p => p.symbol === 'EC50 / IC50')!;
+      const hill = res.parameters.find(p => p.symbol === 'HillSlope')!;
+      expect(res.df).toBe(5);
+      expect(ec50.value).toBeCloseTo(1.082748638017408, 3);
+      expect(hill.value).toBeCloseTo(1.0258008962361498, 3);
+      expect(ec50.standardError!).toBeCloseTo(0.06299725884443723, 3);
+      // 10^(log10 EC50 ± t(0.975, 5) · SE / (EC50 · ln 10))
+      expect(ec50.ci95Low!).toBeCloseTo(0.9323373229982652, 2);
+      expect(ec50.ci95High!).toBeCloseTo(1.2574253805033326, 2);
+      expect(ec50.value - ec50.ci95Low!).toBeLessThan(ec50.ci95High! - ec50.value);
+      expect(hill.ci95Low!).toBeCloseTo(0.8747573474310877, 2);
+      expect(hill.ci95High!).toBeCloseTo(1.1768444450412119, 2);
+    });
+
+    it('keeps a poorly determined EC50 interval positive', () => {
+      const { ci95Low, ci95High } = ci95Log(0.5, 2, 3);
+      expect(ci95Low).toBeGreaterThan(0);
+      expect(ci95High).toBeGreaterThan(0.5);
+      // The linear-scale Wald interval would cross zero.
+      expect(ci95(0.5, 2, 3).ci95Low).toBeLessThan(0);
+    });
   });
 });

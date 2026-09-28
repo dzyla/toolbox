@@ -18,6 +18,13 @@ describe('core/protein', () => {
     expect(s.aliphatic).toBeCloseTo(65.12, 2);
     expect(s.gravy).toBeCloseTo(-0.472, 3);
   });
+  it('GRAVY scores J as the I/L mean and leaves unknown X out of the average', () => {
+    // Kyte-Doolittle: I 4.5, L 3.8 -> J 4.15; X has no hydropathy.
+    expect(P.gravy('J')).toBeCloseTo(4.15, 10);
+    expect(P.gravy('IL')).toBeCloseTo(P.gravy('JJ'), 10);
+    expect(P.gravy('AXK')).toBeCloseTo((1.8 + -3.9) / 2, 10);
+    expect(P.gravy('XXX')).toBe(0);
+  });
   it('insulin B chain pI and instability', () => {
     const b = P.summarize(INSULIN_B);
     expect(b.pI).toBeCloseTo(6.90, 2);

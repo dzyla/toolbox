@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   computeKav,
   estimateStokesRadius,
+  GLOBULAR_FRICTIONAL_RATIO,
   fitSecCalibration,
+  secCalibrationIssue,
   predictFromVe,
   predictVeFromMw,
   PRESET_COLUMNS,
@@ -48,12 +50,33 @@ describe('SEC Core Logic', () => {
     expect(computeKav(15.75, 7.5, 24.0)).toBeCloseTo(0.5, 4);
   });
 
-  it('calculates Stokes radius from globular molecular weight', () => {
-    // 66 kDa BSA -> ~2.6 nm
-    const rhBsa = estimateStokesRadius(66000);
-    expect(rhBsa.nm).toBeGreaterThan(2.0);
-    expect(rhBsa.nm).toBeLessThan(4.0);
-    expect(rhBsa.angstrom).toBeCloseTo(rhBsa.nm * 10, 2);
+  it('computes Erickson minimal radius and a globular Stokes radius estimate', () => {
+    // Erickson 2009: Rmin = 0.066 × M^(1/3) nm. BSA (66,400 Da) -> Rmin 2.67 nm.
+    const bsa = estimateStokesRadius(66400);
+    expect(bsa.minimalNm).toBeCloseTo(2.67, 2);
+    expect(bsa.nm).toBeCloseTo(bsa.minimalNm * GLOBULAR_FRICTIONAL_RATIO, 10);
+    expect(bsa.angstrom).toBeCloseTo(bsa.nm * 10, 10);
+    // Measured BSA Rs is ~3.5 nm; Rmin alone (2.67 nm) under-reports it by ~25%.
+    expect(bsa.nm).toBeGreaterThan(3.2);
+    expect(bsa.nm).toBeLessThan(3.6);
+  });
+
+  it('estimates Stokes radius within 15% of published values for compact globular standards', () => {
+    // Compact globular calibration standards with Stokes radii from the SEC standard table.
+    const globular = DEFAULT_STANDARDS_S200.filter(s =>
+      ['aldolase', 'conalbumin', 'ovalbumin', 'carbonic'].includes(s.id),
+    );
+    expect(globular).toHaveLength(4);
+    for (const { mwDa: mw, stokesRadiusNm: rs } of globular) {
+      if (rs === undefined) throw new Error('standard is missing its Stokes radius');
+      const est = estimateStokesRadius(mw).nm;
+      expect(Math.abs(est - rs) / rs).toBeLessThan(0.15);
+    }
+  });
+
+  it('returns zero radius for non-positive molecular weight', () => {
+    expect(estimateStokesRadius(0).nm).toBe(0);
+    expect(estimateStokesRadius(-5).minimalNm).toBe(0);
   });
 
   it('fits standard curve with high R² and predicts apparent MW and elution volume', () => {
@@ -82,6 +105,21 @@ describe('SEC Core Logic', () => {
     const s200 = PRESET_COLUMNS.find(c => c.id === 's200_10_300');
     expect(s200).toBeTruthy();
     expect(s200?.bedVolume).toBe(24);
+  });
+
+  it('rejects calibrations that cannot be inverted to MW', () => {
+    const std = (id: string, mwDa: number, elutionVolumeMl: number) => ({ id, name: id, mwDa, elutionVolumeMl, enabled: true });
+    // Reversed elution order: larger standards elute later -> positive slope.
+    const reversed = [std('a', 10000, 10), std('b', 100000, 15), std('c', 500000, 18)];
+    expect(fitSecCalibration(reversed, 7.5, 24)).toBeNull();
+    expect(secCalibrationIssue(reversed, 7.5, 24)).toMatch(/slope/i);
+    // Vt must exceed V0.
+    expect(computeKav(12, 24, 7.5)).toBeNaN();
+    expect(secCalibrationIssue(DEFAULT_STANDARDS_S200, 24, 7.5)).toMatch(/Vt/);
+    // Too few standards.
+    expect(secCalibrationIssue([std('a', 10000, 15)], 7.5, 24)).toMatch(/two standards/);
+    // A valid calibration has no issue.
+    expect(secCalibrationIssue(DEFAULT_STANDARDS_S200, 7.5, 24)).toBeNull();
   });
 });
 

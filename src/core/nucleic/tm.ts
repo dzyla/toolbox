@@ -8,7 +8,7 @@
      self-complementary ones, with the symmetry term). Salt: Owczarzy R et al. (2004) Biochemistry 43:3537 eq. 22 (Na+);
      Owczarzy R et al. (2008) Biochemistry 47:5336 eq. 16, 18–20 (Mg2+, dNTP binding Ka = 3e4 M⁻¹);
      SantaLucia 1998 ΔS + 0.368·(N−1)·ln[Na+] as an alternative.
-   Reference values in tests/core/nucleic-tm.test.ts were pinned against Biopython 1.88 Bio.SeqUtils.MeltingTemp.Tm_NN
+   Reference values in tests/core/nucleic-tm.test.ts were pinned against Biopython 1.84 Bio.SeqUtils.MeltingTemp.Tm_NN
    (nn_table=DNA_NN3, which is this table) and a hand derivation. */
 import nn from '@/data/nn-santalucia.json';
 import { NucleicError, reverseComplement } from './sequence';

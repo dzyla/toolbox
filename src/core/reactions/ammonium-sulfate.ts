@@ -49,9 +49,11 @@ export interface SaltingOutResult {
 }
 
 /**
- * Sequence-based Cohn salting-out prediction:
- * log10(S) = beta - Ks * (% saturation)
- * References: Cohn (1925, 1943), Melander & Horváth (1977), Englard & Seifter (1990).
+ * Heuristic salting-out window, NOT a calibrated prediction.
+ * Uses the Cohn functional form log10(S) = beta - Ks * (% saturation) (Cohn 1925), but beta and Ks
+ * are Bio-Bench sequence heuristics (MW, pI, GRAVY) with no published fit behind them. Cohn's
+ * equation is defined in ionic strength / molar salt, not % saturation. Outputs are only a starting
+ * point for pilot cuts and must be confirmed experimentally.
  */
 export function predictSaltingOut(params: SaltingOutInput): SaltingOutResult {
   const {

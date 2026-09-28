@@ -5,6 +5,8 @@
  * parameter standard errors and predicted fitted value standard errors (SE(Fit)).
  */
 
+import { tCritical95 } from '@/core/stats';
+
 export type FitModelType =
   | 'linear'
   | 'linear_origin'
@@ -59,6 +61,29 @@ export interface FitResult {
   df: number; // degrees of freedom
   predict: (x: number) => number;
   fittedPoints: FittedPoint[];
+}
+
+/**
+ * Wald 95% confidence interval: value ± t(0.975, df) × SE.
+ * Uses the Student-t multiplier for the residual degrees of freedom, not z = 1.96,
+ * so small datasets get appropriately wide intervals.
+ */
+export function ci95(value: number, se: number, df: number): { ci95Low: number; ci95High: number } {
+  const half = tCritical95(df) * se;
+  return { ci95Low: value - half, ci95High: value + half };
+}
+
+/**
+ * 95% confidence interval for a strictly positive parameter such as EC50, computed on the
+ * log10 scale (as GraphPad Prism reports logEC50) and back-transformed, so it is asymmetric
+ * and never crosses zero. SE(log10 p) = SE(p) / (p · ln 10) (delta method, exact under the
+ * linearized covariance used here).
+ */
+export function ci95Log(value: number, se: number, df: number): { ci95Low: number; ci95High: number } {
+  if (!(value > 0)) return ci95(value, se, df);
+  const half = tCritical95(df) * se / (value * Math.LN10);
+  const logValue = Math.log10(value);
+  return { ci95Low: 10 ** (logValue - half), ci95High: 10 ** (logValue + half) };
 }
 
 /** Parse CSV, TSV, or whitespace-delimited tabular data */
@@ -386,8 +411,7 @@ export function fitLinear(data: DataPoint[]): FitResult {
         symbol: 'm',
         value: m,
         standardError: seSlope,
-        ci95Low: m - 1.96 * seSlope,
-        ci95High: m + 1.96 * seSlope,
+        ...ci95(m, seSlope, df),
         description: 'Rate of change / sensitivity',
       },
       {
@@ -395,8 +419,7 @@ export function fitLinear(data: DataPoint[]): FitResult {
         symbol: 'b',
         value: b,
         standardError: seIntercept,
-        ci95Low: b - 1.96 * seIntercept,
-        ci95High: b + 1.96 * seIntercept,
+        ...ci95(b, seIntercept, df),
         description: 'Baseline value at x = 0',
       },
     ],
@@ -456,8 +479,7 @@ export function fitLinearOrigin(data: DataPoint[]): FitResult {
         symbol: 'm',
         value: m,
         standardError: seSlope,
-        ci95Low: m - 1.96 * seSlope,
-        ci95High: m + 1.96 * seSlope,
+        ...ci95(m, seSlope, df),
         description: 'Slope forced through (0, 0)',
       },
     ],
@@ -538,8 +560,7 @@ export function fit4PL(data: DataPoint[]): FitResult {
         symbol: 'EC50 / IC50',
         value: Math.abs(ec50!),
         standardError: paramSE[2],
-        ci95Low: Math.abs(ec50!) - 1.96 * (paramSE[2] || 0),
-        ci95High: Math.abs(ec50!) + 1.96 * (paramSE[2] || 0),
+        ...ci95Log(Math.abs(ec50!), paramSE[2] || 0, df),
         description: 'Concentration producing 50% response',
       },
       {
@@ -547,8 +568,7 @@ export function fit4PL(data: DataPoint[]): FitResult {
         symbol: 'HillSlope',
         value: hill!,
         standardError: paramSE[3],
-        ci95Low: hill! - 1.96 * (paramSE[3] || 0),
-        ci95High: hill! + 1.96 * (paramSE[3] || 0),
+        ...ci95(hill!, paramSE[3] || 0, df),
         description: 'Steepness of the sigmoidal curve',
       },
       {
@@ -556,8 +576,7 @@ export function fit4PL(data: DataPoint[]): FitResult {
         symbol: 'Top',
         value: top!,
         standardError: paramSE[1],
-        ci95Low: top! - 1.96 * (paramSE[1] || 0),
-        ci95High: top! + 1.96 * (paramSE[1] || 0),
+        ...ci95(top!, paramSE[1] || 0, df),
         description: 'Upper asymptotic response plateau',
       },
       {
@@ -565,8 +584,7 @@ export function fit4PL(data: DataPoint[]): FitResult {
         symbol: 'Bottom',
         value: bottom!,
         standardError: paramSE[0],
-        ci95Low: bottom! - 1.96 * (paramSE[0] || 0),
-        ci95High: bottom! + 1.96 * (paramSE[0] || 0),
+        ...ci95(bottom!, paramSE[0] || 0, df),
         description: 'Lower baseline plateau',
       },
     ],
@@ -724,8 +742,7 @@ export function fitMichaelisMenten(data: DataPoint[]): FitResult {
         symbol: 'Vmax',
         value: vmax!,
         standardError: paramSE[0],
-        ci95Low: vmax! - 1.96 * (paramSE[0] || 0),
-        ci95High: vmax! + 1.96 * (paramSE[0] || 0),
+        ...ci95(vmax!, paramSE[0] || 0, df),
         description: 'Maximum velocity at saturating substrate',
       },
       {
@@ -733,8 +750,7 @@ export function fitMichaelisMenten(data: DataPoint[]): FitResult {
         symbol: 'Km',
         value: km!,
         standardError: paramSE[1],
-        ci95Low: km! - 1.96 * (paramSE[1] || 0),
-        ci95High: km! + 1.96 * (paramSE[1] || 0),
+        ...ci95(km!, paramSE[1] || 0, df),
         description: 'Substrate concentration at half-maximal velocity',
       },
     ],
@@ -883,8 +899,7 @@ export function fitExpDecay(data: DataPoint[]): FitResult {
         symbol: 'k',
         value: rateK,
         standardError: paramSE[2],
-        ci95Low: rateK - 1.96 * (paramSE[2] || 0),
-        ci95High: rateK + 1.96 * (paramSE[2] || 0),
+        ...ci95(rateK, paramSE[2] || 0, df),
         description: 'First-order decay rate constant (time⁻¹)',
       },
       {

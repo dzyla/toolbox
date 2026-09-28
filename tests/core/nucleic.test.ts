@@ -99,15 +99,25 @@ describe('nucleic acid quantification', () => {
   it('calculates nearest-neighbor oligo extinction coefficient (ε260) and A260 quantification', () => {
     // Oligo: ACGT (DNA)
     // Dimers: AC (21200) + CG (18000) + GT (20000) = 59200
-    // Internal monomers: C (7050) + G (12010) = 19060
-    // ε260 = 59200 - 19060 = 40140 M^-1 cm^-1
+    // Internal monomers: C (7400) + G (11500) = 18900  (Tataurov et al. 2008 / IDT set)
+    // ε260 = 59200 - 18900 = 40300 M^-1 cm^-1
     const ec = oligoExtinctionCoefficient('ACGT', 'DNA');
-    expect(ec).toBe(40140);
+    expect(ec).toBe(40300);
 
     const quant = quantifyOligoA260(1.0, 'ACGT', 'DNA');
-    expect(quant.extinctionCoefficient).toBe(40140);
-    expect(quant.molarConcUM).toBeCloseTo(1e6 / 40140, 2);
-    expect(quant.nmolPerOd260).toBeCloseTo(1e6 / 40140, 2);
+    expect(quant.extinctionCoefficient).toBe(40300);
+    expect(quant.molarConcUM).toBeCloseTo(1e6 / 40300, 2);
+    expect(quant.nmolPerOd260).toBeCloseTo(1e6 / 40300, 2);
+  });
+
+  it('uses mononucleotide values from the same data set as the DNA dimer table', () => {
+    // Single nucleotides return the monomer value directly.
+    expect(oligoExtinctionCoefficient('A', 'DNA')).toBe(15400);
+    expect(oligoExtinctionCoefficient('C', 'DNA')).toBe(7400);
+    expect(oligoExtinctionCoefficient('G', 'DNA')).toBe(11500);
+    expect(oligoExtinctionCoefficient('T', 'DNA')).toBe(8700);
+    // dT20: 19 × ε(TT) − 18 × ε(T) = 19 × 16800 − 18 × 8700 = 162,600 M^-1 cm^-1.
+    expect(oligoExtinctionCoefficient('T'.repeat(20), 'DNA')).toBe(162600);
   });
 });
 

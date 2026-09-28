@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  morrison, solveSingleStep, singleStep, solveStepwise, adairCoefficients, speciesAtFreeLigand,
+  morrison, solveSingleStep, singleStep, solveStepwise, adairCoefficients, speciesAtFreeLigand, adairLogCoefficients, speciesFromLogCoefficients,
   targetLigandSingleStep, targetLigandStepwise, speciesTable, deltaG, deltaGSingleStep, kdFromDeltaG, chengPrusoff,
   titrationGrid, titration, hillSeries, kdFromRates, kObs, tHalfObs, tHalfDissociation, associationCourse, dissociationCourse,
   mixRecipe, serialDilutionPlan, autoDilutionFactor, massToNM, nmToMass, BindingError, R_GAS,
@@ -62,6 +62,18 @@ describe('stepwise Adair model', () => {
     expect(b[1]).toBeCloseTo(2 / 100, 12);
     expect(b[2]).toBeCloseTo(1 / (100 * 100 * 0.1), 12);
     expect(speciesAtFreeLigand(b, 0)).toEqual([1, 0, 0]);
+  });
+  it('stays finite for many sites far above Kd (no β·L^k overflow)', () => {
+    // n = 60 sites, Kd = 1e-3, L = 1e6: (L/Kd)^60 = 1e540 overflows a double.
+    const r = solveStepwise(1, 1e6, 1e-3, 60, 1);
+    expect(r.probs.every(Number.isFinite)).toBe(true);
+    // Independent sites: θ = L/(L + Kd); free L ≈ Ltot because 60 sites ≪ 1e6.
+    const L = 1e6 - 60 * r.theta;
+    expect(r.theta).toBeCloseTo(L / (L + 1e-3), 12);
+    expect(r.probs[60]).toBeCloseTo((L / (L + 1e-3)) ** 60, 12);
+    // Binomial check at L = Kd, independent sites: P(k) = C(60,k)/2^60, ν̄ = 30.
+    const probs = speciesFromLogCoefficients(adairLogCoefficients(1e-3, 60, 1), 1e-3);
+    expect(probs.reduce((a, p, k) => a + k * p, 0)).toBeCloseTo(30, 9);
   });
   it('no protein: free ligand equals total and fractions follow the free-ligand isotherm', () => {
     const r = solveStepwise(0, 50, 100, 2, 1);

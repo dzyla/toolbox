@@ -7,7 +7,8 @@ export const SCIENCE: Science = {
     'Kav = -m × log10(MW) + c ; Linear calibration curve across column fractionation range',
     'Ve / V0 = a - b × log10(MW) ; Relative retention volume standard curve (Andrews 1965)',
     'Kd = (Ve - V0) / Vi ; True partition coefficient within accessible pore volume Vi',
-    'Rh ≈ 0.066 × MW^(1/3) nm ; Empirical Stokes radius for hydrated globular proteins (Erickson 2009)',
+    'Rmin = 0.066 × MW^(1/3) nm ; minimal radius of a sphere holding the protein (Erickson 2009)',
+    'Rs ≈ (f/f0) × Rmin, f/f0 = 1.25 ; estimated Stokes radius for compact globular proteins (f/f0 ≈ 1.2–1.3; Erickson 2009)',
     'N = (Ve / σ_V)^2 ; Theoretical plate count (chromatographic efficiency)',
     'N_subunits = MW_apparent / MW_monomer ; Estimated oligomeric state ratio',
     'A = εbc ; Beer–Lambert relation used for fraction amounts and DOL after user-supplied dye CF280 correction',
@@ -15,7 +16,7 @@ export const SCIENCE: Science = {
   ],
   assumptions: [
     'Standard proteins and samples behave as compact globular particles in solution with partial specific volume v̄ ≈ 0.73 cm³/g and typical hydration shell δ ≈ 0.35 g/g.',
-    'An elongated, rod-like, or intrinsically disordered protein has an expanded hydrodynamic radius (Rh) and will elute earlier than expected for a compact sphere of the same mass.',
+    'An elongated, rod-like, or intrinsically disordered protein has f/f0 > 1.3, an expanded Stokes radius (Rs), and will elute earlier than expected for a compact sphere of the same mass.',
     'Void volume V0 represents the complete exclusion limit (Kav = 0). Molecules eluting at Ve ≤ V0 cannot enter pores and their MW is at or above the matrix exclusion limit.',
     'Total volume Vt represents the geometric column bed volume (Kav = 1). Elution at Ve > Vt (Kav > 1) indicates non-ideal partitioning or attractive matrix interactions (e.g. aromatic/hydrophobic sticking).',
     'Non-specific interactions are suppressed by adequate mobile phase ionic strength (~150 mM NaCl, pH 7–8).',
@@ -29,5 +30,5 @@ export const SCIENCE: Science = {
     { text: 'Erickson HP. Size and shape of protein molecules at the nanometer level. Biol Proced Online. 2009;11(1):32-51.', url: 'https://doi.org/10.1007/s12575-009-9008-x' },
     { text: 'Cytiva Handbook: Size Exclusion Chromatography Principles and Methods (2021)', url: 'https://www.cytivalifesciences.com' },
   ],
-  verified: '2026-09-05',
+  verified: '2026-09-27',
 };

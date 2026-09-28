@@ -9,15 +9,19 @@ export const SCIENCE: Science = {
     'Exponential Decay: y = (y0 - Plateau) · e^(-k·x) + Plateau,   t1/2 = ln(2) / k',
     'R² = 1 - (SSE / SST) = 1 - [∑(y_i - ŷ_i)² / ∑(y_i - ȳ)²]',
     'RMSE = √[SSE / (N - P)]',
+    'Cov(p) = s² (JᵀJ)⁻¹, s² = SSE / (N - P) ; asymptotic (linearized) parameter covariance',
+    '95% CI = p ± t(0.975, N - P) · SE(p) ; Student-t multiplier for the residual degrees of freedom',
+    'EC50 95% CI = 10^[log10 EC50 ± t(0.975, N - P) · SE(EC50) / (EC50 · ln 10)] ; computed on the log scale, asymmetric and always positive',
   ],
   assumptions: [
     'Residual errors (y_i - ŷ_i) are assumed to be independent, normally distributed with zero mean and constant variance (homoscedasticity).',
     'Nonlinear least squares minimization utilizes the Nelder-Mead simplex algorithm to find global parameter optima without requiring analytical derivatives.',
+    'Confidence intervals are asymptotic (Wald) intervals from the linearized covariance; with few points or poorly defined plateaus they can be optimistic, and profile-likelihood intervals may be wider.',
     'Replicate measurements at identical X values are summarized as sample mean ȳ, standard deviation (SD), and standard error of the mean (SEM).',
   ],
   references: [
     { text: 'Motulsky, H., & Christopoulos, A. (2004). Fitting Models to Biological Data using Linear and Nonlinear Regression. Oxford University Press.', url: 'https://www.graphpad.com/guides/prism/latest/curve-fitting/' },
     { text: 'Findlay, J. W., & Dillard, R. F. (2007). Appropriate calibration curve fitting in ligand binding assays. The AAPS Journal, 9(2), E260–E267.', url: 'https://doi.org/10.1208/aapsj0902029' },
   ],
-  verified: '2026-09-03',
+  verified: '2026-09-27',
 };

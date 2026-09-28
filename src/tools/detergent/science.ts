@@ -8,7 +8,7 @@ export const SCIENCE: Science = {
     '[Micelle] = C_micellar / N_agg ; Molar concentration of discrete detergent micelles',
     '% (w/v) = (C_mM × MW) / 10,000 ; Weight/volume percent from molarity and monomer MW',
     'Illustrative PDC mass = (N_subunits × MW_protein) + MW_reference micelle ; one-reference-micelle model, not a measured PDC mass',
-    'R_h,globular-equivalent ≈ 0.066 × (MW_model, Da)^(1/3) nm ; mass-model screen only, not a PDC hydrodynamic measurement',
+    'R_s,globular-equivalent ≈ 1.25 × 0.066 × (MW_model, Da)^(1/3) nm (f/f0 = 1.25, Erickson 2009) ; mass-model screen only, not a PDC hydrodynamic measurement',
     'Bulk micelle:protein estimate = [Micelle]_detergent-only / [Protein] ; concentration-derived pseudophase estimate, not PDC stoichiometry',
   ],
   assumptions: [
@@ -31,6 +31,10 @@ export const SCIENCE: Science = {
       text: 'Anatrace Detergent Handbook: A guide to the properties and use of detergents in biology and biochemistry (2020).',
       url: 'https://www.anatrace.com',
     },
+    {
+      text: 'Erickson HP. Size and shape of protein molecules at the nanometer level determined by sedimentation, gel filtration, and electron microscopy. Biol Proced Online 11:32-51 (2009).',
+      url: 'https://doi.org/10.1007/s12575-009-9008-x',
+    },
   ],
-  verified: '2026-09-05',
+  verified: '2026-09-27',
 };

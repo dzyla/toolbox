@@ -13,6 +13,8 @@
  * - Anatrace Detergent Handbook (2020) Anatrace Products, LLC.
  */
 
+import { estimateStokesRadius } from '@/core/sec';
+
 export class DetergentError extends Error {}
 
 export const AVOGADRO = 6.02214076e23;
@@ -448,10 +450,10 @@ export function calculateComplexMw(
   const proteinMassFraction = proteinTotalMwKDa / complexMwKDa;
   const detergentMassFraction = micelleMwKDa / complexMwKDa;
 
-  // Globular-equivalent Rh estimate (nm) from the illustrative mass model:
-  // Rh ≈ 0.066 * (MW_Da)^(1/3). PDC geometry can differ substantially.
+  // Globular-equivalent Rs estimate (nm) from the illustrative mass model:
+  // Rs ≈ (f/f0) × 0.066 × MW^(1/3), f/f0 ≈ 1.25 (Erickson 2009). PDC geometry can differ substantially.
   const complexMwDa = complexMwKDa * 1000;
-  const estimatedStokesRadiusNm = 0.066 * Math.cbrt(complexMwDa);
+  const estimatedStokesRadiusNm = estimateStokesRadius(complexMwDa).nm;
 
   // Evaluate SEC column suitability
   const secColumns: SecColumnRecommendation[] = SEC_COLUMNS.map(col => {

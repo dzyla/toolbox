@@ -154,12 +154,16 @@ export function aliphaticIndex(counts: Counts, length: number): number {
   return pct('A') + 2.9 * pct('V') + 3.9 * (pct('I') + pct('L'));
 }
 
-/** Kyte-Doolittle grand average of hydropathy. */
+/** Kyte-Doolittle grand average of hydropathy. Unknown residues (X) have no hydropathy and are excluded from the average. */
 export function gravy(seq: string): number {
-  if (!seq.length) return 0;
   let s = 0;
-  for (const a of seq) s += AA_KD[a] ?? 0;
-  return s / seq.length;
+  let n = 0;
+  for (const a of seq) {
+    if (a === 'X') continue;
+    s += AA_KD[a] ?? 0;
+    n++;
+  }
+  return n ? s / n : 0;
 }
 
 export function atomicFormula(counts: Counts): { formula: string; atoms: Record<string, number> } {

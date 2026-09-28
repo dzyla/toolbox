@@ -1,5 +1,5 @@
 {
- "_source": "Average residue masses: ExPASy ProtParam (IUPAC 2013 atomic weights). Monoisotopic: Unimod. Extinction: Pace et al. 1995 Protein Sci 4:2411. Kyte-Doolittle 1982 J Mol Biol 157:105. Atoms: residue composition (subtract H2O from free amino acid).",
+ "_source": "Average residue masses: ExPASy ProtParam (IUPAC 2013 atomic weights). Monoisotopic: Unimod. Extinction: Pace et al. 1995 Protein Sci 4:2411. Kyte-Doolittle 1982 J Mol Biol 157:105 (ambiguity codes: B = D/N, Z = E/Q, J = mean of I and L; X has no value and is excluded from GRAVY). Atoms: residue composition (subtract H2O from free amino acid).",
  "mw": {
   "A": 71.0788,
   "R": 156.1875,
@@ -90,7 +90,7 @@
   "O": 0,
   "B": -3.5,
   "Z": -3.5,
-  "J": 3.8,
+  "J": 4.15,
   "X": 0
  },
  "atoms": {

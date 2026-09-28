@@ -93,8 +93,12 @@ export const DNA_EXTINCTION_DIMERS: Record<string, number> = {
   TA: 23400, TC: 16200, TG: 19000, TT: 16800,
 };
 
+/* Mononucleotide ε260 values that belong with the DNA dimer table above (Cantor, Warshaw & Shapiro 1970;
+   as tabulated by Tataurov, You & Owczarzy 2008 and used by IDT OligoAnalyzer). The nearest-neighbour sum
+   Σε(dimer) − Σε(internal monomer) is only consistent when both tables come from the same data set, so the
+   revised Cavaluzzi & Borer (2004) nucleotide values are not substituted here. */
 export const DNA_EXTINCTION_MONOMERS: Record<string, number> = {
-  A: 15200, C: 7050, G: 12010, T: 8400,
+  A: 15400, C: 7400, G: 11500, T: 8700,
 };
 
 export const RNA_EXTINCTION_DIMERS: Record<string, number> = {
@@ -109,8 +113,10 @@ export const RNA_EXTINCTION_MONOMERS: Record<string, number> = {
 };
 
 /**
- * Computes exact nearest-neighbor molar extinction coefficient at 260 nm (ε260 in M⁻¹ cm⁻¹)
- * using Warshaw & Cantor (1970) / Puglisi & Tinoco (1989) / Cavaluzzi & Borer (2004) parameters.
+ * Nearest-neighbour molar extinction coefficient at 260 nm (ε260, M⁻¹ cm⁻¹) of a single strand:
+ * ε = Σ ε(dimer) − Σ ε(internal monomer).
+ * DNA: Cantor, Warshaw & Shapiro (1970) set as tabulated by Tataurov et al. (2008, Biophys Chem 133:66).
+ * RNA: Puglisi & Tinoco (1989).
  */
 export function oligoExtinctionCoefficient(seq: string, type: NucleicType = 'DNA'): number {
   const s = seq.toUpperCase().replace(/\s/g, '');

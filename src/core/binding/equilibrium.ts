@@ -85,19 +85,38 @@ export interface StepwiseResult {
   p1Free: number; anyBound: number; fullyBound: number;
 }
 
+/** Natural logs of the Adair coefficients, ln βk, accumulated additively so large n or small Kd cannot overflow. */
+export function adairLogCoefficients(Kd: number, n: number, alpha: number): number[] {
+  pos(Kd, 'Kd'); intPos(n, 'n'); pos(alpha, 'α');
+  const logBetas = [0];
+  for (let k = 1; k <= n; k++) {
+    logBetas.push(logBetas[k - 1]! + Math.log((n - k + 1) / k) - Math.log(Kd) - (k - 1) * Math.log(alpha));
+  }
+  return logBetas;
+}
+
 /** Adair binding-polynomial coefficients βk for n identical sites, intrinsic site Kd and cooperativity α. */
 export function adairCoefficients(Kd: number, n: number, alpha: number): number[] {
-  pos(Kd, 'Kd'); intPos(n, 'n'); pos(alpha, 'α');
-  const betas = [1];
-  for (let k = 1; k <= n; k++) betas.push(betas[k - 1]! * ((n - k + 1) / k) / (Kd * Math.pow(alpha, k - 1)));
-  return betas;
+  return adairLogCoefficients(Kd, n, alpha).map(Math.exp);
+}
+
+/**
+ * Species fractions from ln βk at a given FREE ligand concentration. The terms βk·L^k are
+ * normalised in log space (log-sum-exp), so they stay finite for any n and L/Kd.
+ */
+export function speciesFromLogCoefficients(logBetas: number[], L: number): number[] {
+  if (!(L > 0)) return logBetas.map((_, k) => (k === 0 ? 1 : 0));
+  const logL = Math.log(L);
+  const logTerms = logBetas.map((lb, k) => lb + k * logL);
+  const max = Math.max(...logTerms);
+  const terms = logTerms.map(t => Math.exp(t - max));
+  const Z = terms.reduce((a, b) => a + b, 0);
+  return terms.map(t => t / Z);
 }
 
 /** Species fractions at a given FREE ligand concentration. */
 export function speciesAtFreeLigand(betas: number[], L: number): number[] {
-  const terms = betas.map((b, k) => b * Math.pow(L, k));
-  const Z = terms.reduce((a, b) => a + b, 0);
-  return terms.map(t => t / Z);
+  return speciesFromLogCoefficients(betas.map(b => Math.log(b)), L);
 }
 
 /**
@@ -107,8 +126,8 @@ export function speciesAtFreeLigand(betas: number[], L: number): number[] {
  */
 export function solveStepwise(P: number, Ltot: number, Kd: number, n: number, alpha = 1): StepwiseResult {
   nonNeg(P, '[P1] total'); nonNeg(Ltot, '[P2] total');
-  const betas = adairCoefficients(Kd, n, alpha);
-  const nuBar = (L: number) => { const p = speciesAtFreeLigand(betas, L); return p.reduce((a, pk, k) => a + k * pk, 0); };
+  const logBetas = adairLogCoefficients(Kd, n, alpha);
+  const nuBar = (L: number) => { const p = speciesFromLogCoefficients(logBetas, L); return p.reduce((a, pk, k) => a + k * pk, 0); };
   let L = Ltot;
   if (P > 0 && Ltot > 0) {
     let lo = 0, hi = Ltot;
@@ -118,7 +137,7 @@ export function solveStepwise(P: number, Ltot: number, Kd: number, n: number, al
     }
     L = 0.5 * (lo + hi);
   }
-  const probs = speciesAtFreeLigand(betas, L);
+  const probs = speciesFromLogCoefficients(logBetas, L);
   const concs = probs.map(p => p * P);
   const boundSites = probs.reduce((a, pk, k) => a + k * pk, 0);
   return { L, theta: boundSites / n, probs, concs, boundSites, p1Free: concs[0]!, anyBound: P * (1 - probs[0]!), fullyBound: concs[n]! };
@@ -237,9 +256,8 @@ export function titration(inp: TitrationInput): Titration {
   const Ltot = titrationGrid(inp.start, inp.end, inp.points, inp.log);
   const species: number[][] = Array.from({ length: n + 1 }, () => []);
   const Lfree: number[] = [], theta: number[] = [], boundSites: number[] = [], fullyBound: number[] = [];
-  const betas = model === 'stepwise' ? adairCoefficients(Kd, n, inp.alpha ?? 1) : null;
   for (const L of Ltot) {
-    if (betas) {
+    if (model === 'stepwise') {
       const r = solveStepwise(P1, L, Kd, n, inp.alpha ?? 1);
       Lfree.push(r.L); theta.push(r.theta); boundSites.push(r.boundSites * P1); fullyBound.push(r.fullyBound);
       r.concs.forEach((c, k) => species[k]!.push(c));

@@ -152,6 +152,9 @@ export function calculateDoublingTime(initialCount: number, finalCount: number, 
   if (finalCount < initialCount) {
     throw new CellCultureError('Final count is less than initial count (negative net growth).');
   }
+  if (finalCount === initialCount) {
+    throw new CellCultureError('Final count equals initial count: no net growth, so doubling time is undefined.');
+  }
 
   const growthRatePerHour = Math.log(finalCount / initialCount) / timeHours;
   const doublingTimeHours = Math.LN2 / growthRatePerHour;

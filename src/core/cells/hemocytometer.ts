@@ -22,6 +22,7 @@ export interface HemocytometerResult {
   totalLiveCounted: number;
   totalDeadCounted: number;
   totalCounted: number;
+  /** Live / total × 100; NaN when no cells were counted. */
   viabilityPercent: number;
   meanLivePerSquare: number;
   meanTotalPerSquare: number;
@@ -73,7 +74,8 @@ export function calculateHemocytometer(input: HemocytometerInput): Hemocytometer
 
   const squaresCounted = squares.length;
   const totalCounted = totalLive + totalDead;
-  const viabilityPercent = totalCounted > 0 ? (totalLive / totalCounted) * 100 : 100;
+  // Viability is undefined (NaN) when no cells were counted.
+  const viabilityPercent = totalCounted > 0 ? (totalLive / totalCounted) * 100 : NaN;
 
   const meanLivePerSquare = totalLive / squaresCounted;
   const meanTotalPerSquare = totalCounted / squaresCounted;

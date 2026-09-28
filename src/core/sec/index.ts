@@ -48,6 +48,8 @@ export interface SecPrediction {
   apparentMwkDa: number;
   stokesRadiusNm: number;
   stokesRadiusAngstrom: number;
+  /** Erickson minimal radius Rmin (no hydration, perfect sphere). */
+  minimalRadiusNm: number;
   isExtrapolated: boolean;
   oligomericRatio?: number;
   oligomericState?: string;
@@ -225,8 +227,22 @@ export function scaleStandardsForColumn(
  * Kav = (Ve - V0) / (Vt - V0)
  */
 export function computeKav(ve: number, v0: number, vt: number): number {
-  if (vt <= v0) return 0;
+  if (!(vt > v0)) return NaN;
   return (ve - v0) / (vt - v0);
+}
+
+/**
+ * Explains why a SEC calibration cannot be fitted, or returns null when it can.
+ * Larger molecules must elute earlier, so a valid Kav-vs-log10(MW) fit has a negative slope.
+ */
+export function secCalibrationIssue(standards: SecStandard[], v0: number, vt: number): string | null {
+  if (!(v0 > 0) || !(vt > v0)) return 'Total column volume Vt must be greater than the void volume V0.';
+  const active = standards.filter(s => s.enabled && s.mwDa > 0 && s.elutionVolumeMl > 0);
+  if (active.length < 2) return 'Enable at least two standards with a positive MW and elution volume.';
+  if (new Set(active.map(s => s.mwDa)).size < 2) return 'Standards must span at least two different molecular weights.';
+  const model = fitSecCalibration(standards, v0, vt);
+  if (!model) return 'Calibration slope is not negative: larger standards must elute earlier. Check the elution volumes and V0/Vt.';
+  return null;
 }
 
 /**
@@ -264,6 +280,8 @@ export function fitSecCalibration(
 
   const slope = (n * sumXY - sumX * sumY) / denom;
   const intercept = (sumY - slope * sumX) / n;
+  // Larger molecules elute earlier; a flat or rising calibration cannot be inverted to MW.
+  if (!(slope < 0)) return null;
 
   // Calculate R^2
   const meanY = sumY / n;
@@ -292,13 +310,26 @@ export function fitSecCalibration(
 }
 
 /**
- * Estimates Stokes hydrodynamic radius (Rh) from molecular weight (globular model):
- * Rh ≈ 0.066 * MW^(1/3) in nm (Erickson 2009 Biol Proced Online)
+ * Typical frictional ratio f/f0 (= Rs/Rmin) for compact globular proteins.
+ * Erickson 2009 reports f/f0 ≈ 1.2–1.3 for most globular proteins.
  */
-export function estimateStokesRadius(mwDa: number): { nm: number; angstrom: number } {
-  if (mwDa <= 0) return { nm: 0, angstrom: 0 };
-  const nm = 0.066 * Math.cbrt(mwDa);
-  return { nm, angstrom: nm * 10 };
+export const GLOBULAR_FRICTIONAL_RATIO = 1.25;
+
+/**
+ * Minimal radius and estimated Stokes radius from molecular weight (Erickson 2009, Biol Proced Online 11:32).
+ *   Rmin = 0.066 × MW^(1/3) nm — radius of the smallest sphere that could hold the protein
+ *          (v̄ = 0.73 cm³/g, no hydration).
+ *   Rs   = (f/f0) × Rmin — f/f0 ≈ 1.2–1.3 for compact globular proteins; larger for
+ *          elongated or disordered proteins.
+ */
+export function estimateStokesRadius(
+  mwDa: number,
+  frictionalRatio = GLOBULAR_FRICTIONAL_RATIO,
+): { minimalNm: number; nm: number; angstrom: number; frictionalRatio: number } {
+  if (!(mwDa > 0) || !(frictionalRatio > 0)) return { minimalNm: 0, nm: 0, angstrom: 0, frictionalRatio };
+  const minimalNm = 0.066 * Math.cbrt(mwDa);
+  const nm = minimalNm * frictionalRatio;
+  return { minimalNm, nm, angstrom: nm * 10, frictionalRatio };
 }
 
 /**
@@ -344,6 +375,7 @@ export function predictFromVe(
     apparentMwkDa,
     stokesRadiusNm: stokes.nm,
     stokesRadiusAngstrom: stokes.angstrom,
+    minimalRadiusNm: stokes.minimalNm,
     isExtrapolated,
     oligomericRatio,
     oligomericState,
