@@ -75,7 +75,7 @@ export function Home() {
             >
               <span>{compact ? '☰ Compact' : '⊞ Cards'}</span>
             </button>
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
               {TOOLS.length} tools
             </span>
           </div>
@@ -97,7 +97,7 @@ export function Home() {
 
         {/* Search Bar */}
         <div class="relative mt-2.5">
-          <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-slate-400" aria-hidden="true">
+          <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-slate-500 dark:text-slate-400" aria-hidden="true">
             🔍
           </span>
           <input
@@ -114,7 +114,7 @@ export function Home() {
               type="button"
               onClick={() => setQ('')}
               aria-label="Clear search"
-              class="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              class="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               ✕
             </button>
@@ -162,7 +162,7 @@ export function Home() {
       {/* Recent Projects */}
       {!q && recent.length > 0 && (
         <div class="mb-3 sm:mb-4 w-full">
-          <h2 class="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Recent projects</h2>
+          <h2 class="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recent projects</h2>
           <div class="flex flex-wrap gap-2 sm:gap-3 w-full pb-1">
             {recent.map(p => <ProjectCard key={p.id} project={p} />)}
           </div>
@@ -172,11 +172,11 @@ export function Home() {
       {/* Search Empty State */}
       {groups.length === 0 && (
         <div class="py-10 text-center">
-          <p class="text-slate-500">No tools match “{q}”.</p>
+          <p class="text-slate-500 dark:text-slate-400">No tools match “{q}”.</p>
           <button
             type="button"
             onClick={() => setQ('')}
-            class="mt-2 text-xs font-medium text-accent-600 hover:underline"
+            class="mt-2 text-xs font-medium text-accent-600 dark:text-accent-400 hover:underline"
           >
             Clear search
           </button>
@@ -230,7 +230,7 @@ export function Home() {
                   <span class="text-sm" aria-hidden="true">{CATEGORY_ICONS[g.category]}</span>
                   <h2 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">{g.label}</h2>
                 </div>
-                <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                   {g.tools.length}
                 </span>
               </div>

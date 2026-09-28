@@ -132,3 +132,20 @@ export async function decodeImageFile(blob: Blob): Promise<DecodedImage> {
   const gray = isGray(rgba);
   return { width, height, data, bitDepth: 8, rgba: gray ? undefined : rgba, original: blob, channels: gray ? 1 : 3, format };
 }
+
+/** Small JPEG preview of a canvas for project cards; undefined when the canvas is missing or encoding fails. */
+export async function canvasThumbnail(canvas: HTMLCanvasElement | null | undefined, maxWidth = 320): Promise<Blob | undefined> {
+  if (!canvas || !canvas.width || !canvas.height || typeof document === 'undefined') return undefined;
+  try {
+    const scale = Math.min(1, maxWidth / canvas.width);
+    const thumb = document.createElement('canvas');
+    thumb.width = Math.max(1, Math.round(canvas.width * scale));
+    thumb.height = Math.max(1, Math.round(canvas.height * scale));
+    const ctx = thumb.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+    return await new Promise<Blob | undefined>(resolve => thumb.toBlob(b => resolve(b ?? undefined), 'image/jpeg', 0.8));
+  } catch {
+    return undefined;
+  }
+}

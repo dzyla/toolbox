@@ -8,6 +8,11 @@ export interface ToolCardProps {
 
 const PILL_CLS = 'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide';
 
+/** Start fetching a tool's code when the user points at or focuses its card. */
+function prefetch(tool: ToolMeta) {
+  if (tool.status === 'ready') tool.load?.().catch(() => { /* the tool page reports load errors */ });
+}
+
 export function ToolCard({ tool, compact = false }: ToolCardProps) {
   const pill = tool.status === 'porting' ? 'Soon' : tool.status === 'planned' ? 'Planned' : null;
 
@@ -16,6 +21,8 @@ export function ToolCard({ tool, compact = false }: ToolCardProps) {
       <button
         type="button"
         onClick={() => navigate({ name: 'tool', toolId: tool.id })}
+        onPointerEnter={() => prefetch(tool)}
+        onFocus={() => prefetch(tool)}
         title={`${tool.name} — ${tool.blurb}`}
         class="group flex w-full items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-left transition hover:border-accent-500 hover:bg-slate-50/70 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:hover:border-accent-500 dark:hover:bg-slate-800/60"
       >
@@ -29,7 +36,7 @@ export function ToolCard({ tool, compact = false }: ToolCardProps) {
           {tool.name}
         </span>
         {pill && (
-          <span class={`${PILL_CLS} bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400`}>
+          <span class={`${PILL_CLS} bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400`}>
             {pill}
           </span>
         )}
@@ -41,6 +48,8 @@ export function ToolCard({ tool, compact = false }: ToolCardProps) {
     <button
       type="button"
       onClick={() => navigate({ name: 'tool', toolId: tool.id })}
+      onPointerEnter={() => prefetch(tool)}
+      onFocus={() => prefetch(tool)}
       title={`${tool.name} — ${tool.blurb}`}
       class="group flex w-full items-center gap-2.5 rounded-lg border border-slate-200/90 bg-white p-2 text-left transition hover:border-accent-500 hover:bg-slate-50/50 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:hover:border-accent-500 dark:hover:bg-slate-800/60"
     >
@@ -54,7 +63,7 @@ export function ToolCard({ tool, compact = false }: ToolCardProps) {
         <span class="flex flex-wrap items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 group-hover:text-accent-600 dark:text-slate-100 dark:group-hover:text-accent-400">
           <span class="truncate">{tool.name}</span>
           {pill && (
-            <span class={`${PILL_CLS} bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400`}>
+            <span class={`${PILL_CLS} bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400`}>
               {pill}
             </span>
           )}

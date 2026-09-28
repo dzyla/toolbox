@@ -29,13 +29,13 @@ function EquationItem({ formula, index }: { formula: string; index: number }) {
             {expr}
           </span>
         </div>
-        <span class="shrink-0 font-serif italic text-xs text-slate-400 dark:text-slate-500 select-none">
+        <span class="shrink-0 font-serif italic text-xs text-slate-500 dark:text-slate-400 select-none">
           ({index + 1})
         </span>
       </div>
       {note && (
         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
-          <span class="text-slate-400 select-none mr-1">—</span>
+          <span class="text-slate-500 dark:text-slate-400 select-none mr-1">—</span>
           {note}
         </p>
       )}
@@ -48,10 +48,10 @@ export function SciencePanel({ science, open }: { science: Science; open?: boole
     <details open={open} class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
       <summary class="cursor-pointer font-medium text-sm select-none text-slate-700 dark:text-slate-300 flex items-center justify-between">
         <span class="flex items-center gap-2">
-          <span class="text-slate-400">📐</span>
+          <span class="text-slate-500 dark:text-slate-400">📐</span>
           <span class="font-semibold text-slate-900 dark:text-slate-100">Science: {science.title}</span>
         </span>
-        <span class="text-xs font-normal text-slate-400">Expand for derivations & literature</span>
+        <span class="text-xs font-normal text-slate-500 dark:text-slate-400">Expand for derivations & literature</span>
       </summary>
       <div class="mt-4 space-y-4 text-sm">
         <div>
@@ -73,7 +73,7 @@ export function SciencePanel({ science, open }: { science: Science; open?: boole
             <ul class="space-y-1 text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
               {science.assumptions.map(a => (
                 <li key={a} class="flex items-start gap-2">
-                  <span class="text-slate-400 dark:text-slate-500 shrink-0">•</span>
+                  <span class="text-slate-500 dark:text-slate-400 shrink-0">•</span>
                   <span>{a}</span>
                 </li>
               ))}
@@ -108,7 +108,7 @@ export function SciencePanel({ science, open }: { science: Science; open?: boole
           </div>
         )}
 
-        <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
           <span>Peer-reviewed methodology</span>
           <span>Verified: {science.verified}</span>
         </div>

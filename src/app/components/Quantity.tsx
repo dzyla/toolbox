@@ -77,7 +77,7 @@ export function Quantity({ id, label, value, units, onChange, hint, error, place
           {units.map(u => <option key={u} value={u}>{u}</option>)}
         </select>
       </div>
-      {error ? <p class="mt-1 text-xs text-red-600">{error}</p> : hint ? <p class="mt-1 text-xs text-slate-500">{hint}</p> : null}
+      {error ? <p class="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p> : hint ? <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
     </div>
   );
 }
