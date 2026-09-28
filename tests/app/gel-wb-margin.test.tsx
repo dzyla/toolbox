@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/preact';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import GelView, { computeTargetBandClusters, findTargetBandInLane } from '@/tools/gel/View';
+import GelView from '@/tools/gel/View';
+import { computeTargetBandClusters, findTargetBandInLane } from '@/tools/gel/analysis';
 import { route } from '@/app/router';
 
 describe('Gel Western Blot Target Band Matching & Margin of Detection', () => {
