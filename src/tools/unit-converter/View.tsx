@@ -78,7 +78,7 @@ export default function View() {
   return (
     <ToolLayout icon="🔄" title="Unit Converter"
       blurb="Lab scales plus practical US volume, mass, size, area, energy and temperature conversions — everything on device."
-      mobileResultSummary={error ? <span class="text-rose-600 dark:text-rose-400 font-semibold">{error}</span> : <span class="font-medium">{main}</span>}
+      mobileResultSummary={error ? <span class="text-rose-700 dark:text-rose-400 font-semibold">{error}</span> : <span class="font-medium">{main}</span>}
       inputs={<>
         <div class="flex flex-wrap gap-1.5">
           {DIMS.map(d => (
@@ -100,17 +100,17 @@ export default function View() {
           <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p class="mb-3 text-lg font-bold text-slate-900 dark:text-slate-100" data-testid="result">{main}</p>
             <table class="w-full text-sm">
-              <thead><tr class="text-left text-xs uppercase tracking-wide text-slate-400"><th class="pb-2">Unit</th><th class="pb-2 text-right">Value</th></tr></thead>
+              <thead><tr class="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400"><th class="pb-2">Unit</th><th class="pb-2 text-right">Value</th></tr></thead>
               <tbody>
                 {rows!.map(r => (
                   <tr key={r.unit} class={`border-t border-slate-100 dark:border-slate-800 ${r.unit === s.inQ.unit ? 'bg-accent-50/60 dark:bg-accent-950/30' : ''}`}>
                     <td class="py-1.5 font-mono font-medium">{r.unit}</td>
-                    <td class="py-1.5 text-right font-mono">{r.unit === s.inQ.unit ? <span class="text-slate-400">input</span> : r.text}</td>
+                    <td class="py-1.5 text-right font-mono">{r.unit === s.inQ.unit ? <span class="text-slate-600 dark:text-slate-400">input</span> : r.text}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p class="mt-3 text-xs text-slate-500">
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
               Neat value: <span class="font-mono">{formatSI(toSI(s.inQ), dimDef.id).text}</span>
             </p>
           </div>

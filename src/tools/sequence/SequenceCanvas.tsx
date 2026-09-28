@@ -104,7 +104,7 @@ export function SequenceCanvas({
       <div class="w-max min-w-full space-y-2 font-mono text-sm leading-none">
         {rows.map(row => (
           <div key={row.start} class="flex items-center gap-2">
-            <span class="w-10 shrink-0 select-none text-right text-[11px] text-slate-400">{row.start}</span>
+            <span class="w-10 shrink-0 select-none text-right text-[11px] text-slate-500 dark:text-slate-400">{row.start}</span>
             <div class="flex overflow-hidden rounded-md ring-1 ring-slate-200 dark:ring-slate-800">
               {[...row.text].map((residue, index) => {
                 const position = row.start + index;
@@ -138,7 +138,7 @@ export function SequenceCanvas({
                 );
               })}
             </div>
-            <span class="w-10 shrink-0 select-none text-[11px] text-slate-400">{row.start + row.text.length - 1}</span>
+            <span class="w-10 shrink-0 select-none text-[11px] text-slate-500 dark:text-slate-400">{row.start + row.text.length - 1}</span>
           </div>
         ))}
       </div>

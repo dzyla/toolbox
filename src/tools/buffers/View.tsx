@@ -10,6 +10,7 @@ import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { downloadText, toCsv } from '@/lib/export';
 import { useUrlState } from '@/lib/url-state';
+import { isPositiveNumber, isRecord, loadLibrary, saveLibrary, type LibrarySpec } from '@/lib/local-library';
 import { SCIENCE } from './science';
 
 interface Chemical { name: string; mw: number; type: string; synonyms?: string[]; hydrateOf?: string; waters?: number }
@@ -19,6 +20,16 @@ interface EditorComponent {
   showDetails?: boolean;
 }
 interface Preset { id: string; name: string; finalVolume_L: number; source: string; components: RecipeComponent[] }
+
+const isComponent = (c: unknown): c is RecipeComponent => isRecord(c) && typeof c.name === 'string' && isRecord(c.target)
+  && (c.kind === 'solid' || (c.kind === 'stock' && isPositiveNumber(c.stockConc) && typeof c.stockUnit === 'string'));
+const CUSTOM_BUFFERS: LibrarySpec<Preset> = {
+  key: 'bb.library.buffers',
+  version: 1,
+  legacyKeys: ['toolbox_custom_buffers'],
+  validate: (v): v is Preset => isRecord(v) && typeof v.id === 'string' && typeof v.name === 'string'
+    && isPositiveNumber(v.finalVolume_L) && Array.isArray(v.components) && v.components.every(isComponent),
+};
 interface State { volume: QValue; components: EditorComponent[]; pH: number; temperature: number; bufferId: string }
 
 const CHEMICALS = chemicalsJson.chemicals as Chemical[];
@@ -60,16 +71,9 @@ export default function View() {
     set({ components: s.components.map((component, i) => i === index ? { ...component, ...patch } : component) });
   };
 
-  // Load custom presets from localStorage on mount
+  // Load custom presets (validated, migrated from the pre-versioned key) on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('toolbox_custom_buffers');
-      if (saved) {
-        setCustomPresets(JSON.parse(saved) as Preset[]);
-      }
-    } catch {
-      // ignore
-    }
+    setCustomPresets(loadLibrary(CUSTOM_BUFFERS));
   }, []);
 
   const saveCustomBuffer = () => {
@@ -83,11 +87,7 @@ export default function View() {
     };
     const updated = [...customPresets, newPreset];
     setCustomPresets(updated);
-    try {
-      localStorage.setItem('toolbox_custom_buffers', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+    saveLibrary(CUSTOM_BUFFERS, updated);
     setShowSaveDialog(false);
     setSaveName('');
   };
@@ -95,11 +95,7 @@ export default function View() {
   const deleteCustomBuffer = (id: string) => {
     const updated = customPresets.filter(p => p.id !== id);
     setCustomPresets(updated);
-    try {
-      localStorage.setItem('toolbox_custom_buffers', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+    saveLibrary(CUSTOM_BUFFERS, updated);
   };
 
   const calculation = useMemo(() => {
@@ -200,14 +196,14 @@ export default function View() {
               <button
                 type="button"
                 onClick={() => update(index, { kind: 'solid' })}
-                class={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${component.kind === 'solid' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'}`}
+                class={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${component.kind === 'solid' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'}`}
               >
                 Solid
               </button>
               <button
                 type="button"
                 onClick={() => update(index, { kind: 'stock' })}
-                class={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${component.kind === 'stock' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'}`}
+                class={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${component.kind === 'stock' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'}`}
               >
                 Stock
               </button>
@@ -217,7 +213,7 @@ export default function View() {
               type="button"
               onClick={() => set({ components: s.components.filter((_, i) => i !== index) })}
               disabled={s.components.length === 1}
-              class="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 disabled:opacity-20 transition"
+              class="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 disabled:opacity-20 transition"
               title="Remove component"
               aria-label={`Remove component${labelSuffix}`}
             >
@@ -231,9 +227,9 @@ export default function View() {
           {/* Chemical Search (7 cols) */}
           <div class="sm:col-span-7 relative">
             <label class="block">
-              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Search Chemical / Formula</span>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Search Chemical / Formula</span>
               <div class="relative">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400 text-xs">🔍</span>
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-500 dark:text-slate-400 text-xs">🔍</span>
                 <input
                   aria-label={`Chemical search${labelSuffix}`}
                   value={component.query}
@@ -263,7 +259,7 @@ export default function View() {
           {/* Target in Recipe (5 cols) */}
           <div class="sm:col-span-5">
             <label class="block">
-              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Target Concentration</span>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Target Concentration</span>
               <span class="flex">
                 <input
                   aria-label={`Target concentration${labelSuffix}`}
@@ -295,7 +291,7 @@ export default function View() {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
             <div>
               <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">MW (g/mol)</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">MW (g/mol)</span>
                 <button
                   type="button"
                   onClick={() => void lookup(index)}
@@ -314,7 +310,7 @@ export default function View() {
               />
             </div>
             <div>
-              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Hydrate Waters (·nH₂O)</span>
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hydrate Waters (·nH₂O)</span>
               <input
                 aria-label={`Additional waters${labelSuffix}`}
                 type="number"
@@ -330,8 +326,8 @@ export default function View() {
         ) : (
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5">
             <div>
-              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Stock Conc</span>
-              <input
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stock Conc</span>
+              <input aria-label="Stock Conc"
                 type="number"
                 step="any"
                 value={component.stockConc ?? 1}
@@ -340,8 +336,8 @@ export default function View() {
               />
             </div>
             <div>
-              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Stock Unit</span>
-              <select
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stock Unit</span>
+              <select aria-label="Stock Unit"
                 value={component.stockUnit ?? 'M'}
                 onChange={event => update(index, { stockUnit: (event.target as HTMLSelectElement).value as RecipeUnit })}
                 class={`${fieldClass} text-xs py-1.5`}
@@ -353,8 +349,8 @@ export default function View() {
               </select>
             </div>
             <div>
-              <span class="mb-1 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Density (g/mL, opt)</span>
-              <input
+              <span class="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Density (g/mL, opt)</span>
+              <input aria-label="Density (g/mL, opt)"
                 type="number"
                 step="any"
                 value={component.density ?? ''}
@@ -380,7 +376,7 @@ export default function View() {
       wide={true}
       mobileResultSummary={
         calculation.error ? (
-          <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+          <span class="text-rose-700 dark:text-rose-400 font-semibold">{calculation.error}</span>
         ) : (
           <span><strong>{calculation.rows.length} components</strong> for <strong class="text-accent-700 dark:text-accent-300 font-mono">{s.volume.value} {s.volume.unit}</strong> (pH {s.pH})</span>
         )
@@ -390,7 +386,7 @@ export default function View() {
           {/* Preset Selector & Action Buttons */}
           <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recipe Preset</span>
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recipe Preset</span>
               <div class="flex items-center gap-2">
                 <button
                   type="button"
@@ -402,7 +398,7 @@ export default function View() {
                 <button
                   type="button"
                   onClick={() => setShowContributeModal(true)}
-                  class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline font-medium"
+                  class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:underline font-medium"
                 >
                   🚀 Contribute
                 </button>
@@ -448,7 +444,7 @@ export default function View() {
 
             {customPresets.length > 0 && (
               <div class="space-y-1.5 pt-1">
-                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">My Saved Buffers:</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">My Saved Buffers:</span>
                 <div class="flex flex-wrap gap-1.5">
                   {customPresets.map(cp => (
                     <div key={cp.id} class="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -458,7 +454,7 @@ export default function View() {
                       <button
                         type="button"
                         onClick={() => deleteCustomBuffer(cp.id)}
-                        class="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                        class="text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
                         title="Delete custom preset"
                       >
                         ✕
@@ -505,7 +501,7 @@ export default function View() {
 
           {/* Component list */}
           <div class="space-y-3">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
               <span>Recipe Components ({s.components.length})</span>
             </div>
             {s.components.map(componentEditor)}
@@ -519,28 +515,28 @@ export default function View() {
             + Add Component
           </button>
 
-          {lookupStatus && <p role="status" class="text-xs text-slate-500 px-1">{lookupStatus}</p>}
+          {lookupStatus && <p role="status" class="text-xs text-slate-500 dark:text-slate-400 px-1">{lookupStatus}</p>}
 
           {/* pH Helper Card */}
           <details class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Henderson-Hasselbalch pH Helper
             </summary>
             <div class="mt-3 space-y-3">
               <div class="grid gap-3 sm:grid-cols-3">
                 <label>
-                  <span class="mb-1 block text-xs font-medium text-slate-500">Buffer Species</span>
-                  <select value={s.bufferId} onChange={event => set({ bufferId: (event.target as HTMLSelectElement).value })} class={fieldClass}>
+                  <span class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Buffer Species</span>
+                  <select aria-label="Buffer Species" value={s.bufferId} onChange={event => set({ bufferId: (event.target as HTMLSelectElement).value })} class={fieldClass}>
                     {BUFFER_PKA.map(buffer => <option key={buffer.id} value={buffer.id}>{buffer.name}</option>)}
                   </select>
                 </label>
                 <label>
-                  <span class="mb-1 block text-xs font-medium text-slate-500">Target pH</span>
-                  <input type="number" step="any" value={s.pH} onInput={event => set({ pH: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
+                  <span class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Target pH</span>
+                  <input aria-label="Target pH" type="number" step="any" value={s.pH} onInput={event => set({ pH: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
                 </label>
                 <label>
-                  <span class="mb-1 block text-xs font-medium text-slate-500">Temperature (°C)</span>
-                  <input type="number" step="any" value={s.temperature} onInput={event => set({ temperature: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
+                  <span class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Temperature (°C)</span>
+                  <input aria-label="Temperature (°C)" type="number" step="any" value={s.temperature} onInput={event => set({ temperature: Number((event.target as HTMLInputElement).value) })} class={fieldClass} />
                 </label>
               </div>
               <div class="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -553,7 +549,7 @@ export default function View() {
       }
       results={
         calculation.error ? (
-          <p role="alert" class="text-red-600 p-4">{calculation.error}</p>
+          <p role="alert" class="text-red-600 dark:text-red-400 p-4">{calculation.error}</p>
         ) : (
           <div data-testid="buffer-results" class="space-y-5">
             {/* Main Preparation Protocol Card */}
@@ -563,7 +559,7 @@ export default function View() {
                   <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">
                     Preparation Protocol — {s.volume.value} {s.volume.unit}
                   </h2>
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
                     Weigh and dissolve each component in order into purified water
                   </p>
                 </div>
@@ -586,16 +582,17 @@ export default function View() {
                       <div class="flex items-center gap-3">
                         <input
                           type="checkbox"
+                          aria-label={`${row.name} added`}
                           checked={isChecked}
                           onChange={() => setCheckedComponents(prev => ({ ...prev, [row.name]: !prev[row.name] }))}
                           onClick={e => e.stopPropagation()}
                           class="w-4 h-4 rounded accent-emerald-600 cursor-pointer shrink-0"
                         />
                         <div class="space-y-0.5">
-                          <h4 class={`text-base font-bold transition ${isChecked ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
+                          <h4 class={`text-base font-bold transition ${isChecked ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
                             {row.name}
                           </h4>
-                          <div class="flex items-center gap-2 text-xs text-slate-500">
+                          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             {comp && (
                               <span>
                                 Target: <strong class="text-slate-700 dark:text-slate-300">{comp.target.value} {comp.target.unit}</strong>
@@ -608,7 +605,7 @@ export default function View() {
                               <span>· Stock: {comp.stockConc} {comp.stockUnit}</span>
                             )}
                             {row.mass_g !== undefined && (
-                              <span class="text-slate-400">({Number(row.mass_g.toPrecision(4))} g by density)</span>
+                              <span class="text-slate-500 dark:text-slate-400">({Number(row.mass_g.toPrecision(4))} g by density)</span>
                             )}
                           </div>
                         </div>
@@ -662,14 +659,14 @@ export default function View() {
               <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>🚀</span> Contribute Buffer Recipe
               </h3>
-              <p class="text-xs text-slate-500 mt-1">
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Share your recipe with scientists worldwide by submitting it to the open-source database!
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowContributeModal(false)}
-              class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1 transition"
+              class="text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1 transition"
               title="Close modal"
             >
               ✕

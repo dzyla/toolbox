@@ -260,7 +260,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                   class="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-left hover:border-accent-400 hover:bg-accent-50/50 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:border-accent-600 transition"
                 >
                   <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{p.label}</div>
-                  <div class="text-[10px] text-slate-500 truncate">{p.desc}</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">{p.desc}</div>
                 </button>
               ))}
             </div>
@@ -275,14 +275,14 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
               <button
                 type="button"
                 onClick={() => set({ mode: 'pair' })}
-                class={`flex-1 py-1.5 rounded-lg transition ${s.mode === 'pair' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                class={`flex-1 py-1.5 rounded-lg transition ${s.mode === 'pair' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
               >
                 Primer Pair (PCR Suite)
               </button>
               <button
                 type="button"
                 onClick={() => set({ mode: 'single' })}
-                class={`flex-1 py-1.5 rounded-lg transition ${s.mode === 'single' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                class={`flex-1 py-1.5 rounded-lg transition ${s.mode === 'single' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
               >
                 Single Primer QC
               </button>
@@ -349,7 +349,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 class={`p-2.5 rounded-xl border text-left transition ${s.polymerase === 'q5' ? 'border-accent-500 bg-accent-50/50 dark:border-accent-600 dark:bg-accent-950/30 ring-1 ring-accent-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
               >
                 <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Phusion® / Q5®</div>
-                <div class="text-[11px] text-slate-500">Starting Ta = min(Tm) + 3.0 °C</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">Starting Ta = min(Tm) + 3.0 °C</div>
               </button>
               <button
                 type="button"
@@ -357,7 +357,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 class={`p-2.5 rounded-xl border text-left transition ${s.polymerase === 'taq' ? 'border-accent-500 bg-accent-50/50 dark:border-accent-600 dark:bg-accent-950/30 ring-1 ring-accent-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}
               >
                 <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Taq / Standard</div>
-                <div class="text-[11px] text-slate-500">Ta = min(Tm) − 5.0 °C</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">Ta = min(Tm) − 5.0 °C</div>
               </button>
             </div>
           </div>
@@ -367,11 +367,11 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
             <button
               type="button"
               onClick={() => setShowAdvancedConditions(!showAdvancedConditions)}
-              class="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition"
+              class="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition"
             >
               <span class="flex items-center gap-1.5">
                 <span>⚗️ Reaction & Buffer Conditions</span>
-                <span class="font-normal text-slate-500">({s.primerNM} nM primer, {s.mgMM} mM Mg²⁺, {s.naMM} mM Na⁺)</span>
+                <span class="font-normal text-slate-500 dark:text-slate-400">({s.primerNM} nM primer, {s.mgMM} mM Mg²⁺, {s.naMM} mM Na⁺)</span>
               </span>
               <span>{showAdvancedConditions ? '▲ Hide' : '▼ Adjust'}</span>
             </button>
@@ -380,8 +380,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
               <div class="p-3 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs">
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="text-slate-500 block mb-1">Primer Conc [nM]</label>
-                    <DecimalInput
+                    <label class="text-slate-500 dark:text-slate-400 block mb-1">Primer Conc [nM]</label>
+                    <DecimalInput aria-label="Primer Conc [nM]"
                       value={s.primerNM}
                       onChange={v => set({ primerNM: v })}
                       min={10}
@@ -391,8 +391,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     />
                   </div>
                   <div>
-                    <label class="text-slate-500 block mb-1">Mg²⁺ Conc [mM]</label>
-                    <DecimalInput
+                    <label class="text-slate-500 dark:text-slate-400 block mb-1">Mg²⁺ Conc [mM]</label>
+                    <DecimalInput aria-label="Mg²⁺ Conc [mM]"
                       value={s.mgMM}
                       onChange={v => set({ mgMM: v })}
                       min={0}
@@ -402,8 +402,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     />
                   </div>
                   <div>
-                    <label class="text-slate-500 block mb-1">Na⁺ [mM]</label>
-                    <DecimalInput
+                    <label class="text-slate-500 dark:text-slate-400 block mb-1">Na⁺ [mM]</label>
+                    <DecimalInput aria-label="Na⁺ [mM]"
                       value={s.naMM}
                       onChange={v => set({ naMM: v })}
                       min={0}
@@ -413,8 +413,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     />
                   </div>
                   <div>
-                    <label class="text-slate-500 block mb-1">Total dNTPs [mM]</label>
-                    <DecimalInput
+                    <label class="text-slate-500 dark:text-slate-400 block mb-1">Total dNTPs [mM]</label>
+                    <DecimalInput aria-label="Total dNTPs [mM]"
                       value={s.dntpMM}
                       onChange={v => set({ dntpMM: v })}
                       min={0}
@@ -424,8 +424,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     />
                   </div>
                   <div>
-                    <label class="text-slate-500 block mb-1">K⁺ [mM]</label>
-                    <DecimalInput
+                    <label class="text-slate-500 dark:text-slate-400 block mb-1">K⁺ [mM]</label>
+                    <DecimalInput aria-label="K⁺ [mM]"
                       value={s.kMM}
                       onChange={v => set({ kMM: v })}
                       min={0}
@@ -435,8 +435,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     />
                   </div>
                   <div>
-                    <label class="text-slate-500 block mb-1">Tris⁺ Buffer [mM]</label>
-                    <DecimalInput
+                    <label class="text-slate-500 dark:text-slate-400 block mb-1">Tris⁺ Buffer [mM]</label>
+                    <DecimalInput aria-label="Tris⁺ Buffer [mM]"
                       value={s.trisMM}
                       onChange={v => set({ trisMM: v })}
                       min={0}
@@ -448,8 +448,8 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 </div>
 
                 <div>
-                  <label class="text-slate-500 block mb-1">Salt Correction Algorithm</label>
-                  <select
+                  <label class="text-slate-500 dark:text-slate-400 block mb-1">Salt Correction Algorithm</label>
+                  <select aria-label="Salt Correction Algorithm"
                     value={s.saltCorrection}
                     onChange={e => set({ saltCorrection: (e.target as HTMLSelectElement).value as SaltCorrection })}
                     class="w-full rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-800 text-xs"
@@ -488,7 +488,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 <div class="flex flex-wrap items-center gap-2">
                   {pairAnalysis && (
                     <div class="text-right">
-                      <div class="text-[11px] text-slate-500">Pair Tm Difference (|ΔTm|)</div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400">Pair Tm Difference (|ΔTm|)</div>
                       <div class="flex items-center gap-1.5 justify-end mt-0.5">
                         <span class="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">
                           {pairAnalysis.tmDiff.toFixed(1)} °C
@@ -503,9 +503,9 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                   {pairAnalysis && (
                     <span class={`px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider ${
                       pairAnalysis.overallStatus === 'optimal'
-                        ? 'bg-emerald-500 text-white shadow-xs'
+                        ? 'bg-emerald-700 text-white shadow-xs'
                         : pairAnalysis.overallStatus === 'warning'
-                        ? 'bg-amber-500 text-white shadow-xs'
+                        ? 'bg-amber-700 text-white shadow-xs'
                         : 'bg-rose-600 text-white shadow-xs'
                     }`}>
                       {pairAnalysis.overallStatus} QC
@@ -516,7 +516,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
 
               {/* D3/SVG Temperature Comparison Scale */}
               <div class="space-y-1.5">
-                <div class="flex justify-between text-[11px] text-slate-500 font-mono">
+                <div class="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                   <span>PCR Thermal Profile Scale (°C)</span>
                   <span>Taq: {tempChartData.taTaq.toFixed(1)}°C | Q5: {tempChartData.taQ5.toFixed(1)}°C</span>
                 </div>
@@ -606,7 +606,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                   <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span>🔗 Cross-Dimer (Forward ↔ Reverse Heterodimer)</span>
                   </h3>
-                  <div class="text-[11px] text-slate-500">
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400">
                     Sliding antiparallel complementary match analysis
                   </div>
                 </div>
@@ -626,25 +626,25 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs font-mono">
                 <div class="rounded-lg border border-slate-200 p-2 dark:border-slate-800 bg-white dark:bg-slate-900">
-                  <div class="text-[10px] text-slate-500 font-sans">Worst Cross ΔG</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 font-sans">Worst Cross ΔG</div>
                   <div class="text-base font-bold text-slate-800 dark:text-slate-200">
                     {pairAnalysis.crossDimer.worstDeltaG.toFixed(1)} kcal/mol
                   </div>
                 </div>
                 <div class="rounded-lg border border-slate-200 p-2 dark:border-slate-800 bg-white dark:bg-slate-900">
-                  <div class="text-[10px] text-slate-500 font-sans">3′ End Dimer ΔG</div>
-                  <div class={`text-base font-bold ${pairAnalysis.crossDimer.is3PrimeEndRisky ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}`}>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 font-sans">3′ End Dimer ΔG</div>
+                  <div class={`text-base font-bold ${pairAnalysis.crossDimer.is3PrimeEndRisky ? 'text-rose-700' : 'text-slate-800 dark:text-slate-200'}`}>
                     {pairAnalysis.crossDimer.endDeltaG.toFixed(1)} kcal/mol
                   </div>
                 </div>
                 <div class="rounded-lg border border-slate-200 p-2 dark:border-slate-800 bg-white dark:bg-slate-900">
-                  <div class="text-[10px] text-slate-500 font-sans">Max Match Length</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 font-sans">Max Match Length</div>
                   <div class="text-base font-bold text-slate-800 dark:text-slate-200">
                     {pairAnalysis.crossDimer.worstAlignment ? `${pairAnalysis.crossDimer.worstAlignment.matchLength} bp` : '0 bp'}
                   </div>
                 </div>
                 <div class="rounded-lg border border-slate-200 p-2 dark:border-slate-800 bg-white dark:bg-slate-900">
-                  <div class="text-[10px] text-slate-500 font-sans">Dimer Tm</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 font-sans">Dimer Tm</div>
                   <div class="text-base font-bold text-slate-800 dark:text-slate-200">
                     {pairAnalysis.crossDimer.worstAlignment ? `${pairAnalysis.crossDimer.worstAlignment.tm.toFixed(1)} °C` : '—'}
                   </div>
@@ -666,14 +666,14 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                   </div>
                 </div>
               ) : (
-                <div class="text-xs text-slate-500 italic">No significant cross-dimer hybridization detected.</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 italic">No significant cross-dimer hybridization detected.</div>
               )}
             </div>
           )}
 
           {/* Unified Comparison Table */}
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-            <div class="p-3 bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200">
+            <div class="p-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200">
               Primer Specification & Secondary Structure Summary
             </div>
 
@@ -696,7 +696,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                   {[
                     ...(pairAnalysis ? [pairAnalysis.fwd, pairAnalysis.rev] : singleAnalysis ? [singleAnalysis] : []),
                   ].map((p, i) => (
-                    <tr key={i} class="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                    <tr key={i} class="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
                       <td class="p-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {p.name}
                       </td>
@@ -706,10 +706,10 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                         {p.tm.toFixed(1)} °C
                       </td>
                       <td class="p-2.5">
-                        <span class={`font-bold ${p.terminalStability.isRisky ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                        <span class={`font-bold ${p.terminalStability.isRisky ? 'text-rose-700' : 'text-slate-700 dark:text-slate-300'}`}>
                           {p.terminalStability.deltaG.toFixed(1)}
                         </span>
-                        <span class="text-[10px] text-slate-400 ml-1">kcal</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 ml-1">kcal</span>
                       </td>
                       <td class="p-2.5">
                         <span class={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -724,20 +724,20 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                       </td>
                       <td class="p-2.5">
                         {p.hairpin.hasHairpin ? (
-                          <span class={`font-bold ${p.hairpin.isRisky ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                          <span class={`font-bold ${p.hairpin.isRisky ? 'text-rose-700' : 'text-slate-700 dark:text-slate-300'}`}>
                             {p.hairpin.worstDeltaG.toFixed(1)} kcal
                           </span>
                         ) : (
-                          <span class="text-slate-400">None</span>
+                          <span class="text-slate-500 dark:text-slate-400">None</span>
                         )}
                       </td>
                       <td class="p-2.5">
                         {p.selfDimer.hasDimer ? (
-                          <span class={`font-bold ${p.selfDimer.is3PrimeEndRisky ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                          <span class={`font-bold ${p.selfDimer.is3PrimeEndRisky ? 'text-rose-700' : 'text-slate-700 dark:text-slate-300'}`}>
                             {p.selfDimer.worstDeltaG.toFixed(1)} kcal
                           </span>
                         ) : (
-                          <span class="text-slate-400">Safe</span>
+                          <span class="text-slate-500 dark:text-slate-400">Safe</span>
                         )}
                       </td>
                       <td class="p-2.5">
@@ -777,13 +777,13 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-bold text-slate-900 dark:text-slate-100">{primer.name}</span>
-                    <span class="text-xs text-slate-500 font-mono">({primer.length} nt, {primer.gcPercent.toFixed(1)}% GC)</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-mono">({primer.length} nt, {primer.gcPercent.toFixed(1)}% GC)</span>
                   </div>
 
                   <div class="flex items-center gap-3">
                     <div class="text-xs font-mono">
                       <span>Tm: <strong class="text-accent-600 dark:text-accent-400">{primer.tm.toFixed(1)} °C</strong></span>
-                      <span class="text-slate-400 ml-1.5">(Wallace: {primer.tmWallace.toFixed(1)}°, Basic: {primer.tmBasic.toFixed(1)}°)</span>
+                      <span class="text-slate-500 dark:text-slate-400 ml-1.5">(Wallace: {primer.tmWallace.toFixed(1)}°, Basic: {primer.tmBasic.toFixed(1)}°)</span>
                     </div>
 
                     <button
@@ -801,9 +801,9 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
 
                 {/* Nucleotide Color Map with 3' GC Clamp Bracket */}
                 <div class="space-y-1">
-                  <div class="text-[11px] font-semibold text-slate-500 flex justify-between">
+                  <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex justify-between">
                     <span>5′ Sequence Representation</span>
-                    <span class="text-accent-600 font-bold">3′ Terminal GC Clamp Region</span>
+                    <span class="text-accent-600 dark:text-accent-400 font-bold">3′ Terminal GC Clamp Region</span>
                   </div>
 
                   <div class="flex flex-wrap items-center gap-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 overflow-x-auto">
@@ -851,10 +851,10 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     <div class="font-mono text-lg font-bold text-slate-900 dark:text-slate-100">
                       ΔG = {primer.terminalStability.deltaG.toFixed(2)} kcal/mol
                     </div>
-                    <div class="text-[11px] text-slate-500">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400">
                       Clamp: {primer.gcClamp.count}/5 G/C ({primer.gcClamp.bases})
                     </div>
-                    <div class="text-[10px] text-slate-400">
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400">
                       {primer.terminalStability.deltaG <= -9.0 ? 'Excessively stable (ΔG ≤ -9.0); promotes non-specific priming' : 'Terminal stability within recommended PCR threshold'}
                     </div>
                   </div>
@@ -877,11 +877,11 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                       {primer.hairpin.hasHairpin ? `ΔG = ${primer.hairpin.worstDeltaG.toFixed(1)} kcal/mol` : 'No Hairpins'}
                     </div>
                     {primer.hairpin.primaryHairpin && (
-                      <div class="text-[11px] text-slate-500 font-mono">
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                         Stem: {primer.hairpin.primaryHairpin.stemLength} bp | Loop: {primer.hairpin.primaryHairpin.loopLength} nt
                       </div>
                     )}
-                    <div class="text-[10px] text-slate-400">
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400">
                       {primer.hairpin.isRisky ? 'Hairpin structure may reduce PCR amplification efficiency' : 'Secondary hairpin folding within safe boundaries'}
                     </div>
                   </div>
@@ -903,10 +903,10 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                     <div class="font-mono text-lg font-bold text-slate-900 dark:text-slate-100">
                       {primer.selfDimer.hasDimer ? `ΔG = ${primer.selfDimer.worstDeltaG.toFixed(1)} kcal/mol` : 'Safe'}
                     </div>
-                    <div class="text-[11px] text-slate-500 font-mono">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                       3′ End ΔG: {primer.selfDimer.endDeltaG.toFixed(1)} kcal/mol
                     </div>
-                    <div class="text-[10px] text-slate-400">
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400">
                       {primer.selfDimer.is3PrimeEndRisky ? 'High risk of primer-dimer amplification by DNA polymerase' : 'Self-dimer interactions are negligible'}
                     </div>
                   </div>
@@ -953,7 +953,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <span>📋 Oligonucleotide Order Sheet (IDT / Sigma / Thermo Format)</span>
                 </h3>
-                <div class="text-[11px] text-slate-500">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">
                   Ready-to-order tabular manifest with length, Tm, GC%, scale, and purification
                 </div>
               </div>
@@ -962,7 +962,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 <button
                   type="button"
                   onClick={() => handleCopyExport('tsv')}
-                  class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
                 >
                   {copiedKey === 'export-tsv' ? '✓ Copied TSV' : 'Copy TSV'}
                 </button>
@@ -976,7 +976,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                 <button
                   type="button"
                   onClick={() => handleExport('csv')}
-                  class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
                 >
                   Download CSV
                 </button>
@@ -985,7 +985,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
 
             <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 font-mono text-xs">
               <table class="w-full text-left">
-                <thead class="bg-slate-50 dark:bg-slate-800 text-[10px] font-sans font-bold text-slate-500">
+                <thead class="bg-slate-50 dark:bg-slate-800 text-[10px] font-sans font-bold text-slate-500 dark:text-slate-400">
                   <tr>
                     <th class="p-2">Well</th>
                     <th class="p-2">Name</th>
@@ -1001,7 +1001,7 @@ export default function PrimersView(props?: ToolProps & { embedded?: boolean }) 
                   {[
                     ...(pairAnalysis ? [pairAnalysis.fwd, pairAnalysis.rev] : singleAnalysis ? [singleAnalysis] : []),
                   ].map((o, idx) => (
-                    <tr key={idx} class="hover:bg-slate-50/50 dark:hover:bg-slate-850">
+                    <tr key={idx} class="hover:bg-slate-50/50 dark:hover:bg-slate-800">
                       <td class="p-2 font-bold">{`A${String(idx + 1).padStart(2, '0')}`}</td>
                       <td class="p-2 font-sans font-bold text-slate-800 dark:text-slate-200">{o.name}</td>
                       <td class="p-2 break-all max-w-xs">{o.cleanSeq}</td>

@@ -261,21 +261,21 @@ function ThonRingsCanvas({
           class="w-full h-full rounded-2xl border border-slate-700 bg-black shadow-xl select-none"
         />
       </div>
-      <div class="flex items-center justify-between w-full max-w-[420px] text-[10.5px] text-slate-400 mt-2 font-mono">
+      <div class="flex items-center justify-between w-full max-w-[420px] text-[10.5px] text-slate-500 dark:text-slate-400 mt-2 font-mono">
         <span>-Nyq ({(2 * pixelSize).toFixed(1)} Å)</span>
         <span class="text-rose-400">½ Nyq ({(4 * pixelSize).toFixed(1)} Å)</span>
-        <span class="text-slate-500">DC (0)</span>
+        <span class="text-slate-500 dark:text-slate-400">DC (0)</span>
         <span class="text-rose-400">½ Nyq</span>
         <span>+Nyq ({(2 * pixelSize).toFixed(1)} Å)</span>
       </div>
       {multiDefocus && defociUm && defociUm.length > 0 && (
-        <div class="mt-2 text-center text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 py-1.5 px-3 rounded-lg border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+        <div class="mt-2 text-center text-xs text-emerald-700 dark:text-emerald-400 font-semibold flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 py-1.5 px-3 rounded-lg border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
           <span>🌊</span>
           <span>Multi-Defocus Dataset Blend ({defociUm.length} shots: {defociUm.join(', ')} µm) — CTF Zeros Filled</span>
         </div>
       )}
       {diffractionArtifact !== 'none' && preset && (
-        <div class="mt-2 text-center text-xs text-amber-500 font-medium">
+        <div class="mt-2 text-center text-xs text-amber-700 dark:text-amber-400 font-medium">
           ⚡ {preset.name}: Bragg diffraction rings overlaid in gold
         </div>
       )}
@@ -420,7 +420,7 @@ function CtfCurvePlot({
         </div>
 
         {activeMulti && hoveredMulti ? (
-          <span class="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+          <span class="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
             s: {hoveredMulti.s} Å⁻¹ | d: {hoveredMulti.d} Å | Combined Power: {hoveredMulti.combinedPower.toFixed(3)}
           </span>
         ) : hoveredSingle ? (
@@ -428,7 +428,7 @@ function CtfCurvePlot({
             s: {hoveredSingle.s} Å⁻¹ | d: {hoveredSingle.d} Å | CTF: {hoveredSingle.ctf} | |CTF|²: {hoveredSingle.power.toFixed(3)}{hoveredSingle.diffraction ? ` | Bragg: +${hoveredSingle.diffraction.toFixed(3)}` : ''}
           </span>
         ) : (
-          <span class="text-slate-400 text-[11px]">Hover over curves to inspect spatial frequency</span>
+          <span class="text-slate-500 dark:text-slate-400 text-[11px]">Hover over curves to inspect spatial frequency</span>
         )}
       </div>
 
@@ -583,12 +583,12 @@ function CtfCurvePlot({
       {activeMulti && (
         <div class="space-y-2 pt-1">
           <div class="flex flex-wrap items-center gap-3 text-[11px] p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-            <div class="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+            <div class="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400">
               <span class="inline-block w-4 h-1 bg-emerald-500 rounded"></span>
               <span>Combined Zero-Filling Signal</span>
             </div>
             <span class="text-slate-300 dark:text-slate-700">|</span>
-            <span class="text-slate-400 font-medium">Single defoci:</span>
+            <span class="text-slate-500 dark:text-slate-400 font-medium">Single defoci:</span>
             {defociUm.map((df, k) => (
               <div key={k} class="flex items-center gap-1 text-slate-600 dark:text-slate-400 font-mono text-[10.5px]">
                 <span class="inline-block w-2.5 h-0.5 rounded" style={{ backgroundColor: DEFOCUS_COLORS[k % DEFOCUS_COLORS.length] }}></span>
@@ -789,7 +789,7 @@ export default function CryoEmView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Pixel Size (Å/px)</label>
-                <DecimalInput
+                <DecimalInput aria-label="Pixel Size (Å/px)"
                   class={FIELD}
                   value={s.pixelSize}
                   onChange={pixelSize => set({ pixelSize })}
@@ -800,7 +800,7 @@ export default function CryoEmView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Original Box Size (px)</label>
-                <input
+                <input aria-label="Original Box Size (px)"
                   type="number"
                   step="2"
                   min="16"
@@ -811,7 +811,7 @@ export default function CryoEmView() {
                 {!isGoodBox(s.box) && (
                   <button
                     type="button"
-                    class="mt-1 text-xs text-amber-600 dark:text-amber-400 underline"
+                    class="mt-1 text-xs text-amber-700 dark:text-amber-400 underline"
                     onClick={() => set({ box: nextGoodBox(s.box) })}
                   >
                     Not 2·3·5·7-smooth. Snap to {nextGoodBox(s.box)} px?
@@ -821,7 +821,7 @@ export default function CryoEmView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Cropped Box Size (px)</label>
-                <input
+                <input aria-label="Cropped Box Size (px)"
                   type="number"
                   step="2"
                   min="16"
@@ -832,7 +832,7 @@ export default function CryoEmView() {
                 {!isGoodBox(s.cropBox) && (
                   <button
                     type="button"
-                    class="mt-1 text-xs text-amber-600 dark:text-amber-400 underline"
+                    class="mt-1 text-xs text-amber-700 dark:text-amber-400 underline"
                     onClick={() => set({ cropBox: nextGoodBox(s.cropBox) })}
                   >
                     Not 2·3·5·7-smooth. Snap to {nextGoodBox(s.cropBox)} px?
@@ -846,7 +846,7 @@ export default function CryoEmView() {
             <div class="space-y-3">
               <label class="block">
                 <span class="block text-sm font-medium mb-1">Pixel Size (Å/px)</span>
-                <DecimalInput
+                <DecimalInput aria-label="Pixel Size (Å/px)"
                   class={FIELD}
                   value={s.pixelSize}
                   onChange={pixelSize => set({ pixelSize })}
@@ -857,7 +857,7 @@ export default function CryoEmView() {
 
               <label class="block">
                 <span class="block text-sm font-medium mb-1">Dose Rate (e⁻/px/s on detector)</span>
-                <DecimalInput
+                <DecimalInput aria-label="Dose Rate (e⁻/px/s on detector)"
                   class={FIELD}
                   value={s.doseRate}
                   onChange={doseRate => set({ doseRate })}
@@ -869,7 +869,7 @@ export default function CryoEmView() {
               <div class="grid grid-cols-2 gap-3">
                 <label class="block">
                   <span class="block text-sm font-medium mb-1">Total Exposure (s)</span>
-                  <DecimalInput
+                  <DecimalInput aria-label="Total Exposure (s)"
                     class={FIELD}
                     value={s.exposureTime}
                     onChange={exposureTime => set({ exposureTime })}
@@ -879,7 +879,7 @@ export default function CryoEmView() {
                 </label>
                 <label class="block">
                   <span class="block text-sm font-medium mb-1">Number of Frames</span>
-                  <input
+                  <input aria-label="Number of Frames"
                     type="number"
                     step="1"
                     min="1"
@@ -891,8 +891,8 @@ export default function CryoEmView() {
               </div>
 
               <label class="block pt-2">
-                <span class="block text-xs text-slate-500 mb-1">Target Desired Dose (e⁻/Å²)</span>
-                <DecimalInput
+                <span class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Target Desired Dose (e⁻/Å²)</span>
+                <DecimalInput aria-label="Target Desired Dose (e⁻/Å²)"
                   class={FIELD}
                   value={s.targetDose}
                   onChange={targetDose => set({ targetDose })}
@@ -911,7 +911,7 @@ export default function CryoEmView() {
                   <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Microscope Preset
                   </label>
-                  <span class="text-[11px] text-slate-400 font-mono">{s.voltageKv} kV · Cs {s.csMm} mm</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{s.voltageKv} kV · Cs {s.csMm} mm</span>
                 </div>
                 <div class="grid grid-cols-2 gap-1.5">
                   <button
@@ -949,7 +949,7 @@ export default function CryoEmView() {
               <div class="grid grid-cols-2 gap-3">
                 <label class="block">
                   <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Voltage (kV)</span>
-                  <DecimalInput
+                  <DecimalInput aria-label="Voltage (kV)"
                     class={FIELD}
                     value={s.voltageKv}
                     onChange={voltageKv => set({ voltageKv })}
@@ -960,7 +960,7 @@ export default function CryoEmView() {
                 </label>
                 <label class="block">
                   <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Spherical Aberration Cs (mm)</span>
-                  <DecimalInput
+                  <DecimalInput aria-label="Spherical Aberration Cs (mm)"
                     class={FIELD}
                     value={s.csMm}
                     onChange={csMm => set({ csMm })}
@@ -976,7 +976,7 @@ export default function CryoEmView() {
                   <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Defocus Mode
                   </label>
-                  <span class="text-[10.5px] font-mono text-slate-400">
+                  <span class="text-[10.5px] font-mono text-slate-500 dark:text-slate-400">
                     {s.multiDefocus ? `${parsedDefoci.length} defoci` : `${s.defocusUm.toFixed(2)} µm`}
                   </span>
                 </div>
@@ -985,14 +985,14 @@ export default function CryoEmView() {
                   <button
                     type="button"
                     onClick={() => set({ multiDefocus: false })}
-                    class={`flex-1 py-1.5 rounded-lg transition ${!s.multiDefocus ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    class={`flex-1 py-1.5 rounded-lg transition ${!s.multiDefocus ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                   >
                     🎯 Single Defocus
                   </button>
                   <button
                     type="button"
                     onClick={() => set({ multiDefocus: true })}
-                    class={`flex-1 py-1.5 rounded-lg transition ${s.multiDefocus ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-300' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                    class={`flex-1 py-1.5 rounded-lg transition ${s.multiDefocus ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                   >
                     🌊 Multi-Defocus Blend
                   </button>
@@ -1003,7 +1003,7 @@ export default function CryoEmView() {
                     <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                       Defocus (µm underfocus)
                     </label>
-                    <DecimalInput
+                    <DecimalInput aria-label="Defocus (µm underfocus)"
                       class={FIELD}
                       value={s.defocusUm}
                       onChange={defocusUm => set({ defocusUm })}
@@ -1032,7 +1032,7 @@ export default function CryoEmView() {
                     />
 
                     <div class="flex flex-wrap gap-1 pt-0.5">
-                      <span class="text-[10px] text-slate-500 mr-0.5">Presets:</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 mr-0.5">Presets:</span>
                       <button
                         type="button"
                         onClick={() => set({ multiDefociStr: '0.8, 1.2, 1.6, 2.0' })}
@@ -1065,7 +1065,7 @@ export default function CryoEmView() {
                 <div class="grid grid-cols-2 gap-3">
                   <label class="block">
                     <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Astigmatism (µm)</span>
-                    <DecimalInput
+                    <DecimalInput aria-label="Astigmatism (µm)"
                       class={FIELD}
                       value={s.astigmatismUm}
                       onChange={astigmatismUm => set({ astigmatismUm })}
@@ -1076,7 +1076,7 @@ export default function CryoEmView() {
                   </label>
                   <label class="block">
                     <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Astigmatism Angle (°)</span>
-                    <DecimalInput
+                    <DecimalInput aria-label="Astigmatism Angle (°)"
                       class={FIELD}
                       value={s.astAngleDeg}
                       onChange={astAngleDeg => set({ astAngleDeg })}
@@ -1092,7 +1092,7 @@ export default function CryoEmView() {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <label class="block">
                   <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Pixel Size (Å/px)</span>
-                  <DecimalInput
+                  <DecimalInput aria-label="Pixel Size (Å/px)"
                     class={FIELD}
                     value={s.pixelSize}
                     onChange={pixelSize => set({ pixelSize })}
@@ -1102,7 +1102,7 @@ export default function CryoEmView() {
                 </label>
                 <label class="block">
                   <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Diffraction Artifact</span>
-                  <select
+                  <select aria-label="Diffraction Artifact"
                     class={FIELD}
                     value={s.diffractionArtifact}
                     onChange={e => set({ diffractionArtifact: (e.target as HTMLSelectElement).value as DiffractionArtifactType })}
@@ -1125,7 +1125,7 @@ export default function CryoEmView() {
                 <div class="grid grid-cols-2 gap-3 p-3 pt-1.5">
                   <label class="block">
                     <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amplitude Contrast (Q)</span>
-                    <DecimalInput
+                    <DecimalInput aria-label="Amplitude Contrast (Q)"
                       class={FIELD}
                       value={s.amplitudeContrast}
                       onChange={amplitudeContrast => set({ amplitudeContrast })}
@@ -1136,7 +1136,7 @@ export default function CryoEmView() {
                   </label>
                   <label class="block">
                     <span class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Envelope B-factor (Å²)</span>
-                    <DecimalInput
+                    <DecimalInput aria-label="Envelope B-factor (Å²)"
                       class={FIELD}
                       value={s.bFactor}
                       onChange={bFactor => set({ bFactor })}
@@ -1181,7 +1181,7 @@ export default function CryoEmView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Magnification</label>
-                <DecimalInput
+                <DecimalInput aria-label="Magnification"
                   class={FIELD}
                   value={s.mag}
                   onChange={mag => set({ mag })}
@@ -1192,7 +1192,7 @@ export default function CryoEmView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Target Pixel Size (Å/px) → Calculate Mag</label>
-                <DecimalInput
+                <DecimalInput aria-label="Target Pixel Size (Å/px) → Calculate Mag"
                   class={FIELD}
                   value={s.pixelSize}
                   placeholder="Type a pixel size to update magnification"
@@ -1213,42 +1213,42 @@ export default function CryoEmView() {
             <div class="space-y-4" data-testid="cryo-box-result">
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Raw Nyquist</div>
-                  <div class="mono text-xl font-bold text-accent-600">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Raw Nyquist</div>
+                  <div class="mono text-xl font-bold text-accent-600 dark:text-accent-400">
                     {boxComparison.raw.nyquist.toFixed(2)} Å
                   </div>
-                  <div class="text-xs text-slate-500">at {boxComparison.raw.pixelSize.toFixed(3)} Å/px</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">at {boxComparison.raw.pixelSize.toFixed(3)} Å/px</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Binned Nyquist</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Binned Nyquist</div>
                   <div class="mono text-xl font-bold">
                     {boxComparison.binned.nyquist.toFixed(2)} Å
                   </div>
-                  <div class="text-xs text-slate-500">at {boxComparison.binned.pixelSize.toFixed(3)} Å/px</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">at {boxComparison.binned.pixelSize.toFixed(3)} Å/px</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Physical Box Size</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Physical Box Size</div>
                   <div class="mono text-xl font-bold">
                     {boxComparison.raw.width.toFixed(1)} Å
                   </div>
-                  <div class="text-xs text-slate-500">{boxComparison.raw.box} px raw</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">{boxComparison.raw.box} px raw</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Binning Factor</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Binning Factor</div>
                   <div class="mono text-xl font-bold">
                     {boxComparison.binned.bin.toFixed(2)}×
                   </div>
-                  <div class="text-xs text-slate-500">{boxComparison.binned.box} px cropped</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">{boxComparison.binned.box} px cropped</div>
                 </div>
               </div>
 
               <div class="overflow-x-auto rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                 <table class="w-full text-left text-sm">
                   <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500">
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
                       <th class="pb-2">Metric</th>
                       <th class="pb-2">Original</th>
                       <th class="pb-2">Cropped / Binned</th>
@@ -1258,7 +1258,7 @@ export default function CryoEmView() {
                     <tr class="border-b border-slate-100 dark:border-slate-800">
                       <td class="py-2">Pixel Size</td>
                       <td class="mono">{boxComparison.raw.pixelSize.toFixed(3)} Å</td>
-                      <td class="mono font-semibold text-accent-600">{boxComparison.binned.pixelSize.toFixed(3)} Å</td>
+                      <td class="mono font-semibold text-accent-600 dark:text-accent-400">{boxComparison.binned.pixelSize.toFixed(3)} Å</td>
                     </tr>
                     <tr class="border-b border-slate-100 dark:border-slate-800">
                       <td class="py-2">Nyquist Limit</td>
@@ -1285,41 +1285,41 @@ export default function CryoEmView() {
             <div class="space-y-4" data-testid="cryo-dose-result">
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Total Dose</div>
-                  <div class="mono text-2xl font-bold text-accent-600">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Total Dose</div>
+                  <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                     {doseResults.plan.totalDose.toFixed(1)}
                   </div>
-                  <div class="text-xs text-slate-500">e⁻/Å² (target: {s.targetDose})</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">e⁻/Å² (target: {s.targetDose})</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Dose per Frame</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Dose per Frame</div>
                   <div class="mono text-2xl font-bold">
                     {doseResults.plan.dosePerFrame.toFixed(2)}
                   </div>
-                  <div class="text-xs text-slate-500">e⁻/Å² over {s.frames} frames</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">e⁻/Å² over {s.frames} frames</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Frame Time</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Frame Time</div>
                   <div class="mono text-2xl font-bold">
                     {(doseResults.plan.frameTime * 1000).toFixed(0)} ms
                   </div>
-                  <div class="text-xs text-slate-500">{doseResults.plan.frameTime.toFixed(3)} s/frame</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">{doseResults.plan.frameTime.toFixed(3)} s/frame</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Rate at Specimen</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Rate at Specimen</div>
                   <div class="mono text-2xl font-bold">
                     {doseResults.plan.rateAtSpecimen.toFixed(1)}
                   </div>
-                  <div class="text-xs text-slate-500">e⁻/Å²/s</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">e⁻/Å²/s</div>
                 </div>
               </div>
 
               <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm">
                 <span class="font-medium">Exposure required for {s.targetDose} e⁻/Å²: </span>
-                <strong class="mono text-accent-600">{doseResults.reqExp.toFixed(2)} seconds</strong>
+                <strong class="mono text-accent-600 dark:text-accent-400">{doseResults.reqExp.toFixed(2)} seconds</strong>
               </div>
             </div>
           )}
@@ -1329,35 +1329,35 @@ export default function CryoEmView() {
               {/* CTF Metrics Banner */}
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">First CTF Zero (d₁)</div>
-                  <div class="mono text-xl font-bold text-accent-600">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">First CTF Zero (d₁)</div>
+                  <div class="mono text-xl font-bold text-accent-600 dark:text-accent-400">
                     {ctfResults.zero.d1.toFixed(2)} Å
                   </div>
-                  <div class="text-xs text-slate-500">s₁: {ctfResults.zero.s1.toFixed(4)} Å⁻¹</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">s₁: {ctfResults.zero.s1.toFixed(4)} Å⁻¹</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Electron Wavelength (λ)</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Electron Wavelength (λ)</div>
                   <div class="mono text-xl font-bold text-slate-800 dark:text-slate-200">
                     {ctfResults.lambdaA.toFixed(4)} Å
                   </div>
-                  <div class="text-xs text-slate-500">at {s.voltageKv} kV (rel.)</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">at {s.voltageKv} kV (rel.)</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Defocus (U / V)</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Defocus (U / V)</div>
                   <div class="mono text-base font-bold text-slate-800 dark:text-slate-200">
                     {ctfResults.dfU_um.toFixed(2)} / {ctfResults.dfV_um.toFixed(2)} µm
                   </div>
-                  <div class="text-xs text-slate-500">Δ = {s.astigmatismUm} µm ({s.astAngleDeg}°)</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Δ = {s.astigmatismUm} µm ({s.astAngleDeg}°)</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Nyquist Limit</div>
-                  <div class="mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Nyquist Limit</div>
+                  <div class="mono text-xl font-bold text-emerald-700 dark:text-emerald-400">
                     {(2 * s.pixelSize).toFixed(2)} Å
                   </div>
-                  <div class="text-xs text-slate-500">at {s.pixelSize.toFixed(3)} Å/px</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">at {s.pixelSize.toFixed(3)} Å/px</div>
                 </div>
               </div>
 
@@ -1387,7 +1387,7 @@ export default function CryoEmView() {
                         </span>
                       )}
                     </h3>
-                    <p class="text-xs text-slate-500">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
                       {s.multiDefocus
                         ? `Averaged power spectrum across ${parsedDefoci.length} micrographs (${parsedDefoci.join(', ')} µm) — zero nodes filled.`
                         : 'Concentric interference rings displaying astigmatic ellipticity, defocus phase flips (|CTF|²), and diffraction artifacts.'}
@@ -1401,7 +1401,7 @@ export default function CryoEmView() {
                     >
                       {s.multiDefocus ? '🌊 Blend Active' : 'Blend Multiple Defoci'}
                     </button>
-                    <span class="text-xs font-mono text-slate-400">
+                    <span class="text-xs font-mono text-slate-500 dark:text-slate-400">
                       {s.astigmatismUm > 0 ? `Astigmatic: ${s.astAngleDeg}°` : 'Round (No Astigmatism)'}
                     </span>
                   </div>
@@ -1443,22 +1443,22 @@ export default function CryoEmView() {
                       <p><strong class="text-slate-800 dark:text-slate-200">⚡ {DIFFRACTION_PRESETS[s.diffractionArtifact].name}</strong></p>
                       <p>{DIFFRACTION_PRESETS[s.diffractionArtifact].description}</p>
                       {s.diffractionArtifact === 'ice' && (
-                        <p class="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                        <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
                           ⚠️ <strong>Single-Particle Impact:</strong> Hexagonal ice ($I_h$) rings at 3.66 Å, 2.25 Å, and 1.92 Å produce strong false correlation in 2D/3D classification and degrade high-resolution refinement. Enable ice ring rejection filters in RELION/CryoSPARC.
                         </p>
                       )}
                       {s.diffractionArtifact === 'graphene' && (
-                        <p class="text-[11px] text-sky-600 dark:text-sky-400 font-medium">
+                        <p class="text-[11px] text-sky-700 dark:text-sky-400 font-medium">
                           ℹ️ <strong>Single-Particle Impact:</strong> Monolayer single-crystal graphene grids minimize air-water interface denaturation while producing sharp 6-fold hexagonal Bragg diffraction reflections at 2.13 Å {10-10} and 1.23 Å {11-20} without corrupting azimuths between spots.
                         </p>
                       )}
                       {s.diffractionArtifact === 'carbon' && (
-                        <p class="text-[11px] text-slate-500 font-medium">
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                           ℹ️ <strong>Single-Particle Impact:</strong> Continuous amorphous carbon produces a diffuse scattering halo at ~4.2 Å. It increases background noise but provides isotropic power for CTF fitting at low doses.
                         </p>
                       )}
                       {s.diffractionArtifact === 'gold' && (
-                        <p class="text-[11px] text-amber-500 font-medium">
+                        <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
                           ℹ️ <strong>Single-Particle Impact:</strong> UltraAuFoil grids minimize beam-induced specimen motion. FCC gold reflections at 2.35 Å and 2.04 Å provide accurate internal magnification calibration.
                         </p>
                       )}
@@ -1473,22 +1473,22 @@ export default function CryoEmView() {
             <div class="space-y-4" data-testid="cryo-mag-result">
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Calibrated Pixel Size</div>
-                  <div class="mono text-2xl font-bold text-accent-600">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Calibrated Pixel Size</div>
+                  <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                     {magResults.derivedPx.toFixed(4)} Å
                   </div>
-                  <div class="text-xs text-slate-500">at {s.mag.toLocaleString()}×</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">at {s.mag.toLocaleString()}×</div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Nyquist Resolution</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Nyquist Resolution</div>
                   <div class="mono text-2xl font-bold">
                     {(magResults.derivedPx * 2).toFixed(2)} Å
                   </div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Detector Pixel</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Detector Pixel</div>
                   <div class="mono text-2xl font-bold">
                     {s.detectorUm} µm
                   </div>

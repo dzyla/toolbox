@@ -1,27 +1,23 @@
 import { useCallback, useEffect, useState, useMemo } from 'preact/hooks';
-import type { BaselineMode, ChromatogramColumnName, ChromatogramImport, PeakCandidate, SpectrumImport, VolumeRange } from '@/core/chromatography';
+import type { BaselineMode, ChromatogramColumnName, ChromatogramImport, PeakCandidate, VolumeRange } from '@/core/chromatography';
 import {
   applyBaseline,
-  calculateDyeLabeling,
-  correctA280ForScatter,
   detectPeakCandidates,
   estimateFractionAmount,
   estimatePeakConcentration,
-  fitLogScatter,
   integratePeak,
   parseChromatogram,
-  parseSpectrum,
   simulateGradient,
   suggestIonExchange,
 } from '@/core/chromatography';
 import { summarize } from '@/core/protein';
 import { downloadText, toCsv } from '@/lib/export';
 import { useUrlState } from '@/lib/url-state';
+import { importErrorMessage, readTextFile } from '@/lib/file-import';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { DecimalInput } from '@/app/components/DecimalInput';
-import { LineChart } from '@/app/components/LineChart';
 import { SCIENCE } from './science';
 import { ChromatogramPlot, chromatogramTraces, type TraceDisplaySetting } from './ChromatogramPlot';
 import { peakColorForIndex } from './chromatogram-chart-model';
@@ -30,6 +26,7 @@ import {
   PRESET_COLUMNS,
   getStandardsForColumn,
   fitSecCalibration,
+  secCalibrationIssue,
   predictFromVe,
   predictVeFromMw,
   estimatePeakSigmaMl,
@@ -107,6 +104,10 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
   const model = useMemo(() => {
     return fitSecCalibration(standards, s.v0, s.vt);
   }, [standards, s.v0, s.vt]);
+  const calibrationIssue = useMemo(
+    () => (model ? null : secCalibrationIssue(standards, s.v0, s.vt)),
+    [model, standards, s.v0, s.vt],
+  );
 
   // Predictions
   const predictionMw = useMemo(() => {
@@ -153,7 +154,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
     if (s.queryMode === 've_to_mw' && predictionMw) {
       lines.push(`Input Ve: ${s.unknownVe} mL (Kav = ${predictionMw.kav.toFixed(3)})`);
       lines.push(`Apparent MW: ${predictionMw.apparentMwkDa.toFixed(1)} kDa (${Math.round(predictionMw.apparentMwDa).toLocaleString()} Da)`);
-      lines.push(`Stokes Radius (Rh): ${predictionMw.stokesRadiusAngstrom.toFixed(1)} Å (${predictionMw.stokesRadiusNm.toFixed(2)} nm)`);
+      lines.push(`Estimated Stokes radius (Rs, f/f0 = 1.25): ${predictionMw.stokesRadiusAngstrom.toFixed(1)} Å (${predictionMw.stokesRadiusNm.toFixed(2)} nm)`);
       if (predictionMw.oligomericState) {
         lines.push(`Oligomeric State: ${predictionMw.oligomericState} (ratio: ${predictionMw.oligomericRatio?.toFixed(2)}x)`);
       }
@@ -192,11 +193,12 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Pre-packed Column
               </label>
-              <span class="text-[11px] text-slate-500 font-mono">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                 {activeColumn.manufacturer}
               </span>
             </div>
             <select
+              aria-label="Pre-packed Column"
               value={s.columnId}
               onChange={(e) => handleSelectColumn((e.target as HTMLSelectElement).value)}
               class={FIELD}
@@ -210,8 +212,8 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
 
             <div class="grid grid-cols-2 gap-3 pt-2">
               <div>
-                <label class="block text-xs text-slate-500 mb-1">Total Volume (Vt, mL)</label>
-                <DecimalInput
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Total Volume (Vt, mL)</label>
+                <DecimalInput aria-label="Total Volume (Vt, mL)"
                   class={FIELD}
                   value={s.vt}
                   onChange={vt => set({ vt })}
@@ -220,8 +222,8 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                 />
               </div>
               <div>
-                <label class="block text-xs text-slate-500 mb-1">Void Volume (V0, mL)</label>
-                <DecimalInput
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Void Volume (V0, mL)</label>
+                <DecimalInput aria-label="Void Volume (V0, mL)"
                   class={FIELD}
                   value={s.v0}
                   onChange={v0 => set({ v0 })}
@@ -230,7 +232,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                 />
               </div>
             </div>
-            <div class="text-[11px] text-slate-500 pt-1">
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
               Fractionation range: {Math.round(activeColumn.rangeMinDa / 1000)}–{Math.round(activeColumn.rangeMaxDa / 1000)} kDa.
             </div>
           </div>
@@ -263,7 +265,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                   <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Observed Elution Volume (Ve, mL)
                   </label>
-                  <DecimalInput
+                  <DecimalInput aria-label="Observed Elution Volume (Ve, mL)"
                     class={FIELD}
                     value={s.unknownVe}
                     onChange={unknownVe => set({ unknownVe })}
@@ -272,10 +274,10 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">
                     Monomer Sequence MW (Optional, for Oligomeric State, kDa)
                   </label>
-                  <DecimalInput
+                  <DecimalInput aria-label="Monomer Sequence MW (Optional, for Oligomeric State, kDa)"
                     class={FIELD}
                     value={s.monomerMwKDa}
                     onChange={monomerMwKDa => set({ monomerMwKDa })}
@@ -291,7 +293,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                   <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Target Protein MW (kDa)
                   </label>
-                  <DecimalInput
+                  <DecimalInput aria-label="Target Protein MW (kDa)"
                     class={FIELD}
                     value={s.targetMwKDa}
                     onChange={targetMwKDa => set({ targetMwKDa })}
@@ -319,7 +321,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
             </div>
 
             {/* Table Header */}
-            <div class="flex items-center gap-2 px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div class="flex items-center gap-2 px-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <span class="w-4"></span>
               <span class="flex-1">Standard Protein</span>
               <span class="w-20 text-right">MW (kDa)</span>
@@ -331,23 +333,26 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
               {standards.map(std => (
                 <div
                   key={std.id}
-                  class={`p-2 rounded-xl border text-xs flex items-center gap-2 transition ${std.enabled ? 'border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 shadow-2xs' : 'border-slate-200/50 dark:border-slate-800 opacity-40'}`}
+                  class={`p-2 rounded-xl border text-xs flex items-center gap-2 transition ${std.enabled ? 'border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 shadow-2xs' : 'border-slate-200/50 dark:border-slate-800 opacity-75 border-dashed'}`}
                 >
                   <input
                     type="checkbox"
+                    aria-label={`Include ${std.name} in calibration`}
                     checked={std.enabled}
                     onChange={() => handleToggleStandard(std.id)}
-                    class="rounded text-accent-600 focus:ring-accent-500 cursor-pointer w-4 h-4 shrink-0"
+                    class="rounded text-accent-600 dark:text-accent-400 focus:ring-accent-500 cursor-pointer w-4 h-4 shrink-0"
                     title={std.enabled ? 'Include in regression' : 'Excluded from regression'}
                   />
                   <input
                     type="text"
+                    aria-label={`Standard name (${std.name})`}
                     value={std.name}
                     onInput={(e) => handleUpdateStandard(std.id, { name: (e.target as HTMLInputElement).value })}
                     class="flex-1 min-w-0 bg-transparent font-semibold text-slate-800 dark:text-slate-200 border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent-500 outline-none px-1 text-xs truncate"
                   />
                   <div class="w-20 shrink-0">
                     <DecimalInput
+                      aria-label={`${std.name} molecular weight (kDa)`}
                       value={std.mwDa / 1000}
                       onChange={val => handleUpdateStandard(std.id, { mwDa: val * 1000 })}
                       min={0.1}
@@ -357,6 +362,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                   </div>
                   <div class="w-20 shrink-0">
                     <DecimalInput
+                      aria-label={`${std.name} elution volume (mL)`}
                       value={std.elutionVolumeMl}
                       onChange={elutionVolumeMl => handleUpdateStandard(std.id, { elutionVolumeMl })}
                       min={0.01}
@@ -367,7 +373,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                   <button
                     type="button"
                     onClick={() => handleDeleteStandard(std.id)}
-                    class="w-5 text-slate-400 hover:text-rose-600 text-xs shrink-0 text-center"
+                    class="w-5 text-slate-500 dark:text-slate-400 hover:text-rose-600 text-xs shrink-0 text-center"
                     title="Delete standard"
                   >
                     ✕
@@ -393,15 +399,15 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
             <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
               <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
                 <div>
-                  <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Apparent Molecular Weight
                   </span>
                   <div class="text-3xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
-                    {predictionMw.apparentMwkDa.toFixed(1)} <span class="text-lg font-bold text-slate-500">kDa</span>
+                    {predictionMw.apparentMwkDa.toFixed(1)} <span class="text-lg font-bold text-slate-500 dark:text-slate-400">kDa</span>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="text-xs text-slate-400 block">Partition Coefficient (Kav)</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Partition Coefficient (Kav)</span>
                   <span class="text-lg font-bold font-mono text-slate-700 dark:text-slate-300">
                     {predictionMw.kav.toFixed(3)}
                   </span>
@@ -410,34 +416,34 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
 
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-[11px] text-slate-500 block">Stokes Radius (Rh)</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block" title="Rs = (f/f0) × Rmin with f/f0 = 1.25, typical of compact globular proteins (Erickson 2009)">Est. Stokes radius (Rs)</span>
                   <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                     {predictionMw.stokesRadiusAngstrom.toFixed(1)} Å
                   </span>
-                  <span class="text-[10px] text-slate-400 block">{predictionMw.stokesRadiusNm.toFixed(2)} nm</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block">{predictionMw.stokesRadiusNm.toFixed(2)} nm · Rmin {predictionMw.minimalRadiusNm.toFixed(2)} nm</span>
                 </div>
 
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-[11px] text-slate-500 block">Exact Mass</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">Exact Mass</span>
                   <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                     {Math.round(predictionMw.apparentMwDa).toLocaleString()}
                   </span>
-                  <span class="text-[10px] text-slate-400 block">Da</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Da</span>
                 </div>
 
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 col-span-2">
-                  <span class="text-[11px] text-slate-500 block">Oligomeric State Estimate</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">Oligomeric State Estimate</span>
                   {predictionMw.oligomericState ? (
                     <div class="flex items-center gap-2 mt-0.5">
                       <span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                         {predictionMw.oligomericState}
                       </span>
-                      <span class="text-xs text-slate-400 font-mono">
+                      <span class="text-xs text-slate-500 dark:text-slate-400 font-mono">
                         ({predictionMw.oligomericRatio?.toFixed(2)}× monomer)
                       </span>
                     </div>
                   ) : (
-                    <span class="text-xs text-slate-400 italic">Enter monomer MW on left</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 italic">Enter monomer MW on left</span>
                   )}
                 </div>
               </div>
@@ -457,15 +463,15 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
             <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
               <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
                 <div>
-                  <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Predicted Elution Volume (Ve)
                   </span>
                   <div class="text-3xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
-                    {predictionVe.elutionVolumeMl.toFixed(2)} <span class="text-lg font-bold text-slate-500">mL</span>
+                    {predictionVe.elutionVolumeMl.toFixed(2)} <span class="text-lg font-bold text-slate-500 dark:text-slate-400">mL</span>
                   </div>
                 </div>
                 <div class="text-right">
-                  <span class="text-xs text-slate-400 block">Expected Kav</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Expected Kav</span>
                   <span class="text-lg font-bold font-mono text-slate-700 dark:text-slate-300">
                     {predictionVe.kav.toFixed(3)}
                   </span>
@@ -474,13 +480,13 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
 
               <div class="grid grid-cols-2 gap-3 text-xs">
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-500 block">Fraction of Bed Volume (Vt)</span>
+                  <span class="text-slate-500 dark:text-slate-400 block">Fraction of Bed Volume (Vt)</span>
                   <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                     {((predictionVe.elutionVolumeMl / s.vt) * 100).toFixed(1)}%
                   </span>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-500 block">Distance from Void Volume (V0)</span>
+                  <span class="text-slate-500 dark:text-slate-400 block">Distance from Void Volume (V0)</span>
                   <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                     +{(predictionVe.elutionVolumeMl - s.v0).toFixed(2)} mL
                   </span>
@@ -510,11 +516,17 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
               </div>
 
               {model && (
-                <div class="text-xs font-mono text-slate-500">
-                  R² = <strong class="text-emerald-600 dark:text-emerald-400 font-bold">{model.rSquared.toFixed(4)}</strong> | Kav = {model.slope.toFixed(3)}·log(MW) + {model.intercept.toFixed(3)}
+                <div class="text-xs font-mono text-slate-500 dark:text-slate-400">
+                  R² = <strong class="text-emerald-700 dark:text-emerald-400 font-bold">{model.rSquared.toFixed(4)}</strong> | Kav = {model.slope.toFixed(3)}·log(MW) + {model.intercept.toFixed(3)}
                 </div>
               )}
             </div>
+
+            {calibrationIssue && (
+              <p role="alert" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                Calibration unavailable: {calibrationIssue}
+              </p>
+            )}
 
             {/* SVG Plot */}
             {activeTab === 'curve' && model && (
@@ -635,7 +647,7 @@ function CalibrationPanel({ embedded = false }: { embedded?: boolean }) {
                     );
                   })()}
                 </svg>
-                <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-2">
+                <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
                   <span class="flex items-center gap-1.5">
                     <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                     <span><strong>Calibration fit:</strong> Derived from {model.n} active standards (R² = {model.rSquared.toFixed(4)})</span>
@@ -840,53 +852,6 @@ function numberOrUndefined(value: string): number | undefined {
   return value.trim() && Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function TracePlot({ raw, channels, derived: _derived }: { raw: Array<{ volumeMl: number; signalAu: number }>; channels?: ChromatogramImport['traces']; derived?: Array<{ volumeMl: number; signalAu: number }> }) {
-  const fallback = [{ id: 'uv280', label: 'UV 280', unit: 'mAU', points: raw.map(point => ({ volumeMl: point.volumeMl, value: point.signalAu * 1000 })) }];
-  const traces = channels?.length ? channels : fallback;
-  const [visible, setVisible] = useState(traces.map(trace => trace.id));
-  const shown = traces.filter(trace => visible.includes(trace.id));
-  if (shown.length === 0) return <section class="rounded-xl border p-3"><div class="flex flex-wrap gap-2">{traces.map(trace => <button type="button" aria-pressed="false" onClick={() => setVisible([trace.id])} class="rounded-full border px-3 py-1 text-xs">{trace.label} ({trace.unit})</button>)}</div><p class="mt-3 text-sm text-slate-500">Turn on a trace to view it.</p></section>;
-  const series = shown.map((trace, index) => {
-    const values = trace.points.map(point => point.value);
-    const low = Math.min(...values), high = Math.max(...values), span = high - low || 1;
-    return { name: `${trace.label} (${trace.unit})`, x: trace.points.map(point => point.volumeMl), y: values.map(value => (value - low) / span * 100), color: ['#2563eb', '#d97706', '#16a34a', '#7c3aed'][index % 4] };
-  });
-  return <section class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"><div class="mb-3 flex flex-wrap items-center gap-2"><strong class="text-sm">Trace viewer</strong><span class="text-xs text-slate-500">Each curve is independently scaled; hover for its trace readout.</span>{traces.map(trace => <button type="button" aria-pressed={visible.includes(trace.id)} onClick={() => setVisible(current => current.includes(trace.id) ? current.filter(id => id !== trace.id) : [...current, trace.id])} class={visible.includes(trace.id) ? 'rounded-full bg-accent-600 px-3 py-1 text-xs font-semibold text-white' : 'rounded-full border px-3 py-1 text-xs'}>{trace.label} ({trace.unit})</button>)}</div><LineChart title="Chromatogram raw and derived overlays" series={series} xLabel="Elution volume (mL)" yLabel="Relative signal (per trace, %)" exportName="chromatogram-trace" /></section>;
-}
-
-function _LegacyRunFractionsPanel() {
-  const [source, setSource] = useState('');
-  const [mapping, setMapping] = useState<Partial<Record<ChromatogramColumnName, string>>>({});
-  const [accepted, setAccepted] = useState<number | null>(null);
-  const [selectedFraction, setSelectedFraction] = useState<string | null>(null);
-  const result = useMemo<{ data?: ChromatogramImport; error?: string }>(() => {
-    if (!source.trim()) return {};
-    try {
-      const columns = Object.fromEntries(Object.entries(mapping).flatMap(([key, value]) => {
-        const parsed = value === undefined || value === '' ? undefined : Number(value);
-        return parsed === undefined ? [] : [[key, parsed]];
-      }));
-      return { data: parseChromatogram(source, columns) };
-    } catch (error) { return { error: error instanceof Error ? error.message : 'Could not parse chromatogram.' }; }
-  }, [source, mapping]);
-  const data = result.data;
-  const raw = (data?.points ?? []).flatMap(point => point.volumeMl !== undefined && point.uv280 !== undefined ? [{ volumeMl: point.volumeMl, signalAu: point.uv280 / 1000 }] : []);
-  const baseline = useMemo(() => applyBaseline(raw, 'endpoint'), [raw]);
-  const derived = baseline.points.map(point => ({ volumeMl: point.volumeMl, signalAu: point.correctedSignalAu }));
-  const candidates = useMemo(() => detectPeakCandidates(derived, { minimumProminenceAu: 0.0001, minimumWidthMl: 0 }), [derived]);
-  const acceptedCandidate: PeakCandidate | undefined = accepted === null ? undefined : candidates[accepted];
-  const integration = acceptedCandidate ? integratePeak(derived, acceptedCandidate.startVolumeMl, acceptedCandidate.endVolumeMl) : undefined;
-  const setColumn = (field: ChromatogramColumnName, value: string) => { setMapping(current => ({ ...current, [field]: value })); setAccepted(null); };
-  const headers = data?.sourceHeaders ?? (source.split(/\r?\n/)[0]?.split(/[\t,;]/) ?? []);
-  const selector = (field: ChromatogramColumnName, label: string) => <label class="block text-sm">{label}<select aria-label={label} value={mapping[field] ?? ''} onChange={event => setColumn(field, (event.target as HTMLSelectElement).value)} class={`${FIELD} mt-1`}><option value="">Auto / not mapped</option>{headers.map((header, index) => <option value={String(index)}>{index}: {header}</option>)}</select></label>;
-  const exportRaw = () => downloadText(toCsv([['volume_ml', 'uv280_mAU'], ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? ''])]), 'chromatography-raw.csv', 'text/csv;charset=utf-8');
-  const exportRawJson = () => downloadText(JSON.stringify({ sourceHeaders: data?.sourceHeaders ?? [], points: data?.points ?? [], fractions: data?.fractions ?? [] }, null, 2), 'chromatography-raw.json', 'application/json;charset=utf-8');
-  const exportDerivedCsv = () => downloadText(toCsv([['record', 'start_volume_ml', 'apex_or_end_volume_ml', 'area_au_ml'], ...candidates.map((candidate, index) => [`candidate_${index + 1}`, candidate.startVolumeMl, candidate.apexVolumeMl, candidate.areaAuMl]), ...(integration ? [['accepted_peak', integration.startVolumeMl, integration.endVolumeMl, integration.areaAuMl] as (string | number)[]] : [])]), 'chromatography-derived.csv', 'text/csv;charset=utf-8');
-  const exportDerived = () => downloadText(JSON.stringify({ baseline: 'endpoint', acceptedCandidate, integration, fractions: data?.fractions ?? [] }, null, 2), 'chromatography-derived.json', 'application/json;charset=utf-8');
-  const fraction = data?.fractions.find(item => item.label === selectedFraction);
-  return <section class="space-y-5"><div class="grid gap-4 lg:grid-cols-2"><label class="text-sm font-medium">Chromatogram CSV or TSV<textarea aria-label="Chromatogram CSV or TSV" value={source} onInput={event => { setSource((event.target as HTMLTextAreaElement).value); setAccepted(null); setSelectedFraction(null); }} placeholder="Volume,UV 280,Fraction" rows={8} class={`${FIELD} mt-1 font-mono text-xs`} /></label><div class="grid content-start gap-3">{selector('volumeMl', 'Volume column')}{selector('uv280', 'UV 280 column')}{selector('fraction', 'Fraction column')}<p class="text-xs text-slate-500">Map columns explicitly when instrument headings are nonstandard. Raw instrument UV values remain mAU; derived analysis converts them to AU.</p></div></div>{result.error && <p role="alert" class="text-sm text-rose-700">{result.error}</p>}{data && <><TracePlot raw={raw} derived={derived} /><div class="grid gap-4 lg:grid-cols-2"><section><h2 class="font-semibold">Candidate peaks</h2><p class="text-xs text-slate-500">Candidates are not derived records until explicitly accepted.</p>{candidates.length === 0 ? <p class="mt-2 text-sm text-slate-500">No candidate peaks meet the current trace thresholds.</p> : candidates.map((candidate, index) => <div class="mt-2 rounded border p-2 text-sm"><span>Candidate {index + 1}: apex {candidate.apexVolumeMl.toFixed(2)} mL</span><button type="button" onClick={() => setAccepted(index)} class="ml-3 rounded border px-2 py-1 text-xs">Accept candidate {index + 1}</button></div>)}</section><section><h2 class="font-semibold">Fractions ({data.fractions.length})</h2>{data.fractions.length ? <ul class="mt-2 space-y-1 text-sm">{data.fractions.map(item => <li><button type="button" aria-pressed={selectedFraction === item.label} onClick={() => setSelectedFraction(item.label)} class="rounded border px-2 py-1">Select fraction {item.label}</button></li>)}</ul> : <p class="mt-2 text-sm text-slate-500">No fractions were supplied.</p>}</section></div>{fraction && <section class="rounded border p-3 text-sm"><strong>Fraction details: {fraction.label}</strong><p>{fraction.startVolumeMl === undefined ? 'Instrument label retained; no collection bounds were supplied.' : `${fraction.startVolumeMl}–${fraction.endVolumeMl} mL`}</p></section>}{acceptedCandidate && integration && <section class="rounded border border-blue-200 bg-blue-50 p-3 text-sm dark:bg-blue-950/20"><h2 class="font-semibold">Accepted peak details</h2><p>Apex {acceptedCandidate.apexVolumeMl.toFixed(2)} mL; integration {integration.areaAuMl.toExponential(3)} AU·mL.</p></section>}<div class="flex flex-wrap gap-2"><button type="button" onClick={exportRaw} class="rounded border px-3 py-1.5 text-sm">Export raw CSV</button><button type="button" onClick={exportRawJson} class="rounded border px-3 py-1.5 text-sm">Export raw JSON</button><button type="button" onClick={exportDerivedCsv} class="rounded border px-3 py-1.5 text-sm">Export derived CSV</button><button type="button" onClick={exportDerived} class="rounded border px-3 py-1.5 text-sm">Export derived JSON</button></div>{data.notices.map(notice => <p role="alert" class="text-xs text-amber-700">Warning: {notice}</p>)}</>}</section>;
-}
-
 function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const [source, setSource] = useState('');
   const [sourceFilename, setSourceFilename] = useState('');
@@ -902,8 +867,18 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const [baselineStartSignal, setBaselineStartSignal] = useState('');
   const [baselineEndVolume, setBaselineEndVolume] = useState('');
   const [baselineEndSignal, setBaselineEndSignal] = useState('');
-  const [amountInputs, setAmountInputs] = useState({ a280: '', epsilonMolar: '', molecularWeightGPerMol: '', pathCm: '', fractionVolumeMl: '' });
-  const [peakAmountInputs, setPeakAmountInputs] = useState({ epsilonMolar: '', molecularWeightGPerMol: '', pathCm: '' });
+  const [amountInputs, setAmountInputs] = useState({
+    a280: '',
+    epsilonMolar: '',
+    molecularWeightGPerMol: '',
+    pathCm: '',
+    fractionVolumeMl: '',
+  });
+  const [peakAmountInputs, setPeakAmountInputs] = useState({
+    epsilonMolar: '',
+    molecularWeightGPerMol: '',
+    pathCm: '',
+  });
   const [traceSettings, setTraceSettings] = useState<TraceDisplaySetting[]>([]);
   const [viewport, setViewport] = useState<VolumeRange>({ startVolumeMl: 0, endVolumeMl: 1 });
   const [showFractions, setShowFractions] = useState(true);
@@ -912,79 +887,165 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
   const result = useMemo<{ data?: ChromatogramImport; error?: string }>(() => {
     if (!source.trim()) return {};
     try {
-      const columns = Object.fromEntries(Object.entries(mapping).flatMap(([key, value]) => value === undefined || value === '' ? [] : [[key, Number(value)]]));
+      const columns = Object.fromEntries(
+        Object.entries(mapping).flatMap(([key, value]) =>
+          value === undefined || value === '' ? [] : [[key, Number(value)]],
+        ),
+      );
       return { data: parseChromatogram(source, columns) };
-    } catch (error) { return { error: error instanceof Error ? error.message : 'Could not parse chromatogram.' }; }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Could not parse chromatogram.' };
+    }
   }, [source, mapping]);
   const data = result.data;
-  const raw = useMemo(() => (data?.points ?? []).flatMap(point => point.volumeMl !== undefined && point.uv280 !== undefined ? [{ volumeMl: point.volumeMl, signalAu: point.uv280 / 1000 }] : []), [data]);
+  const raw = useMemo(
+    () =>
+      (data?.points ?? []).flatMap(point =>
+        point.volumeMl !== undefined && point.uv280 !== undefined
+          ? [{ volumeMl: point.volumeMl, signalAu: point.uv280 / 1000 }]
+          : [],
+      ),
+    [data],
+  );
   const manualBaselineAnchors = useMemo(() => {
     if (baselineMode !== 'manual-linear') return undefined;
     const startVolumeMl = numberOrUndefined(baselineStartVolume);
     const startSignalAu = numberOrUndefined(baselineStartSignal);
     const endVolumeMl = numberOrUndefined(baselineEndVolume);
     const endSignalAu = numberOrUndefined(baselineEndSignal);
-    return startVolumeMl === undefined || startSignalAu === undefined || endVolumeMl === undefined || endSignalAu === undefined
-      ? undefined : { start: { volumeMl: startVolumeMl, signalAu: startSignalAu }, end: { volumeMl: endVolumeMl, signalAu: endSignalAu } };
+    return startVolumeMl === undefined ||
+      startSignalAu === undefined ||
+      endVolumeMl === undefined ||
+      endSignalAu === undefined
+      ? undefined
+      : {
+          start: { volumeMl: startVolumeMl, signalAu: startSignalAu },
+          end: { volumeMl: endVolumeMl, signalAu: endSignalAu },
+        };
   }, [baselineMode, baselineStartVolume, baselineStartSignal, baselineEndVolume, baselineEndSignal]);
   const baselineResult = useMemo<{ baseline: ReturnType<typeof applyBaseline>; error?: string }>(() => {
-    if (baselineMode === 'manual-linear' && !manualBaselineAnchors) return { baseline: applyBaseline(raw, 'none'), error: 'Manual baseline requires start and end volume and signal values.' };
-    try { return { baseline: applyBaseline(raw, baselineMode, manualBaselineAnchors) }; } catch (error) { return { baseline: applyBaseline(raw, 'none'), error: error instanceof Error ? error.message : 'Manual baseline is invalid.' }; }
+    if (baselineMode === 'manual-linear' && !manualBaselineAnchors)
+      return {
+        baseline: applyBaseline(raw, 'none'),
+        error: 'Manual baseline requires start and end volume and signal values.',
+      };
+    try {
+      return { baseline: applyBaseline(raw, baselineMode, manualBaselineAnchors) };
+    } catch (error) {
+      return {
+        baseline: applyBaseline(raw, 'none'),
+        error: error instanceof Error ? error.message : 'Manual baseline is invalid.',
+      };
+    }
   }, [raw, baselineMode, manualBaselineAnchors]);
   const baseline = baselineResult.baseline;
   const derived = baseline.points.map(point => ({ volumeMl: point.volumeMl, signalAu: point.correctedSignalAu }));
-  const candidates = useMemo(() => detectPeakCandidates(derived, { minimumProminenceAu: 0.0001, minimumWidthMl: 0 }), [derived]);
-  const acceptedPeakDetails = useMemo(() => acceptedPeaks.map(peak => {
-    try { return { ...peak, integration: integratePeak(derived, peak.startVolumeMl, peak.endVolumeMl) }; }
-    catch (error) { return { ...peak, error: error instanceof Error ? error.message : 'Peak bounds are invalid.' }; }
-  }), [acceptedPeaks, derived]);
+  const candidates = useMemo(
+    () => detectPeakCandidates(derived, { minimumProminenceAu: 0.0001, minimumWidthMl: 0 }),
+    [derived],
+  );
+  const acceptedPeakDetails = useMemo(
+    () =>
+      acceptedPeaks.map(peak => {
+        try {
+          return { ...peak, integration: integratePeak(derived, peak.startVolumeMl, peak.endVolumeMl) };
+        } catch (error) {
+          return { ...peak, error: error instanceof Error ? error.message : 'Peak bounds are invalid.' };
+        }
+      }),
+    [acceptedPeaks, derived],
+  );
   const manualResult = useMemo<{ integration?: ReturnType<typeof integratePeak>; error?: string }>(() => {
     if (!manualAccepted) return {};
-    const start = numberOrUndefined(manualStart); const end = numberOrUndefined(manualEnd);
+    const start = numberOrUndefined(manualStart);
+    const end = numberOrUndefined(manualEnd);
     if (start === undefined || end === undefined) return { error: 'Manual peak start and end volumes are required.' };
-    try { return { integration: integratePeak(derived, start, end) }; } catch (error) { return { error: error instanceof Error ? error.message : 'Manual peak bounds are invalid.' }; }
+    try {
+      return { integration: integratePeak(derived, start, end) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Manual peak bounds are invalid.' };
+    }
   }, [derived, manualAccepted, manualStart, manualEnd]);
   const fraction = data?.fractions.find(item => item.label === selectedFraction);
-  const amount = useMemo(() => estimateFractionAmount({
-    a280: numberOrUndefined(amountInputs.a280), epsilonMolar: numberOrUndefined(amountInputs.epsilonMolar), molecularWeightGPerMol: numberOrUndefined(amountInputs.molecularWeightGPerMol), pathCm: numberOrUndefined(amountInputs.pathCm), fractionVolumeMl: numberOrUndefined(amountInputs.fractionVolumeMl),
-  }), [amountInputs]);
-  const peakAmounts = useMemo(() => acceptedPeakDetails.flatMap((peak, index) => {
-    if (!('integration' in peak)) return [];
-    return [{
-      id: peak.id, color: peakColorForIndex(index),
-      result: estimatePeakConcentration({
-        areaAuMl: peak.integration.areaAuMl,
-        startVolumeMl: peak.startVolumeMl,
-        endVolumeMl: peak.endVolumeMl,
-        epsilonMolar: numberOrUndefined(peakAmountInputs.epsilonMolar),
-        molecularWeightGPerMol: numberOrUndefined(peakAmountInputs.molecularWeightGPerMol),
-        pathCm: numberOrUndefined(peakAmountInputs.pathCm),
+  const amount = useMemo(
+    () =>
+      estimateFractionAmount({
+        a280: numberOrUndefined(amountInputs.a280),
+        epsilonMolar: numberOrUndefined(amountInputs.epsilonMolar),
+        molecularWeightGPerMol: numberOrUndefined(amountInputs.molecularWeightGPerMol),
+        pathCm: numberOrUndefined(amountInputs.pathCm),
+        fractionVolumeMl: numberOrUndefined(amountInputs.fractionVolumeMl),
       }),
-    }];
-  }), [acceptedPeakDetails, peakAmountInputs]);
+    [amountInputs],
+  );
+  const peakAmounts = useMemo(
+    () =>
+      acceptedPeakDetails.flatMap((peak, index) => {
+        if (!('integration' in peak)) return [];
+        return [
+          {
+            id: peak.id,
+            color: peakColorForIndex(index),
+            result: estimatePeakConcentration({
+              areaAuMl: peak.integration.areaAuMl,
+              startVolumeMl: peak.startVolumeMl,
+              endVolumeMl: peak.endVolumeMl,
+              epsilonMolar: numberOrUndefined(peakAmountInputs.epsilonMolar),
+              molecularWeightGPerMol: numberOrUndefined(peakAmountInputs.molecularWeightGPerMol),
+              pathCm: numberOrUndefined(peakAmountInputs.pathCm),
+            }),
+          },
+        ];
+      }),
+    [acceptedPeakDetails, peakAmountInputs],
+  );
   const displayOffset = data?.injectionVolumeMl ?? 0;
   const plotExtent = useMemo<VolumeRange>(() => {
     const volumes = raw.map(point => point.volumeMl - displayOffset);
-    const startVolumeMl = Math.min(...volumes), endVolumeMl = Math.max(...volumes);
-    return Number.isFinite(startVolumeMl) && endVolumeMl > startVolumeMl ? { startVolumeMl, endVolumeMl } : { startVolumeMl: 0, endVolumeMl: 1 };
+    const startVolumeMl = Math.min(...volumes),
+      endVolumeMl = Math.max(...volumes);
+    return Number.isFinite(startVolumeMl) && endVolumeMl > startVolumeMl
+      ? { startVolumeMl, endVolumeMl }
+      : { startVolumeMl: 0, endVolumeMl: 1 };
   }, [raw, displayOffset]);
-  const plotTraces = useMemo(() => data ? chromatogramTraces(data, raw) : [], [data, raw]);
+  const plotTraces = useMemo(() => (data ? chromatogramTraces(data, raw) : []), [data, raw]);
   useEffect(() => {
     if (!data) return;
-    setTraceSettings(current => plotTraces.map((trace, index) => current.find(setting => setting.id === trace.id) ?? {
-      id: trace.id, visible: true, color: ['#2563eb', '#d97706', '#16a34a', '#7c3aed'][index % 4]!,
-    }));
+    setTraceSettings(current =>
+      plotTraces.map(
+        (trace, index) =>
+          current.find(setting => setting.id === trace.id) ?? {
+            id: trace.id,
+            visible: true,
+            color: ['#2563eb', '#d97706', '#16a34a', '#7c3aed'][index % 4]!,
+          },
+      ),
+    );
     setViewport(plotExtent);
     setSelectedFractionLabels([]);
   }, [data, plotExtent, plotTraces]);
-  const updateTraceSetting = (id: string, patch: Partial<TraceDisplaySetting>) => setTraceSettings(current => {
-    const existing = current.find(setting => setting.id === id);
-    return existing ? current.map(setting => setting.id === id ? { ...setting, ...patch } : setting) : [...current, { id, visible: patch.visible ?? true, color: patch.color ?? '#2563eb' }];
-  });
-  const acceptCandidate = (candidate: PeakCandidate, index: number) => setAcceptedPeaks(current => current.some(peak => peak.id === `candidate-${index}`) ? current : [...current, {
-    id: `candidate-${index}`, source: 'candidate', apexVolumeMl: candidate.apexVolumeMl,
-    startVolumeMl: candidate.startVolumeMl, endVolumeMl: candidate.endVolumeMl,
-  }]);
+  const updateTraceSetting = (id: string, patch: Partial<TraceDisplaySetting>) =>
+    setTraceSettings(current => {
+      const existing = current.find(setting => setting.id === id);
+      return existing
+        ? current.map(setting => (setting.id === id ? { ...setting, ...patch } : setting))
+        : [...current, { id, visible: patch.visible ?? true, color: patch.color ?? '#2563eb' }];
+    });
+  const acceptCandidate = (candidate: PeakCandidate, index: number) =>
+    setAcceptedPeaks(current =>
+      current.some(peak => peak.id === `candidate-${index}`)
+        ? current
+        : [
+            ...current,
+            {
+              id: `candidate-${index}`,
+              source: 'candidate',
+              apexVolumeMl: candidate.apexVolumeMl,
+              startVolumeMl: candidate.startVolumeMl,
+              endVolumeMl: candidate.endVolumeMl,
+            },
+          ],
+    );
   const acceptManualPeak = () => {
     const startVolumeMl = numberOrUndefined(manualStart);
     const endVolumeMl = numberOrUndefined(manualEnd);
@@ -992,15 +1053,25 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
     if (startVolumeMl === undefined || endVolumeMl === undefined || baselineResult.error) return;
     try {
       integratePeak(derived, startVolumeMl, endVolumeMl);
-      setAcceptedPeaks(current => [...current, { id: `manual-${Date.now()}`, source: 'manual', startVolumeMl, endVolumeMl }]);
-    } catch { /* manualResult provides the reviewable error */ }
+      setAcceptedPeaks(current => [
+        ...current,
+        { id: `manual-${Date.now()}`, source: 'manual', startVolumeMl, endVolumeMl },
+      ]);
+    } catch {
+      /* manualResult provides the reviewable error */
+    }
   };
   const updateAcceptedPeak = (id: string, field: 'startVolumeMl' | 'endVolumeMl', value: string) => {
     const parsed = numberOrUndefined(value);
     if (parsed === undefined) return;
-    setAcceptedPeaks(current => current.map(peak => peak.id === id ? { ...peak, [field]: parsed } : peak));
+    setAcceptedPeaks(current => current.map(peak => (peak.id === id ? { ...peak, [field]: parsed } : peak)));
   };
-  const resetReview = () => { setAcceptedPeaks([]); setSelectedFraction(null); setManualAccepted(false); setSelectedFractionLabels([]); };
+  const resetReview = () => {
+    setAcceptedPeaks([]);
+    setSelectedFraction(null);
+    setManualAccepted(false);
+    setSelectedFractionLabels([]);
+  };
   const importFile = async (file: File | undefined) => {
     if (!file) return;
     if (!/\.(asc|csv|tsv|txt)$/i.test(file.name)) {
@@ -1008,53 +1079,509 @@ function RunFractionsPanel({ audit }: { audit: WorkbenchAudit }) {
       return;
     }
     try {
-      setSource(await file.text());
+      setSource(await readTextFile(file));
       setSourceFilename(file.name);
       setImportError(null);
       resetReview();
-    } catch {
-      setImportError(`Could not read ${file.name}.`);
+    } catch (err) {
+      setImportError(importErrorMessage(err, file.name));
     }
   };
-  const setColumn = (field: ChromatogramColumnName, value: string) => { setMapping(current => ({ ...current, [field]: value })); setAcceptedPeaks([]); };
-  const headers = data?.sourceHeaders ?? (source.split(/\r?\n/)[0]?.split(/[\t,;]/) ?? []);
-  const selector = (field: ChromatogramColumnName, label: string) => <label class="block text-sm">{label}<select aria-label={label} value={mapping[field] ?? ''} onChange={event => setColumn(field, (event.target as HTMLSelectElement).value)} class={`${FIELD} mt-1`}><option value="">Auto / not mapped</option>{headers.map((header, index) => <option value={String(index)}>{index}: {header}</option>)}</select></label>;
+  const setColumn = (field: ChromatogramColumnName, value: string) => {
+    setMapping(current => ({ ...current, [field]: value }));
+    setAcceptedPeaks([]);
+  };
+  const headers = data?.sourceHeaders ?? source.split(/\r?\n/)[0]?.split(/[\t,;]/) ?? [];
+  const selector = (field: ChromatogramColumnName, label: string) => (
+    <label class="block text-sm">
+      {label}
+      <select
+        aria-label={label}
+        value={mapping[field] ?? ''}
+        onChange={event => setColumn(field, (event.target as HTMLSelectElement).value)}
+        class={`${FIELD} mt-1`}
+      >
+        <option value="">Auto / not mapped</option>
+        {headers.map((header, index) => (
+          <option value={String(index)}>
+            {index}: {header}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
   const auditRecord = (kind: 'raw' | 'derived') => ({
-    app: 'Chromatography Workbench', recordType: kind, exportedAt: new Date().toISOString(),
-    source: { filename: sourceFilename || 'pasted-chromatogram.csv', sourceText: source, sourceHeaders: data?.sourceHeaders ?? [], mappedHeaders: data?.mappedHeaders ?? {}, parserNotices: data?.notices ?? [], mapping },
-    ...(kind === 'derived' ? {
-      displayVolumeOffsetMl: displayOffset,
-      traceSettings,
-      viewport,
-      showFractions,
-      selectedFractionLabels,
-      baseline: { mode: baselineMode, anchors: manualBaselineAnchors },
-      candidates,
-      acceptedPeaks: acceptedPeakDetails,
-      manualBounds: { startVolumeMl: numberOrUndefined(manualStart), endVolumeMl: numberOrUndefined(manualEnd), accepted: manualAccepted, integration: manualResult.integration },
-      fractionSelection: fraction,
-      opticalInputs: { ...audit.opticalInputs, fractionAmountInputs: amountInputs },
-      amountEstimate: amount,
-      methodSettings: audit.methodSettings,
-      findings: audit.findings,
-      derivedPoints: derived,
-    } : { rawPoints: data?.points ?? [], fractionEvents: data?.fractionEvents ?? [], injectionVolumeMl: data?.injectionVolumeMl }),
+    app: 'Chromatography Workbench',
+    recordType: kind,
+    exportedAt: new Date().toISOString(),
+    source: {
+      filename: sourceFilename || 'pasted-chromatogram.csv',
+      sourceText: source,
+      sourceHeaders: data?.sourceHeaders ?? [],
+      mappedHeaders: data?.mappedHeaders ?? {},
+      parserNotices: data?.notices ?? [],
+      mapping,
+    },
+    ...(kind === 'derived'
+      ? {
+          displayVolumeOffsetMl: displayOffset,
+          traceSettings,
+          viewport,
+          showFractions,
+          selectedFractionLabels,
+          baseline: { mode: baselineMode, anchors: manualBaselineAnchors },
+          candidates,
+          acceptedPeaks: acceptedPeakDetails,
+          manualBounds: {
+            startVolumeMl: numberOrUndefined(manualStart),
+            endVolumeMl: numberOrUndefined(manualEnd),
+            accepted: manualAccepted,
+            integration: manualResult.integration,
+          },
+          fractionSelection: fraction,
+          opticalInputs: { ...audit.opticalInputs, fractionAmountInputs: amountInputs },
+          amountEstimate: amount,
+          methodSettings: audit.methodSettings,
+          findings: audit.findings,
+          derivedPoints: derived,
+        }
+      : {
+          rawPoints: data?.points ?? [],
+          fractionEvents: data?.fractionEvents ?? [],
+          injectionVolumeMl: data?.injectionVolumeMl,
+        }),
   });
-  const exportJson = (kind: 'raw' | 'derived') => downloadText(JSON.stringify(auditRecord(kind), null, 2), `chromatography-${kind}.json`, 'application/json;charset=utf-8');
-  const exportCsv = (kind: 'raw' | 'derived') => downloadText(kind === 'raw' ? toCsv([['volume_ml', 'uv280_mAU'], ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? ''])]) : toCsv([['peak_id', 'source', 'start_volume_ml', 'end_volume_ml', 'apex_volume_ml', 'area_au_ml'], ...acceptedPeakDetails.map(peak => ['error' in peak ? peak.id : peak.id, peak.source, peak.startVolumeMl, peak.endVolumeMl, peak.apexVolumeMl ?? '', 'integration' in peak ? peak.integration.areaAuMl : ''])]), `chromatography-${kind}.csv`, 'text/csv;charset=utf-8');
-  const setAmount = (field: keyof typeof amountInputs, value: string) => setAmountInputs(current => ({ ...current, [field]: value }));
-  const setPeakAmount = (field: keyof typeof peakAmountInputs, value: string) => setPeakAmountInputs(current => ({ ...current, [field]: value }));
+  const exportJson = (kind: 'raw' | 'derived') =>
+    downloadText(
+      JSON.stringify(auditRecord(kind), null, 2),
+      `chromatography-${kind}.json`,
+      'application/json;charset=utf-8',
+    );
+  const exportCsv = (kind: 'raw' | 'derived') =>
+    downloadText(
+      kind === 'raw'
+        ? toCsv([
+            ['volume_ml', 'uv280_mAU'],
+            ...(data?.points ?? []).map(point => [point.volumeMl ?? '', point.uv280 ?? '']),
+          ])
+        : toCsv([
+            ['peak_id', 'source', 'start_volume_ml', 'end_volume_ml', 'apex_volume_ml', 'area_au_ml'],
+            ...acceptedPeakDetails.map(peak => [
+              'error' in peak ? peak.id : peak.id,
+              peak.source,
+              peak.startVolumeMl,
+              peak.endVolumeMl,
+              peak.apexVolumeMl ?? '',
+              'integration' in peak ? peak.integration.areaAuMl : '',
+            ]),
+          ]),
+      `chromatography-${kind}.csv`,
+      'text/csv;charset=utf-8',
+    );
+  const setAmount = (field: keyof typeof amountInputs, value: string) =>
+    setAmountInputs(current => ({ ...current, [field]: value }));
+  const setPeakAmount = (field: keyof typeof peakAmountInputs, value: string) =>
+    setPeakAmountInputs(current => ({ ...current, [field]: value }));
 
-  return <section class="space-y-5">
-    <div class="grid gap-4 lg:grid-cols-2"><label class="text-sm font-medium">Chromatogram CSV or TSV<textarea aria-label="Chromatogram CSV or TSV" value={source} onInput={event => { setSource((event.target as HTMLTextAreaElement).value); setSourceFilename(''); setImportError(null); resetReview(); }} placeholder="Volume,UV 280,Fraction" rows={8} class={`${FIELD} mt-1 font-mono text-xs`} /></label><div class="grid content-start gap-3"><label class="block rounded-lg border border-dashed border-slate-300 p-3 text-sm dark:border-slate-700" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void importFile(event.dataTransfer?.files[0]); }}><span class="font-medium">Drop an ÅKTA, CSV, or TSV export here</span><input aria-label="Import chromatogram file" type="file" accept=".asc,.csv,.tsv,.txt,text/plain,text/csv" class="mt-2 block w-full text-xs" onChange={event => void importFile((event.target as HTMLInputElement).files?.[0])} />{sourceFilename && <span class="mt-2 block text-xs text-slate-500">Imported: {sourceFilename}</span>}</label>{selector('volumeMl', 'Volume column')}{selector('uv280', 'UV 280 column')}{selector('fraction', 'Fraction column')}<label class="block text-sm">Baseline correction<select aria-label="Baseline correction" value={baselineMode} onChange={event => setBaselineMode((event.target as HTMLSelectElement).value as BaselineMode)} class={`${FIELD} mt-1`}><option value="none">none</option><option value="endpoint">endpoint</option><option value="rolling-minimum">rolling-minimum</option><option value="manual-linear">manual-linear</option></select></label>{baselineMode === 'manual-linear' && <div class="grid grid-cols-2 gap-2"><label class="text-xs">Baseline start volume<input aria-label="Baseline start volume" value={baselineStartVolume} onInput={event => setBaselineStartVolume((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><label class="text-xs">Baseline start signal<input aria-label="Baseline start signal" value={baselineStartSignal} onInput={event => setBaselineStartSignal((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><label class="text-xs">Baseline end volume<input aria-label="Baseline end volume" value={baselineEndVolume} onInput={event => setBaselineEndVolume((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><label class="text-xs">Baseline end signal<input aria-label="Baseline end signal" value={baselineEndSignal} onInput={event => setBaselineEndSignal((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label></div>}<p class="text-xs text-slate-500">Raw instrument UV values remain mAU; derived analysis is AU. Baseline: {baselineMode}.</p></div></div>
-    {importError && <p role="alert" class="text-sm text-rose-700">{importError}</p>}
-    {result.error && <p role="alert" class="text-sm text-rose-700">{result.error}</p>}
-    {data && <><ChromatogramPlot imported={data} rawUv={raw} correctedUv={derived} baseline={baseline} traceSettings={traceSettings} viewport={viewport} showFractions={showFractions} selectedFractionLabels={selectedFractionLabels} acceptedPeaks={acceptedPeaks.map(peak => ({ ...peak, selected: false }))} onTraceSettingChange={updateTraceSetting} onViewportChange={setViewport} onShowFractionsChange={setShowFractions} onSelectedFractionLabelsChange={setSelectedFractionLabels} onUseVisibleRange={range => { setManualStart((range.startVolumeMl + displayOffset).toString()); setManualEnd((range.endVolumeMl + displayOffset).toString()); setManualAccepted(false); }} onAcceptedPeakBoundsChange={(id, edge, volumeMl) => updateAcceptedPeak(id, edge === 'start' ? 'startVolumeMl' : 'endVolumeMl', volumeMl.toString())} /><div class="grid gap-4 lg:grid-cols-2"><section><h2 class="font-semibold">Candidate peaks</h2><p class="text-xs text-slate-500">Candidates are not derived records until explicitly accepted.</p>{candidates.length === 0 ? <p class="mt-2 text-sm text-slate-500">No candidate peaks meet the current trace thresholds.</p> : <div class="mt-2 max-h-80 space-y-2 overflow-y-auto pr-1">{candidates.map((candidate, index) => <div class="rounded border p-2 text-sm"><span>Candidate {index + 1}: apex {candidate.apexVolumeMl.toFixed(2)} mL</span><button type="button" onClick={() => acceptCandidate(candidate, index)} class="ml-3 rounded border px-2 py-1 text-xs">Accept candidate {index + 1}</button></div>)}</div>}</section><section><h2 class="font-semibold">Fractions ({data.fractions.length + data.fractionEvents.length})</h2>{data.fractions.length || data.fractionEvents.length ? <ul class="mt-2 space-y-1 text-sm">{[...data.fractions.map(item => ({ label: item.label })), ...data.fractionEvents].slice(0, 12).map(item => <li><button type="button" aria-pressed={selectedFraction === item.label} onClick={() => setSelectedFraction(item.label)} class="rounded border px-2 py-1">Select fraction {item.label}</button></li>)}</ul> : <p class="mt-2 text-sm text-slate-500">No fractions were supplied.</p>}</section></div>
-    <section class="relative z-10 rounded border bg-white p-3 dark:bg-slate-900"><h2 class="font-semibold">Manual peak integration</h2><div class="mt-2 grid gap-2 sm:grid-cols-3"><label class="text-sm">Manual peak start<input aria-label="Manual peak start" value={manualStart} onInput={event => { setManualStart((event.target as HTMLInputElement).value); setManualAccepted(false); }} class={`${FIELD} mt-1`} /></label><label class="text-sm">Manual peak end<input aria-label="Manual peak end" value={manualEnd} onInput={event => { setManualEnd((event.target as HTMLInputElement).value); setManualAccepted(false); }} class={`${FIELD} mt-1`} /></label><button type="button" onClick={acceptManualPeak} class="self-end rounded border px-3 py-2 text-sm">Accept manual peak bounds</button></div>{baselineResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{baselineResult.error}</p>}{manualResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{manualResult.error}</p>}{manualResult.integration && <p class="mt-2 text-sm"><strong>Manual accepted peak details</strong>: {manualResult.integration.startVolumeMl.toFixed(2)}–{manualResult.integration.endVolumeMl.toFixed(2)} mL; {manualResult.integration.areaAuMl.toExponential(3)} AU·mL.</p>}</section>
-    {acceptedPeakDetails.length > 0 && <section class="rounded border p-3 text-sm"><h2 class="font-semibold">Integrated peak concentration</h2><div class="mt-2 grid gap-2 sm:grid-cols-3">{([['epsilonMolar', 'Peak extinction coefficient'], ['molecularWeightGPerMol', 'Peak molecular weight'], ['pathCm', 'Peak path (cm)']] as const).map(([field, label]) => <label class="text-xs">{label}<input aria-label={label} value={peakAmountInputs[field]} onInput={event => setPeakAmount(field, (event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>)}</div><p class="mt-2 text-xs text-slate-500">Average A = integrated area ÷ peak width; concentration uses A/(ε·l).</p>{peakAmounts.map((peak, index) => <p key={peak.id} class="mt-2 flex items-center gap-2"><span aria-label={`Peak ${index + 1} chart color`} class="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: peak.color }} />{peak.result.status === 'derived' ? <span>Peak {index + 1}: Average concentration: {peak.result.concentrationMgPerMl?.toFixed(4)} mg/mL; total {peak.result.amountMg?.toFixed(4)} mg.</span> : <span class="text-amber-700">Peak {index + 1}: concentration requires extinction coefficient, molecular weight, and path length.</span>}</p>)}</section>}
-    {fraction && <section class="rounded border p-3 text-sm"><strong>Fraction details: {fraction.label}</strong><p>{fraction.startVolumeMl === undefined ? 'Instrument label retained; no collection bounds were supplied.' : `${fraction.startVolumeMl}–${fraction.endVolumeMl} mL`}</p><h3 class="mt-3 font-semibold">Fraction amount estimate</h3><div class="mt-2 grid gap-2 sm:grid-cols-5">{([['a280', 'Fraction A280'], ['epsilonMolar', 'Protein epsilon'], ['molecularWeightGPerMol', 'Protein molecular weight'], ['pathCm', 'Path length'], ['fractionVolumeMl', 'Fraction volume']] as const).map(([field, label]) => <label class="text-xs">{label}<input aria-label={label} value={amountInputs[field]} onInput={event => setAmount(field, (event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>)}</div><p class={amount.status === 'derived' ? 'mt-2 text-emerald-700' : 'mt-2 text-amber-700'}>{amount.status === 'derived' ? `Amount estimate: ${amount.amountMg?.toFixed(4)} mg` : `Amount estimate blocked: ${amount.blockers.join(', ')}`}</p></section>}
-    {acceptedPeakDetails.map((peak, index) => <section key={peak.id} class="rounded border border-blue-200 bg-blue-50 p-3 text-sm dark:bg-blue-950/20"><h2 class="font-semibold">Accepted peak details — {index + 1}</h2><div class="mt-2 grid gap-2 sm:grid-cols-3"><label>Peak {index + 1} start<input aria-label={`Peak ${index + 1} start`} value={peak.startVolumeMl} onInput={event => updateAcceptedPeak(peak.id, 'startVolumeMl', (event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><label>Peak {index + 1} end<input aria-label={`Peak ${index + 1} end`} value={peak.endVolumeMl} onInput={event => updateAcceptedPeak(peak.id, 'endVolumeMl', (event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label><button type="button" onClick={() => setAcceptedPeaks(current => current.filter(item => item.id !== peak.id))} class="self-end rounded border px-3 py-2">Remove peak {index + 1}</button></div>{'error' in peak ? <p role="alert" class="mt-2 text-rose-700">{peak.error}</p> : <p class="mt-2">Peak {index + 1} {peak.source}; {peak.apexVolumeMl === undefined ? '' : `apex ${peak.apexVolumeMl.toFixed(2)} mL; `}integration {peak.integration.areaAuMl.toExponential(3)} AU·mL.</p>}</section>)}
-    <div class="flex flex-wrap gap-2"><button type="button" onClick={() => exportCsv('raw')} class="rounded border px-3 py-1.5 text-sm">Export raw CSV</button><button type="button" onClick={() => exportJson('raw')} class="rounded border px-3 py-1.5 text-sm">Export raw JSON</button><button type="button" onClick={() => exportCsv('derived')} class="rounded border px-3 py-1.5 text-sm">Export derived CSV</button><button type="button" onClick={() => exportJson('derived')} class="rounded border px-3 py-1.5 text-sm">Export derived JSON</button></div>{data.notices.map(notice => <p role="alert" class="text-xs text-amber-700">Warning: {notice}</p>)}</>}</section>;
+  return (
+    <section class="space-y-5">
+      <div class="grid gap-4 lg:grid-cols-2">
+        <label class="text-sm font-medium">
+          Chromatogram CSV or TSV
+          <textarea
+            aria-label="Chromatogram CSV or TSV"
+            value={source}
+            onInput={event => {
+              setSource((event.target as HTMLTextAreaElement).value);
+              setSourceFilename('');
+              setImportError(null);
+              resetReview();
+            }}
+            placeholder="Volume,UV 280,Fraction"
+            rows={8}
+            class={`${FIELD} mt-1 font-mono text-xs`}
+          />
+        </label>
+        <div class="grid content-start gap-3">
+          <label
+            class="block rounded-lg border border-dashed border-slate-300 p-3 text-sm dark:border-slate-700"
+            onDragOver={event => event.preventDefault()}
+            onDrop={event => {
+              event.preventDefault();
+              void importFile(event.dataTransfer?.files[0]);
+            }}
+          >
+            <span class="font-medium">Drop an ÅKTA, CSV, or TSV export here</span>
+            <input
+              aria-label="Import chromatogram file"
+              type="file"
+              accept=".asc,.csv,.tsv,.txt,text/plain,text/csv"
+              class="mt-2 block w-full text-xs"
+              onChange={event => void importFile((event.target as HTMLInputElement).files?.[0])}
+            />
+            {sourceFilename && (
+              <span class="mt-2 block text-xs text-slate-500 dark:text-slate-400">Imported: {sourceFilename}</span>
+            )}
+          </label>
+          {selector('volumeMl', 'Volume column')}
+          {selector('uv280', 'UV 280 column')}
+          {selector('fraction', 'Fraction column')}
+          <label class="block text-sm">
+            Baseline correction
+            <select
+              aria-label="Baseline correction"
+              value={baselineMode}
+              onChange={event => setBaselineMode((event.target as HTMLSelectElement).value as BaselineMode)}
+              class={`${FIELD} mt-1`}
+            >
+              <option value="none">none</option>
+              <option value="endpoint">endpoint</option>
+              <option value="rolling-minimum">rolling-minimum</option>
+              <option value="manual-linear">manual-linear</option>
+            </select>
+          </label>
+          {baselineMode === 'manual-linear' && (
+            <div class="grid grid-cols-2 gap-2">
+              <label class="text-xs">
+                Baseline start volume
+                <input
+                  aria-label="Baseline start volume"
+                  value={baselineStartVolume}
+                  onInput={event => setBaselineStartVolume((event.target as HTMLInputElement).value)}
+                  class={`${FIELD} mt-1`}
+                />
+              </label>
+              <label class="text-xs">
+                Baseline start signal
+                <input
+                  aria-label="Baseline start signal"
+                  value={baselineStartSignal}
+                  onInput={event => setBaselineStartSignal((event.target as HTMLInputElement).value)}
+                  class={`${FIELD} mt-1`}
+                />
+              </label>
+              <label class="text-xs">
+                Baseline end volume
+                <input
+                  aria-label="Baseline end volume"
+                  value={baselineEndVolume}
+                  onInput={event => setBaselineEndVolume((event.target as HTMLInputElement).value)}
+                  class={`${FIELD} mt-1`}
+                />
+              </label>
+              <label class="text-xs">
+                Baseline end signal
+                <input
+                  aria-label="Baseline end signal"
+                  value={baselineEndSignal}
+                  onInput={event => setBaselineEndSignal((event.target as HTMLInputElement).value)}
+                  class={`${FIELD} mt-1`}
+                />
+              </label>
+            </div>
+          )}
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Raw instrument UV values remain mAU; derived analysis is AU. Baseline: {baselineMode}.
+          </p>
+        </div>
+      </div>
+      {importError && (
+        <p role="alert" class="text-sm text-rose-700 dark:text-rose-400">
+          {importError}
+        </p>
+      )}
+      {result.error && (
+        <p role="alert" class="text-sm text-rose-700 dark:text-rose-400">
+          {result.error}
+        </p>
+      )}
+      {data && (
+        <>
+          <ChromatogramPlot
+            imported={data}
+            rawUv={raw}
+            correctedUv={derived}
+            baseline={baseline}
+            traceSettings={traceSettings}
+            viewport={viewport}
+            showFractions={showFractions}
+            selectedFractionLabels={selectedFractionLabels}
+            acceptedPeaks={acceptedPeaks.map(peak => ({ ...peak, selected: false }))}
+            onTraceSettingChange={updateTraceSetting}
+            onViewportChange={setViewport}
+            onShowFractionsChange={setShowFractions}
+            onSelectedFractionLabelsChange={setSelectedFractionLabels}
+            onUseVisibleRange={range => {
+              setManualStart((range.startVolumeMl + displayOffset).toString());
+              setManualEnd((range.endVolumeMl + displayOffset).toString());
+              setManualAccepted(false);
+            }}
+            onAcceptedPeakBoundsChange={(id, edge, volumeMl) =>
+              updateAcceptedPeak(id, edge === 'start' ? 'startVolumeMl' : 'endVolumeMl', volumeMl.toString())
+            }
+          />
+          <div class="grid gap-4 lg:grid-cols-2">
+            <section>
+              <h2 class="font-semibold">Candidate peaks</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Candidates are not derived records until explicitly accepted.
+              </p>
+              {candidates.length === 0 ? (
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  No candidate peaks meet the current trace thresholds.
+                </p>
+              ) : (
+                <div class="mt-2 max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {candidates.map((candidate, index) => (
+                    <div class="rounded border p-2 text-sm">
+                      <span>
+                        Candidate {index + 1}: apex {candidate.apexVolumeMl.toFixed(2)} mL
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => acceptCandidate(candidate, index)}
+                        class="ml-3 rounded border px-2 py-1 text-xs"
+                      >
+                        Accept candidate {index + 1}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section>
+              <h2 class="font-semibold">Fractions ({data.fractions.length + data.fractionEvents.length})</h2>
+              {data.fractions.length || data.fractionEvents.length ? (
+                <ul class="mt-2 space-y-1 text-sm">
+                  {[...data.fractions.map(item => ({ label: item.label })), ...data.fractionEvents]
+                    .slice(0, 12)
+                    .map(item => (
+                      <li>
+                        <button
+                          type="button"
+                          aria-pressed={selectedFraction === item.label}
+                          onClick={() => setSelectedFraction(item.label)}
+                          class="rounded border px-2 py-1"
+                        >
+                          Select fraction {item.label}
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">No fractions were supplied.</p>
+              )}
+            </section>
+          </div>
+          <section class="relative z-10 rounded border bg-white p-3 dark:bg-slate-900">
+            <h2 class="font-semibold">Manual peak integration</h2>
+            <div class="mt-2 grid gap-2 sm:grid-cols-3">
+              <label class="text-sm">
+                Manual peak start
+                <input
+                  aria-label="Manual peak start"
+                  value={manualStart}
+                  onInput={event => {
+                    setManualStart((event.target as HTMLInputElement).value);
+                    setManualAccepted(false);
+                  }}
+                  class={`${FIELD} mt-1`}
+                />
+              </label>
+              <label class="text-sm">
+                Manual peak end
+                <input
+                  aria-label="Manual peak end"
+                  value={manualEnd}
+                  onInput={event => {
+                    setManualEnd((event.target as HTMLInputElement).value);
+                    setManualAccepted(false);
+                  }}
+                  class={`${FIELD} mt-1`}
+                />
+              </label>
+              <button type="button" onClick={acceptManualPeak} class="self-end rounded border px-3 py-2 text-sm">
+                Accept manual peak bounds
+              </button>
+            </div>
+            {baselineResult.error && (
+              <p role="alert" class="mt-2 text-sm text-rose-700 dark:text-rose-400">
+                {baselineResult.error}
+              </p>
+            )}
+            {manualResult.error && (
+              <p role="alert" class="mt-2 text-sm text-rose-700 dark:text-rose-400">
+                {manualResult.error}
+              </p>
+            )}
+            {manualResult.integration && (
+              <p class="mt-2 text-sm">
+                <strong>Manual accepted peak details</strong>: {manualResult.integration.startVolumeMl.toFixed(2)}–
+                {manualResult.integration.endVolumeMl.toFixed(2)} mL;{' '}
+                {manualResult.integration.areaAuMl.toExponential(3)} AU·mL.
+              </p>
+            )}
+          </section>
+          {acceptedPeakDetails.length > 0 && (
+            <section class="rounded border p-3 text-sm">
+              <h2 class="font-semibold">Integrated peak concentration</h2>
+              <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    ['epsilonMolar', 'Peak extinction coefficient'],
+                    ['molecularWeightGPerMol', 'Peak molecular weight'],
+                    ['pathCm', 'Peak path (cm)'],
+                  ] as const
+                ).map(([field, label]) => (
+                  <label class="text-xs">
+                    {label}
+                    <input
+                      aria-label={label}
+                      value={peakAmountInputs[field]}
+                      onInput={event => setPeakAmount(field, (event.target as HTMLInputElement).value)}
+                      class={`${FIELD} mt-1`}
+                    />
+                  </label>
+                ))}
+              </div>
+              <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                Average A = integrated area ÷ peak width; concentration uses A/(ε·l).
+              </p>
+              {peakAmounts.map((peak, index) => (
+                <p key={peak.id} class="mt-2 flex items-center gap-2">
+                  <span
+                    aria-label={`Peak ${index + 1} chart color`}
+                    class="inline-block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: peak.color }}
+                  />
+                  {peak.result.status === 'derived' ? (
+                    <span>
+                      Peak {index + 1}: Average concentration: {peak.result.concentrationMgPerMl?.toFixed(4)} mg/mL;
+                      total {peak.result.amountMg?.toFixed(4)} mg.
+                    </span>
+                  ) : (
+                    <span class="text-amber-700 dark:text-amber-400">
+                      Peak {index + 1}: concentration requires extinction coefficient, molecular weight, and path
+                      length.
+                    </span>
+                  )}
+                </p>
+              ))}
+            </section>
+          )}
+          {fraction && (
+            <section class="rounded border p-3 text-sm">
+              <strong>Fraction details: {fraction.label}</strong>
+              <p>
+                {fraction.startVolumeMl === undefined
+                  ? 'Instrument label retained; no collection bounds were supplied.'
+                  : `${fraction.startVolumeMl}–${fraction.endVolumeMl} mL`}
+              </p>
+              <h3 class="mt-3 font-semibold">Fraction amount estimate</h3>
+              <div class="mt-2 grid gap-2 sm:grid-cols-5">
+                {(
+                  [
+                    ['a280', 'Fraction A280'],
+                    ['epsilonMolar', 'Protein epsilon'],
+                    ['molecularWeightGPerMol', 'Protein molecular weight'],
+                    ['pathCm', 'Path length'],
+                    ['fractionVolumeMl', 'Fraction volume'],
+                  ] as const
+                ).map(([field, label]) => (
+                  <label class="text-xs">
+                    {label}
+                    <input
+                      aria-label={label}
+                      value={amountInputs[field]}
+                      onInput={event => setAmount(field, (event.target as HTMLInputElement).value)}
+                      class={`${FIELD} mt-1`}
+                    />
+                  </label>
+                ))}
+              </div>
+              <p
+                class={
+                  amount.status === 'derived'
+                    ? 'mt-2 text-emerald-700 dark:text-emerald-400'
+                    : 'mt-2 text-amber-700 dark:text-amber-400'
+                }
+              >
+                {amount.status === 'derived'
+                  ? `Amount estimate: ${amount.amountMg?.toFixed(4)} mg`
+                  : `Amount estimate blocked: ${amount.blockers.join(', ')}`}
+              </p>
+            </section>
+          )}
+          {acceptedPeakDetails.map((peak, index) => (
+            <section key={peak.id} class="rounded border border-blue-200 bg-blue-50 p-3 text-sm dark:bg-blue-950/20">
+              <h2 class="font-semibold">Accepted peak details — {index + 1}</h2>
+              <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                <label>
+                  Peak {index + 1} start
+                  <input
+                    aria-label={`Peak ${index + 1} start`}
+                    value={peak.startVolumeMl}
+                    onInput={event =>
+                      updateAcceptedPeak(peak.id, 'startVolumeMl', (event.target as HTMLInputElement).value)
+                    }
+                    class={`${FIELD} mt-1`}
+                  />
+                </label>
+                <label>
+                  Peak {index + 1} end
+                  <input
+                    aria-label={`Peak ${index + 1} end`}
+                    value={peak.endVolumeMl}
+                    onInput={event =>
+                      updateAcceptedPeak(peak.id, 'endVolumeMl', (event.target as HTMLInputElement).value)
+                    }
+                    class={`${FIELD} mt-1`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAcceptedPeaks(current => current.filter(item => item.id !== peak.id))}
+                  class="self-end rounded border px-3 py-2"
+                >
+                  Remove peak {index + 1}
+                </button>
+              </div>
+              {'error' in peak ? (
+                <p role="alert" class="mt-2 text-rose-700 dark:text-rose-400">
+                  {peak.error}
+                </p>
+              ) : (
+                <p class="mt-2">
+                  Peak {index + 1} {peak.source};{' '}
+                  {peak.apexVolumeMl === undefined ? '' : `apex ${peak.apexVolumeMl.toFixed(2)} mL; `}integration{' '}
+                  {peak.integration.areaAuMl.toExponential(3)} AU·mL.
+                </p>
+              )}
+            </section>
+          ))}
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onClick={() => exportCsv('raw')} class="rounded border px-3 py-1.5 text-sm">
+              Export raw CSV
+            </button>
+            <button type="button" onClick={() => exportJson('raw')} class="rounded border px-3 py-1.5 text-sm">
+              Export raw JSON
+            </button>
+            <button type="button" onClick={() => exportCsv('derived')} class="rounded border px-3 py-1.5 text-sm">
+              Export derived CSV
+            </button>
+            <button type="button" onClick={() => exportJson('derived')} class="rounded border px-3 py-1.5 text-sm">
+              Export derived JSON
+            </button>
+          </div>
+          {data.notices.map(notice => (
+            <p role="alert" class="text-xs text-amber-700 dark:text-amber-400">
+              Warning: {notice}
+            </p>
+          ))}
+        </>
+      )}
+    </section>
+  );
 }
 
 function MethodPlannerPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAudit>) => void }) {
@@ -1067,45 +1594,220 @@ function MethodPlannerPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAud
   const [startB, setStartB] = useState('0');
   const [endB, setEndB] = useState('100');
   const [gradientCv, setGradientCv] = useState('10');
-  const protein = useMemo(() => sequence.trim() ? summarize(sequence) : undefined, [sequence]);
-  const advice = useMemo(() => protein && protein.length > 0 && numberOrUndefined(targetPh) !== undefined ? suggestIonExchange({ proteinPi: protein.pI, targetPh: Number(targetPh) }) : undefined, [protein, targetPh]);
+  const protein = useMemo(() => (sequence.trim() ? summarize(sequence) : undefined), [sequence]);
+  const advice = useMemo(
+    () =>
+      protein && protein.length > 0 && numberOrUndefined(targetPh) !== undefined
+        ? suggestIonExchange({ proteinPi: protein.pI, targetPh: Number(targetPh) })
+        : undefined,
+    [protein, targetPh],
+  );
   const gradientResult = useMemo<{ data?: ReturnType<typeof simulateGradient>; error?: string }>(() => {
     const values = [columnVolume, flow, startB, endB, gradientCv].map(numberOrUndefined);
-    if (!values.every((value): value is number => value !== undefined)) return { error: 'All gradient settings must be finite numbers.' };
-    try { return { data: simulateGradient({ columnVolumeMl: values[0]!, flowMlPerMin: values[1]!, startPercentB: values[2]!, endPercentB: values[3]!, gradientCv: values[4]! }) }; }
-    catch (error) { return { error: error instanceof Error ? error.message : 'Gradient settings are invalid.' }; }
+    if (!values.every((value): value is number => value !== undefined))
+      return { error: 'All gradient settings must be finite numbers.' };
+    try {
+      return {
+        data: simulateGradient({
+          columnVolumeMl: values[0]!,
+          flowMlPerMin: values[1]!,
+          startPercentB: values[2]!,
+          endPercentB: values[3]!,
+          gradientCv: values[4]!,
+        }),
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Gradient settings are invalid.' };
+    }
   }, [columnVolume, flow, startB, endB, gradientCv]);
   const gradient = gradientResult.data;
-  useEffect(() => onAudit({
-    methodSettings: { sequence, targetPh, bufferA, bufferB, columnVolume, flow, startB, endB, gradientCv, gradientError: gradientResult.error },
-    findings: advice?.findings.map(finding => `${finding.severity}: ${finding.message}`) ?? [],
-  }), [advice, bufferA, bufferB, columnVolume, endB, flow, gradientCv, gradientResult.error, onAudit, sequence, startB, targetPh]);
-  const field = (label: string, value: string, setter: (value: string) => void) => <label class="block text-sm">{label}<input aria-label={label} value={value} onInput={event => setter((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>;
-  return <section class="space-y-5"><div class="grid gap-4 lg:grid-cols-2"><label class="text-sm">Protein sequence<textarea aria-label="Protein sequence" value={sequence} onInput={event => setSequence((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1 font-mono`} rows={5} /></label><div class="space-y-3">{field('Target pH', targetPh, setTargetPh)}{protein && <p class="text-sm">Sequence pI: <strong>{protein.pI.toFixed(2)}</strong>; ε280: <strong>{protein.ext.cystines.toLocaleString()} M⁻¹cm⁻¹</strong>.</p>}{advice ? <div class={advice.status === 'review-required' ? 'rounded border border-amber-300 bg-amber-50 p-3 text-sm' : 'rounded border border-emerald-300 bg-emerald-50 p-3 text-sm'}><strong>{advice.status === 'review-required' ? 'Review required' : `Suggested ${advice.mode}`}</strong><p>{advice.findings[0]?.message}</p></div> : <p class="text-sm text-slate-500">Add a protein sequence to receive pI-informed advice.</p>}</div></div><div class="grid gap-3 md:grid-cols-2"><label class="rounded border p-3 text-sm">Buffer A description<textarea aria-label="Buffer A description" value={bufferA} onInput={event => setBufferA((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1`} rows={3} /></label><label class="rounded border p-3 text-sm">Buffer B description<textarea aria-label="Buffer B description" value={bufferB} onInput={event => setBufferB((event.target as HTMLTextAreaElement).value)} class={`${FIELD} mt-1`} rows={3} /></label></div><section><h2 class="font-semibold">Gradient planner</h2><div class="mt-2 grid gap-3 sm:grid-cols-5">{field('Column volume (mL)', columnVolume, setColumnVolume)}{field('Flow (mL/min)', flow, setFlow)}{field('Start %B', startB, setStartB)}{field('End %B', endB, setEndB)}{field('Gradient (CV)', gradientCv, setGradientCv)}</div>{gradientResult.error && <p role="alert" class="mt-2 text-sm text-rose-700">{gradientResult.error}</p>}{gradient && <><svg aria-label="Gradient plan" viewBox="0 0 560 180" class="mt-4 w-full rounded border"><line x1="45" y1="145" x2="530" y2="145" stroke="#94a3b8" /><polyline fill="none" stroke="#2563eb" stroke-width="3" points={gradient.points.map(point => `${45 + point.columnVolumes / Math.max(gradient.totalColumnVolumes, 1) * 485},${145 - point.percentB / 100 * 110}`).join(' ')} /><text x="45" y="166" font-size="10">0 CV</text><text x="485" y="166" font-size="10">{gradient.totalColumnVolumes.toFixed(1)} CV</text></svg><p class="mt-2 text-sm">Gradient end: {gradient.atGradientEnd.volumeMl.toFixed(1)} mL / {gradient.atGradientEnd.timeMin.toFixed(1)} min; total {gradient.totalTimeMin.toFixed(1)} min.</p></>}</section></section>;
-}
-
-function _SpectraPanel({ onAudit }: { onAudit: (audit: Partial<WorkbenchAudit>) => void }) {
-  const [source, setSource] = useState('');
-  const [scatterEnabled, setScatterEnabled] = useState(false);
-  const [dyeAbsorbance, setDyeAbsorbance] = useState('');
-  const [dyeEpsilon, setDyeEpsilon] = useState('');
-  const [correctionFactor, setCorrectionFactor] = useState('');
-  const [proteinEpsilon, setProteinEpsilon] = useState('');
-  const imported = useMemo<{ data?: SpectrumImport; error?: string }>(() => { if (!source.trim()) return {}; try { return { data: parseSpectrum(source) }; } catch (error) { return { error: error instanceof Error ? error.message : 'Could not parse spectrum.' }; } }, [source]);
-  const observed = imported.data?.points.find(point => point.wavelengthNm === 280)?.absorbance;
-  const scatterFit = useMemo(() => imported.data ? fitLogScatter(imported.data.points) : undefined, [imported.data]);
-  const scatter = scatterEnabled && observed !== undefined && scatterFit ? correctA280ForScatter(observed, scatterFit) : undefined;
-  const dol = calculateDyeLabeling({ a280: observed, dyeAbsorbance: numberOrUndefined(dyeAbsorbance), dyeEpsilon: numberOrUndefined(dyeEpsilon), correctionFactor280: numberOrUndefined(correctionFactor), proteinEpsilon: numberOrUndefined(proteinEpsilon), pathCm: 1, scatterCorrection: scatterEnabled ? scatter : undefined });
-  useEffect(() => onAudit({ opticalInputs: { spectrumSourceText: source, observedA280: observed, scatterEnabled, dyeAbsorbance, dyeEpsilon, correctionFactor280: correctionFactor, proteinEpsilon, dolStatus: dol.status } }), [correctionFactor, dyeAbsorbance, dyeEpsilon, dol.status, observed, onAudit, proteinEpsilon, scatterEnabled, source]);
-  const yMax = Math.max(0.01, ...(imported.data?.points.map(point => point.absorbance) ?? [0]));
-  const plot = (imported.data?.points ?? []).map((point, index, all) => `${index ? 'L' : 'M'} ${45 + (point.wavelengthNm - all[0]!.wavelengthNm) / Math.max(1, all.at(-1)!.wavelengthNm - all[0]!.wavelengthNm) * 500} ${155 - point.absorbance / yMax * 120}`).join(' ');
-  const field = (label: string, value: string, setter: (value: string) => void) => <label class="block text-sm">{label}<input aria-label={label} value={value} onInput={event => setter((event.target as HTMLInputElement).value)} class={`${FIELD} mt-1`} /></label>;
-  return <section class="space-y-5"><label class="block text-sm">Spectrum CSV or TSV<textarea aria-label="Spectrum CSV or TSV" value={source} onInput={event => setSource((event.target as HTMLTextAreaElement).value)} placeholder="Wavelength,Absorbance" rows={6} class={`${FIELD} mt-1 font-mono text-xs`} /></label>{imported.error && <p role="alert" class="text-sm text-rose-700">{imported.error}</p>}{imported.data && <><svg aria-label="UV-Vis spectrum" viewBox="0 0 560 180" class="w-full rounded border"><line x1="45" y1="155" x2="545" y2="155" stroke="#94a3b8" /><path d={plot} fill="none" stroke="#7c3aed" stroke-width="3" /></svg><div class="grid gap-3 sm:grid-cols-2"><div class="rounded border p-3 text-sm"><strong>Observed A280</strong><p>{observed === undefined ? 'No 280 nm observation' : observed.toFixed(4)}</p></div><label class="rounded border p-3 text-sm"><input aria-label="Apply 300–340 nm scatter correction" type="checkbox" checked={scatterEnabled} onChange={event => setScatterEnabled((event.target as HTMLInputElement).checked)} /> Apply 300–340 nm scatter correction{scatterEnabled && <p class="mt-2"><strong>Scatter-corrected A280</strong>: {scatter?.correctedA280?.toFixed(4) ?? 'unavailable'}</p>}</label></div><div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr><th>Wavelength</th><th>Absorbance</th></tr></thead><tbody>{imported.data.points.map(point => <tr><td>{point.wavelengthNm} nm</td><td>{point.absorbance.toFixed(4)}</td></tr>)}</tbody></table></div>{scatter?.warnings.map(warning => <p role="alert" class="text-xs text-amber-700">Warning: {warning}</p>)}</>}<section class="rounded border p-4"><h2 class="font-semibold">Dye-to-protein labeling (DOL)</h2><p class="mt-1 text-xs text-slate-500">Supply dye ε and CF280 from the dye manufacturer; this calculator does not infer either coefficient.</p><div class="mt-3 grid gap-3 sm:grid-cols-2">{field('Dye absorbance', dyeAbsorbance, setDyeAbsorbance)}{field('Dye epsilon', dyeEpsilon, setDyeEpsilon)}{field('CF280', correctionFactor, setCorrectionFactor)}{field('Protein epsilon', proteinEpsilon, setProteinEpsilon)}</div><p class={dol.status === 'derived' ? 'mt-3 text-sm text-emerald-700' : 'mt-3 text-sm text-amber-700'}>{dol.status === 'derived' ? `DOL: ${dol.dol?.toFixed(3)}` : `DOL blocked: ${dol.blockers.join(', ') || 'enter a spectrum and manufacturer coefficients'}`}</p>{dol.warnings.map(warning => <p role="alert" class="mt-1 text-xs text-amber-700">Warning: {warning}</p>)}</section></section>;
+  useEffect(
+    () =>
+      onAudit({
+        methodSettings: {
+          sequence,
+          targetPh,
+          bufferA,
+          bufferB,
+          columnVolume,
+          flow,
+          startB,
+          endB,
+          gradientCv,
+          gradientError: gradientResult.error,
+        },
+        findings: advice?.findings.map(finding => `${finding.severity}: ${finding.message}`) ?? [],
+      }),
+    [
+      advice,
+      bufferA,
+      bufferB,
+      columnVolume,
+      endB,
+      flow,
+      gradientCv,
+      gradientResult.error,
+      onAudit,
+      sequence,
+      startB,
+      targetPh,
+    ],
+  );
+  const field = (label: string, value: string, setter: (value: string) => void) => (
+    <label class="block text-sm">
+      {label}
+      <input
+        aria-label={label}
+        value={value}
+        onInput={event => setter((event.target as HTMLInputElement).value)}
+        class={`${FIELD} mt-1`}
+      />
+    </label>
+  );
+  return (
+    <section class="space-y-5">
+      <div class="grid gap-4 lg:grid-cols-2">
+        <label class="text-sm">
+          Protein sequence
+          <textarea
+            aria-label="Protein sequence"
+            value={sequence}
+            onInput={event => setSequence((event.target as HTMLTextAreaElement).value)}
+            class={`${FIELD} mt-1 font-mono`}
+            rows={5}
+          />
+        </label>
+        <div class="space-y-3">
+          {field('Target pH', targetPh, setTargetPh)}
+          {protein && (
+            <p class="text-sm">
+              Sequence pI: <strong>{protein.pI.toFixed(2)}</strong>; ε280:{' '}
+              <strong>{protein.ext.cystines.toLocaleString()} M⁻¹cm⁻¹</strong>.
+            </p>
+          )}
+          {advice ? (
+            <div
+              class={
+                advice.status === 'review-required'
+                  ? 'rounded border border-amber-300 bg-amber-50 p-3 text-sm'
+                  : 'rounded border border-emerald-300 bg-emerald-50 p-3 text-sm'
+              }
+            >
+              <strong>{advice.status === 'review-required' ? 'Review required' : `Suggested ${advice.mode}`}</strong>
+              <p>{advice.findings[0]?.message}</p>
+            </div>
+          ) : (
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+              Add a protein sequence to receive pI-informed advice.
+            </p>
+          )}
+        </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="rounded border p-3 text-sm">
+          Buffer A description
+          <textarea
+            aria-label="Buffer A description"
+            value={bufferA}
+            onInput={event => setBufferA((event.target as HTMLTextAreaElement).value)}
+            class={`${FIELD} mt-1`}
+            rows={3}
+          />
+        </label>
+        <label class="rounded border p-3 text-sm">
+          Buffer B description
+          <textarea
+            aria-label="Buffer B description"
+            value={bufferB}
+            onInput={event => setBufferB((event.target as HTMLTextAreaElement).value)}
+            class={`${FIELD} mt-1`}
+            rows={3}
+          />
+        </label>
+      </div>
+      <section>
+        <h2 class="font-semibold">Gradient planner</h2>
+        <div class="mt-2 grid gap-3 sm:grid-cols-5">
+          {field('Column volume (mL)', columnVolume, setColumnVolume)}
+          {field('Flow (mL/min)', flow, setFlow)}
+          {field('Start %B', startB, setStartB)}
+          {field('End %B', endB, setEndB)}
+          {field('Gradient (CV)', gradientCv, setGradientCv)}
+        </div>
+        {gradientResult.error && (
+          <p role="alert" class="mt-2 text-sm text-rose-700 dark:text-rose-400">
+            {gradientResult.error}
+          </p>
+        )}
+        {gradient && (
+          <>
+            <svg aria-label="Gradient plan" viewBox="0 0 560 180" class="mt-4 w-full rounded border">
+              <line x1="45" y1="145" x2="530" y2="145" stroke="#94a3b8" />
+              <polyline
+                fill="none"
+                stroke="#2563eb"
+                stroke-width="3"
+                points={gradient.points
+                  .map(
+                    point =>
+                      `${45 + (point.columnVolumes / Math.max(gradient.totalColumnVolumes, 1)) * 485},${145 - (point.percentB / 100) * 110}`,
+                  )
+                  .join(' ')}
+              />
+              <text x="45" y="166" font-size="10">
+                0 CV
+              </text>
+              <text x="485" y="166" font-size="10">
+                {gradient.totalColumnVolumes.toFixed(1)} CV
+              </text>
+            </svg>
+            <p class="mt-2 text-sm">
+              Gradient end: {gradient.atGradientEnd.volumeMl.toFixed(1)} mL /{' '}
+              {gradient.atGradientEnd.timeMin.toFixed(1)} min; total {gradient.totalTimeMin.toFixed(1)} min.
+            </p>
+          </>
+        )}
+      </section>
+    </section>
+  );
 }
 
 export default function SecView() {
   const [tab, setTab] = useState<WorkbenchTab>('calibration');
   const [audit, setAudit] = useState<WorkbenchAudit>({ opticalInputs: {}, methodSettings: {}, findings: [] });
-  const updateAudit = useCallback((patch: Partial<WorkbenchAudit>) => setAudit(current => ({ ...current, ...patch })), []);
-  return <div class="mx-auto max-w-[92rem]"><header class="px-3 pt-3 sm:px-4"><h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1><p class="text-sm text-slate-600 dark:text-slate-300">SEC calibration, chromatogram review, and method planning.</p><nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">{WORKBENCH_TABS.map(item => <button type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} class={tab === item.id ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white' : 'rounded-lg border px-3 py-1.5 text-sm'}>{item.label}</button>)}</nav></header><div class="p-3 sm:p-4">{tab === 'calibration' && <CalibrationPanel embedded />}{tab === 'run' && <RunFractionsPanel audit={audit} />}{tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}</div></div>;
+  const updateAudit = useCallback(
+    (patch: Partial<WorkbenchAudit>) => setAudit(current => ({ ...current, ...patch })),
+    [],
+  );
+  return (
+    <div class="mx-auto max-w-[92rem]">
+      <header class="px-3 pt-3 sm:px-4">
+        <h1 class="text-xl font-bold">🧪 Chromatography Workbench</h1>
+        <p class="text-sm text-slate-600 dark:text-slate-300">
+          SEC calibration, chromatogram review, and method planning.
+        </p>
+        <nav aria-label="Chromatography workbench tabs" class="mt-3 flex flex-wrap gap-2 border-b pb-3">
+          {WORKBENCH_TABS.map(item => (
+            <button
+              type="button"
+              aria-pressed={tab === item.id}
+              onClick={() => setTab(item.id)}
+              class={
+                tab === item.id
+                  ? 'rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white'
+                  : 'rounded-lg border px-3 py-1.5 text-sm'
+              }
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+      <div class="p-3 sm:p-4">
+        {tab === 'calibration' && <CalibrationPanel embedded />}
+        {tab === 'run' && <RunFractionsPanel audit={audit} />}
+        {tab === 'planner' && <MethodPlannerPanel onAudit={updateAudit} />}
+      </div>
+    </div>
+  );
 }

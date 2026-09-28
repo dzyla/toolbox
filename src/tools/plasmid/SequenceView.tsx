@@ -136,7 +136,7 @@ export function SequenceView({ document, selection, onSelect, preferences, onPre
         </select>
       </label>
     </div>
-    {coordinateError && <p role="alert" class="text-sm text-red-600">{coordinateError}</p>}
+    {coordinateError && <p role="alert" class="text-sm text-red-600 dark:text-red-400">{coordinateError}</p>}
     <div ref={viewportRef} data-testid="plasmid-sequence-viewport" class="relative max-h-[32rem] overflow-auto rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm leading-6 dark:border-slate-700 dark:bg-slate-900" style={{ overflowAnchor: 'none' }} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={event => {
       if (drag.current?.pointerId === event.pointerId) drag.current = undefined;
     }}>
@@ -144,10 +144,10 @@ export function SequenceView({ document, selection, onSelect, preferences, onPre
         const start = row * basesPerRow;
         const indexes = Array.from({ length: Math.min(basesPerRow, bases.length - start) }, (_, offset) => start + offset);
         return <div key={start} class="mb-4 w-max min-w-full" data-sequence-row={start}>
-          <div class="text-xs text-slate-500">{start + 1}–{start + indexes.length}</div>
-          <div class="flex items-center"><span class="w-8 shrink-0 text-xs text-slate-500">5′</span>{indexes.map(index => renderBase(index, false))}<span class="ml-2 text-xs text-slate-500">3′</span></div>
-          <div class="flex items-center"><span class="w-8 shrink-0 text-xs text-slate-500">3′</span>{indexes.map(index => renderBase(index, true))}<span class="ml-2 text-xs text-slate-500">5′</span></div>
-          {translationMode !== 'none' && <div class="flex h-6 items-center text-teal-700 dark:text-teal-300"><span class="w-8 shrink-0 text-xs text-slate-500">aa</span>{indexes.map(index => <span key={index} class="inline-block w-[1ch] shrink-0 text-center" aria-label={aminoAcids.has(index) ? `Amino acid ${aminoAcids.get(index)}, bases ${index + 1}–${index + 3}` : undefined}>{aminoAcids.get(index) ?? '\u00a0'}</span>)}</div>}
+          <div class="text-xs text-slate-500 dark:text-slate-400">{start + 1}–{start + indexes.length}</div>
+          <div class="flex items-center"><span class="w-8 shrink-0 text-xs text-slate-500 dark:text-slate-400">5′</span>{indexes.map(index => renderBase(index, false))}<span class="ml-2 text-xs text-slate-500 dark:text-slate-400">3′</span></div>
+          <div class="flex items-center"><span class="w-8 shrink-0 text-xs text-slate-500 dark:text-slate-400">3′</span>{indexes.map(index => renderBase(index, true))}<span class="ml-2 text-xs text-slate-500 dark:text-slate-400">5′</span></div>
+          {translationMode !== 'none' && <div class="flex h-6 items-center text-teal-700 dark:text-teal-300"><span class="w-8 shrink-0 text-xs text-slate-500 dark:text-slate-400">aa</span>{indexes.map(index => <span key={index} class="inline-block w-[1ch] shrink-0 text-center" aria-label={aminoAcids.has(index) ? `Amino acid ${aminoAcids.get(index)}, bases ${index + 1}–${index + 3}` : undefined}>{aminoAcids.get(index) ?? '\u00a0'}</span>)}</div>}
         </div>;
       })}
     </div>

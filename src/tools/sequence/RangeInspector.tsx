@@ -85,7 +85,7 @@ export function RangeInspector({ selection, length, kind, preview, proteinMetric
         {nucleicMetrics && <>
           <Metric label="Length" value={`${preview.length} nt`} /><Metric label="GC content" value={`${nucleicMetrics.gc.toFixed(1)}%`} />
           {nucleicMetrics.tm && <Metric label="Quick oligo Tm" value={`${nucleicMetrics.tm.value.toFixed(1)} °C`} />}
-          <div class="sm:col-span-3"><dt class="text-slate-500">Reverse complement</dt><dd class="mt-0.5 break-all font-mono font-semibold text-slate-800 dark:text-slate-100">{nucleicMetrics.reverseComplement}</dd></div>
+          <div class="sm:col-span-3"><dt class="text-slate-500 dark:text-slate-400">Reverse complement</dt><dd class="mt-0.5 break-all font-mono font-semibold text-slate-800 dark:text-slate-100">{nucleicMetrics.reverseComplement}</dd></div>
           {nucleicMetrics.tm?.warnings.map(warning => <p key={warning} class="sm:col-span-3 text-amber-700 dark:text-amber-300">{warning}</p>)}
         </>}
       </div>
@@ -96,14 +96,14 @@ export function RangeInspector({ selection, length, kind, preview, proteinMetric
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div><dt class="text-slate-500">{label}</dt><dd class="mt-0.5 font-mono font-semibold text-slate-800 dark:text-slate-100">{value}</dd></div>;
+  return <div><dt class="text-slate-500 dark:text-slate-400">{label}</dt><dd class="mt-0.5 font-mono font-semibold text-slate-800 dark:text-slate-100">{value}</dd></div>;
 }
 
 function FeatureCandidates({ features, activeFeature, onFeatureSelect }: Pick<Props, 'features' | 'activeFeature' | 'onFeatureSelect'>) {
   if (!features?.length) return null;
   return <div class="mt-3 border-t border-indigo-200/70 pt-3 dark:border-indigo-900/70">
-    <div class="flex items-baseline justify-between gap-2"><h3 class="text-xs font-bold text-slate-800 dark:text-slate-100">Feature candidates</h3><span class="font-mono text-xs text-slate-500">{features.length} hit{features.length === 1 ? '' : 's'}</span></div>
+    <div class="flex items-baseline justify-between gap-2"><h3 class="text-xs font-bold text-slate-800 dark:text-slate-100">Feature candidates</h3><span class="font-mono text-xs text-slate-500 dark:text-slate-400">{features.length} hit{features.length === 1 ? '' : 's'}</span></div>
     <div class="mt-2 flex flex-wrap gap-1.5">{features.map((feature, index) => <button key={`${feature.kind}-${feature.name}-${feature.start}-${index}`} type="button" aria-label={`Feature candidate: ${feature.name}, residues ${feature.start}–${feature.end}`} onClick={() => onFeatureSelect?.(feature)} class="rounded-full border px-2 py-1 text-xs font-semibold hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-accent-500" style={{ borderColor: feature.color, color: feature.color, backgroundColor: `${feature.color}14` }}>{feature.name} <span class="font-mono opacity-70">{feature.start}–{feature.end}</span></button>)}</div>
-    {activeFeature && <div class="mt-2 rounded-lg border border-indigo-200 bg-white/70 px-2.5 py-2 text-xs dark:border-indigo-900 dark:bg-slate-950/40"><div class="flex items-baseline justify-between gap-2"><strong>{activeFeature.name}</strong><span class="font-mono text-slate-500">{activeFeature.start}–{activeFeature.end}</span></div><p class="mt-1 text-slate-600 dark:text-slate-300">{activeFeature.category}{activeFeature.note ? ` · ${activeFeature.note}` : ''}</p></div>}
+    {activeFeature && <div class="mt-2 rounded-lg border border-indigo-200 bg-white/70 px-2.5 py-2 text-xs dark:border-indigo-900 dark:bg-slate-950/40"><div class="flex items-baseline justify-between gap-2"><strong>{activeFeature.name}</strong><span class="font-mono text-slate-500 dark:text-slate-400">{activeFeature.start}–{activeFeature.end}</span></div><p class="mt-1 text-slate-600 dark:text-slate-300">{activeFeature.category}{activeFeature.note ? ` · ${activeFeature.note}` : ''}</p></div>}
   </div>;
 }

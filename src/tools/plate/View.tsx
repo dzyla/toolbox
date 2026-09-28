@@ -1,8 +1,8 @@
 import { type ComponentChildren } from 'preact';
 import { useState, useMemo, useRef } from 'preact/hooks';
 import { route } from '@/app/router';
-import { PlateChassis } from './PlateChassis';
-import PlateReaderView from '@/tools/plate-reader/View';
+import { lazyView } from '@/app/components/lazyView';
+import { PlateChassis, getWellTextColor, readableTextOn } from './PlateChassis';
 import { type AnnotationToken, type SampleType as ReaderSampleType } from '@/core/plates/reader';
 import {
   type PlateFormat,
@@ -25,7 +25,14 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText } from '@/lib/export';
 import { SCIENCE } from './science';
+
+// The reader is a separate ~2,400-line tool; load it only when the user switches to it.
+const PlateReaderView = lazyView(
+  () => import('@/tools/plate-reader/View'),
+  <p class="p-6 text-sm text-slate-500 dark:text-slate-400">Loading Plate Reader…</p>,
+);
 
 interface State {
   format: PlateFormat;
@@ -295,18 +302,6 @@ export default function PlateView() {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  function getWellTextColor(hexColor: string): string {
-    const hex = hexColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16) || 128;
-    const g = parseInt(hex.substring(2, 4), 16) || 128;
-    const b = parseInt(hex.substring(4, 6), 16) || 128;
-    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    if (lum > 0.55) {
-      return 'text-slate-950 font-extrabold';
-    }
-    return 'text-white font-extrabold drop-shadow-xs';
-  }
-
   function handleFormatChange(fmt: PlateFormat) {
     set({ format: fmt });
     setWells(generateEmptyPlate(fmt));
@@ -562,35 +557,17 @@ export default function PlateView() {
 
   function handleExportMatrix() {
     const csv = plateToMatrixCsv(s.format, wells);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `plate_${s.format}well_matrix.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(csv, `plate_${s.format}well_matrix.csv`, 'text/csv;charset=utf-8');
   }
 
   function handleExportList() {
     const csv = plateToListCsv(wells, groups);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `plate_${s.format}well_samples.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(csv, `plate_${s.format}well_samples.csv`, 'text/csv;charset=utf-8');
   }
 
   function handleExportMarkdown() {
     const md = plateToMarkdown(s.format, wells, groups);
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `plate_${s.format}well_layout.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(md, `plate_${s.format}well_layout.md`, 'text/markdown;charset=utf-8');
   }
 
   function handlePrintPdf() {
@@ -726,7 +703,7 @@ export default function PlateView() {
               <span class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Sample Palette (Active Paint)
               </span>
-              <span class="text-[11px] text-slate-400">Click to paint</span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400">Click to paint</span>
             </div>
             <div class="space-y-1.5">
               {groups.map(g => {
@@ -742,13 +719,14 @@ export default function PlateView() {
                       <span class="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs" style={{ backgroundColor: g.color }} />
                       <input
                         type="text"
+                        aria-label={`Sample group name (${g.name})`}
                         value={g.name}
                         onClick={e => e.stopPropagation()}
                         onChange={e => handleRenameGroup(g.id, (e.target as HTMLInputElement).value)}
                         class="bg-transparent border-none p-0 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none flex-1 truncate"
                       />
                     </div>
-                    <div class="flex items-center gap-1.5 shrink-0 text-slate-400">
+                    <div class="flex items-center gap-1.5 shrink-0 text-slate-500 dark:text-slate-400">
                       <span class="font-mono text-[11px] font-normal">{count} wells</span>
                       {groups.length > 1 && (
                         <button
@@ -784,7 +762,7 @@ export default function PlateView() {
             <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               {/* Direction: Row vs Column */}
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Dilution Direction</label>
+                <label class="block text-[10px] text-slate-500 dark:text-slate-400 mb-1 font-semibold uppercase">Dilution Direction</label>
                 <div class="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
@@ -805,8 +783,8 @@ export default function PlateView() {
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[10px] text-slate-400">Start Row</label>
-                  <select
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Start Row</label>
+                  <select aria-label="Start Row"
                     value={s.dilutionStartRow}
                     onChange={(e) => set({ dilutionStartRow: (e.target as HTMLSelectElement).value })}
                     class="w-full rounded border border-slate-300 dark:border-slate-700 p-1 text-xs dark:bg-slate-950 font-semibold"
@@ -815,8 +793,8 @@ export default function PlateView() {
                   </select>
                 </div>
                 <div>
-                  <label class="block text-[10px] text-slate-400">Start Column</label>
-                  <input
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Start Column</label>
+                  <input aria-label="Start Column"
                     type="number"
                     min="1"
                     max={dim.cols}
@@ -829,8 +807,8 @@ export default function PlateView() {
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[10px] text-slate-400">Number of Steps (Wells)</label>
-                  <input
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Number of Steps (Wells)</label>
+                  <input aria-label="Number of Steps (Wells)"
                     type="number"
                     min="2"
                     max={s.dilutionDirection === 'row' ? dim.cols : dim.rows}
@@ -840,7 +818,7 @@ export default function PlateView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-[10px] text-slate-400">
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">
                     {s.dilutionDirection === 'row' ? 'Replicate Rows' : 'Replicate Columns'}
                   </label>
                   <input
@@ -856,8 +834,8 @@ export default function PlateView() {
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[10px] text-slate-400">Start Concentration</label>
-                  <DecimalInput
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Start Concentration</label>
+                  <DecimalInput aria-label="Start Concentration"
                     value={s.dilutionStartConc}
                     onChange={dilutionStartConc => set({ dilutionStartConc })}
                     min={0.000001}
@@ -865,8 +843,8 @@ export default function PlateView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-[10px] text-slate-400">Unit</label>
-                  <input
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Unit</label>
+                  <input aria-label="Unit"
                     type="text"
                     value={s.dilutionUnit}
                     onInput={(e) => set({ dilutionUnit: (e.target as HTMLInputElement).value })}
@@ -876,8 +854,8 @@ export default function PlateView() {
               </div>
 
               <div>
-                <label class="block text-[10px] text-slate-400">Dilution Factor (e.g. 2 for 1:2, 10 for 1:10)</label>
-                <DecimalInput
+                <label class="block text-[10px] text-slate-500 dark:text-slate-400">Dilution Factor (e.g. 2 for 1:2, 10 for 1:10)</label>
+                <DecimalInput aria-label="Dilution Factor (e.g. 2 for 1:2, 10 for 1:10)"
                   value={s.dilutionFactor}
                   onChange={dilutionFactor => set({ dilutionFactor })}
                   min={1.01}
@@ -886,8 +864,8 @@ export default function PlateView() {
               </div>
 
               <div>
-                <label class="block text-[10px] text-slate-400">Stock Concentration (Initial Well Prep)</label>
-                <DecimalInput
+                <label class="block text-[10px] text-slate-500 dark:text-slate-400">Stock Concentration (Initial Well Prep)</label>
+                <DecimalInput aria-label="Stock Concentration (Initial Well Prep)"
                   value={s.stockConc}
                   onChange={stockConc => set({ stockConc })}
                   min={0.0001}
@@ -901,7 +879,7 @@ export default function PlateView() {
                   type="checkbox"
                   checked={s.dilutionIncludeBlank}
                   onChange={(e) => set({ dilutionIncludeBlank: (e.target as HTMLInputElement).checked })}
-                  class="rounded text-accent-600 accent-accent-600"
+                  class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                 />
                 <span>Include final Blank well (conc = 0)</span>
               </label>
@@ -925,7 +903,7 @@ export default function PlateView() {
               <button
                 type="button"
                 onClick={handleCopyTsv}
-                class="py-1.5 px-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1 shadow-xs"
+                class="py-1.5 px-2 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1 shadow-xs"
               >
                 {tsvCopied ? '✓ Copied TSV!' : '📋 Copy (Excel TSV)'}
               </button>
@@ -976,7 +954,7 @@ export default function PlateView() {
           <button
             type="button"
             onClick={handleClearPlate}
-            class="w-full py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+            class="w-full py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
           >
             Clear All Wells
           </button>
@@ -1032,7 +1010,7 @@ export default function PlateView() {
                     title={preset.description}
                   >
                     <span>{preset.name}</span>
-                    <span class="text-[10px] px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 font-mono">
+                    <span class="text-[10px] px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
                       {preset.badge}
                     </span>
                   </button>
@@ -1042,7 +1020,7 @@ export default function PlateView() {
             <button
               type="button"
               onClick={handleClearPlate}
-              class="px-2.5 py-1 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition flex items-center gap-1"
+              class="px-2.5 py-1 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition flex items-center gap-1"
             >
               <span>🧹</span>
               <span>Clear Plate</span>
@@ -1075,7 +1053,7 @@ export default function PlateView() {
                     <button
                       type="button"
                       onClick={() => set({ displayMode: 'labels' })}
-                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'labels' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                       title="Show well ID, sample name, and concentration"
                     >
                       Labels &amp; Values
@@ -1083,7 +1061,7 @@ export default function PlateView() {
                     <button
                       type="button"
                       onClick={() => set({ displayMode: 'concentrations' })}
-                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'concentrations' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'concentrations' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                       title="Show large prominent concentration values"
                     >
                       Concentrations
@@ -1091,7 +1069,7 @@ export default function PlateView() {
                     <button
                       type="button"
                       onClick={() => set({ displayMode: 'samples' })}
-                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'samples' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'samples' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                       title="Show sample names and role tags"
                     >
                       Sample Groups
@@ -1099,7 +1077,7 @@ export default function PlateView() {
                     <button
                       type="button"
                       onClick={() => set({ displayMode: 'shading' })}
-                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'shading' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                      class={`px-2.5 py-1 rounded-md text-xs font-medium transition ${s.displayMode === 'shading' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                       title="Heatmap gradient color shading"
                     >
                       Color Shading
@@ -1110,14 +1088,14 @@ export default function PlateView() {
                     <button
                       type="button"
                       onClick={() => setDensity('normal')}
-                      class={`px-2 py-1 rounded-md text-xs font-medium transition ${density === 'normal' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                      class={`px-2 py-1 rounded-md text-xs font-medium transition ${density === 'normal' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                     >
                       Normal
                     </button>
                     <button
                       type="button"
                       onClick={() => setDensity('compact')}
-                      class={`px-2 py-1 rounded-md text-xs font-medium transition ${density === 'compact' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+                      class={`px-2 py-1 rounded-md text-xs font-medium transition ${density === 'compact' ? 'bg-white dark:bg-slate-700 shadow-2xs text-slate-900 dark:text-slate-100 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
                     >
                       📱 Compact
                     </button>
@@ -1131,16 +1109,16 @@ export default function PlateView() {
                 {hoveredWell ? (
                   <div class="flex items-center gap-2 truncate">
                     <span class="font-bold text-accent-600 dark:text-accent-400">{hoveredWell.id}</span>
-                    <span class="text-slate-400">|</span>
+                    <span class="text-slate-500 dark:text-slate-400">|</span>
                     <span class="text-slate-800 dark:text-slate-200 truncate">{hoveredWell.sampleName || 'Empty'}</span>
                     {hoveredWell.value !== undefined && (
-                      <span class="text-slate-500 font-semibold">
+                      <span class="text-slate-500 dark:text-slate-400 font-semibold">
                         ({hoveredWell.value >= 0.01 ? hoveredWell.value.toFixed(2) : hoveredWell.value.toExponential(2)} {hoveredWell.unit || ''})
                       </span>
                     )}
                   </div>
                 ) : (
-                  <span class="text-slate-400 text-xs italic">
+                  <span class="text-slate-500 dark:text-slate-400 text-xs italic">
                     Hover over any well for live readout &bull; Click to inspect &amp; edit
                   </span>
                 )}
@@ -1157,7 +1135,7 @@ export default function PlateView() {
                     class="w-6 h-6 rounded-full border border-black/20 shadow-xs flex items-center justify-center font-mono font-bold text-[10px]"
                     style={{
                       backgroundColor: selectedGroup ? selectedGroup.color : '#e2e8f0',
-                      color: selectedGroup ? (selectedGroup.color === '#ffffff' ? '#0f172a' : '#ffffff') : '#64748b'
+                      color: selectedGroup ? readableTextOn(selectedGroup.color) : '#475569'
                     }}
                   >
                     {selectedWell.id}
@@ -1167,7 +1145,7 @@ export default function PlateView() {
                       <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                         Well {selectedWell.id}
                       </h4>
-                      <span class="text-[11px] text-slate-500 font-mono">
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                         (Row {selectedWell.row}, Col {selectedWell.col})
                       </span>
                       {selectedGroup && (
@@ -1187,21 +1165,21 @@ export default function PlateView() {
                   <button
                     type="button"
                     onClick={() => handlePaintWellWithActive(selectedWell.id)}
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-700 text-white transition shadow-2xs flex items-center gap-1"
+                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-700 hover:bg-sky-800 text-white transition shadow-2xs flex items-center gap-1"
                   >
                     <span>🖌️ Paint with {activeGroup?.name || 'Active'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleClearSingleWell(selectedWell.id)}
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                    class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
                   >
                     Clear Well
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedWellId(null)}
-                    class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    class="p-1 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     title="Dismiss Inspector"
                   >
                     ✕
@@ -1212,8 +1190,8 @@ export default function PlateView() {
               {/* Quick In-Place Editor Fields */}
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-sky-200/60 dark:border-sky-800/60">
                 <div>
-                  <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Assign Group</label>
-                  <select
+                  <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Assign Group</label>
+                  <select aria-label="Assign Group"
                     value={selectedWell.sampleGroupId || ''}
                     onChange={(e) => handleSetWellGroup(selectedWell.id, (e.target as HTMLSelectElement).value)}
                     class="w-full text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 font-medium"
@@ -1225,8 +1203,8 @@ export default function PlateView() {
                   </select>
                 </div>
                 <div>
-                  <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Concentration / Value</label>
-                  <input
+                  <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Concentration / Value</label>
+                  <input aria-label="Concentration / Value"
                     type="number"
                     step="any"
                     value={selectedWell.value ?? ''}
@@ -1236,8 +1214,8 @@ export default function PlateView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Unit</label>
-                  <input
+                  <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Unit</label>
+                  <input aria-label="Unit"
                     type="text"
                     value={selectedWell.unit ?? ''}
                     placeholder="e.g. µM, ng/mL, OD600"
@@ -1345,7 +1323,7 @@ export default function PlateView() {
                   } else if (s.displayMode === 'shading') {
                     content = (
                       <div class="flex flex-col items-center justify-center">
-                        <span class={`text-[10px] font-mono font-bold ${isOccupied ? 'opacity-90' : 'text-slate-400 dark:text-slate-600'}`}>
+                        <span class={`text-[10px] font-mono font-bold ${isOccupied ? 'opacity-90' : 'text-slate-500 dark:text-slate-600'}`}>
                           {wellId}
                         </span>
                         {well?.value !== undefined && (
@@ -1380,14 +1358,14 @@ export default function PlateView() {
                   <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                     Pipetting &amp; Reagent Parameters
                   </h3>
-                  <span class="text-xs text-slate-500">
+                  <span class="text-xs text-slate-500 dark:text-slate-400">
                     Adjust volumes and stock concentrations for automated calculations
                   </span>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">Working Vol / Well (µL)</label>
-                    <DecimalInput
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Working Vol / Well (µL)</label>
+                    <DecimalInput aria-label="Working Vol / Well (µL)"
                       value={s.workingVolumeUl}
                       onChange={workingVolumeUl => set({ workingVolumeUl: Math.max(1, workingVolumeUl) })}
                       min={1}
@@ -1395,8 +1373,8 @@ export default function PlateView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">Transfer Vol (µL)</label>
-                    <DecimalInput
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Transfer Vol (µL)</label>
+                    <DecimalInput aria-label="Transfer Vol (µL)"
                       value={s.transferVolumeUl}
                       onChange={transferVolumeUl => set({ transferVolumeUl: Math.max(1, transferVolumeUl) })}
                       min={1}
@@ -1404,7 +1382,7 @@ export default function PlateView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">Stock Conc ({s.dilutionUnit || 'µM'})</label>
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Stock Conc ({s.dilutionUnit || 'µM'})</label>
                     <DecimalInput
                       value={s.stockConc}
                       onChange={stockConc => set({ stockConc: Math.max(0.001, stockConc) })}
@@ -1414,8 +1392,8 @@ export default function PlateView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">Pipette Type</label>
-                    <select
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Pipette Type</label>
+                    <select aria-label="Pipette Type"
                       value={s.pipetteType}
                       onChange={(e) => set({ pipetteType: (e.target as HTMLSelectElement).value as State['pipetteType'] })}
                       class="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 bg-white dark:bg-slate-950 text-xs font-semibold"
@@ -1431,35 +1409,35 @@ export default function PlateView() {
               {/* KPI Summary Cards */}
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Assigned Wells</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Assigned Wells</span>
                   <span class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                     {pipettingPlan.totalAssignedWells}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">out of {totalWells} wells</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">out of {totalWells} wells</span>
                 </div>
 
                 <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Total Diluent Buffer</span>
-                  <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Total Diluent Buffer</span>
+                  <span class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                     {(pipettingPlan.totalDiluentNeededUl / 1000).toFixed(2)} mL
                   </span>
-                  <span class="text-[11px] text-slate-400 block">{pipettingPlan.workingVolumeUl} µL / well</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">{pipettingPlan.workingVolumeUl} µL / well</span>
                 </div>
 
                 <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Stock Reagents</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Stock Reagents</span>
                   <span class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                     {pipettingPlan.totalStockNeededUl >= 1000 ? `${(pipettingPlan.totalStockNeededUl / 1000).toFixed(2)} mL` : `${Math.round(pipettingPlan.totalStockNeededUl)} µL`}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">concentrated stocks</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">concentrated stocks</span>
                 </div>
 
                 <div class="p-3.5 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Initial Well Prep</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Initial Well Prep</span>
                   <span class="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400 block mt-1">
                     {s.stockConc ? `${s.stockConc} ${s.dilutionUnit} Stock` : 'Direct Stock'}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">C₁V₁ = C₂V₂ dilution</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">C₁V₁ = C₂V₂ dilution</span>
                 </div>
               </div>
 
@@ -1526,7 +1504,7 @@ export default function PlateView() {
                                   <div class="font-mono font-extrabold text-sm text-accent-700 dark:text-accent-300 truncate">
                                     {w.targetConc !== undefined ? `${formatWellConcentration(w.targetConc)} ${w.unit || ''}` : 'Blank'}
                                   </div>
-                                  <div class="text-[10px] text-slate-500 leading-tight">
+                                  <div class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                                     {isFirst ? (
                                       <span>Start: {dsp.initialTotalVolumeUl} µL ➔ retains {dsp.workingVolumeUl} µL</span>
                                     ) : isLast ? (
@@ -1543,7 +1521,7 @@ export default function PlateView() {
                                     <span class="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
                                       {dsp.transferVolumeUl} µL ➔
                                     </span>
-                                    <span class="text-[9px] text-slate-400 whitespace-nowrap">
+                                    <span class="text-[9px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                                       Mix 3-5×
                                     </span>
                                   </div>
@@ -1551,10 +1529,10 @@ export default function PlateView() {
 
                                 {isLast && (
                                   <div class="flex flex-col items-center justify-center shrink-0 px-1 text-center">
-                                    <span class="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                                    <span class="text-[10px] font-mono font-bold text-rose-700 dark:text-rose-400 whitespace-nowrap">
                                       ➔ Waste
                                     </span>
-                                    <span class="text-[9px] text-slate-400 whitespace-nowrap">
+                                    <span class="text-[9px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                                       Discard {dsp.transferVolumeUl} µL
                                     </span>
                                   </div>
@@ -1575,14 +1553,14 @@ export default function PlateView() {
                   <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                     Reagent &amp; Sample Requirements Breakdown
                   </h3>
-                  <span class="text-xs text-slate-500">
+                  <span class="text-xs text-slate-500 dark:text-slate-400">
                     Calculated for {pipettingPlan.workingVolumeUl} µL/well (+ {pipettingPlan.transferVolumeUl} µL transfer excess)
                   </span>
                 </div>
                 <div class="overflow-x-auto">
                   <table class="w-full text-left text-xs">
                     <thead>
-                      <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-semibold">
+                      <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                         <th class="pb-2">Sample / Reagent</th>
                         <th class="pb-2">Role</th>
                         <th class="pb-2 text-center">Assigned Wells</th>
@@ -1597,12 +1575,12 @@ export default function PlateView() {
                           <td class="py-2.5 font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                             <span>{item.sampleName}</span>
                           </td>
-                          <td class="py-2.5 capitalize text-slate-500">{item.type}</td>
+                          <td class="py-2.5 capitalize text-slate-500 dark:text-slate-400">{item.type}</td>
                           <td class="py-2.5 text-center font-mono">{item.wellCount} wells ({item.wells.slice(0, 4).join(', ')}{item.wells.length > 4 ? '…' : ''})</td>
                           <td class="py-2.5 text-right font-mono font-bold text-accent-600 dark:text-accent-400">
                             {item.stockVolumeNeededUl > 0 ? `${item.stockVolumeNeededUl >= 1000 ? `${(item.stockVolumeNeededUl / 1000).toFixed(2)} mL` : `${Math.round(item.stockVolumeNeededUl)} µL`}` : '—'}
                           </td>
-                          <td class="py-2.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          <td class="py-2.5 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
                             {item.diluentVolumeNeededUl > 0 ? `${item.diluentVolumeNeededUl >= 1000 ? `${(item.diluentVolumeNeededUl / 1000).toFixed(2)} mL` : `${Math.round(item.diluentVolumeNeededUl)} µL`}` : '—'}
                           </td>
                           <td class="py-2.5 text-center">
@@ -1668,14 +1646,14 @@ export default function PlateView() {
               <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">
                 Paste Plate Matrix from Excel / Google Sheets
               </h3>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-slate-500 dark:text-slate-400">
                 Copy an 8×12 (or matching) block from Excel and paste it below.
               </p>
             </div>
             <button
               type="button"
               onClick={() => { setShowPasteModal(false); setPasteError(''); }}
-              class="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-base"
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-base"
             >
               ✕
             </button>
@@ -1684,19 +1662,19 @@ export default function PlateView() {
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Matrix Data (TSV / CSV):
             </label>
-            <textarea
+            <textarea aria-label="Matrix Data (TSV / CSV)"
               rows={10}
               value={pasteText}
               onInput={e => { setPasteText((e.target as HTMLTextAreaElement).value); setPasteError(''); }}
               placeholder={`Example copied from Excel:\nSample 1\tSample 1\tSample 2\tSample 2\t...\nStd (100 µM)\tStd (50 µM)\tStd (25 µM)\t...\nBlank\tBlank\tNegative\tPositive\t...`}
               class="w-full font-mono text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-slate-100 focus:border-accent-500 focus:outline-none"
             />
-            <p class="text-[11px] text-slate-400 mt-1">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               Optional row labels (A–H) and column headers (1–12) are auto-detected and parsed. Sample names and concentrations e.g. "Std (100 nM)" or "50 µM" will be automatically extracted into groups and values.
             </p>
           </div>
           {pasteError && (
-            <p class="text-xs text-rose-600 dark:text-rose-400 font-semibold">{pasteError}</p>
+            <p class="text-xs text-rose-700 dark:text-rose-400 font-semibold">{pasteError}</p>
           )}
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button

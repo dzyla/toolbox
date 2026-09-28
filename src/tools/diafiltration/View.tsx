@@ -173,7 +173,7 @@ export default function DiafiltrationView() {
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Concentrator Hardware
               </label>
-              <select
+              <select aria-label="Concentrator Hardware"
                 value={s.filterId}
                 onChange={(e) => handleSelectFilter((e.target as HTMLSelectElement).value)}
                 class={FIELD}
@@ -187,8 +187,8 @@ export default function DiafiltrationView() {
 
               <div class="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Fill Volume per Spin (mL)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Fill Volume per Spin (mL)</label>
+                  <DecimalInput aria-label="Fill Volume per Spin (mL)"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                     value={s.initialVolMl}
                     onChange={initialVolMl => set({ initialVolMl })}
@@ -197,8 +197,8 @@ export default function DiafiltrationView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Retentate Vol per Spin (mL)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Retentate Vol per Spin (mL)</label>
+                  <DecimalInput aria-label="Retentate Vol per Spin (mL)"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                     value={s.concentrateVolMl}
                     onChange={concentrateVolMl => set({ concentrateVolMl })}
@@ -210,8 +210,8 @@ export default function DiafiltrationView() {
 
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Number of Cycles (Spins)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Number of Cycles (Spins)</label>
+                  <DecimalInput aria-label="Number of Cycles (Spins)"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                     value={s.numCycles}
                     onChange={numCycles => set({ numCycles: Math.max(1, Math.round(numCycles)) })}
@@ -221,8 +221,8 @@ export default function DiafiltrationView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Spin Time per Cycle (min)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Spin Time per Cycle (min)</label>
+                  <DecimalInput aria-label="Spin Time per Cycle (min)"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                     value={s.spinTimeMin}
                     onChange={spinTimeMin => set({ spinTimeMin: Math.max(1, Math.round(spinTimeMin)) })}
@@ -246,8 +246,8 @@ export default function DiafiltrationView() {
               </label>
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Sample Retentate Vol (mL)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Sample Retentate Vol (mL)</label>
+                  <DecimalInput aria-label="Sample Retentate Vol (mL)"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                     value={s.sampleVolMl}
                     onChange={sampleVolMl => set({ sampleVolMl })}
@@ -256,8 +256,8 @@ export default function DiafiltrationView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Bath Buffer Volume (mL)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bath Buffer Volume (mL)</label>
+                  <DecimalInput aria-label="Bath Buffer Volume (mL)"
                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                     value={s.bathVolMl}
                     onChange={bathVolMl => set({ bathVolMl })}
@@ -270,10 +270,10 @@ export default function DiafiltrationView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-0.5">
                   Total Dialysis Baths (Buffers)
                 </label>
-                <span class="block text-[11px] text-slate-400 mb-1">
+                <span class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                   1 = Initial bath only (single equilibrium / 0 changes); 2 = Initial + 1 change; 3 = Initial + 2 changes
                 </span>
-                <DecimalInput
+                <DecimalInput aria-label="Total Dialysis Baths (Buffers)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono font-semibold"
                   value={s.bathChanges}
                   onChange={bathChanges => set({ bathChanges: Math.max(1, Math.round(bathChanges)) })}
@@ -293,6 +293,7 @@ export default function DiafiltrationView() {
               </label>
             </div>
             <select
+              aria-label="Solute to Exchange"
               value={s.soluteId}
               onChange={(e) => handleSelectSolute((e.target as HTMLSelectElement).value)}
               class={FIELD}
@@ -307,8 +308,8 @@ export default function DiafiltrationView() {
 
             <div class="grid grid-cols-3 gap-2 pt-1">
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Initial ({s.unit})</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Initial ({s.unit})</label>
+                <DecimalInput aria-label={`Initial concentration (${s.unit})`}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.initialConc}
                   onChange={initialConc => set({ initialConc })}
@@ -317,8 +318,8 @@ export default function DiafiltrationView() {
                 />
               </div>
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">In Buffer ({s.unit})</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">In Buffer ({s.unit})</label>
+                <DecimalInput aria-label={`In Buffer concentration (${s.unit})`}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.bufferConc}
                   onChange={bufferConc => set({ bufferConc })}
@@ -327,8 +328,8 @@ export default function DiafiltrationView() {
                 />
               </div>
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Safe Target ({s.unit})</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Safe Target ({s.unit})</label>
+                <DecimalInput aria-label={`Safe Target concentration (${s.unit})`}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.targetSafeConc}
                   onChange={targetSafeConc => set({ targetSafeConc })}
@@ -346,8 +347,8 @@ export default function DiafiltrationView() {
             </label>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs text-slate-500 mb-1">Protein MW (kDa)</label>
-                <DecimalInput
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Protein MW (kDa)</label>
+                <DecimalInput aria-label="Protein MW (kDa)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.proteinMwKDa}
                   onChange={proteinMwKDa => set({ proteinMwKDa })}
@@ -356,8 +357,8 @@ export default function DiafiltrationView() {
                 />
               </div>
               <div>
-                <label class="block text-xs text-slate-500 mb-1">Membrane MWCO (kDa)</label>
-                <select
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Membrane MWCO (kDa)</label>
+                <select aria-label="Membrane MWCO (kDa)"
                   value={s.mwcoKDa}
                   onChange={(e) => set({ mwcoKDa: parseFloat((e.target as HTMLSelectElement).value) || 10 })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-semibold"
@@ -384,7 +385,7 @@ export default function DiafiltrationView() {
           <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
             <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Final Residual {soluteObj.name} Concentration
                 </span>
                 <div class="text-3xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
@@ -392,11 +393,11 @@ export default function DiafiltrationView() {
                     const finalC = s.mode === 'ultrafiltration' ? ufSim.finalConc : dialSim.finalConc;
                     return finalC < 0.01 ? finalC.toExponential(2) : finalC.toFixed(2);
                   })()}{' '}
-                  <span class="text-lg font-bold text-slate-500">{s.unit}</span>
+                  <span class="text-lg font-bold text-slate-500 dark:text-slate-400">{s.unit}</span>
                 </div>
               </div>
               <div class="text-right">
-                <span class="text-xs text-slate-400 block">Status vs Safe Threshold (&lt;{s.targetSafeConc} {s.unit})</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Status vs Safe Threshold (&lt;{s.targetSafeConc} {s.unit})</span>
                 {(() => {
                   const finalC = s.mode === 'ultrafiltration' ? ufSim.finalConc : dialSim.finalConc;
                   const isSafe = finalC <= s.targetSafeConc;
@@ -411,42 +412,42 @@ export default function DiafiltrationView() {
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">{s.mode === 'ultrafiltration' ? 'Total Spin Duration' : 'Total Bath Volume'}</span>
+                <span class="text-slate-500 dark:text-slate-400 block">{s.mode === 'ultrafiltration' ? 'Total Spin Duration' : 'Total Bath Volume'}</span>
                 <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                   {s.mode === 'ultrafiltration' ? `${s.numCycles * s.spinTimeMin} min` : `${((s.bathVolMl * s.bathChanges) / 1000).toFixed(1)} L`}
                 </span>
-                <span class="text-[10px] text-slate-400 block">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                   {s.mode === 'ultrafiltration' ? `${s.numCycles} × ${s.spinTimeMin} min spins` : `${s.bathChanges} baths × ${(s.bathVolMl / 1000).toFixed(1)} L`}
                 </span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">Total Solute Cleared</span>
-                <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                <span class="text-slate-500 dark:text-slate-400 block">Total Solute Cleared</span>
+                <span class="text-base font-bold font-mono text-emerald-700 dark:text-emerald-400">
                   {(() => {
                     const finalC = s.mode === 'ultrafiltration' ? ufSim.finalConc : dialSim.finalConc;
                     const clearedPct = s.initialConc > s.bufferConc ? Math.min(100, Math.max(0, ((s.initialConc - finalC) / (s.initialConc - s.bufferConc)) * 100)) : 100;
                     return `${clearedPct.toFixed(2)}%`;
                   })()}
                 </span>
-                <span class="text-[10px] text-slate-400 block">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                   {s.mode === 'ultrafiltration' ? `${ufSim.totalDfv.toFixed(1)} DFV` : `${((s.bathVolMl / s.sampleVolMl) * s.bathChanges).toFixed(0)}× dilution`}
                 </span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">Target Clearance ({`<${s.targetSafeConc} ${s.unit}`})</span>
+                <span class="text-slate-500 dark:text-slate-400 block">Target Clearance ({`<${s.targetSafeConc} ${s.unit}`})</span>
                 <span class="text-base font-bold font-mono text-slate-800 dark:text-slate-200">
                   {s.mode === 'ultrafiltration' ? `${ufSim.cyclesToSafeTarget} spins` : `${dialSim.changesToSafeTarget} bath${dialSim.changesToSafeTarget > 1 ? 's' : ''}`}
                 </span>
-                <span class="text-[10px] text-slate-400 block">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                   {s.mode === 'ultrafiltration' ? `Est. ${ufSim.cyclesToSafeTarget * s.spinTimeMin} min spin time` : `(${dialSim.changesToSafeTarget - 1} buffer change${dialSim.changesToSafeTarget - 1 === 1 ? '' : 's'})`}
                 </span>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 block">Expected Protein Retention</span>
-                <span class={`text-base font-bold font-mono ${mwcoEval.status === 'safe' ? 'text-emerald-600 dark:text-emerald-400' : mwcoEval.status === 'borderline' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                <span class="text-slate-500 dark:text-slate-400 block">Expected Protein Retention</span>
+                <span class={`text-base font-bold font-mono ${mwcoEval.status === 'safe' ? 'text-emerald-700 dark:text-emerald-400' : mwcoEval.status === 'borderline' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>
                   ~{mwcoEval.retentionPercent}%
                 </span>
-                <span class="text-[10px] text-slate-400 block">{mwcoEval.ratio.toFixed(1)}× MW/MWCO</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">{mwcoEval.ratio.toFixed(1)}× MW/MWCO</span>
               </div>
             </div>
           </div>
@@ -477,7 +478,7 @@ export default function DiafiltrationView() {
               <div class="overflow-x-auto">
                 <table class="w-full text-xs text-left min-w-[340px]">
                   <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                       <th class="pb-2">Spin Cycle</th>
                       <th class="pb-2 text-right">After Spin ({s.unit})</th>
                       <th class="pb-2 text-right">After Refill ({s.unit})</th>
@@ -492,7 +493,7 @@ export default function DiafiltrationView() {
                         <td class="py-2 text-right font-mono">{c.concAfterConcentration.toFixed(1)}</td>
                         <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{c.concAfterRefill < 0.01 ? c.concAfterRefill.toExponential(2) : c.concAfterRefill.toFixed(2)}</td>
                         <td class="py-2 text-right font-mono">{c.cumulativeDfv.toFixed(1)}</td>
-                        <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{c.removalPct.toFixed(1)}%</td>
+                        <td class="py-2 text-right font-mono text-emerald-700 dark:text-emerald-400">{c.removalPct.toFixed(1)}%</td>
                       </tr>
                     ))}
                   </tbody>
@@ -502,7 +503,7 @@ export default function DiafiltrationView() {
               <div class="overflow-x-auto">
                 <table class="w-full text-xs text-left min-w-[340px]">
                   <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                       <th class="pb-2">Dialysis Step</th>
                       <th class="pb-2 text-right">Equilibrium Conc ({s.unit})</th>
                       <th class="pb-2 text-right">Step Dilution</th>
@@ -517,7 +518,7 @@ export default function DiafiltrationView() {
                         </td>
                         <td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{st.equilibriumConc < 0.01 ? st.equilibriumConc.toExponential(2) : st.equilibriumConc.toFixed(2)}</td>
                         <td class="py-2 text-right font-mono">{st.dilutionFactor.toFixed(0)}×</td>
-                        <td class="py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{st.removalPct.toFixed(2)}%</td>
+                        <td class="py-2 text-right font-mono text-emerald-700 dark:text-emerald-400">{st.removalPct.toFixed(2)}%</td>
                       </tr>
                     ))}
                   </tbody>

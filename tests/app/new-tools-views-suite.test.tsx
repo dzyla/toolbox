@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/preact';
+import { render, screen, fireEvent, waitFor } from '@testing-library/preact';
 import SecView from '@/tools/sec/View';
 import GibsonView from '@/tools/gibson/View';
 import MutagenesisView from '@/tools/mutagenesis/View';
@@ -37,6 +37,51 @@ describe('Biophysical & Molecular Biology Tools Views Suite', () => {
     expect(screen.getByText(/Target Codon to Mutate/)).toBeTruthy();
     expect(screen.getByText(/Non-Overlapping Primers for Whole-Plasmid PCR/)).toBeTruthy();
     expect(screen.getByText(/Recommended Q5 PCR & KLD Protocol/)).toBeTruthy();
+  });
+
+  describe('Site-Directed Mutagenesis construct upload', () => {
+    const upload = (container: Element, file: File) => {
+      const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      fireEvent.change(input);
+    };
+
+    it('imports binary SnapGene .dna files through the SnapGene parser', async () => {
+      route.value = { name: 'tool', toolId: 'mutagenesis' };
+      const { container } = render(<MutagenesisView />);
+      const packet = (type: number, data: number[]) => [type, 0, 0, 0, data.length, ...data];
+      const ascii = (value: string) => [...value].map(char => char.charCodeAt(0));
+      const bytes = new Uint8Array([
+        ...packet(0x09, [...ascii('SnapGene'), 0, 1, 0, 1, 0, 1]),
+        ...packet(0x00, [1, ...ascii('ATGAAACCCGGGTTTTAA')]),
+      ]);
+      upload(container, new File([bytes], 'pTest.dna'));
+      await waitFor(() => expect(screen.getByText('18 bp')).toBeTruthy());
+      expect((screen.getByDisplayValue('pTest') as HTMLInputElement).value).toBe('pTest');
+    });
+
+    it('takes only the ORIGIN sequence from GenBank files, not letters from feature text', async () => {
+      route.value = { name: 'tool', toolId: 'mutagenesis' };
+      const { container } = render(<MutagenesisView />);
+      const genbank = [
+        'LOCUS       pGB   12 bp    DNA     circular',
+        'FEATURES             Location/Qualifiers',
+        '     CDS             1..12',
+        '                     /note="A CAT GATE"',
+        'ORIGIN',
+        '        1 atgcatgcat gc',
+        '//',
+      ].join('\n');
+      upload(container, new File([genbank], 'pGB.gb'));
+      await waitFor(() => expect(screen.getByText('12 bp')).toBeTruthy());
+    });
+
+    it('reports unreadable files instead of loading garbage', async () => {
+      route.value = { name: 'tool', toolId: 'mutagenesis' };
+      const { container } = render(<MutagenesisView />);
+      upload(container, new File([new Uint8Array([0xff, 0xfe, 0x00, 0x80, 0x81])], 'broken.dna'));
+      await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Could not import broken\.dna/));
+    });
   });
 
   it('renders Diafiltration & Dialysis Simulator and toggles modes', () => {

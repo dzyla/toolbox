@@ -116,9 +116,9 @@ export function LinearMap({ document, selection, onSelect, orfs = [], restrictio
         </div>
       </div>
       <aside data-testid="plasmid-selection" aria-live="polite" class="min-h-24 rounded-xl border border-[#cbd5e1] bg-white p-4 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:w-60">
-        <p class="mb-2 text-xs font-semibold text-[#64748b]">Selection</p>
+        <p class="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-400">Selection</p>
         <p class="font-semibold text-[#172554] dark:text-slate-100">{status.name}</p>
-        <p class="mt-1 font-mono text-xs text-[#64748b]">{status.range}</p>
+        <p class="mt-1 font-mono text-xs text-slate-600 dark:text-slate-400">{status.range}</p>
       </aside>
     </section>
   );

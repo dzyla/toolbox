@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useUrlState } from '@/lib/url-state';
+import { importErrorMessage, readTextFile } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
 import { downloadText, toCsv } from '@/lib/export';
 import {
   ACCEPTED_AA,
@@ -42,7 +44,7 @@ import { SCIENCE } from './science';
 
 const EXAMPLE = '>Example protein\nMKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGE';
 const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900';
-const CHECK = 'h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500';
+const CHECK = 'h-4 w-4 rounded border-slate-300 text-accent-600 dark:text-accent-400 focus:ring-accent-500';
 
 interface State {
   fasta: string;
@@ -165,7 +167,7 @@ function NumberField({
 function ProfileControls({ state, set }: { state: State; set: (patch: Partial<State>) => void }) {
   return (
     <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-      <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         Profile Plots and Smoothing Windows
       </summary>
       <div class="mt-3 space-y-3">
@@ -209,7 +211,7 @@ function ProfileControls({ state, set }: { state: State; set: (patch: Partial<St
 function FeatureControls({ state, set }: { state: State; set: (patch: Partial<State>) => void }) {
   return (
     <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-      <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         Feature Map Track Visibility
       </summary>
       <div class="mt-3 space-y-2 text-xs">
@@ -253,7 +255,7 @@ function FeatureMap({
   onHoverFeature?: (f: ProteinFeature | null) => void;
   onClickFeature?: (f: ProteinFeature) => void;
 }) {
-  if (!features.length) return <p class="text-sm text-slate-500 py-3">No matching features found with current filters.</p>;
+  if (!features.length) return <p class="text-sm text-slate-500 dark:text-slate-400 py-3">No matching features found with current filters.</p>;
   const baseWidth = 800;
   const width = Math.round(baseWidth * zoom);
   const trackStart = 32;
@@ -424,18 +426,18 @@ function ProteinCard({
             {analysis.seq.length} aa · {analysis.summary.mw.toFixed(1)} Da
           </span>
         </div>
-        <p class="mono mt-1 break-all text-xs text-slate-500 max-h-16 overflow-y-auto">{analysis.seq}</p>
+        <p class="mono mt-1 break-all text-xs text-slate-500 dark:text-slate-400 max-h-16 overflow-y-auto">{analysis.seq}</p>
 
         {/* Net Charge & pI Quick Display */}
         <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-2.5 dark:bg-slate-800/60 text-xs">
           <div class="flex items-center gap-2">
-            <span class="text-slate-500">Net charge at pH {state.pH.toFixed(1)}:</span>{' '}
-            <strong class={`mono text-sm ${analysis.charge > 0 ? 'text-blue-600 dark:text-blue-400' : analysis.charge < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            <span class="text-slate-500 dark:text-slate-400">Net charge at pH {state.pH.toFixed(1)}:</span>{' '}
+            <strong class={`mono text-sm ${analysis.charge > 0 ? 'text-blue-600 dark:text-blue-400' : analysis.charge < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
               {analysis.charge > 0 ? '+' : ''}{analysis.charge.toFixed(3)} e
             </strong>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-slate-500">pI:</span>{' '}
+            <span class="text-slate-500 dark:text-slate-400">pI:</span>{' '}
             <strong class="mono text-sm text-slate-900 dark:text-slate-100">{analysis.summary.pI.toFixed(2)}</strong>
           </div>
         </div>
@@ -455,27 +457,27 @@ function ProteinCard({
       {/* Overview Parameters Grid */}
       <dl class="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Length</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Length</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{analysis.seq.length} aa</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Average molecular weight</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Average molecular weight</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{analysis.summary.mw.toFixed(2)} Da</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Monoisotopic molecular weight</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Monoisotopic molecular weight</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{analysis.summary.mono.toFixed(4)} Da</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Theoretical pI ({state.scheme === 'bjellqvist' ? 'Bjellqvist' : 'EMBOSS'})</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Theoretical pI ({state.scheme === 'bjellqvist' ? 'Bjellqvist' : 'EMBOSS'})</dt>
           <dd class="mono text-lg font-bold text-accent-600 dark:text-accent-400">{analysis.summary.pI.toFixed(3)}</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Net charge at pH {state.pH.toFixed(1)}</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Net charge at pH {state.pH.toFixed(1)}</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{analysis.charge.toFixed(3)} e</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Instability index</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Instability index</dt>
           <dd class="mono text-lg font-bold">
             {analysis.summary.instability.toFixed(2)}{' '}
             <span class={`text-xs px-2 py-0.5 rounded font-medium ${analysis.summary.instability < 40 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}`}>
@@ -484,19 +486,19 @@ function ProteinCard({
           </dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Aliphatic index</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Aliphatic index</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{analysis.summary.aliphatic.toFixed(2)}</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">GRAVY (Kyte–Doolittle)</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">GRAVY (Kyte–Doolittle)</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{analysis.summary.gravy.toFixed(3)}</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Estimated half-life</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estimated half-life</dt>
           <dd class="mono text-lg font-bold text-slate-900 dark:text-slate-100">{halfLife(analysis.seq, state.organism)}</dd>
         </div>
         <div class="sm:col-span-2 lg:col-span-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Atomic formula</dt>
+          <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Atomic formula</dt>
           <dd class="mono text-sm font-semibold break-all text-slate-900 dark:text-slate-100">{analysis.summary.formula || 'Unavailable'}</dd>
         </div>
       </dl>
@@ -508,7 +510,7 @@ function ProteinCard({
           <div class="mt-2 overflow-x-auto">
             <table class="w-full text-left text-xs sm:text-sm">
               <thead>
-                <tr class="border-b border-slate-200 text-slate-500 dark:border-slate-700">
+                <tr class="border-b border-slate-200 text-slate-500 dark:text-slate-400 dark:border-slate-700">
                   <th class="pb-2 font-medium">State</th>
                   <th class="pb-2 text-right font-medium">ε₂₈₀ (M⁻¹cm⁻¹)</th>
                   <th class="pb-2 text-right font-medium">Abs 0.1% (1 g/L)</th>
@@ -533,7 +535,7 @@ function ProteinCard({
           </summary>
           <div class="mt-2 overflow-x-auto max-h-64">
             <table class="w-full text-xs">
-              <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500">
+              <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                 <tr>
                   <th class="pb-1 text-left font-medium">Residue</th>
                   <th class="pb-1 text-right font-medium">Count</th>
@@ -559,7 +561,7 @@ function ProteinCard({
         <details open class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
           <summary class="cursor-pointer font-bold text-sm text-slate-900 dark:text-slate-100 mb-3 select-none flex items-center justify-between">
             <span>Property profiles (Hydropathy, Charge, FoldIndex, Moment, Secondary)</span>
-            <span class="text-xs font-normal text-slate-400">Click to collapse</span>
+            <span class="text-xs font-normal text-slate-500 dark:text-slate-400">Click to collapse</span>
           </summary>
           <div class="space-y-4">
             <div class="grid gap-4 lg:grid-cols-2">
@@ -633,14 +635,14 @@ function ProteinCard({
       <details open class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
         <summary class="cursor-pointer font-bold text-sm text-slate-900 dark:text-slate-100 mb-3 select-none flex items-center justify-between">
           <span>Feature map ({shownFeatures.length} detected features)</span>
-          <span class="text-xs font-normal text-slate-400">Click to collapse</span>
+          <span class="text-xs font-normal text-slate-500 dark:text-slate-400">Click to collapse</span>
         </summary>
         <div class="space-y-3">
           {/* Zoom & Active Feature Banner */}
           <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div class="text-slate-500">
+            <div class="text-slate-500 dark:text-slate-400">
               {hoveredFeature ? (
-                <span class="font-medium text-sky-600 dark:text-sky-400">
+                <span class="font-medium text-sky-700 dark:text-sky-400">
                   Active: <strong>{hoveredFeature.name}</strong> ({hoveredFeature.kind}) · Residues {hoveredFeature.start}–{hoveredFeature.end} ({hoveredFeature.end - hoveredFeature.start + 1} aa)
                 </span>
               ) : (
@@ -648,7 +650,7 @@ function ProteinCard({
               )}
             </div>
             <div class="flex items-center gap-1">
-              <span class="text-slate-400 text-[11px] mr-1">Scale:</span>
+              <span class="text-slate-500 dark:text-slate-400 text-[11px] mr-1">Scale:</span>
               {[1, 1.5, 2, 3].map(z => (
                 <button
                   key={z}
@@ -669,7 +671,7 @@ function ProteinCard({
           {copiedNotice && (
             <div class="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 text-xs font-mono text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-2xs">
               <span class="truncate">📋 {copiedNotice}</span>
-              <button type="button" onClick={() => setCopiedNotice(null)} class="ml-2 text-slate-400 hover:text-slate-600">✕</button>
+              <button type="button" onClick={() => setCopiedNotice(null)} class="ml-2 text-slate-500 dark:text-slate-400 hover:text-slate-600">✕</button>
             </div>
           )}
 
@@ -683,7 +685,7 @@ function ProteinCard({
                     {selectedFeature.kind}
                   </span>
                   {selectedFeature.identity !== undefined && (
-                    <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <span class="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
                       {(selectedFeature.identity * 100).toFixed(1)}% id
                     </span>
                   )}
@@ -691,7 +693,7 @@ function ProteinCard({
                 <div class="text-[11px] font-mono text-sky-700 dark:text-sky-400">
                   Residues {selectedFeature.start}–{selectedFeature.end} ({selectedFeature.end - selectedFeature.start + 1} aa)
                 </div>
-                <div class="text-[11px] font-mono text-slate-500 max-w-xl truncate">
+                <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400 max-w-xl truncate">
                   {analysis.seq.slice(selectedFeature.start - 1, selectedFeature.end)}
                 </div>
               </div>
@@ -707,7 +709,7 @@ function ProteinCard({
                 <button
                   type="button"
                   onClick={() => setSelectedFeature(null)}
-                  class="px-2 py-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  class="px-2 py-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   ✕
                 </button>
@@ -725,8 +727,8 @@ function ProteinCard({
           />
 
           <div class="flex items-center justify-between gap-3 pt-2">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Features Details</span>
-            <input
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Features Details</span>
+            <input aria-label="Features Details"
               type="search"
               placeholder="Search features..."
               value={featureSearch}
@@ -737,7 +739,7 @@ function ProteinCard({
 
           <div class="overflow-y-auto max-h-64 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-xs">
             {searchedFeatures.length === 0 ? (
-              <p class="p-3 text-slate-500 text-center">No features match current filter or search.</p>
+              <p class="p-3 text-slate-500 dark:text-slate-400 text-center">No features match current filter or search.</p>
             ) : (
               searchedFeatures.map((f, i) => {
                 const isHovered = hoveredFeature?.name === f.name && hoveredFeature?.start === f.start;
@@ -760,14 +762,14 @@ function ProteinCard({
                     <div class="flex items-center gap-2">
                       <span class="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: f.color }} />
                       <strong class="text-slate-900 dark:text-slate-100">{f.name}</strong>
-                      <span class="text-slate-400 capitalize">({f.kind})</span>
+                      <span class="text-slate-500 dark:text-slate-400 capitalize">({f.kind})</span>
                       {f.identity !== undefined && (
-                        <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span class="text-emerald-700 dark:text-emerald-400 font-semibold">
                           {(f.identity * 100).toFixed(1)}% id
                         </span>
                       )}
                     </div>
-                    <div class="mono text-slate-500">
+                    <div class="mono text-slate-500 dark:text-slate-400">
                       Residues {f.start}–{f.end} ({f.end - f.start + 1} aa)
                     </div>
                   </div>
@@ -782,7 +784,7 @@ function ProteinCard({
       <details open class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
         <summary class="cursor-pointer font-bold text-sm text-slate-900 dark:text-slate-100 mb-3 select-none flex items-center justify-between">
           <span>Digest and mass matching ({analysis.peptides.length} peptides)</span>
-          <span class="text-xs font-normal text-slate-400">Click to collapse</span>
+          <span class="text-xs font-normal text-slate-500 dark:text-slate-400">Click to collapse</span>
         </summary>
         <div class="space-y-4">
           {matches.length > 0 && (
@@ -799,12 +801,12 @@ function ProteinCard({
           )}
 
           {observed.length > 0 && matches.length === 0 && (
-            <p class="text-xs text-slate-500">No digest peptides match the observed masses at this tolerance.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">No digest peptides match the observed masses at this tolerance.</p>
           )}
 
           <div class="flex items-center justify-between gap-3">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Peptides Table</span>
-            <input
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Peptides Table</span>
+            <input aria-label="Peptides Table"
               type="search"
               placeholder="Search sequence / mass..."
               value={peptideSearch}
@@ -815,7 +817,7 @@ function ProteinCard({
 
           <div class="overflow-x-auto max-h-72 rounded-xl border border-slate-200 dark:border-slate-800">
             <table class="w-full min-w-[44rem] text-left text-xs">
-              <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500">
+              <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                 <tr>
                   <th class="py-2 px-3 font-medium">Residues</th>
                   <th class="py-2 px-3 font-medium">Peptide</th>
@@ -841,7 +843,7 @@ function ProteinCard({
           </div>
 
           <div>
-            <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
               ESI charge ladder for intact monoisotopic mass
             </h4>
             <div class="flex flex-wrap gap-2">
@@ -920,6 +922,8 @@ export default function View() {
   const [state, shareUrl] = useUrlState<State>('protein', DEFAULTS);
   const current = state.value;
   const set = (patch: Partial<State>) => { state.value = { ...state.value, ...patch }; };
+  const [fastaImportError, setFastaImportError] = useState('');
+  const [domainImportError, setDomainImportError] = useState('');
 
   const domainResult = useMemo(() => {
     try {
@@ -958,7 +962,7 @@ export default function View() {
           </label>
 
           <label for="protein-file" class="block">
-            <span class="mb-1 block text-xs font-medium text-slate-500">
+            <span class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Upload FASTA or text file (multiple entries supported)
             </span>
             <input
@@ -967,11 +971,17 @@ export default function View() {
               type="file"
               accept=".fasta,.fa,.faa,.txt,text/plain"
               onChange={async event => {
-                const file = (event.target as HTMLInputElement).files?.[0];
-                if (file) set({ fasta: await file.text() });
+                const input = event.target as HTMLInputElement;
+                const file = input.files?.[0];
+                input.value = '';
+                if (!file) return;
+                setFastaImportError('');
+                try { set({ fasta: await readTextFile(file) }); }
+                catch (err) { setFastaImportError(importErrorMessage(err, file.name)); }
               }}
             />
           </label>
+          <ImportAlert message={fastaImportError} />
 
           <a
             href="#/tool/structure"
@@ -1037,7 +1047,7 @@ export default function View() {
           <FeatureControls state={current} set={set} />
 
           <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               User Custom Domains (CSV)
             </summary>
             <div class="mt-3 space-y-2">
@@ -1055,16 +1065,22 @@ export default function View() {
                 type="file"
                 accept=".csv,text/csv"
                 onChange={async event => {
-                  const file = (event.target as HTMLInputElement).files?.[0];
-                  if (file) set({ domainCsv: await file.text() });
+                  const input = event.target as HTMLInputElement;
+                  const file = input.files?.[0];
+                  input.value = '';
+                  if (!file) return;
+                  setDomainImportError('');
+                  try { set({ domainCsv: await readTextFile(file) }); }
+                  catch (err) { setDomainImportError(importErrorMessage(err, file.name)); }
                 }}
               />
-              {domainResult.error && <p role="alert" class="text-xs text-red-600">{domainResult.error}</p>}
+              <ImportAlert message={domainImportError} />
+              {domainResult.error && <p role="alert" class="text-xs text-red-600 dark:text-red-400">{domainResult.error}</p>}
             </div>
           </details>
 
           <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-800" open>
-            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Digest and Mass Matcher
             </summary>
             <div class="mt-3 space-y-3">

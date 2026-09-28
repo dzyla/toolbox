@@ -11,6 +11,9 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText, toCsv } from '@/lib/export';
+import { importErrorMessage, readImageDataUrl } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
 import { SCIENCE } from './science';
 
 interface State {
@@ -67,6 +70,7 @@ export default function MeasureView() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState('');
 
   const canvasWidth = imageDimensions?.width ?? 640;
   const canvasHeight = imageDimensions?.height ?? 480;
@@ -368,34 +372,29 @@ export default function MeasureView() {
     }
   }
 
-  function handleImageUpload(file: File) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const src = e.target?.result as string;
-      if (src) {
-        const img = new Image();
-        img.onload = () => {
-          const MAX_DIM = 2400;
-          let w = img.naturalWidth || 640;
-          let h = img.naturalHeight || 480;
-          if (w > MAX_DIM || h > MAX_DIM) {
-            if (w >= h) {
-              h = Math.round((h * MAX_DIM) / w);
-              w = MAX_DIM;
-            } else {
-              w = Math.round((w * MAX_DIM) / h);
-              h = MAX_DIM;
-            }
-          }
-          setImageDimensions({ width: w, height: h });
-          setImageSrc(src);
-          setMeasurements([]);
-          setCurrentPoints([]);
-        };
-        img.src = src;
+  async function handleImageUpload(file: File) {
+    setImportError('');
+    try {
+      const { src, width, height } = await readImageDataUrl(file);
+      const MAX_DIM = 2400;
+      let w = width || 640;
+      let h = height || 480;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        if (w >= h) {
+          h = Math.round((h * MAX_DIM) / w);
+          w = MAX_DIM;
+        } else {
+          w = Math.round((w * MAX_DIM) / h);
+          h = MAX_DIM;
+        }
       }
-    };
-    reader.readAsDataURL(file);
+      setImageDimensions({ width: w, height: h });
+      setImageSrc(src);
+      setMeasurements([]);
+      setCurrentPoints([]);
+    } catch (err) {
+      setImportError(importErrorMessage(err, file.name));
+    }
   }
 
   function handleExportCsv() {
@@ -405,7 +404,7 @@ export default function MeasureView() {
         const cal = getMeasurementCalibrated(m, activeScale);
         return [
           m.id,
-          `"${m.label.replace(/"/g, '""')}"`,
+          m.label,
           m.type,
           cal.value.toFixed(3),
           cal.unit,
@@ -413,14 +412,7 @@ export default function MeasureView() {
         ];
       }),
     ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `measurements_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(toCsv(rows), `measurements_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8');
   }
 
   const copyText = [
@@ -485,7 +477,7 @@ export default function MeasureView() {
             </h3>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Known Length</label>
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Known Length</label>
                 <input
                   type="number"
                   min="0.001"
@@ -497,7 +489,7 @@ export default function MeasureView() {
                 />
               </div>
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Unit</label>
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Unit</label>
                 <select
                   aria-label="Scale Unit"
                   value={s.calibUnit}
@@ -512,7 +504,7 @@ export default function MeasureView() {
               </div>
             </div>
 
-            <div class="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
               Current: <strong>{activeScale.realLength} {activeScale.unit}</strong> = <strong>{activeScale.pixels.toFixed(1)} px</strong> ({(activeScale.realLength / activeScale.pixels).toFixed(4)} {activeScale.unit}/px)
             </div>
           </div>
@@ -531,18 +523,21 @@ export default function MeasureView() {
               accept="image/*"
               class="hidden"
               onChange={(e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) handleImageUpload(file);
+                const input = e.target as HTMLInputElement;
+                const file = input.files?.[0];
+                input.value = '';
+                if (file) void handleImageUpload(file);
               }}
             />
             <button
               type="button"
               onClick={() => { setImageSrc(null); setImageDimensions(null); setMeasurements([]); setCurrentPoints([]); }}
-              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
             >
               Clear
             </button>
           </div>
+          <ImportAlert message={importError} />
         </div>
       }
       results={
@@ -554,7 +549,7 @@ export default function MeasureView() {
                 <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                   Image Canvas
                 </h3>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-slate-500 dark:text-slate-400">
                   {s.tool === 'calibrate'
                     ? 'Click 2 points across the scale bar to calibrate.'
                     : s.tool === 'line'
@@ -587,13 +582,13 @@ export default function MeasureView() {
                     {((hoverPt.y * activeScale.realLength) / activeScale.pixels).toFixed(1)} {activeScale.unit})
                   </span>
                 ) : (
-                  <span class="text-slate-400 text-[11px]">Hover image to inspect coordinates · Ctrl+Scroll to zoom</span>
+                  <span class="text-slate-500 dark:text-slate-400 text-[11px]">Hover image to inspect coordinates · Ctrl+Scroll to zoom</span>
                 )}
               </div>
 
               {/* Zoom Controls */}
               <div class="flex items-center gap-1.5 text-xs">
-                <span class="text-[11px] text-slate-500 font-medium">Zoom:</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Zoom:</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -713,7 +708,7 @@ export default function MeasureView() {
               <div class="overflow-x-auto">
                 <table class="w-full text-xs text-left">
                   <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                       <th class="pb-2 font-semibold">#</th>
                       <th class="pb-2 font-semibold">Label</th>
                       <th class="pb-2 font-semibold">Type</th>
@@ -727,20 +722,20 @@ export default function MeasureView() {
                       const cal = getMeasurementCalibrated(m, activeScale);
                       return (
                         <tr key={m.id}>
-                          <td class="py-2 text-slate-400">{idx + 1}</td>
+                          <td class="py-2 text-slate-500 dark:text-slate-400">{idx + 1}</td>
                           <td class="py-2 font-semibold text-slate-900 dark:text-slate-100">{m.label}</td>
-                          <td class="py-2 text-slate-500 capitalize">{m.type}</td>
+                          <td class="py-2 text-slate-500 dark:text-slate-400 capitalize">{m.type}</td>
                           <td data-testid={`meas-val-${idx}`} class="py-2 font-mono font-bold text-right text-accent-600 dark:text-accent-400">
                             {cal.value.toFixed(2)} {cal.unit}
                           </td>
-                          <td class="py-2 font-mono text-right text-slate-400">
+                          <td class="py-2 font-mono text-right text-slate-500 dark:text-slate-400">
                             {m.pixelValue.toFixed(1)} {m.type === 'rect' || m.type === 'circle' || m.type === 'polygon' ? 'px²' : m.type === 'angle' ? '°' : 'px'}
                           </td>
                           <td class="py-2 text-center">
                             <button
                               type="button"
                               onClick={() => setMeasurements(prev => prev.filter(item => item.id !== m.id))}
-                              class="text-slate-400 hover:text-rose-500"
+                              class="text-slate-500 dark:text-slate-400 hover:text-rose-500"
                               title="Delete measurement"
                             >
                               ✕

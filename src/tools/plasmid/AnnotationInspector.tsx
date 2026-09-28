@@ -49,9 +49,9 @@ function AnnotationForm({ annotation, onSave, onCancel }: { annotation: Annotati
     <label class="block text-xs">Annotation color<input class={FIELD} placeholder="#2563eb" value={color} onInput={event => setColor(event.currentTarget.value)} /></label>
     <label class="block text-xs">Annotation strand<select class={FIELD} value={strand} onChange={event => setStrand(Number(event.currentTarget.value) as Strand)}><option value="1">Forward (+)</option><option value="-1">Reverse (−)</option><option value="0">Unstranded</option></select></label>
     <label class="block text-xs">Annotation segments (1-based inclusive)<input class={FIELD} value={segments} onInput={event => setSegments(event.currentTarget.value)} /></label>
-    <p class="text-xs text-slate-500">List joined segments in stored order, separated by commas. Split origin crossings, for example 90..100, 1..12.</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">List joined segments in stored order, separated by commas. Split origin crossings, for example 90..100, 1..12.</p>
     <label class="block text-xs">Annotation qualifiers (JSON)<textarea class={`${FIELD} min-h-24 font-mono`} value={qualifiers} onInput={event => setQualifiers(event.currentTarget.value)} /></label>
-    {error && <p role="alert" class="text-sm text-red-700">{error}</p>}
+    {error && <p role="alert" class="text-sm text-red-700 dark:text-red-400">{error}</p>}
     <div class="flex flex-wrap gap-2"><button type="submit" class={`${BUTTON} bg-blue-700 text-white`}>Save annotation</button>{onCancel && <button type="button" class={BUTTON} onClick={onCancel}>Cancel annotation</button>}</div>
   </form>;
 }
@@ -108,12 +108,12 @@ export function AnnotationInspector({ workspace, onWorkspaceChange, orfs = [], o
   const editable = draft ?? annotation;
   return <aside aria-label="Annotation inspector" class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
     <h2 class="font-semibold text-slate-900 dark:text-slate-100">Annotation inspector</h2>
-    {location ? <p class="font-mono text-xs text-slate-500">{location.segments.map(segment => `${segment.start + 1}–${segment.end}`).join(', ')} bp · {location.strand === -1 ? 'reverse' : location.strand === 1 ? 'forward' : 'unstranded'}</p> : <p class="text-sm text-slate-500">Select a range or annotation to inspect it.</p>}
+    {location ? <p class="font-mono text-xs text-slate-500 dark:text-slate-400">{location.segments.map(segment => `${segment.start + 1}–${segment.end}`).join(', ')} bp · {location.strand === -1 ? 'reverse' : location.strand === 1 ? 'forward' : 'unstranded'}</p> : <p class="text-sm text-slate-500 dark:text-slate-400">Select a range or annotation to inspect it.</p>}
     <div class="flex flex-wrap gap-2"><button class={BUTTON} disabled={!location} onClick={() => void copy(false)}>Copy DNA</button><button class={BUTTON} disabled={!location} onClick={() => void copy(true)}>Copy protein</button></div>
-    {copyNotice && <p role="status" class="text-xs text-slate-500">{copyNotice}</p>}
+    {copyNotice && <p role="status" class="text-xs text-slate-500 dark:text-slate-400">{copyNotice}</p>}
     {copyFallback !== undefined && <label class="block text-xs">Sequence to copy<textarea class={`${FIELD} font-mono`} ref={fallbackRef} readOnly value={copyFallback} /></label>}
     <button class={BUTTON} disabled={!rangeLocation} onClick={create}>Create annotation from selection</button>
     {editable && <AnnotationForm key={JSON.stringify(editable)} annotation={editable} onSave={save} onCancel={draft ? () => setDraft(undefined) : undefined} />}
-    {annotation && !draft && <><p class="text-xs text-slate-500">Source: {annotation.source}{annotation.confidence ? ` · ${annotation.confidence}` : ''}</p><button class={`${BUTTON} text-red-700`} onClick={() => onWorkspaceChange(clearSelection(applyDocumentEdit(workspace, deleteAnnotation(plasmid, annotation.id))))}>Delete annotation</button></>}
+    {annotation && !draft && <><p class="text-xs text-slate-500 dark:text-slate-400">Source: {annotation.source}{annotation.confidence ? ` · ${annotation.confidence}` : ''}</p><button class={`${BUTTON} text-red-700 dark:text-red-400`} onClick={() => onWorkspaceChange(clearSelection(applyDocumentEdit(workspace, deleteAnnotation(plasmid, annotation.id))))}>Delete annotation</button></>}
   </aside>;
 }

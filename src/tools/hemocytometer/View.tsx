@@ -73,7 +73,7 @@ export default function HemocytometerView() {
 
   const copyText = 'error' in result ? result.error! : [
     `Viable Cell Density: ${result.liveCellsPerMl.toExponential(3)} cells/mL`,
-    `Viability: ${result.viabilityPercent.toFixed(1)}% (${result.totalLiveCounted} live / ${result.totalDeadCounted} dead)`,
+    `Viability: ${Number.isFinite(result.viabilityPercent) ? `${result.viabilityPercent.toFixed(1)}%` : '— (no cells counted)'} (${result.totalLiveCounted} live / ${result.totalDeadCounted} dead)`,
     `Total Culture Cells: ${result.totalViableInCulture ? result.totalViableInCulture.toExponential(3) : 'N/A'} cells`,
     `Seeding Volume (${s.targetSeedingCount.toLocaleString()} cells): ${result.seedingVolumeUl ? `${result.seedingVolumeUl.toFixed(1)} µL` : 'N/A'}`,
     '',
@@ -88,7 +88,7 @@ export default function HemocytometerView() {
       mobileDefaultTab="results"
       mobileResultSummary={
         'error' in result ? (
-          <span class="text-rose-600 dark:text-rose-400 font-semibold">{result.error}</span>
+          <span class="text-rose-700 dark:text-rose-400 font-semibold">{result.error}</span>
         ) : (
           <span>Viable: <strong class="font-mono text-accent-700 dark:text-accent-300">{result.liveCellsPerMl >= 1e6 ? `${(result.liveCellsPerMl / 1e6).toFixed(2)} × 10⁶` : result.liveCellsPerMl.toLocaleString()}</strong> cells/mL · <strong>{result.viabilityPercent.toFixed(1)}%</strong> via</span>
         )
@@ -103,7 +103,7 @@ export default function HemocytometerView() {
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                 Dilution Factor (e.g. 2 for 1:1 Trypan Blue)
               </label>
-              <input
+              <input aria-label="Dilution Factor (e.g. 2 for 1:1 Trypan Blue)"
                 type="number"
                 min="1"
                 step="any"
@@ -116,7 +116,7 @@ export default function HemocytometerView() {
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                 Total Culture Volume (mL)
               </label>
-              <input
+              <input aria-label="Total Culture Volume (mL)"
                 type="number"
                 min="0"
                 step="any"
@@ -129,7 +129,7 @@ export default function HemocytometerView() {
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                 Target Seeding Count (cells)
               </label>
-              <input
+              <input aria-label="Target Seeding Count (cells)"
                 type="number"
                 min="0"
                 step="10000"
@@ -149,7 +149,7 @@ export default function HemocytometerView() {
               <button
                 type="button"
                 onClick={() => setCountingMode('live')}
-                class={`p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition ${countingMode === 'live' ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' : 'border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                class={`p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition ${countingMode === 'live' ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs' : 'border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
               >
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-300"></span>
                 Live Cells
@@ -176,7 +176,7 @@ export default function HemocytometerView() {
             <button
               type="button"
               onClick={handleResetAll}
-              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
             >
               Reset Counts
             </button>
@@ -187,32 +187,32 @@ export default function HemocytometerView() {
         <div class="space-y-4">
           {/* Results Summary Tiles */}
           {'error' in result ? (
-            <p role="alert" class="text-sm text-red-600 font-medium">{result.error}</p>
+            <p role="alert" class="text-sm text-red-600 dark:text-red-400 font-medium">{result.error}</p>
           ) : (
             <>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Viable Density</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Viable Density</span>
                   <span data-testid="live-density" class="font-mono text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.liveCellsPerMl >= 1e6
                       ? `${(result.liveCellsPerMl / 1e6).toFixed(2)} × 10⁶`
                       : result.liveCellsPerMl.toLocaleString()}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">cells / mL</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">cells / mL</span>
                 </div>
 
                 <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Viability</span>
-                  <span data-testid="viability" class={`font-mono text-xl font-bold ${result.viabilityPercent >= 90 ? 'text-emerald-600 dark:text-emerald-400' : result.viabilityPercent >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                    {result.viabilityPercent.toFixed(1)}%
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Viability</span>
+                  <span data-testid="viability" class={`font-mono text-xl font-bold ${!Number.isFinite(result.viabilityPercent) ? 'text-slate-500' : result.viabilityPercent >= 90 ? 'text-emerald-700 dark:text-emerald-400' : result.viabilityPercent >= 75 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>
+                    {Number.isFinite(result.viabilityPercent) ? `${result.viabilityPercent.toFixed(1)}%` : '—'}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
                     {result.totalLiveCounted} live / {result.totalDeadCounted} dead
                   </span>
                 </div>
 
                 <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Total in Culture</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Total in Culture</span>
                   <span class="font-mono text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.totalViableInCulture ? (
                       result.totalViableInCulture >= 1e6
@@ -220,11 +220,11 @@ export default function HemocytometerView() {
                         : result.totalViableInCulture.toLocaleString()
                     ) : '—'}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">cells total</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">cells total</span>
                 </div>
 
                 <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                  <span class="text-xs text-slate-500 block">Seeding Volume</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 block">Seeding Volume</span>
                   <span class="font-mono text-xl font-bold text-accent-600 dark:text-accent-400">
                     {result.seedingVolumeUl !== undefined ? (
                       result.seedingVolumeUl >= 1000
@@ -232,7 +232,7 @@ export default function HemocytometerView() {
                         : `${result.seedingVolumeUl.toFixed(1)} µL`
                     ) : '—'}
                   </span>
-                  <span class="text-[11px] text-slate-400 block">for {s.targetSeedingCount.toLocaleString()} cells</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 block">for {s.targetSeedingCount.toLocaleString()} cells</span>
                 </div>
               </div>
 
@@ -242,8 +242,8 @@ export default function HemocytometerView() {
                   <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                     Hemocytometer Squares ({squares.length} squares)
                   </h3>
-                  <span class="text-xs text-slate-400">
-                    Active mode: <strong class={countingMode === 'live' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>{countingMode.toUpperCase()}</strong>
+                  <span class="text-xs text-slate-500 dark:text-slate-400">
+                    Active mode: <strong class={countingMode === 'live' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>{countingMode.toUpperCase()}</strong>
                   </span>
                 </div>
 
@@ -259,7 +259,7 @@ export default function HemocytometerView() {
                       >
                         <div class="flex items-center justify-between mb-2">
                           <strong class="text-xs text-slate-900 dark:text-slate-100">{sq.name}</strong>
-                          <span class="text-[11px] mono text-slate-500">{sqViability.toFixed(0)}% via</span>
+                          <span class="text-[11px] mono text-slate-500 dark:text-slate-400">{sqViability.toFixed(0)}% via</span>
                         </div>
 
                         <div class="grid grid-cols-2 gap-2 mb-2">
@@ -278,7 +278,7 @@ export default function HemocytometerView() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'live', 1); }}
-                              class="flex-1 min-h-[38px] bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg font-bold text-xs transition flex items-center justify-center shadow-xs"
+                              class="flex-1 min-h-[38px] bg-emerald-700 hover:bg-emerald-700 active:scale-95 text-white rounded-lg font-bold text-xs transition flex items-center justify-center shadow-xs"
                             >
                               + Live
                             </button>
@@ -287,7 +287,7 @@ export default function HemocytometerView() {
                               onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'live', -1); }}
                               disabled={sq.live <= 0}
                               title="Decrement live"
-                              class="px-2 min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 font-bold text-xs disabled:opacity-30 transition"
+                              class="px-2 min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-xs disabled:opacity-30 transition"
                             >
                               −
                             </button>
@@ -305,7 +305,7 @@ export default function HemocytometerView() {
                               onClick={(e) => { e.stopPropagation(); handleAddCount(sq.id, 'dead', -1); }}
                               disabled={sq.dead <= 0}
                               title="Decrement dead"
-                              class="px-2 min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 font-bold text-xs disabled:opacity-30 transition"
+                              class="px-2 min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-xs disabled:opacity-30 transition"
                             >
                               −
                             </button>
@@ -314,7 +314,7 @@ export default function HemocytometerView() {
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleResetSquare(sq.id); }}
                             title="Reset this square"
-                            class="px-2 min-h-[38px] text-slate-400 hover:text-rose-600 rounded-lg text-xs transition"
+                            class="px-2 min-h-[38px] text-slate-500 dark:text-slate-400 hover:text-rose-600 rounded-lg text-xs transition"
                           >
                             ↺
                           </button>

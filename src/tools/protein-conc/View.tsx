@@ -140,26 +140,26 @@ export default function View() {
           a280.value ? (
             <div class="flex items-center justify-between gap-2">
               <div>
-                <span class="text-[10px] text-slate-500 block">Concentration</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Concentration</span>
                 <strong class="font-mono text-base text-accent-700 dark:text-accent-300">
                   {a280.value.gPerL >= 0.01 ? a280.value.gPerL.toFixed(3) : a280.value.gPerL.toExponential(2)} g/L
                 </strong>
               </div>
               <div class="text-right">
-                <span class="text-[10px] text-slate-500 block">Molar</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Molar</span>
                 <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {(a280.value.molar * 1e6).toFixed(2)} µM
                 </span>
               </div>
             </div>
           ) : a280.error ? (
-            <span class="text-rose-600 dark:text-rose-400 font-semibold">{a280.error}</span>
+            <span class="text-rose-700 dark:text-rose-400 font-semibold">{a280.error}</span>
           ) : null
         ) : (
           curve.fit ? (
             <span>Standard curve: <strong class="font-mono">R² {curve.fit.r2.toFixed(4)}</strong> ({curve.unknowns.length} unknowns)</span>
           ) : curve.error ? (
-            <span class="text-rose-600 dark:text-rose-400 font-semibold">{curve.error}</span>
+            <span class="text-rose-700 dark:text-rose-400 font-semibold">{curve.error}</span>
           ) : null
         )
       }
@@ -170,7 +170,7 @@ export default function View() {
             <>
               {/* Protein Presets */}
               <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-0.5">Presets:</span>
                 {[
                   { name: 'BSA', mw: 66430, eps: 43824 },
                   { name: 'IgG / Antibody', mw: 150000, eps: 210000 },
@@ -221,8 +221,8 @@ export default function View() {
                 </summary>
                 <div class="mt-3 space-y-3 text-xs">
                   <div>
-                    <label class="block text-slate-500 mb-1">Glycan Content Type</label>
-                    <select
+                    <label class="block text-slate-500 dark:text-slate-400 mb-1">Glycan Content Type</label>
+                    <select aria-label="Glycan Content Type"
                       value={current.glycanType}
                       onChange={(e) => set({ glycanType: (e.target as HTMLSelectElement).value as State['glycanType'] })}
                       class={FIELD}
@@ -237,8 +237,8 @@ export default function View() {
 
                   {(current.glycanType === 'n_glycan' || current.glycanType === 'o_glycan') && (
                     <div>
-                      <label class="block text-slate-500 mb-1">Number of Glycosylation Sites</label>
-                      <input
+                      <label class="block text-slate-500 dark:text-slate-400 mb-1">Number of Glycosylation Sites</label>
+                      <input aria-label="Number of Glycosylation Sites"
                         type="number"
                         min="1"
                         max="50"
@@ -251,8 +251,8 @@ export default function View() {
 
                   {current.glycanType === 'percent_carb' && (
                     <div>
-                      <label class="block text-slate-500 mb-1">Carbohydrate Content (%)</label>
-                      <input
+                      <label class="block text-slate-500 dark:text-slate-400 mb-1">Carbohydrate Content (%)</label>
+                      <input aria-label="Carbohydrate Content (%)"
                         type="number"
                         min="0"
                         max="95"
@@ -266,8 +266,8 @@ export default function View() {
 
                   {current.glycanType === 'custom_da' && (
                     <div>
-                      <label class="block text-slate-500 mb-1">Custom Glycan Mass (Da)</label>
-                      <input
+                      <label class="block text-slate-500 dark:text-slate-400 mb-1">Custom Glycan Mass (Da)</label>
+                      <input aria-label="Custom Glycan Mass (Da)"
                         type="number"
                         min="0"
                         step="any"
@@ -278,7 +278,7 @@ export default function View() {
                     </div>
                   )}
 
-                  <p class="text-[11px] text-slate-400">
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400">
                     💡 Carbohydrate residues lack conjugated rings and do not absorb at 280 nm. Extinction coefficient (ε₂₈₀) is unchanged, while mass concentration increases proportionally to total glycoprotein MW.
                   </p>
                 </div>
@@ -296,7 +296,7 @@ export default function View() {
                     Use sequence-derived native, all-cystines ε and average MW
                   </label>
                   {sequenceValues && (
-                    <p class="text-xs text-slate-500">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
                       Derived: MW {sequenceValues.mw.toFixed(2)} Da; ε {sequenceValues.epsilon.toFixed(0)} M⁻¹cm⁻¹.{sequenceValues.ambiguous.length ? ` Ambiguous: ${sequenceValues.ambiguous.join(', ')}.` : ''}
                     </p>
                   )}
@@ -308,7 +308,7 @@ export default function View() {
               <label for="curve-standards" class="block">
                 <span class="mb-1 block text-sm font-medium">Standards</span>
                 <textarea id="curve-standards" rows={7} class={FIELD} value={current.standards} onInput={event => set({ standards: (event.target as HTMLTextAreaElement).value })} />
-                <span class="mt-1 block text-xs text-slate-500">One concentration, absorbance pair per line; comma, tab, or space separated.</span>
+                <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">One concentration, absorbance pair per line; comma, tab, or space separated.</span>
               </label>
               <label for="curve-model" class="block">
                 <span class="mb-1 block text-sm font-medium">Fit model</span>
@@ -328,11 +328,11 @@ export default function View() {
       results={
         current.tab === 'a280' ? (
           a280.error ? (
-            <p role="alert" class="text-red-600">{a280.error}</p>
+            <p role="alert" class="text-red-600 dark:text-red-400">{a280.error}</p>
           ) : (
             <div data-testid="a280-result" class="space-y-4">
               <div>
-                <p class="text-sm text-slate-500">Blank-corrected sample concentration</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Blank-corrected sample concentration</p>
                 <p class="mono text-3xl font-bold text-slate-900 dark:text-slate-100">{a280.value!.gPerL.toFixed(2)} g/L</p>
                 <p class="mono text-xl font-semibold text-accent-600 dark:text-accent-400">
                   {a280.value!.gPerL.toFixed(2)} mg/mL · {(a280.value!.molar * 1e6).toFixed(2)} µM
@@ -358,33 +358,33 @@ export default function View() {
 
               <dl class="grid grid-cols-2 gap-2 text-sm">
                 <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                  <dt class="text-xs text-slate-500">ε₂₈₀ (Molar Extinction)</dt>
+                  <dt class="text-xs text-slate-500 dark:text-slate-400">ε₂₈₀ (Molar Extinction)</dt>
                   <dd class="mono font-bold text-slate-800 dark:text-slate-200">{a280.epsilon.toFixed(0)} M⁻¹cm⁻¹</dd>
                 </div>
                 <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                  <dt class="text-xs text-slate-500">Molecular Weight</dt>
+                  <dt class="text-xs text-slate-500 dark:text-slate-400">Molecular Weight</dt>
                   <dd class="mono font-bold text-slate-800 dark:text-slate-200">
                     {a280.totalMw.toFixed(1)} Da
-                    {a280.glycanMass > 0 && <span class="text-[10px] text-amber-600 block font-normal">(+{a280.glycanMass.toFixed(0)} Da glycan)</span>}
+                    {a280.glycanMass > 0 && <span class="text-[10px] text-amber-700 dark:text-amber-400 block font-normal">(+{a280.glycanMass.toFixed(0)} Da glycan)</span>}
                   </dd>
                 </div>
                 <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                  <dt class="text-xs text-slate-500">Mass Extinction E^{`0.1%`} (1 g/L)</dt>
+                  <dt class="text-xs text-slate-500 dark:text-slate-400">Mass Extinction E^{`0.1%`} (1 g/L)</dt>
                   <dd class="mono font-bold text-slate-800 dark:text-slate-200">{(a280.epsilon / a280.totalMw).toFixed(3)} AU</dd>
                 </div>
                 <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                  <dt class="text-xs text-slate-500">1 Absorbance Unit Equals</dt>
+                  <dt class="text-xs text-slate-500 dark:text-slate-400">1 Absorbance Unit Equals</dt>
                   <dd class="mono font-bold text-slate-800 dark:text-slate-200">{(a280.totalMw / a280.epsilon).toFixed(3)} mg/mL</dd>
                 </div>
               </dl>
             </div>
           )
         ) : curve.error ? (
-          <p role="alert" class="text-red-600">{curve.error}</p>
+          <p role="alert" class="text-red-600 dark:text-red-400">{curve.error}</p>
         ) : (
           <div data-testid="curve-result" class="space-y-4">
             <div>
-              <p class="text-sm text-slate-500">{curve.fit!.model === 'linear' ? 'Linear least-squares fit' : 'Quadratic least-squares fit'}</p>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{curve.fit!.model === 'linear' ? 'Linear least-squares fit' : 'Quadratic least-squares fit'}</p>
               <p class="mono text-lg font-semibold">R² {curve.fit!.r2.toFixed(4)}</p>
               <p class="mono text-sm">A = {curve.fit!.coefficients.map((coefficient, index) => `${coefficient.toPrecision(5)}${index ? `c${index === 2 ? '²' : ''}` : ''}`).join(' + ')}</p>
             </div>
@@ -397,7 +397,7 @@ export default function View() {
                 ))}
               </ul>
             ) : (
-              <p class="text-sm text-slate-500">Enter unknown absorbance values to interpolate them.</p>
+              <p class="text-sm text-slate-500 dark:text-slate-400">Enter unknown absorbance values to interpolate them.</p>
             )}
             <LineChart
               title="Standard curve"

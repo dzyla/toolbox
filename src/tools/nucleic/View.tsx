@@ -195,13 +195,13 @@ export default function NucleicView() {
         s.tab === 'convert' && convResults ? (
           <div class="flex items-center justify-between gap-2">
             <div>
-              <span class="text-[10px] text-slate-500 block">Molar Concentration</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Molar Concentration</span>
               <strong class="font-mono text-base text-accent-700 dark:text-accent-300">
                 {convResults.calculatedMolar >= 1000 ? `${(convResults.calculatedMolar / 1000).toFixed(2)} µM` : `${convResults.calculatedMolar.toFixed(2)} nM`}
               </strong>
             </div>
             <div class="text-right">
-              <span class="text-[10px] text-slate-500 block">Approx MW</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Approx MW</span>
               <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {convResults.mw >= 1e6 ? `${(convResults.mw / 1e6).toFixed(2)} MDa` : `${(convResults.mw / 1e3).toFixed(1)} kDa`}
               </span>
@@ -210,12 +210,12 @@ export default function NucleicView() {
         ) : s.tab === 'a260' && a260Results ? (
           <div class="flex items-center justify-between gap-2">
             <div>
-              <span class="text-[10px] text-slate-500 block">Calculated Concentration</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Calculated Concentration</span>
               <strong class="font-mono text-base text-accent-700 dark:text-accent-300">{a260Results.conc.toFixed(2)} ng/µL</strong>
             </div>
             {a260Results.molar > 0 && (
               <div class="text-right">
-                <span class="text-[10px] text-slate-500 block">Molar</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Molar</span>
                 <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">{a260Results.molar.toFixed(2)} nM</span>
               </div>
             )}
@@ -257,7 +257,7 @@ export default function NucleicView() {
 
           <div>
             <label class="block text-sm font-medium mb-1">Nucleic Acid Type</label>
-            <select
+            <select aria-label="Nucleic Acid Type"
               class={FIELD}
               value={s.naType}
               onChange={e => set({ naType: (e.target as HTMLSelectElement).value as NaType })}
@@ -272,7 +272,7 @@ export default function NucleicView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Length (bp or nt)</label>
-                <input
+                <input aria-label="Length (bp or nt)"
                   type="number"
                   min="1"
                   class={FIELD}
@@ -283,7 +283,7 @@ export default function NucleicView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Mass Concentration (ng/µL or µg/mL)</label>
-                <input
+                <input aria-label="Mass Concentration (ng/µL or µg/mL)"
                   type="number"
                   step="any"
                   min="0"
@@ -299,7 +299,7 @@ export default function NucleicView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">A260 Absorbance</label>
-                <input
+                <input aria-label="A260 Absorbance"
                   type="number"
                   step="any"
                   min="0"
@@ -312,7 +312,7 @@ export default function NucleicView() {
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-sm font-medium mb-1">Dilution Factor</label>
-                  <input
+                  <input aria-label="Dilution Factor"
                     type="number"
                     step="any"
                     min="1"
@@ -323,7 +323,7 @@ export default function NucleicView() {
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">Path Length (cm)</label>
-                  <input
+                  <input aria-label="Path Length (cm)"
                     type="number"
                     step="any"
                     min="0.01"
@@ -336,7 +336,7 @@ export default function NucleicView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Length for Molarity (optional)</label>
-                <input
+                <input aria-label="Length for Molarity (optional)"
                   type="number"
                   min="1"
                   class={FIELD}
@@ -351,7 +351,7 @@ export default function NucleicView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Length (bp or nt)</label>
-                <input
+                <input aria-label="Length (bp or nt)"
                   type="number"
                   min="1"
                   class={FIELD}
@@ -362,7 +362,7 @@ export default function NucleicView() {
 
               <div>
                 <label class="block text-sm font-medium mb-1">Mass (ng)</label>
-                <input
+                <input aria-label="Mass (ng)"
                   type="number"
                   step="any"
                   min="0"
@@ -378,7 +378,7 @@ export default function NucleicView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Oligo Sequence (5′ → 3′)</label>
-                <textarea
+                <textarea aria-label="Oligo Sequence (5′ → 3′)"
                   rows={3}
                   class={`${FIELD} mono`}
                   value={s.oligoSeq}
@@ -389,7 +389,7 @@ export default function NucleicView() {
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label class="block text-sm font-medium mb-1">Mass (µg)</label>
-                  <input
+                  <input aria-label="Mass (µg)"
                     type="number"
                     step="any"
                     min="0"
@@ -400,7 +400,7 @@ export default function NucleicView() {
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">Stock Target Conc (µM)</label>
-                  <input
+                  <input aria-label="Stock Target Conc (µM)"
                     type="number"
                     step="any"
                     min="0.1"
@@ -417,8 +417,8 @@ export default function NucleicView() {
                 </span>
                 <div class="grid grid-cols-3 gap-2">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">A260</label>
-                    <input
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">A260</label>
+                    <input aria-label="A260"
                       type="number"
                       step="any"
                       min="0"
@@ -428,8 +428,8 @@ export default function NucleicView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">Dilution</label>
-                    <input
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Dilution</label>
+                    <input aria-label="Dilution"
                       type="number"
                       step="any"
                       min="1"
@@ -439,8 +439,8 @@ export default function NucleicView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">Path (cm)</label>
-                    <input
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Path (cm)</label>
+                    <input aria-label="Path (cm)"
                       type="number"
                       step="any"
                       min="0.01"
@@ -458,7 +458,7 @@ export default function NucleicView() {
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium mb-1">Primer / Oligo Sequence (5′ → 3′)</label>
-                <textarea
+                <textarea aria-label="Primer / Oligo Sequence (5′ → 3′)"
                   rows={2}
                   class={`${FIELD} mono`}
                   value={s.tmSeq}
@@ -469,7 +469,7 @@ export default function NucleicView() {
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div>
                   <label class="block text-xs font-medium mb-1">Oligo Conc (nM)</label>
-                  <input
+                  <input aria-label="Oligo Conc (nM)"
                     type="number"
                     step="any"
                     min="1"
@@ -480,7 +480,7 @@ export default function NucleicView() {
                 </div>
                 <div>
                   <label class="block text-xs font-medium mb-1">Na⁺ / Monovalent (mM)</label>
-                  <input
+                  <input aria-label="Na⁺ / Monovalent (mM)"
                     type="number"
                     step="any"
                     min="0"
@@ -491,7 +491,7 @@ export default function NucleicView() {
                 </div>
                 <div>
                   <label class="block text-xs font-medium mb-1">Mg²⁺ (mM)</label>
-                  <input
+                  <input aria-label="Mg²⁺ (mM)"
                     type="number"
                     step="any"
                     min="0"
@@ -510,12 +510,12 @@ export default function NucleicView() {
           {s.tab === 'convert' && convResults && (
             <div class="space-y-4" data-testid="nucleic-convert-result">
               {convResults.error ? (
-                <div role="alert" class="text-red-600">{convResults.error}</div>
+                <div role="alert" class="text-red-600 dark:text-red-400">{convResults.error}</div>
               ) : (
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Molar Concentration</div>
-                    <div class="mono text-2xl font-bold text-accent-600">
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Molar Concentration</div>
+                    <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                       {convResults.calculatedMolar >= 1000
                         ? `${(convResults.calculatedMolar / 1000).toFixed(2)} µM`
                         : `${convResults.calculatedMolar.toFixed(2)} nM`}
@@ -523,19 +523,19 @@ export default function NucleicView() {
                   </div>
 
                   <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Mass Concentration</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Mass Concentration</div>
                     <div class="mono text-2xl font-bold">
                       {s.ngPerUl} ng/µL
                     </div>
-                    <div class="text-xs text-slate-500">(= µg/mL)</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">(= µg/mL)</div>
                   </div>
 
                   <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Estimated MW</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Estimated MW</div>
                     <div class="mono text-lg font-bold">
                       {(convResults.mw / 1000).toFixed(1)} kDa
                     </div>
-                    <div class="text-xs text-slate-500">{convResults.mw.toLocaleString()} g/mol</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{convResults.mw.toLocaleString()} g/mol</div>
                   </div>
                 </div>
               )}
@@ -545,20 +545,20 @@ export default function NucleicView() {
           {s.tab === 'a260' && a260Results && (
             <div class="space-y-4" data-testid="nucleic-a260-result">
               {a260Results.error ? (
-                <div role="alert" class="text-red-600">{a260Results.error}</div>
+                <div role="alert" class="text-red-600 dark:text-red-400">{a260Results.error}</div>
               ) : (
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <div class="text-xs text-slate-500">Concentration</div>
-                    <div class="mono text-2xl font-bold text-accent-600">
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Concentration</div>
+                    <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                       {a260Results.conc.toFixed(2)} ng/µL
                     </div>
-                    <div class="text-xs text-slate-500">({(a260Results.conc / 1000).toFixed(3)} mg/mL)</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">({(a260Results.conc / 1000).toFixed(3)} mg/mL)</div>
                   </div>
 
                   {a260Results.molar > 0 && (
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Molar Concentration</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">Molar Concentration</div>
                       <div class="mono text-2xl font-bold">
                         {a260Results.molar >= 1000
                           ? `${(a260Results.molar / 1000).toFixed(2)} µM`
@@ -574,14 +574,14 @@ export default function NucleicView() {
           {s.tab === 'copy' && copyResults && (
             <div class="space-y-4" data-testid="nucleic-copy-result">
               {copyResults.error ? (
-                <div role="alert" class="text-red-600">{copyResults.error}</div>
+                <div role="alert" class="text-red-600 dark:text-red-400">{copyResults.error}</div>
               ) : (
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Calculated Copies</div>
-                  <div class="mono text-3xl font-bold text-accent-600 mt-1">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Calculated Copies</div>
+                  <div class="mono text-3xl font-bold text-accent-600 dark:text-accent-400 mt-1">
                     {copyResults.num.toExponential(3)}
                   </div>
-                  <div class="text-xs text-slate-500 mt-2">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">
                     in {s.copyNg} ng of {s.length} bp/nt {s.naType}
                   </div>
                 </div>
@@ -592,32 +592,32 @@ export default function NucleicView() {
           {s.tab === 'oligo' && oligoResults && (
             <div class="space-y-4" data-testid="nucleic-oligo-result">
               {oligoResults.error ? (
-                <div role="alert" class="text-red-600">{oligoResults.error}</div>
+                <div role="alert" class="text-red-600 dark:text-red-400">{oligoResults.error}</div>
               ) : (
                 <div class="space-y-3">
                   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Exact Anhydrous MW</div>
-                      <div class="mono text-2xl font-bold text-accent-600">
+                      <div class="text-xs text-slate-500 dark:text-slate-400">Exact Anhydrous MW</div>
+                      <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                         {oligoResults.mw.toFixed(2)} Da
                       </div>
-                      <div class="text-xs text-slate-500">5′-OH / 3′-OH free acid</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">5′-OH / 3′-OH free acid</div>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Extinction Coeff (ε₂₆₀)</div>
-                      <div class="mono text-2xl font-bold text-accent-600">
+                      <div class="text-xs text-slate-500 dark:text-slate-400">Extinction Coeff (ε₂₆₀)</div>
+                      <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                         {oligoResults.ec.toLocaleString()}
                       </div>
-                      <div class="text-xs text-slate-500">M⁻¹ cm⁻¹ (nearest-neighbor)</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">M⁻¹ cm⁻¹ (nearest-neighbor)</div>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700 col-span-2 sm:col-span-1">
-                      <div class="text-xs text-slate-500">Quantity from Mass</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">Quantity from Mass</div>
                       <div class="mono text-2xl font-bold">
                         {oligoResults.nmol.toFixed(2)} nmol
                       </div>
-                      <div class="text-xs text-slate-500">from {s.oligoUg} µg ({oligoResults.len} nt)</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">from {s.oligoUg} µg ({oligoResults.len} nt)</div>
                     </div>
                   </div>
 
@@ -626,7 +626,7 @@ export default function NucleicView() {
                       <div class="text-xs font-semibold text-accent-700 dark:text-accent-300">
                         Stock Resuspension ({oligoResults.resuspendConc} µM)
                       </div>
-                      <div class="mono text-2xl font-bold text-accent-600 mt-1">
+                      <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400 mt-1">
                         {oligoResults.resuspendUl.toFixed(1)} µL
                       </div>
                       <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">
@@ -635,7 +635,7 @@ export default function NucleicView() {
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">OD₂₆₀ Conversion Factors</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">OD₂₆₀ Conversion Factors</div>
                       <div class="mono text-base font-semibold mt-1">
                         1 OD₂₆₀ = {oligoResults.nmolPerOd.toFixed(2)} nmol
                       </div>
@@ -652,14 +652,14 @@ export default function NucleicView() {
                       </div>
                       <div class="grid grid-cols-2 gap-2 mt-2">
                         <div>
-                          <div class="text-xs text-slate-500">Molar Concentration</div>
-                          <div class="mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                          <div class="text-xs text-slate-500 dark:text-slate-400">Molar Concentration</div>
+                          <div class="mono text-lg font-bold text-emerald-700 dark:text-emerald-400">
                             {oligoResults.a260Quant.molarConcUM.toFixed(2)} µM
                           </div>
                         </div>
                         <div>
-                          <div class="text-xs text-slate-500">Mass Concentration</div>
-                          <div class="mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                          <div class="text-xs text-slate-500 dark:text-slate-400">Mass Concentration</div>
+                          <div class="mono text-lg font-bold text-emerald-700 dark:text-emerald-400">
                             {oligoResults.a260Quant.massConcUgPerMl.toFixed(2)} µg/mL (ng/µL)
                           </div>
                         </div>
@@ -674,7 +674,7 @@ export default function NucleicView() {
           {s.tab === 'tm' && tmResults && (
             <div class="space-y-4" data-testid="nucleic-tm-result">
               {!tmResults.success ? (
-                <div role="alert" class="text-red-600">{tmResults.error}</div>
+                <div role="alert" class="text-red-600 dark:text-red-400">{tmResults.error}</div>
               ) : (
                 <div class="space-y-4">
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -682,28 +682,28 @@ export default function NucleicView() {
                       <div class="text-xs font-semibold text-accent-700 dark:text-accent-300">
                         Nearest-Neighbour Tm
                       </div>
-                      <div class="mono text-3xl font-bold text-accent-600 mt-1">
+                      <div class="mono text-3xl font-bold text-accent-600 dark:text-accent-400 mt-1">
                         {Number.isFinite(tmResults.nn.tm) ? `${tmResults.nn.tm.toFixed(1)} °C` : '—'}
                       </div>
-                      <div class="text-xs text-slate-500 mt-1">
+                      <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         SantaLucia 1998 ({s.saltModel})
                       </div>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Basic Marmur Tm</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">Basic Marmur Tm</div>
                       <div class="mono text-2xl font-bold mt-1">
                         {Number.isFinite(tmResults.basic.tm) ? `${tmResults.basic.tm.toFixed(1)} °C` : '—'}
                       </div>
-                      <div class="text-xs text-slate-500 mt-1">Valid for N ≥ 14</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">Valid for N ≥ 14</div>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <div class="text-xs text-slate-500">Wallace Rule Tm</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">Wallace Rule Tm</div>
                       <div class="mono text-2xl font-bold mt-1">
                         {Number.isFinite(tmResults.wallace.tm) ? `${tmResults.wallace.tm.toFixed(1)} °C` : '—'}
                       </div>
-                      <div class="text-xs text-slate-500 mt-1">2(A+T) + 4(G+C), N &lt; 14</div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">2(A+T) + 4(G+C), N &lt; 14</div>
                     </div>
                   </div>
 

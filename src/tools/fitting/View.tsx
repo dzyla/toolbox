@@ -10,6 +10,10 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { useDraftText } from '@/lib/drafts';
+import { importErrorMessage, readTextFile } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
+import { downloadSvg, downloadText, toCsv } from '@/lib/export';
 import { SCIENCE } from './science';
 
 interface State {
@@ -39,21 +43,30 @@ export default function CurveFittingView() {
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
-  const [rawText, setRawText] = useState<string>(() => {
+  // Data handed over from the Plate Reader (sessionStorage) wins over a saved draft.
+  const [piped] = useState<string | null>(() => {
     try {
       if (typeof sessionStorage !== 'undefined') {
-        const piped = sessionStorage.getItem('biobench_fitting_input');
-        if (piped) {
+        const handed = sessionStorage.getItem('biobench_fitting_input');
+        if (handed) {
           sessionStorage.removeItem('biobench_fitting_input');
-          return piped;
+          return handed;
         }
       }
     } catch {}
-    return SAMPLE_DATASETS.dose_response!.text;
+    return null;
   });
+  const [rawText, setRawText] = useDraftText(
+    'fitting:raw',
+    () => piped ?? SAMPLE_DATASETS.dose_response!.text,
+    () => set({ presetKey: '' }),
+    { restore: piped === null },
+  );
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; yFit: number; residual: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [importError, setImportError] = useState('');
   const svgRef = useRef<SVGSVGElement>(null);
 
   function handleSelectPreset(key: string) {
@@ -65,20 +78,18 @@ export default function CurveFittingView() {
         xLogScale: preset.model === '4pl' || preset.model === '5pl' || preset.model === 'two_site_binding',
         activeDiagnosticPlot: 'none',
       });
-      setRawText(preset.text);
+      setRawText(preset.text, { persist: false });
     }
   }
 
-  function handleFileUpload(file: File) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      if (text) {
-        setRawText(text);
-        set({ presetKey: '' });
-      }
-    };
-    reader.readAsText(file);
+  async function handleFileUpload(file: File) {
+    setImportError('');
+    try {
+      setRawText(await readTextFile(file));
+      set({ presetKey: '' });
+    } catch (err) {
+      setImportError(importErrorMessage(err, file.name));
+    }
   }
 
   const parsedData = useMemo(() => {
@@ -354,27 +365,12 @@ export default function CurveFittingView() {
         ];
       }),
     ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fit_results_${s.modelType}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(toCsv(rows), `fit_results_${s.modelType}.csv`, 'text/csv;charset=utf-8');
   }
 
   function handleExportSvg() {
     if (!svgRef.current) return;
-    const serializer = new XMLSerializer();
-    const source = serializer.serializeToString(svgRef.current);
-    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `curve_fit_${s.modelType}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadSvg(svgRef.current, `curve_fit_${s.modelType}.svg`);
   }
 
   const copyText = !fitResult || 'error' in fitResult ? (fitResult?.error || 'No fit available.') : [
@@ -398,7 +394,7 @@ export default function CurveFittingView() {
         fitResult && !('error' in fitResult) ? (
           <span><strong>{fitResult.modelName}</strong>: <strong class="font-mono text-accent-700 dark:text-accent-300">R² {fitResult.r2 !== undefined ? fitResult.r2.toFixed(4) : '—'}</strong> (RMSE {fitResult.rmse !== undefined ? fitResult.rmse.toFixed(3) : '—'})</span>
         ) : fitResult && 'error' in fitResult ? (
-          <span class="text-rose-600 dark:text-rose-400 font-semibold">{fitResult.error}</span>
+          <span class="text-rose-700 dark:text-rose-400 font-semibold">{fitResult.error}</span>
         ) : null
       }
       inputs={
@@ -462,7 +458,7 @@ export default function CurveFittingView() {
               <label for="data-input" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Tabular Data (X, Y₁, Y₂...)
               </label>
-              <span class="text-[11px] text-slate-400 mono">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 mono">
                 {parsedData.length} points
               </span>
             </div>
@@ -478,7 +474,7 @@ export default function CurveFittingView() {
               placeholder={`# X\tY1\tY2...\n0.1\t10\t12\n1.0\t25\t27`}
               class="w-full p-2.5 mono text-[11px] rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-950 leading-relaxed resize-y"
             />
-            <p class="text-[11px] text-slate-500">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
               💡 Separate columns with tabs, commas, or spaces. Multiple Y columns are treated as replicate measurements.
             </p>
           </div>
@@ -493,7 +489,7 @@ export default function CurveFittingView() {
                 type="checkbox"
                 checked={s.xLogScale}
                 onChange={(e) => set({ xLogScale: (e.target as HTMLInputElement).checked })}
-                class="rounded text-accent-600 accent-accent-600"
+                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
               />
               <span>Logarithmic X Axis (log₁₀)</span>
             </label>
@@ -502,7 +498,7 @@ export default function CurveFittingView() {
                 type="checkbox"
                 checked={s.showErrorBars}
                 onChange={(e) => set({ showErrorBars: (e.target as HTMLInputElement).checked })}
-                class="rounded text-accent-600 accent-accent-600"
+                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
               />
               <span>Show Error Bars (SD / Replicates)</span>
             </label>
@@ -541,7 +537,7 @@ export default function CurveFittingView() {
               <div class="space-y-2">
                 <div>
                   <label class="block text-[11px] text-cyan-800 dark:text-cyan-300 mb-0.5">Analyte Conc [L] (nM)</label>
-                  <input
+                  <input aria-label="Analyte Conc [L] (nM)"
                     type="number"
                     step="any"
                     min="0"
@@ -582,24 +578,27 @@ export default function CurveFittingView() {
               accept=".csv,.tsv,.txt"
               class="hidden"
               onChange={(e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) handleFileUpload(file);
+                const input = e.target as HTMLInputElement;
+                const file = input.files?.[0];
+                input.value = '';
+                if (file) void handleFileUpload(file);
               }}
             />
             <button
               type="button"
               onClick={() => setRawText('')}
-              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
             >
               Clear
             </button>
           </div>
+          <ImportAlert message={importError} />
         </div>
       }
       results={
         <div class="space-y-4">
           {!fitResult ? (
-            <p class="text-xs text-slate-500 py-8 text-center">Please enter at least 2 data points to calculate fit.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 py-8 text-center">Please enter at least 2 data points to calculate fit.</p>
           ) : 'error' in fitResult ? (
             <div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
               <strong>Fit failed:</strong> {fitResult.error}
@@ -638,25 +637,25 @@ export default function CurveFittingView() {
                 {/* Goodness of Fit Badges */}
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                   <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                    <span class="text-slate-500 block">Goodness of Fit (R²)</span>
-                    <span data-testid="r2-stat" class="font-mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    <span class="text-slate-500 dark:text-slate-400 block">Goodness of Fit (R²)</span>
+                    <span data-testid="r2-stat" class="font-mono text-lg font-bold text-emerald-700 dark:text-emerald-400">
                       {fitResult.r2.toFixed(4)}
                     </span>
                   </div>
                   <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                    <span class="text-slate-500 block">Adjusted R²</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Adjusted R²</span>
                     <span class="font-mono text-lg font-bold text-slate-900 dark:text-slate-100">
                       {fitResult.adjR2.toFixed(4)}
                     </span>
                   </div>
                   <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                    <span class="text-slate-500 block">RMSE</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">RMSE</span>
                     <span class="font-mono text-lg font-bold text-slate-900 dark:text-slate-100">
                       {fitResult.rmse.toFixed(4)}
                     </span>
                   </div>
                   <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                    <span class="text-slate-500 block">Sum of Squares (SSE)</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Sum of Squares (SSE)</span>
                     <span class="font-mono text-lg font-bold text-slate-900 dark:text-slate-100">
                       {fitResult.sse.toFixed(3)}
                     </span>
@@ -672,7 +671,7 @@ export default function CurveFittingView() {
                 <div class="overflow-x-auto">
                   <table class="w-full text-xs text-left">
                     <thead>
-                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                         <th class="pb-2 font-semibold">Parameter</th>
                         <th class="pb-2 font-semibold">Symbol</th>
                         <th class="pb-2 font-semibold text-right">Best-Fit Value</th>
@@ -685,21 +684,21 @@ export default function CurveFittingView() {
                       {fitResult.parameters.map((p) => (
                         <tr key={p.symbol} class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                           <td class="py-2 font-semibold text-slate-900 dark:text-slate-100">{p.name}</td>
-                          <td class="py-2 font-mono text-slate-500">{p.symbol}</td>
+                          <td class="py-2 font-mono text-slate-500 dark:text-slate-400">{p.symbol}</td>
                           <td data-testid={`param-${p.symbol}`} class="py-2 font-mono font-bold text-right text-accent-600 dark:text-accent-400">
                             {p.value >= 1000 || (p.value > 0 && p.value < 0.001)
                               ? p.value.toExponential(4)
                               : p.value.toFixed(4)}
                           </td>
-                          <td class="py-2 font-mono text-right text-slate-500">
+                          <td class="py-2 font-mono text-right text-slate-500 dark:text-slate-400">
                             {p.standardError !== undefined ? `± ${p.standardError.toFixed(4)}` : '—'}
                           </td>
-                          <td class="py-2 font-mono text-right text-slate-400">
+                          <td class="py-2 font-mono text-right text-slate-500 dark:text-slate-400">
                             {p.ci95Low !== undefined && p.ci95High !== undefined
                               ? `[${p.ci95Low.toFixed(3)}, ${p.ci95High.toFixed(3)}]`
                               : '—'}
                           </td>
-                          <td class="py-2 text-slate-500 text-[11px]">{p.description}</td>
+                          <td class="py-2 text-slate-500 dark:text-slate-400 text-[11px]">{p.description}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -721,7 +720,7 @@ export default function CurveFittingView() {
                     </div>
                     {/* Diagnostic plot switcher */}
                     <div class="flex items-center gap-1.5 text-xs bg-white dark:bg-slate-900 p-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                      <span class="text-[11px] font-semibold text-slate-500 px-1.5">Plot:</span>
+                      <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1.5">Plot:</span>
                       <button
                         type="button"
                         onClick={() => set({ activeDiagnosticPlot: 'none' })}
@@ -755,40 +754,40 @@ export default function CurveFittingView() {
 
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
                     <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/30">
-                      <span class="text-slate-500 block text-[11px]">Turnover (kcat)</span>
+                      <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Turnover (kcat)</span>
                       <span class="font-mono text-base font-bold text-indigo-700 dark:text-indigo-300">
                         {enzymeDiagnostics.kcatSec !== null ? `${enzymeDiagnostics.kcatSec.toFixed(2)} s⁻¹` : '—'}
                       </span>
-                      <span class="text-[10px] text-slate-400 block mt-0.5">
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                         {enzymeDiagnostics.kcatMin !== null ? `(${enzymeDiagnostics.kcatMin.toFixed(1)} min⁻¹)` : '[E]₀ required'}
                       </span>
                     </div>
 
                     <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/30">
-                      <span class="text-slate-500 block text-[11px]">Catalytic Efficiency (kcat / Km)</span>
+                      <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Catalytic Efficiency (kcat / Km)</span>
                       <span class="font-mono text-base font-bold text-indigo-700 dark:text-indigo-300">
                         {enzymeDiagnostics.kcatKm !== null ? `${enzymeDiagnostics.kcatKm.toExponential(2)} M⁻¹s⁻¹` : '—'}
                       </span>
-                      <span class="text-[10px] text-slate-400 block mt-0.5">Apparent second-order rate</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">Apparent second-order rate</span>
                     </div>
 
                     {enzymeDiagnostics.sOpt !== null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/30">
-                        <span class="text-slate-500 block text-[11px]">Optimum Substrate [S]opt</span>
-                        <span class="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Optimum Substrate [S]opt</span>
+                        <span class="font-mono text-base font-bold text-emerald-700 dark:text-emerald-400">
                           {enzymeDiagnostics.sOpt.toFixed(2)} µM
                         </span>
-                        <span class="text-[10px] text-slate-400 block mt-0.5">√(Km · Ki)</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">√(Km · Ki)</span>
                       </div>
                     )}
 
                     {enzymeDiagnostics.vOpt !== null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/30">
-                        <span class="text-slate-500 block text-[11px]">Max Attainable Velocity v_opt</span>
-                        <span class="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Max Attainable Velocity v_opt</span>
+                        <span class="font-mono text-base font-bold text-emerald-700 dark:text-emerald-400">
                           {enzymeDiagnostics.vOpt.toFixed(2)} µM/min
                         </span>
-                        <span class="text-[10px] text-slate-400 block mt-0.5">Actual peak before inhibition</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">Actual peak before inhibition</span>
                       </div>
                     )}
                   </div>
@@ -810,7 +809,7 @@ export default function CurveFittingView() {
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
                     {'kobs' in bliDiagnostics && bliDiagnostics.kobs != null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-cyan-100 dark:border-cyan-900/30">
-                        <span class="text-slate-500 block text-[11px]">Observed Rate (kobs)</span>
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Observed Rate (kobs)</span>
                         <span class="font-mono text-base font-bold text-cyan-700 dark:text-cyan-300">
                           {bliDiagnostics.kobs.toFixed(4)} s⁻¹
                         </span>
@@ -819,7 +818,7 @@ export default function CurveFittingView() {
 
                     {'kon' in bliDiagnostics && bliDiagnostics.kon != null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-cyan-100 dark:border-cyan-900/30">
-                        <span class="text-slate-500 block text-[11px]">Association Rate (kon / ka)</span>
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Association Rate (kon / ka)</span>
                         <span class="font-mono text-base font-bold text-cyan-700 dark:text-cyan-300">
                           {bliDiagnostics.kon.toExponential(3)} M⁻¹s⁻¹
                         </span>
@@ -828,7 +827,7 @@ export default function CurveFittingView() {
 
                     {'koff' in bliDiagnostics && bliDiagnostics.koff != null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-cyan-100 dark:border-cyan-900/30">
-                        <span class="text-slate-500 block text-[11px]">Dissociation Rate (koff / kd)</span>
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Dissociation Rate (koff / kd)</span>
                         <span class="font-mono text-base font-bold text-cyan-700 dark:text-cyan-300">
                           {bliDiagnostics.koff.toExponential(3)} s⁻¹
                         </span>
@@ -837,21 +836,21 @@ export default function CurveFittingView() {
 
                     {'kd' in bliDiagnostics && bliDiagnostics.kd != null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-cyan-100 dark:border-cyan-900/30">
-                        <span class="text-slate-500 block text-[11px]">Affinity Constant (KD)</span>
-                        <span class="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Affinity Constant (KD)</span>
+                        <span class="font-mono text-base font-bold text-emerald-700 dark:text-emerald-400">
                           {bliDiagnostics.kd < 1 ? `${(bliDiagnostics.kd * 1000).toFixed(1)} pM` : `${bliDiagnostics.kd.toFixed(2)} nM`}
                         </span>
-                        <span class="text-[10px] text-slate-400 block mt-0.5">koff / kon</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">koff / kon</span>
                       </div>
                     )}
 
                     {'tHalf' in bliDiagnostics && bliDiagnostics.tHalf != null && (
                       <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-cyan-100 dark:border-cyan-900/30">
-                        <span class="text-slate-500 block text-[11px]">Complex Half-Life (t1/2)</span>
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Complex Half-Life (t1/2)</span>
                         <span class="font-mono text-base font-bold text-slate-800 dark:text-slate-200">
                           {bliDiagnostics.tHalf >= 60 ? `${(bliDiagnostics.tHalf / 60).toFixed(1)} min` : `${bliDiagnostics.tHalf.toFixed(1)} s`}
                         </span>
-                        <span class="text-[10px] text-slate-400 block mt-0.5">ln(2) / koff</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">ln(2) / koff</span>
                       </div>
                     )}
                   </div>
@@ -866,7 +865,7 @@ export default function CurveFittingView() {
                       <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                         {diagnosticPlotData.title}
                       </h3>
-                      <p class="text-xs text-slate-500 font-mono mt-0.5">
+                      <p class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                         Slope: {diagnosticPlotData.slope.toPrecision(4)} · Y-Intercept: {diagnosticPlotData.intercept.toPrecision(4)}
                         {diagnosticPlotData.xInt !== null ? ` · X-Intercept: ${diagnosticPlotData.xInt.toPrecision(4)}` : ''}
                       </p>
@@ -1105,13 +1104,13 @@ export default function CurveFittingView() {
                   <h3 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Fitted Values &amp; Prediction Errors (SE)
                   </h3>
-                  <span class="text-[11px] text-slate-400">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400">
                     {fitResult.fittedPoints.length} observations
                   </span>
                 </div>
                 <div class="overflow-x-auto max-h-64 overflow-y-auto">
                   <table class="w-full text-xs text-left">
-                    <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500">
+                    <thead class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                       <tr>
                         <th class="py-1.5 font-semibold">#</th>
                         <th class="py-1.5 font-semibold text-right">X</th>
@@ -1124,14 +1123,14 @@ export default function CurveFittingView() {
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                       {fitResult.fittedPoints.map((fp, i) => (
                         <tr key={i} class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                          <td class="py-1 text-slate-400 font-sans">{i + 1}</td>
+                          <td class="py-1 text-slate-500 dark:text-slate-400 font-sans">{i + 1}</td>
                           <td class="py-1 text-right text-slate-700 dark:text-slate-300">{fp.x}</td>
                           <td class="py-1 text-right text-slate-900 dark:text-slate-100 font-semibold">{fp.y.toFixed(4)}</td>
                           <td class="py-1 text-right text-accent-600 dark:text-accent-400">{fp.yFit.toFixed(4)}</td>
-                          <td class="py-1 text-right text-slate-500">
+                          <td class="py-1 text-right text-slate-500 dark:text-slate-400">
                             {fp.seFit !== undefined ? `± ${fp.seFit.toFixed(4)}` : '—'}
                           </td>
-                          <td class={`py-1 text-right ${fp.residual >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          <td class={`py-1 text-right ${fp.residual >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
                             {fp.residual >= 0 ? `+${fp.residual.toFixed(4)}` : fp.residual.toFixed(4)}
                           </td>
                         </tr>

@@ -14,6 +14,9 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText, toCsv } from '@/lib/export';
+import { importErrorMessage, readImageDataUrl } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
 import { SCIENCE } from './science';
 
 interface State {
@@ -96,6 +99,7 @@ export default function ColoniesView() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState('');
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Active colonies filtered by user certainty and size thresholds
@@ -389,17 +393,16 @@ export default function ColoniesView() {
     setAllDetected(BUNDLED_EXAMPLE_COLONIES);
   }
 
-  function handleImageUpload(file: File) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const src = e.target?.result as string;
-      if (src) {
-        setImageSrc(src);
-        setSelectedColonyId(null);
-        setManualSpots([]);
-      }
-    };
-    reader.readAsDataURL(file);
+  async function handleImageUpload(file: File) {
+    setImportError('');
+    try {
+      const { src } = await readImageDataUrl(file);
+      setImageSrc(src);
+      setSelectedColonyId(null);
+      setManualSpots([]);
+    } catch (err) {
+      setImportError(importErrorMessage(err, file.name));
+    }
   }
 
   function handleExportCsv() {
@@ -447,14 +450,7 @@ export default function ColoniesView() {
         ];
       }),
     ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `colonies_physical_data_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(toCsv(rows), `colonies_physical_data_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8');
   }
 
   const copyText = !cfuResult || 'error' in cfuResult ? (cfuResult?.error ?? 'Invalid calculation') : [
@@ -483,7 +479,7 @@ export default function ColoniesView() {
             <div>
               <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                 <span>Certainty Threshold</span>
-                <span class="font-mono font-bold text-accent-600">
+                <span class="font-mono font-bold text-accent-600 dark:text-accent-400">
                   {Math.round(s.minCertainty * 100)}%
                 </span>
               </div>
@@ -497,7 +493,7 @@ export default function ColoniesView() {
                 onInput={(e) => set({ minCertainty: parseFloat((e.target as HTMLInputElement).value) })}
                 class="w-full accent-accent-600"
               />
-              <span class="text-[11px] text-slate-400 block mt-0.5">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                 Higher threshold retains only high-contrast, unambiguous colonies.
               </span>
             </div>
@@ -511,8 +507,8 @@ export default function ColoniesView() {
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[10px] text-slate-400">Min Dia (px)</label>
-                  <input
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Min Dia (px)</label>
+                  <input aria-label="Min Dia (px)"
                     type="number"
                     min="1"
                     max="50"
@@ -522,8 +518,8 @@ export default function ColoniesView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-[10px] text-slate-400">Max Dia (px)</label>
-                  <input
+                  <label class="block text-[10px] text-slate-500 dark:text-slate-400">Max Dia (px)</label>
+                  <input aria-label="Max Dia (px)"
                     type="number"
                     min="5"
                     max="100"
@@ -553,7 +549,7 @@ export default function ColoniesView() {
                 onInput={(e) => set({ minDistance: parseInt((e.target as HTMLInputElement).value) || 2 })}
                 class="w-full accent-accent-600"
               />
-              <span class="text-[10px] text-slate-400 block mt-0.5">
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                 Lower separation allows detecting touching doublets / colonies close to each other.
               </span>
             </div>
@@ -576,7 +572,7 @@ export default function ColoniesView() {
                 onInput={(e) => set({ dishMarginPct: parseInt((e.target as HTMLInputElement).value) || 15 })}
                 class="w-full accent-accent-600"
               />
-              <span class="text-[10px] text-slate-400 block mt-0.5">
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                 Excludes edge glare reflections from plastic petri dish borders.
               </span>
             </div>
@@ -586,7 +582,7 @@ export default function ColoniesView() {
                 type="checkbox"
                 checked={s.showOverlayLabels}
                 onChange={(e) => set({ showOverlayLabels: (e.target as HTMLInputElement).checked })}
-                class="rounded text-accent-600 accent-accent-600"
+                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
               />
               <span>Show diameter tags on plate</span>
             </label>
@@ -601,7 +597,7 @@ export default function ColoniesView() {
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                 Volume Plated (µL)
               </label>
-              <input
+              <input aria-label="Volume Plated (µL)"
                 type="number"
                 min="1"
                 step="10"
@@ -611,12 +607,14 @@ export default function ColoniesView() {
               />
             </div>
             <div>
-              <div class="flex justify-between text-xs text-slate-500 mb-1">
+              <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                 <span>Dilution: 10^{s.dilutionExponent}</span>
                 <span class="mono font-semibold">1 : {dilutionFactor.toLocaleString()}</span>
               </div>
               <input
                 type="range"
+                aria-label="Dilution exponent (10^x)"
+                aria-valuetext={`1 : ${dilutionFactor.toLocaleString()}`}
                 min="0"
                 max="8"
                 step="1"
@@ -639,7 +637,7 @@ export default function ColoniesView() {
             </div>
 
             <div>
-              <label class="block text-[11px] text-slate-500 mb-1">Standard Dish Diameter</label>
+              <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Standard Dish Diameter</label>
               <div class="grid grid-cols-2 gap-1.5 mb-2">
                 {PETRI_DISH_PRESETS.map((p) => (
                   <button
@@ -669,11 +667,11 @@ export default function ColoniesView() {
                   onInput={(e) => set({ dishDiameterMm: parseFloat((e.target as HTMLInputElement).value) || 90 })}
                   class="w-24 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-mono dark:border-slate-700 dark:bg-slate-900 font-semibold"
                 />
-                <span class="text-xs text-slate-500">mm diameter</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">mm diameter</span>
               </div>
             </div>
 
-            <div class="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg space-y-0.5">
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg space-y-0.5">
               <div class="flex justify-between">
                 <span>Spatial Resolution:</span>
                 <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">{pixelsPerMm.toFixed(2)} px/mm</span>
@@ -684,7 +682,7 @@ export default function ColoniesView() {
               </div>
               <div class="flex justify-between">
                 <span>Plating Density:</span>
-                <span class="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                <span class="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
                   {plateSummary.platingDensityCfuPerCm2.toFixed(2)} CFU/cm²
                 </span>
               </div>
@@ -720,7 +718,7 @@ export default function ColoniesView() {
             <button
               type="button"
               onClick={handleResetToExample}
-              class="w-full py-1.5 px-3 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition flex items-center justify-center gap-1.5 shadow-2xs"
+              class="w-full py-1.5 px-3 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-700 transition flex items-center justify-center gap-1.5 shadow-2xs"
               title="Load bundled LB agar plate with realistic colonies"
             >
               🧫 Load Bundled Example Plate
@@ -740,8 +738,10 @@ export default function ColoniesView() {
               capture="environment"
               class="hidden"
               onChange={(e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) handleImageUpload(file);
+                const input = e.target as HTMLInputElement;
+                const file = input.files?.[0];
+                input.value = '';
+                if (file) void handleImageUpload(file);
               }}
             />
             <button
@@ -757,63 +757,66 @@ export default function ColoniesView() {
               accept="image/*"
               class="hidden"
               onChange={(e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) handleImageUpload(file);
+                const input = e.target as HTMLInputElement;
+                const file = input.files?.[0];
+                input.value = '';
+                if (file) void handleImageUpload(file);
               }}
             />
             <button
               type="button"
               onClick={() => { setImageSrc(null); setSelectedColonyId(null); setAllDetected([]); setManualSpots([]); }}
-              class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
               title="Clear all colonies and plate"
             >
               Clear
             </button>
           </div>
+          <ImportAlert message={importError} />
         </div>
       }
       results={
         <div class="space-y-4">
           {!cfuResult || 'error' in cfuResult ? (
-            <p role="alert" class="text-sm text-red-600">{cfuResult?.error ?? 'Calculation error'}</p>
+            <p role="alert" class="text-sm text-red-600 dark:text-red-400">{cfuResult?.error ?? 'Calculation error'}</p>
           ) : (
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 block">Filtered Colonies</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Filtered Colonies</span>
                 <span data-testid="colony-count" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                   {activeColonies.length}
                 </span>
-                <span class="text-[11px] text-slate-400 block capitalize">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block capitalize">
                   {plateSummary.densityStatus} ({manualSpots.length > 0 ? `${manualSpots.length} manual` : 'auto'})
                 </span>
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 block">Plating Colony Density</span>
-                <span data-testid="colony-density" class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Plating Colony Density</span>
+                <span data-testid="colony-density" class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                   {plateSummary.platingDensityCfuPerCm2.toFixed(2)}
                 </span>
-                <span class="text-[11px] text-slate-400 block">CFU / cm² (dish {plateSummary.dishAreaCm2.toFixed(0)} cm²)</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">CFU / cm² (dish {plateSummary.dishAreaCm2.toFixed(0)} cm²)</span>
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 block">Mean Colony Diameter</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Mean Colony Diameter</span>
                 <span data-testid="colony-diameter" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                   {s.displayUnits === 'si'
                     ? `${(sizeStats.meanDiameterMm ?? 0).toFixed(2)} mm`
                     : `${sizeStats.meanDiameter.toFixed(1)} px`}
                 </span>
-                <span class="text-[11px] text-slate-400 block">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
                   Area: {plateSummary.meanAreaMm2.toFixed(2)} mm² · CV {sizeStats.cvPercent.toFixed(1)}%
                 </span>
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 block">Estimated CFU / mL</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Estimated CFU / mL</span>
                 <span data-testid="cfu-ml" class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                   {cfuResult.cfuPerMl.toExponential(2)}
                 </span>
-                <span class="text-[11px] text-slate-400 block">in stock (10⁻{s.dilutionExponent}, {s.volumePlatedUl} µL)</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">in stock (10⁻{s.dilutionExponent}, {s.volumePlatedUl} µL)</span>
               </div>
             </div>
           )}
@@ -825,7 +828,7 @@ export default function ColoniesView() {
                 <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Colony Size Distribution Histogram
                 </h4>
-                <span class="text-xs mono text-slate-500">
+                <span class="text-xs mono text-slate-500 dark:text-slate-400">
                   Mean Ø: {s.displayUnits === 'si'
                     ? `${(sizeStats.meanDiameterMm ?? 0).toFixed(2)} mm ± ${(sizeStats.stdDevMm ?? 0).toFixed(2)} mm`
                     : `${sizeStats.meanDiameter.toFixed(1)} px ± ${sizeStats.stdDev.toFixed(1)} px`}
@@ -849,7 +852,7 @@ export default function ColoniesView() {
                       <span class="block font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
                         {bin.count}
                       </span>
-                      <span class="block text-[10px] text-slate-400 mono truncate" title={label}>
+                      <span class="block text-[10px] text-slate-500 dark:text-slate-400 mono truncate" title={label}>
                         {label}
                       </span>
                     </div>
@@ -865,9 +868,9 @@ export default function ColoniesView() {
               <div>
                 <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <span>Plate Visualization & Colony Inspection</span>
-                  <span class="text-xs font-normal text-slate-400 font-mono">({activeColonies.length} colonies)</span>
+                  <span class="text-xs font-normal text-slate-500 dark:text-slate-400 font-mono">({activeColonies.length} colonies)</span>
                 </h3>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-slate-500 dark:text-slate-400">
                   {interactionMode === 'pick'
                     ? 'Click any colony on the plate to pick/inspect physical dimensions in SI units (mm, mm², CFU/cm²).'
                     : interactionMode === 'add'
@@ -896,7 +899,7 @@ export default function ColoniesView() {
                     onClick={() => setInteractionMode('add')}
                     class={`px-2.5 py-1 rounded-md font-semibold transition ${
                       interactionMode === 'add'
-                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        ? 'bg-emerald-700 text-white shadow-2xs'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                     title="Click plate to add manual colony"
@@ -952,14 +955,14 @@ export default function ColoniesView() {
                         }
                         setSelectedColonyId(null);
                       }}
-                      class="text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900 bg-white dark:bg-slate-900 hover:bg-rose-50"
+                      class="text-xs text-rose-700 dark:text-rose-400 hover:text-rose-700 font-semibold px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900 bg-white dark:bg-slate-900 hover:bg-rose-50"
                     >
                       🗑️ Delete Colony
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedColonyId(null)}
-                      class="text-xs text-slate-500 hover:text-slate-700 font-semibold px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 font-semibold px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                     >
                       ✕ Close
                     </button>
@@ -968,35 +971,35 @@ export default function ColoniesView() {
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
                   <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-100 dark:border-amber-900/40">
-                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Diameter (SI)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-sans">Diameter (SI)</span>
                     <span class="font-bold text-amber-800 dark:text-amber-300 text-sm">
                       {selectedColonyMetrics.diameterMm.toFixed(2)} mm
                     </span>
-                    <span class="text-[10px] text-slate-400 block font-sans">({((selectedColony.radius || 4) * 2).toFixed(1)} px)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">({((selectedColony.radius || 4) * 2).toFixed(1)} px)</span>
                   </div>
 
                   <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-100 dark:border-amber-900/40">
-                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Colony Area</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-sans">Colony Area</span>
                     <span class="font-bold text-slate-800 dark:text-slate-200 text-sm">
                       {selectedColonyMetrics.areaMm2.toFixed(2)} mm²
                     </span>
-                    <span class="text-[10px] text-slate-400 block font-sans">({(Math.PI * Math.pow(selectedColony.radius || 4, 2)).toFixed(0)} px²)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">({(Math.PI * Math.pow(selectedColony.radius || 4, 2)).toFixed(0)} px²)</span>
                   </div>
 
                   <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-100 dark:border-amber-900/40">
-                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Center Distance</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-sans">Center Distance</span>
                     <span class="font-bold text-slate-800 dark:text-slate-200 text-sm">
                       {selectedColonyMetrics.distanceFromCenterMm.toFixed(1)} mm
                     </span>
-                    <span class="text-[10px] text-slate-400 block font-sans">from dish origin</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">from dish origin</span>
                   </div>
 
                   <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-100 dark:border-amber-900/40">
-                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Position (X, Y)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-sans">Position (X, Y)</span>
                     <span class="font-bold text-slate-800 dark:text-slate-200 text-sm">
                       {Math.round(selectedColony.x)}, {Math.round(selectedColony.y)} px
                     </span>
-                    <span class="text-[10px] text-slate-400 block font-sans">Radius: {selectedColonyMetrics.radiusMm.toFixed(2)} mm</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">Radius: {selectedColonyMetrics.radiusMm.toFixed(2)} mm</span>
                   </div>
                 </div>
               </div>
@@ -1009,7 +1012,7 @@ export default function ColoniesView() {
                   Colony {hoveredColony.id}: Ø {((hoveredColony.radius || 4) * 2 * mmPerPixel).toFixed(2)} mm ({((hoveredColony.radius || 4) * 2).toFixed(1)} px) · Area {(Math.PI * Math.pow((hoveredColony.radius || 4) * mmPerPixel, 2)).toFixed(2)} mm² · Certainty {Math.round((hoveredColony.certainty ?? 1.0) * 100)}% · Position ({Math.round(hoveredColony.x)}, {Math.round(hoveredColony.y)})
                 </span>
               ) : (
-                <span class="text-slate-400 text-[11px]">
+                <span class="text-slate-500 dark:text-slate-400 text-[11px]">
                   Click any colony to inspect detailed physical SI dimensions (mm, mm², center distance).
                 </span>
               )}

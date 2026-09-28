@@ -8,6 +8,9 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { useToolProject } from '@/lib/use-tool-project';
+import type { ToolProps } from '@/tools/registry';
+import { protocolProjectSnapshot, restoreProtocolProject } from './project';
 import { SCIENCE } from './science';
 
 interface State {
@@ -36,6 +39,11 @@ Rules:
 2. If a step involves incubation, centrifugation, shaking, or waiting, append "[timer: X min]" (e.g. [timer: 15 min]).
 3. Use "CRITICAL:" for steps requiring special care, temperature limits, or warnings.
 4. Output ONLY the markdown text, with no extra conversational commentary.`;
+
+/** Independent copy of a bundled protocol so checking steps never mutates the shared data. */
+function structuredCloneProtocol(protocol: Protocol): Protocol {
+  return JSON.parse(JSON.stringify(protocol)) as Protocol;
+}
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -86,12 +94,13 @@ function notifyStepComplete(stepText: string) {
   }
 }
 
-export default function ProtocolsView() {
+export default function ProtocolsView({ projectId }: ToolProps = {}) {
   const [stateSig, shareUrl] = useUrlState<State>('protocols', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
-  const [activeProtocol, setActiveProtocol] = useState<Protocol>(() => BUNDLED_PROTOCOLS[0]!);
+  const [activeProtocol, setActiveProtocol] = useState<Protocol>(() =>
+    structuredCloneProtocol(BUNDLED_PROTOCOLS.find(p => p.id === s.protocolId) ?? BUNDLED_PROTOCOLS[0]!));
   const [customMdInput, setCustomMdInput] = useState('');
   const [activeTimerStepId, setActiveTimerStepId] = useState<string | null>(null);
   const [timerTotalSeconds, setTimerTotalSeconds] = useState<number>(0);
@@ -99,6 +108,15 @@ export default function ProtocolsView() {
   const [timerIsRunning, setTimerIsRunning] = useState<boolean>(false);
   const [promptCopied, setPromptCopied] = useState(false);
   const timerTargetEndTimeRef = useRef<number | null>(null);
+
+  const project = useToolProject('protocols', projectId, stored => {
+    const { protocol, sourceId } = restoreProtocolProject(stored);
+    setActiveProtocol(protocol);
+    set({ protocolId: BUNDLED_PROTOCOLS.some(p => p.id === sourceId) ? sourceId : 'custom' });
+    setActiveTimerStepId(null);
+    setTimerIsRunning(false);
+    timerTargetEndTimeRef.current = null;
+  });
 
   // Active step countdown interval ticker: wall-clock timestamp comparison
   // prevents background tab throttling delays on long incubations.
@@ -130,7 +148,8 @@ export default function ProtocolsView() {
     set({ protocolId: id });
     const p = BUNDLED_PROTOCOLS.find(item => item.id === id);
     if (p) {
-      setActiveProtocol(JSON.parse(JSON.stringify(p)));
+      setActiveProtocol(structuredCloneProtocol(p));
+      project.detach();
       setActiveTimerStepId(null);
       setTimerIsRunning(false);
       timerTargetEndTimeRef.current = null;
@@ -157,6 +176,7 @@ export default function ProtocolsView() {
     if (p.steps.length > 0) {
       setActiveProtocol(p);
       set({ protocolId: 'custom' });
+      project.detach();
       setActiveTimerStepId(null);
       setTimerIsRunning(false);
     }
@@ -206,7 +226,7 @@ export default function ProtocolsView() {
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               Select Standard Protocol
             </label>
-            <select
+            <select aria-label="Select Standard Protocol"
               value={s.protocolId}
               onChange={(e) => handleSelectProtocol((e.target as HTMLSelectElement).value)}
               class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 font-medium"
@@ -248,7 +268,7 @@ export default function ProtocolsView() {
                 <span>🤖</span>
                 <span>Convert Protocol with AI (LLM Prompt)</span>
               </span>
-              <span class="text-[10px] uppercase font-bold text-indigo-500">ChatGPT / Claude</span>
+              <span class="text-[10px] uppercase font-bold text-indigo-700 dark:text-indigo-300">ChatGPT / Claude</span>
             </summary>
             <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300">
               Paste this prompt into ChatGPT, Claude, or Gemini alongside any PDF, SOP, or paper method section to generate compatible checklist markdown:
@@ -275,7 +295,7 @@ export default function ProtocolsView() {
               <ul class="text-xs space-y-1 text-slate-600 dark:text-slate-400">
                 {activeProtocol.materials.map((m, idx) => (
                   <li key={idx} class="flex items-start gap-1.5">
-                    <span class="text-slate-400">•</span>
+                    <span class="text-slate-500 dark:text-slate-400">•</span>
                     <span>{m}</span>
                   </li>
                 ))}
@@ -286,7 +306,7 @@ export default function ProtocolsView() {
           <button
             type="button"
             onClick={handleResetSteps}
-            class="w-full py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+            class="w-full py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
           >
             Reset All Checkboxes
           </button>
@@ -301,7 +321,7 @@ export default function ProtocolsView() {
                 <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">
                   {activeProtocol.title}
                 </h2>
-                <p class="text-xs text-slate-500 mt-0.5">{activeProtocol.description}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{activeProtocol.description}</p>
               </div>
               <div class="text-right">
                 <span data-testid="progress-text" class="font-mono text-sm font-bold text-accent-600 dark:text-accent-400">
@@ -394,13 +414,16 @@ export default function ProtocolsView() {
                   >
                     <input
                       type="checkbox"
+                      aria-label={`Step ${idx + 1} complete`}
                       checked={step.completed}
                       onChange={() => handleToggleStep(step.id)}
-                      class="mt-1 w-4 h-4 rounded text-accent-600 accent-accent-600 cursor-pointer shrink-0"
+                      // The row itself also toggles on click; without this the checkbox toggled twice (no change).
+                      onClick={e => e.stopPropagation()}
+                      class="mt-1 w-4 h-4 rounded text-accent-600 dark:text-accent-400 accent-accent-600 cursor-pointer shrink-0"
                     />
                     <div class="flex-1 space-y-1">
                       <div class="flex items-baseline gap-2">
-                        <strong class="font-mono text-xs text-slate-400">Step {idx + 1}</strong>
+                        <strong class="font-mono text-xs text-slate-500 dark:text-slate-400">Step {idx + 1}</strong>
                         {step.critical && (
                           <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white shadow-2xs">
                             🛑 CRITICAL
@@ -412,7 +435,7 @@ export default function ProtocolsView() {
                           </span>
                         )}
                       </div>
-                      <p class={`text-xs leading-relaxed ${step.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                      <p class={`text-xs leading-relaxed ${step.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
                         {step.text}
                       </p>
 
@@ -421,7 +444,7 @@ export default function ProtocolsView() {
                           {isStepTimerActive ? (
                             <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                               <div class="flex items-center justify-between text-xs font-mono">
-                                <span class="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1">
+                                <span class="font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1">
                                   <span>{isFinished ? '🔔 Finished!' : '⏱️ Running:'}</span>
                                   <span>{formatTime(timerRemainingSeconds)}</span>
                                 </span>
@@ -477,7 +500,7 @@ export default function ProtocolsView() {
           </div>
         </div>
       }
-      actions={<ActionBar onCopy={() => copyText} shareUrl={shareUrl} />}
+      actions={<ActionBar onCopy={() => copyText} shareUrl={shareUrl} onSaveProject={() => project.save(protocolProjectSnapshot(activeProtocol, s.protocolId))} projectStatus={project.status} />}
       science={<SciencePanel science={SCIENCE} />}
     />
   );

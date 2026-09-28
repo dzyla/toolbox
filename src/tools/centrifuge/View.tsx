@@ -116,15 +116,15 @@ export default function View() {
       blurb="Convert RPM and RCF, browse Beckman & ultracentrifuge rotors, estimate k-factor and pelleting time."
       mobileResultSummary={
         calculation.error ? (
-          <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+          <span class="text-rose-700 dark:text-rose-400 font-semibold">{calculation.error}</span>
         ) : (
           <div class="flex items-center justify-between gap-2">
             <div>
-              <span class="text-[10px] text-slate-500 block">{s.solve === 'rcf' ? 'Centrifugal Force' : 'Speed'}</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">{s.solve === 'rcf' ? 'Centrifugal Force' : 'Speed'}</span>
               <strong class="font-mono text-base text-accent-700 dark:text-accent-300">{primaryText}</strong>
             </div>
             <div class="text-right">
-              <span class="text-[10px] text-slate-500 block">k-factor / Pelleting</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">k-factor / Pelleting</span>
               <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
                 k={Number(calculation.k!.toPrecision(3))} · {Number(calculation.time!.toPrecision(2))} h
               </span>
@@ -189,11 +189,11 @@ export default function View() {
                   <span>r_min: <strong class="mono">{selectedRotor.rminMm} mm</strong></span>
                   <span>r_max: <strong class="mono">{selectedRotor.rmaxMm} mm</strong></span>
                   {selectedRotor.kFactor && (
-                    <span class="col-span-2">Nominal k-factor: <strong class="mono text-emerald-600 dark:text-emerald-400">{selectedRotor.kFactor}</strong></span>
+                    <span class="col-span-2">Nominal k-factor: <strong class="mono text-emerald-700 dark:text-emerald-400">{selectedRotor.kFactor}</strong></span>
                   )}
                 </div>
                 {selectedRotor.notes && (
-                  <p class="text-[11px] text-slate-500 italic pt-1 border-t border-slate-100 dark:border-slate-700">
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400 italic pt-1 border-t border-slate-100 dark:border-slate-700">
                     {selectedRotor.notes}
                   </p>
                 )}
@@ -225,7 +225,7 @@ export default function View() {
                 />
               </label>
               <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-0.5">Presets:</span>
                 {[1000, 3000, 5000, 10000, 14000, 16000].map(rpmVal => (
                   <button
                     key={rpmVal}
@@ -267,7 +267,7 @@ export default function View() {
                 />
               </label>
               <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-0.5">Presets:</span>
                 {[300, 1000, 3000, 10000, 14000, 20000].map(rcfVal => (
                   <button
                     key={rcfVal}
@@ -315,6 +315,7 @@ export default function View() {
               </div>
               <input
                 type="number"
+                aria-label="Rotor speed for k-factor (RPM)"
                 min="1"
                 value={s.kSpeed}
                 onInput={event => set({ kSpeed: Number((event.target as HTMLInputElement).value) })}
@@ -327,7 +328,7 @@ export default function View() {
             </div>
             <label>
               <span class="mb-1 block text-sm font-medium">Sedimentation coefficient (S / Svedberg)</span>
-              <input
+              <input aria-label="Sedimentation coefficient (S / Svedberg)"
                 type="number"
                 min="0"
                 step="any"
@@ -341,25 +342,25 @@ export default function View() {
       }
       results={
         calculation.error ? (
-          <p role="alert" class="text-red-600">{calculation.error}</p>
+          <p role="alert" class="text-red-600 dark:text-red-400">{calculation.error}</p>
         ) : (
           <div class="space-y-4">
             <div>
-              <p class="text-sm text-slate-500">{s.solve === 'rcf' ? 'Relative centrifugal force' : 'Required speed'}</p>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{s.solve === 'rcf' ? 'Relative centrifugal force' : 'Required speed'}</p>
               <p data-testid="centrifuge-result" class="font-mono text-2xl font-bold">{primaryText}</p>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
-                <p class="text-xs text-slate-500">Rotor k-factor</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Rotor k-factor</p>
                 <p data-testid="k-result" class="font-mono text-xl font-bold">{Number(calculation.k!.toPrecision(4))}</p>
               </div>
               <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
-                <p class="text-xs text-slate-500">Estimated pelleting time</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Estimated pelleting time</p>
                 <p data-testid="pelleting-time" class="font-mono text-xl font-bold">{Number(calculation.time!.toPrecision(3))} h</p>
               </div>
             </div>
             {selectedRotor && (
-              <div class="text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg">
+              <div class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg">
                 Selected: <strong class="text-slate-800 dark:text-slate-200">{selectedRotor.manufacturer} {selectedRotor.model}</strong> ({selectedRotor.tubeCapacity}) · {selectedRotor.category}
               </div>
             )}

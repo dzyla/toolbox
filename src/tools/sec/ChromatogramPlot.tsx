@@ -164,7 +164,7 @@ export function ChromatogramPlot({
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
       <div>
         <p class="text-sm font-semibold">Chromatogram</p>
-        <p class="text-xs text-slate-500">Zoom with the chart, then integrate a selected range.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Zoom with the chart, then integrate a selected range.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="rounded border px-2.5 py-1.5 text-xs font-medium" onClick={() => onViewportChange(fullExtent)}>Fit run</button>
@@ -204,7 +204,7 @@ export function ChromatogramPlot({
             {fractionButtons.map(fraction => <button type="button" key={fraction.id} aria-pressed={selectedFractionLabels.includes(fraction.text)} onClick={() => toggleFraction(fraction.text)} class={selectedFractionLabels.includes(fraction.text) ? 'rounded bg-violet-600 px-2 py-1 text-xs text-white' : 'rounded border px-2 py-1 text-xs'}>{fraction.text}</button>)}
           </div>}
         </section>
-        <p class="text-xs text-slate-500">UV integration uses the selected baseline. Overlay traces keep their native units.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">UV integration uses the selected baseline. Overlay traces keep their native units.</p>
       </aside>
     </div>
   </section>;

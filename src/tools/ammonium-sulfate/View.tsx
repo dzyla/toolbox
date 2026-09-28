@@ -132,7 +132,7 @@ export default function View() {
 
   const copyText = calculation.error ? calculation.error : [
     `Add ${result} solid ammonium sulfate to ${s.volume.value} ${s.volume.unit} to increase saturation from ${s.current}% to ${s.target}% at ${s.temperature === 25 ? '25 °C' : '0–4 °C'}.`,
-    cohnResult.value ? `Cohn Salting-Out Prediction: Onset at ${cohnResult.value.onsetSaturation}%, 50% at ${cohnResult.value.midpointSaturation}%, >95% recovery at ${cohnResult.value.completeSaturation}%. Recommended cut: ${cohnResult.value.recommendedPreCut}% → ${cohnResult.value.recommendedTargetCut}%.` : '',
+    cohnResult.value ? `Heuristic salting-out estimate (uncalibrated; confirm with a pilot cut): Onset at ${cohnResult.value.onsetSaturation}%, 50% at ${cohnResult.value.midpointSaturation}%, >95% recovery at ${cohnResult.value.completeSaturation}%. Recommended cut: ${cohnResult.value.recommendedPreCut}% → ${cohnResult.value.recommendedTargetCut}%.` : '',
     '', scienceText(SCIENCE),
   ].filter(Boolean).join('\n');
 
@@ -144,7 +144,7 @@ export default function View() {
     ];
     downloadText(
       [
-        `# Cohn Salting-Out Prediction Curve`,
+        `# Heuristic salting-out curve (Cohn-form log S = beta - Ks x %sat; beta and Ks are uncalibrated sequence heuristics)`,
         `# MW: ${(cohnResult.value.mwDa / 1000).toFixed(1)} kDa, pI: ${cohnResult.value.pI}, GRAVY: ${cohnResult.value.gravy}, pH: ${cohnResult.value.pH}`,
         `# Ks: ${cohnResult.value.ks}, Beta: ${cohnResult.value.beta}`,
         toCsv(rows),
@@ -183,19 +183,19 @@ export default function View() {
   return (
     <ToolLayout
       icon="🧂"
-      title="Ammonium Sulfate & Cohn Salting-Out"
-      blurb="Calculate solid salt addition and predict protein precipitation cuts using Cohn's salting-out equation."
+      title="Ammonium Sulfate Precipitation"
+      blurb="Calculate solid salt addition for a saturation cut, with a heuristic starting window for pilot cuts."
       mobileResultSummary={
         s.tab === 'addition' ? (
           calculation.error ? (
-            <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+            <span class="text-rose-700 dark:text-rose-400 font-semibold">{calculation.error}</span>
           ) : (
             <span>Add <strong class="text-accent-700 dark:text-accent-300 font-mono text-sm">{result}</strong> solid salt ({s.current}% → {s.target}%)</span>
           )
         ) : (
           cohnResult.value ? (
             <span>Onset: <strong>{cohnResult.value.onsetSaturation}%</strong> · Target: <strong>{cohnResult.value.completeSaturation}%</strong></span>
-          ) : <span>Cohn Predictor</span>
+          ) : <span>Salting-out heuristic</span>
         )
       }
       inputs={
@@ -205,16 +205,16 @@ export default function View() {
             <button
               type="button"
               onClick={() => set({ tab: 'addition' })}
-              class={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${s.tab === 'addition' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              class={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${s.tab === 'addition' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-200'}`}
             >
               🧂 Solid Salt Calculator
             </button>
             <button
               type="button"
               onClick={() => set({ tab: 'cohn' })}
-              class={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${s.tab === 'cohn' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              class={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${s.tab === 'cohn' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-200'}`}
             >
-              📈 Cohn Salting-Out Predictor
+              📈 Cut Window (Heuristic)
             </button>
           </div>
 
@@ -251,7 +251,7 @@ export default function View() {
               </div>
 
               <div class="flex flex-wrap items-center gap-1.5">
-                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Common cuts:</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-0.5">Common cuts:</span>
                 {CUT_PRESETS.map(cut => (
                   <button
                     key={cut.label}
@@ -281,10 +281,10 @@ export default function View() {
             <div class="space-y-4">
               {/* Protein Presets */}
               <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                   Load Standard Protein Preset
                 </label>
-                <select
+                <select aria-label="Load Standard Protein Preset"
                   class={fieldClass}
                   onChange={e => {
                     const selected = PROTEIN_PRESETS.find(p => p.name === (e.target as HTMLSelectElement).value);
@@ -328,7 +328,7 @@ export default function View() {
                   <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Protein Sequence:
                   </label>
-                  <textarea
+                  <textarea aria-label="Protein Sequence"
                     rows={4}
                     value={s.sequence}
                     onInput={e => set({ sequence: (e.target as HTMLTextAreaElement).value })}
@@ -340,7 +340,7 @@ export default function View() {
                 <div class="grid grid-cols-3 gap-2">
                   <label>
                     <span class="block text-xs font-medium">MW (kDa)</span>
-                    <input
+                    <input aria-label="MW (kDa)"
                       type="number"
                       step="0.1"
                       min="1"
@@ -351,7 +351,7 @@ export default function View() {
                   </label>
                   <label>
                     <span class="block text-xs font-medium">Isoelectric pt (pI)</span>
-                    <input
+                    <input aria-label="Isoelectric pt (pI)"
                       type="number"
                       step="0.1"
                       min="2"
@@ -363,7 +363,7 @@ export default function View() {
                   </label>
                   <label>
                     <span class="block text-xs font-medium">GRAVY Index</span>
-                    <input
+                    <input aria-label="GRAVY Index"
                       type="number"
                       step="0.05"
                       min="-2.0"
@@ -380,7 +380,7 @@ export default function View() {
               <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <label>
                   <span class="block text-xs font-medium">Buffer pH</span>
-                  <input
+                  <input aria-label="Buffer pH"
                     type="number"
                     step="0.1"
                     min="3"
@@ -392,7 +392,7 @@ export default function View() {
                 </label>
                 <label>
                   <span class="block text-xs font-medium">[Protein] (mg/mL)</span>
-                  <input
+                  <input aria-label="[Protein] (mg/mL)"
                     type="number"
                     step="0.5"
                     min="0.1"
@@ -403,7 +403,7 @@ export default function View() {
                 </label>
                 <label>
                   <span class="block text-xs font-medium">Temperature</span>
-                  <select
+                  <select aria-label="Temperature"
                     value={s.temperature}
                     onChange={e => set({ temperature: Number((e.target as HTMLSelectElement).value) as 25 | 0 })}
                     class={fieldClass}
@@ -420,17 +420,17 @@ export default function View() {
       results={
         s.tab === 'addition' ? (
           calculation.error ? (
-            <p role="alert" class="text-red-600">{calculation.error}</p>
+            <p role="alert" class="text-red-600 dark:text-red-400">{calculation.error}</p>
           ) : (
             <div class="text-center space-y-3">
-              <p class="text-sm uppercase tracking-wide text-slate-500">Add solid salt</p>
+              <p class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Add solid salt</p>
               <p data-testid="ammonium-result" class="my-2 font-mono text-3xl font-bold text-accent-700 dark:text-accent-300">
                 {result}
               </p>
-              <p class="text-sm text-slate-500">
+              <p class="text-sm text-slate-500 dark:text-slate-400">
                 Add slowly with continuous stirring at {s.temperature === 25 ? '25 °C' : '0–4 °C'}.
               </p>
-              <div class="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 flex justify-center gap-4">
+              <div class="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex justify-center gap-4">
                 <span>Cut: <strong>{s.current}% → {s.target}%</strong></span>
                 <span>Volume: <strong>{s.volume.value} {s.volume.unit}</strong></span>
                 <span>Formula constant: <strong>{s.temperature === 25 ? '533 g/L' : '515 g/L'}</strong></span>
@@ -439,15 +439,15 @@ export default function View() {
           )
         ) : (
           cohnResult.error ? (
-            <p role="alert" class="text-red-600">{cohnResult.error}</p>
+            <p role="alert" class="text-red-600 dark:text-red-400">{cohnResult.error}</p>
           ) : (
             <div class="space-y-4">
               <div class="flex items-center justify-between">
                 <div>
                   <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
-                    Cohn Salting-Out Prediction
+                    Heuristic salting-out window
                   </h3>
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
                     MW: {(cohnResult.value!.mwDa / 1000).toFixed(1)} kDa · pI: {cohnResult.value!.pI} · GRAVY: {cohnResult.value!.gravy}
                   </p>
                 </div>
@@ -459,6 +459,12 @@ export default function View() {
                   Export Curve CSV
                 </button>
               </div>
+
+              <p role="note" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                Uncalibrated estimate. The curve uses the Cohn form log S = β − Kₛ·(% saturation), but β and Kₛ come from
+                Bio-Bench sequence heuristics (MW, pI, GRAVY), not from a published fit. Real precipitation points depend on the
+                protein, concentration, and buffer; use this only to choose pilot cuts and confirm them experimentally.
+              </p>
 
               {/* Summary Cards */}
               <div class="grid grid-cols-3 gap-2 text-center">
@@ -501,7 +507,7 @@ export default function View() {
 
               {/* Interactive SVG Cohn Precipitation Curve */}
               <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-                <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                   <span>Cohn Salting-Out Curve: % Protein Precipitated vs (NH₄)₂SO₄ Saturation</span>
                   <span class="font-mono">Kₛ = {cohnResult.value!.ks}, β = {cohnResult.value!.beta}</span>
                 </div>
@@ -567,10 +573,10 @@ export default function View() {
                   <path d={svgPath} fill="none" stroke="#6366f1" stroke-width="2.5" />
 
                   {/* Axes */}
-                  <line x1={padL} y1={padT} x2={padL} y2={svgH - padB} stroke="currentColor" class="text-slate-400" />
-                  <line x1={padL} y1={svgH - padB} x2={svgW - padR} y2={svgH - padB} stroke="currentColor" class="text-slate-400" />
+                  <line x1={padL} y1={padT} x2={padL} y2={svgH - padB} stroke="currentColor" class="text-slate-500 dark:text-slate-400" />
+                  <line x1={padL} y1={svgH - padB} x2={svgW - padR} y2={svgH - padB} stroke="currentColor" class="text-slate-500 dark:text-slate-400" />
                 </svg>
-                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                <div class="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Onset ({cohnResult.value!.onsetSaturation}%)</span>
                   <span class="flex items-center gap-1"><span class="w-2.5 h-1.5 rounded-xs bg-indigo-500/30 inline-block" /> Recommended Cut Window</span>
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> &gt;95% Recovery ({cohnResult.value!.completeSaturation}%)</span>

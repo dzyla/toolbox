@@ -1,11 +1,14 @@
 import { type ComponentChildren } from 'preact';
+import { color } from 'd3-color';
 import { type PlateFormat } from '@/core/plates/layout';
+import { contrastRatio } from '@/core/colors/contrast';
 
 export interface WellRenderData {
   id: string; // e.g. 'A1'
   row: string; // 'A'
   col: number; // 1
   bgColor?: string;
+  /** Tailwind text classes, or a CSS colour (e.g. '#ffffff') applied inline. */
   textColor?: string;
   isSelected?: boolean;
   isDragSelected?: boolean;
@@ -46,24 +49,18 @@ export function hexToRgba(hexColor: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function getWellTextColor(hexColor?: string): string {
-  if (!hexColor) return 'text-slate-800 dark:text-slate-200';
-  if (hexColor.startsWith('rgba')) {
-    const m = hexColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (m) {
-      const lum = (0.299 * parseInt(m[1]!, 10) + 0.587 * parseInt(m[2]!, 10) + 0.114 * parseInt(m[3]!, 10)) / 255;
-      return lum > 0.55 ? 'text-slate-950 font-extrabold' : 'text-white font-extrabold drop-shadow-xs';
-    }
-  }
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16) || 128;
-  const g = parseInt(hex.substring(2, 4), 16) || 128;
-  const b = parseInt(hex.substring(4, 6), 16) || 128;
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  if (lum > 0.55) {
-    return 'text-slate-950 font-extrabold';
-  }
-  return 'text-white font-extrabold drop-shadow-xs';
+/** Dark ink or white, whichever has the higher WCAG contrast on a well fill (hex or rgb/rgba). */
+export function readableTextOn(fill: string): '#000000' | '#ffffff' {
+  const parsed = color(fill);
+  if (!parsed) return '#000000';
+  const hex = parsed.formatHex();
+  // Pure black (not slate-900) so mid-tone fills such as viridis teal still reach 4.5:1.
+  return contrastRatio(hex, '#000000') >= contrastRatio(hex, '#ffffff') ? '#000000' : '#ffffff';
+}
+
+export function getWellTextColor(fill?: string): string {
+  if (!fill) return 'text-slate-800 dark:text-slate-200';
+  return readableTextOn(fill) === '#ffffff' ? 'text-white font-extrabold drop-shadow-xs' : 'text-black font-extrabold';
 }
 
 export function PlateChassis({
@@ -125,7 +122,7 @@ export function PlateChassis({
         <div class="inline-block min-w-max">
           {/* Column Headers */}
           <div class="flex items-center mb-1.5">
-            <span class="w-8 shrink-0 text-center font-bold text-xs text-slate-400"></span>
+            <span class="w-8 shrink-0 text-center font-bold text-xs text-slate-500 dark:text-slate-400"></span>
             {Array.from({ length: cols }, (_, i) => i + 1).map(c => (
               <button
                 key={c}
@@ -173,11 +170,12 @@ export function PlateChassis({
                       title={wp.title || wellId}
                       style={{
                         backgroundColor: wp.bgColor,
+                        color: wp.textColor && /^(#|rgb)/.test(wp.textColor) ? wp.textColor : undefined,
                       }}
                       class={`
                         ${sizeClass} rounded-full mx-0.5 relative transition-all duration-150 shrink-0
                         ${wp.bgColor
-                          ? `border-2 border-black/25 dark:border-white/20 shadow-inner ${wp.textColor || getWellTextColor(wp.bgColor)}`
+                          ? `border-2 border-black/25 dark:border-white/20 shadow-inner ${wp.textColor && !/^(#|rgb)/.test(wp.textColor) ? wp.textColor : getWellTextColor(wp.bgColor)}`
                           : 'border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-950/60 shadow-inner hover:border-slate-400 dark:hover:border-slate-500'
                         }
                         ${isSelected ? 'ring-3 ring-sky-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-105 z-10 shadow-md' : ''}
@@ -191,7 +189,7 @@ export function PlateChassis({
 
                       {/* Outlier Badge */}
                       {wp.isOutlier && (
-                        <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[8px] flex items-center justify-center font-bold shadow-xs">
+                        <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center font-bold shadow-xs">
                           !
                         </span>
                       )}
@@ -220,11 +218,11 @@ export function PlateChassis({
                         </div>
                       ) : (
                         <div class="flex flex-col items-center justify-between w-full h-full py-0.5">
-                          <span class="text-[8px] font-mono leading-none font-bold opacity-75">{wp.topLabel || wellId}</span>
+                          <span class="text-[8px] font-mono leading-none font-bold">{wp.topLabel || wellId}</span>
                           <span class="text-[9px] sm:text-[10px] leading-tight font-extrabold truncate w-full text-center px-0.5">
                             {wp.midLabel || '—'}
                           </span>
-                          <span class="text-[8px] font-mono leading-none font-bold truncate w-full text-center opacity-90">
+                          <span class="text-[8px] font-mono leading-none font-bold truncate w-full text-center">
                             {wp.botLabel || ''}
                           </span>
                         </div>

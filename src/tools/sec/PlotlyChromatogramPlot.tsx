@@ -347,7 +347,7 @@ export function PlotlyChromatogramPlot(props: PlotlyChromatogramPlotProps) {
     <p class="sr-only" aria-live="polite">
       Active traces: {activeTraces}. {injectionSummary}. Displayed range {props.model.viewport.startVolumeMl.toFixed(3)} to {props.model.viewport.endVolumeMl.toFixed(3)} mL. {props.model.peakOverlays.length} accepted peaks.
     </p>
-    {status === 'loading' && <p class="absolute inset-0 grid place-items-center text-sm text-slate-500">Loading interactive chromatogram…</p>}
+    {status === 'loading' && <p class="absolute inset-0 grid place-items-center text-sm text-slate-500 dark:text-slate-400">Loading interactive chromatogram…</p>}
     {status === 'ready' && <span data-testid="plotly-chromatogram-ready" class="sr-only">Interactive chromatogram ready</span>}
     {status === 'error' && <div class="absolute inset-0 grid place-items-center gap-2 bg-white/90 p-4 text-center text-sm dark:bg-slate-950/90">
       <p>Interactive chromatogram could not load.</p>

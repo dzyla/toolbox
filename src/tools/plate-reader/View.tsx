@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
-import { PlateChassis } from '@/tools/plate/PlateChassis';
+import { PlateChassis, readableTextOn } from '@/tools/plate/PlateChassis';
 import {
   interpolateViridis,
   interpolatePlasma,
@@ -39,6 +39,9 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { useDraftText } from '@/lib/drafts';
+import { importErrorMessage, readTextFile } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
 import { SCIENCE } from './science';
 
 interface State {
@@ -75,25 +78,6 @@ const DEFAULTS: State = {
   presetKey: 'tecan_96',
 };
 
-function getContrastingTextColor(colorStr: string): string {
-  let r = 0, g = 0, b = 0;
-  if (colorStr.startsWith('#')) {
-    const hex = colorStr.slice(1);
-    r = parseInt(hex.slice(0, 2), 16) || 0;
-    g = parseInt(hex.slice(2, 4), 16) || 0;
-    b = parseInt(hex.slice(4, 6), 16) || 0;
-  } else if (colorStr.startsWith('rgb')) {
-    const match = colorStr.match(/\d+/g);
-    if (match) {
-      r = parseInt(match[0] || '0', 10);
-      g = parseInt(match[1] || '0', 10);
-      b = parseInt(match[2] || '0', 10);
-    }
-  }
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 140 ? '#0f172a' : '#ffffff';
-}
-
 export interface PlateReaderViewProps {
   projectId?: string;
   onSwitchToGenerator?: () => void;
@@ -117,7 +101,11 @@ export default function PlateReaderView({
   const [density, setDensity] = useState<'normal' | 'compact'>('normal');
 
   // Raw text input state
-  const [rawText, setRawText] = useState<string>(() => DEMO_96_TECAN_DOSE_RESPONSE.rawText);
+  const [rawText, setRawText] = useDraftText(
+    'plate-reader:raw',
+    () => DEMO_96_TECAN_DOSE_RESPONSE.rawText,
+    () => set({ presetKey: 'custom', displayMode: 'raw' }),
+  );
 
   // Layout states
   const [hasLayout, setHasLayout] = useState<boolean>(true);
@@ -159,6 +147,8 @@ export default function PlateReaderView({
   const [customMinWells, setCustomMinWells] = useState<Set<string>>(new Set());
   const [customMaxWells, setCustomMaxWells] = useState<Set<string>>(new Set());
   const [toastMsg, setToastMsg] = useState<string>('');
+  const [importError, setImportError] = useState('');
+  const [layoutImportError, setLayoutImportError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const layoutFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -435,31 +425,31 @@ export default function PlateReaderView({
     setSelectedWells(new Set());
 
     if (key === 'tecan_96') {
-      setRawText(DEMO_96_TECAN_DOSE_RESPONSE.rawText);
+      setRawText(DEMO_96_TECAN_DOSE_RESPONSE.rawText, { persist: false });
       setHasLayout(true);
       set({ presetKey: key, normalizationMode: 'percent-control', blankMethod: 'global', minMethod: 'blank', maxMethod: 'pos-ctrl' });
       setSelectedWellId('D4');
       flashToast('Loaded 96-well Dose-Response Assay (Tecan)');
     } else if (key === 'elisa_96') {
-      setRawText(DEMO_96_ELISA_STANDARD.rawText);
+      setRawText(DEMO_96_ELISA_STANDARD.rawText, { persist: false });
       setHasLayout(true);
       set({ presetKey: key, normalizationMode: 'blank-subtracted', blankMethod: 'global', minMethod: 'blank', maxMethod: 'highest', activeTab: 'elisa' });
       setSelectedWellId('A1');
       flashToast('Loaded 96-well ELISA Standard Curve & Unknowns');
     } else if (key === 'biotek_384') {
-      setRawText(DEMO_384_BIOTEK_HTS.rawText);
+      setRawText(DEMO_384_BIOTEK_HTS.rawText, { persist: false });
       setHasLayout(true);
       set({ presetKey: key, normalizationMode: 'percent-control', blankMethod: 'global', minMethod: 'blank', maxMethod: 'pos-ctrl' });
       setSelectedWellId('E8');
       flashToast('Loaded 384-well HTS Kinase Screen (BioTek)');
     } else if (key === 'raw_96') {
-      setRawText(DEMO_96_RAW_ONLY.rawText);
+      setRawText(DEMO_96_RAW_ONLY.rawText, { persist: false });
       setHasLayout(false);
       set({ presetKey: key, normalizationMode: 'raw', displayMode: 'raw', activeTab: 'heatmap' });
       setSelectedWellId('A1');
       flashToast('Loaded 96-well Unannotated Plate (Raw Signal Only)');
     } else if (key === 'list_96') {
-      setRawText(DEMO_96_LIST_EXPORT.rawText);
+      setRawText(DEMO_96_LIST_EXPORT.rawText, { persist: false });
       setHasLayout(true);
       set({ presetKey: key, normalizationMode: 'raw', displayMode: 'raw' });
       setSelectedWellId('C1');
@@ -473,10 +463,10 @@ export default function PlateReaderView({
     const file = target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
+    target.value = '';
+    setImportError('');
+    readTextFile(file)
+      .then(content => {
         setRawText(content);
         setExcludedWellIds(new Set());
         setSelectedWellId(null);
@@ -485,9 +475,8 @@ export default function PlateReaderView({
         setLabelOverrides({});
         set({ presetKey: 'custom', displayMode: 'raw' });
         flashToast(`Imported ${file.name} (Raw Plate - Define Layout in Layout Tab)`);
-      }
-    };
-    reader.readAsText(file);
+      })
+      .catch(err => setImportError(importErrorMessage(err, file.name)));
   };
 
   // Upload layout annotation matrix/list
@@ -496,18 +485,17 @@ export default function PlateReaderView({
     const file = target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
+    target.value = '';
+    setLayoutImportError('');
+    readTextFile(file)
+      .then(content => {
         setLayoutText(content);
         const parsed = parseLayoutGrid(content, { format: parsedPlate.format });
         setLayoutAnnotations(parsed.annotations);
         setHasLayout(true);
         flashToast(`Imported layout annotations (${Object.keys(parsed.annotations).length} wells annotated)`);
-      }
-    };
-    reader.readAsText(file);
+      })
+      .catch(err => setLayoutImportError(importErrorMessage(err, file.name)));
   };
 
   // Apply pasted layout annotations
@@ -732,7 +720,7 @@ export default function PlateReaderView({
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Load Plate Data
               </span>
-              <span class="text-[11px] font-mono text-slate-500">
+              <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                 {`${parsedPlate.format}-Well · ${parsedPlate.vendorHint.toUpperCase()}`}
               </span>
             </div>
@@ -747,7 +735,7 @@ export default function PlateReaderView({
                   <span>🧪</span>
                   <span class="font-semibold">Tecan 96</span>
                 </div>
-                <div class="text-[10px] text-slate-500">Dose-Response Assay</div>
+                <div class="text-[10px] text-slate-600 dark:text-slate-400">Dose-Response Assay</div>
               </button>
 
               <button
@@ -759,7 +747,7 @@ export default function PlateReaderView({
                   <span>🧬</span>
                   <span class="font-semibold">ELISA 96</span>
                 </div>
-                <div class="text-[10px] text-slate-500">Standards &amp; Unknowns</div>
+                <div class="text-[10px] text-slate-500 dark:text-slate-400">Standards &amp; Unknowns</div>
               </button>
 
               <button
@@ -771,7 +759,7 @@ export default function PlateReaderView({
                   <span>🔬</span>
                   <span class="font-semibold">BioTek 384</span>
                 </div>
-                <div class="text-[10px] text-slate-500">HTS Kinase Screen</div>
+                <div class="text-[10px] text-slate-500 dark:text-slate-400">HTS Kinase Screen</div>
               </button>
 
               <button
@@ -783,7 +771,7 @@ export default function PlateReaderView({
                   <span>📋</span>
                   <span class="font-semibold">Raw 96 Only</span>
                 </div>
-                <div class="text-[10px] text-slate-500">No Layout Attached</div>
+                <div class="text-[10px] text-slate-500 dark:text-slate-400">No Layout Attached</div>
               </button>
             </div>
 
@@ -815,12 +803,13 @@ export default function PlateReaderView({
                       setHasLayout(false);
                       flashToast('Cleared data');
                     }}
-                    class="text-rose-600 hover:text-rose-700 dark:text-rose-400 cursor-pointer"
+                    class="text-rose-700 hover:text-rose-700 dark:text-rose-400 cursor-pointer"
                   >
                     Clear
                   </button>
                 </div>
               </div>
+              <ImportAlert message={importError} />
 
               <textarea
                 rows={4}
@@ -858,7 +847,7 @@ export default function PlateReaderView({
                 onClick={() => set({ activeTab: 'layout' })}
                 class="flex-1 py-1.5 px-2.5 rounded-lg bg-accent-600 hover:bg-accent-700 text-white font-semibold text-xs transition shadow-xs text-center"
               >
-                ✏️ {hasLayout ? 'Edit Layout &amp; Labels' : 'Define Plate Layout'}
+                ✏️ {hasLayout ? 'Edit Layout & Labels' : 'Define Plate Layout'}
               </button>
               {hasLayout && (
                 <button
@@ -901,7 +890,7 @@ export default function PlateReaderView({
                   <span class="text-sm mt-0.5">{m.icon}</span>
                   <div class="min-w-0 flex-1">
                     <div class="font-semibold">{m.label}</div>
-                    <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">{m.formula}</div>
+                    <div class="text-[10px] text-slate-600 dark:text-slate-400 font-mono truncate">{m.formula}</div>
                   </div>
                 </button>
               ))}
@@ -917,7 +906,7 @@ export default function PlateReaderView({
                 {/* Blank Subtraction Method */}
                 <div>
                   <label class="block text-slate-600 dark:text-slate-400 mb-1">Blank Reference (0-Signal)</label>
-                  <select
+                  <select aria-label="Blank Reference (0-Signal)"
                     value={s.blankMethod}
                     onChange={(e) => set({ blankMethod: (e.target as HTMLSelectElement).value as State['blankMethod'] })}
                     class="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
@@ -935,6 +924,7 @@ export default function PlateReaderView({
                   <label class="block text-slate-600 dark:text-slate-400 mb-1">0% / Baseline Reference (Min)</label>
                   <div class="flex gap-2">
                     <select
+                      aria-label="0% / Baseline Reference (Min)"
                       value={s.minMethod}
                       onChange={(e) => set({ minMethod: (e.target as HTMLSelectElement).value as State['minMethod'] })}
                       class="flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
@@ -963,6 +953,7 @@ export default function PlateReaderView({
                   <label class="block text-slate-600 dark:text-slate-400 mb-1">100% / Top Reference (Max)</label>
                   <div class="flex gap-2">
                     <select
+                      aria-label="100% / Top Reference (Max)"
                       value={s.maxMethod}
                       onChange={(e) => set({ maxMethod: (e.target as HTMLSelectElement).value as State['maxMethod'] })}
                       class="flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
@@ -988,15 +979,15 @@ export default function PlateReaderView({
                 {/* Live reference values */}
                 <div class="pt-2 grid grid-cols-3 gap-1.5 text-center font-mono text-[11px]">
                   <div class="rounded-md bg-slate-50 p-1 dark:bg-slate-800">
-                    <span class="block text-[9px] uppercase text-slate-500">Blank</span>
+                    <span class="block text-[9px] uppercase text-slate-500 dark:text-slate-400">Blank</span>
                     <span class="font-bold">{blankMean.toFixed(2)}</span>
                   </div>
                   <div class="rounded-md bg-slate-50 p-1 dark:bg-slate-800">
-                    <span class="block text-[9px] uppercase text-slate-500">Min Ref</span>
+                    <span class="block text-[9px] uppercase text-slate-500 dark:text-slate-400">Min Ref</span>
                     <span class="font-bold">{minRef.toFixed(2)}</span>
                   </div>
                   <div class="rounded-md bg-emerald-50 p-1 dark:bg-emerald-950/40">
-                    <span class="block text-[9px] uppercase text-emerald-600 dark:text-emerald-400">Max Ref</span>
+                    <span class="block text-[9px] uppercase text-emerald-700 dark:text-emerald-400">Max Ref</span>
                     <span class="font-bold text-emerald-700 dark:text-emerald-300">{maxRef.toFixed(2)}</span>
                   </div>
                 </div>
@@ -1030,11 +1021,12 @@ export default function PlateReaderView({
               <div class="flex items-center justify-between gap-3 pt-1">
                 <div>
                   <label class="block text-slate-600 dark:text-slate-400">Replicate %CV Warning</label>
-                  <span class="text-[10px] text-slate-400">Standard assay threshold 15%</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Standard assay threshold 15%</span>
                 </div>
                 <div class="flex items-center gap-1">
                   <input
                     type="number"
+                    aria-label="Replicate %CV Warning"
                     min="1"
                     max="100"
                     step="any"
@@ -1042,7 +1034,7 @@ export default function PlateReaderView({
                     onChange={(e) => set({ cvThreshold: parseFloat((e.target as HTMLInputElement).value) || 15 })}
                     class="w-16 rounded-md border border-slate-300 px-2 py-1 text-right font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
                   />
-                  <span class="text-xs text-slate-500">%</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400">%</span>
                 </div>
               </div>
 
@@ -1052,7 +1044,7 @@ export default function PlateReaderView({
                     type="checkbox"
                     checked={s.autoExcludeOutliers}
                     onChange={(e) => set({ autoExcludeOutliers: (e.target as HTMLInputElement).checked })}
-                    class="rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="rounded border-slate-300 text-accent-600 dark:text-accent-400 focus:ring-accent-500"
                   />
                   <span class="text-xs text-slate-700 dark:text-slate-300 font-medium">
                     Auto-exclude flagged outliers from group mean &amp; SD
@@ -1087,7 +1079,7 @@ export default function PlateReaderView({
             </div>
 
             <div class="flex items-center gap-2 text-xs">
-              <span class="text-slate-500 font-medium">
+              <span class="text-slate-500 dark:text-slate-400 font-medium">
                 {externalLayoutAnnotations && Object.keys(externalLayoutAnnotations).length > 0 ? (
                   <span>Layout: <strong>{Object.keys(externalLayoutAnnotations).length} wells defined in Generator</strong></span>
                 ) : (
@@ -1108,12 +1100,12 @@ export default function PlateReaderView({
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {/* Z'-Factor Card */}
             <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-              <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                 <span>Z'-Factor (HTS Window)</span>
                 <span title="Zhang et al. 1999: >= 0.5 is an excellent screening assay">ℹ️</span>
               </div>
               <div class="flex items-baseline gap-2">
-                <span class={`text-xl font-extrabold font-mono ${assayQc.zPrime !== null && assayQc.zPrime >= 0.5 ? 'text-emerald-600 dark:text-emerald-400' : assayQc.zPrime !== null && assayQc.zPrime >= 0 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                <span class={`text-xl font-extrabold font-mono ${assayQc.zPrime !== null && assayQc.zPrime >= 0.5 ? 'text-emerald-700 dark:text-emerald-400' : assayQc.zPrime !== null && assayQc.zPrime >= 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>
                   {assayQc.zPrime !== null ? assayQc.zPrime.toFixed(3) : 'N/A'}
                 </span>
                 {assayQc.zFactorInterpretation && (
@@ -1126,7 +1118,7 @@ export default function PlateReaderView({
 
             {/* Signal-to-Background */}
             <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-              <span class="block text-xs text-slate-500 mb-1">Signal-to-Background (S/B)</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Signal-to-Background (S/B)</span>
               <span class="text-xl font-extrabold font-mono text-slate-800 dark:text-slate-100">
                 {assayQc.signalToBackground !== null ? `${assayQc.signalToBackground.toFixed(1)}×` : 'N/A'}
               </span>
@@ -1134,7 +1126,7 @@ export default function PlateReaderView({
 
             {/* Signal-to-Noise */}
             <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-              <span class="block text-xs text-slate-500 mb-1">Signal-to-Noise (S/N)</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Signal-to-Noise (S/N)</span>
               <span class="text-xl font-extrabold font-mono text-slate-800 dark:text-slate-100">
                 {assayQc.signalToNoise !== null ? assayQc.signalToNoise.toFixed(1) : 'N/A'}
               </span>
@@ -1142,9 +1134,9 @@ export default function PlateReaderView({
 
             {/* Plate Mean %CV */}
             <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-              <span class="block text-xs text-slate-500 mb-1">Plate Mean %CV</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Plate Mean %CV</span>
               <div class="flex items-baseline gap-2">
-                <span class={`text-xl font-extrabold font-mono ${assayQc.plateMeanCv !== null && assayQc.plateMeanCv <= s.cvThreshold ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                <span class={`text-xl font-extrabold font-mono ${assayQc.plateMeanCv !== null && assayQc.plateMeanCv <= s.cvThreshold ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
                   {assayQc.plateMeanCv !== null ? `${assayQc.plateMeanCv.toFixed(1)}%` : 'N/A'}
                 </span>
                 {assayQc.outlierCount > 0 && (
@@ -1193,19 +1185,19 @@ export default function PlateReaderView({
               <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs border border-slate-200 dark:border-slate-700">
                 <div class="flex items-center gap-3">
                   <div class="flex items-center gap-1.5">
-                    <span class="text-slate-500 font-medium">Display:</span>
+                    <span class="text-slate-500 dark:text-slate-400 font-medium">Display:</span>
                     <div class="inline-flex rounded-lg bg-slate-200 p-0.5 dark:bg-slate-700">
                       <button
                         type="button"
                         onClick={() => set({ displayMode: 'raw' })}
-                        class={`px-2 py-0.5 rounded-md font-semibold ${s.displayMode === 'raw' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+                        class={`px-2 py-0.5 rounded-md font-semibold ${s.displayMode === 'raw' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}
                       >
                         Raw Signal
                       </button>
                       <button
                         type="button"
                         onClick={() => set({ displayMode: 'normalized' })}
-                        class={`px-2 py-0.5 rounded-md font-semibold ${s.displayMode === 'normalized' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+                        class={`px-2 py-0.5 rounded-md font-semibold ${s.displayMode === 'normalized' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}
                       >
                         Normalized
                       </button>
@@ -1213,8 +1205,8 @@ export default function PlateReaderView({
                   </div>
 
                   <div class="flex items-center gap-1.5">
-                    <span class="text-slate-500 font-medium">Palette:</span>
-                    <select
+                    <span class="text-slate-500 dark:text-slate-400 font-medium">Palette:</span>
+                    <select aria-label="Palette"
                       value={s.colorPalette}
                       onChange={(e) => set({ colorPalette: (e.target as HTMLSelectElement).value as State['colorPalette'] })}
                       class="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800"
@@ -1227,19 +1219,19 @@ export default function PlateReaderView({
                   </div>
 
                   <div class="flex items-center gap-1.5">
-                    <span class="text-slate-500 font-medium">Density:</span>
+                    <span class="text-slate-500 dark:text-slate-400 font-medium">Density:</span>
                     <div class="inline-flex rounded-lg bg-slate-200 p-0.5 dark:bg-slate-700">
                       <button
                         type="button"
                         onClick={() => setDensity('normal')}
-                        class={`px-2 py-0.5 rounded-md font-semibold ${density === 'normal' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+                        class={`px-2 py-0.5 rounded-md font-semibold ${density === 'normal' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}
                       >
                         Normal
                       </button>
                       <button
                         type="button"
                         onClick={() => setDensity('compact')}
-                        class={`px-2 py-0.5 rounded-md font-semibold ${density === 'compact' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+                        class={`px-2 py-0.5 rounded-md font-semibold ${density === 'compact' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}
                       >
                         Compact
                       </button>
@@ -1260,7 +1252,7 @@ export default function PlateReaderView({
 
                 {/* Heatmap Legend */}
                 <div class="flex items-center gap-2">
-                  <span class="font-mono text-[11px] text-slate-500">{minVal.toFixed(2)}</span>
+                  <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">{minVal.toFixed(2)}</span>
                   <div
                     class="h-3 w-28 rounded-sm shadow-inner"
                     style={{
@@ -1274,7 +1266,7 @@ export default function PlateReaderView({
                           : 'linear-gradient(to right, #440154, #3b528b, #21918c, #5ec962, #fde725)',
                     }}
                   />
-                  <span class="font-mono text-[11px] text-slate-500">{maxVal.toFixed(2)}</span>
+                  <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">{maxVal.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -1283,31 +1275,31 @@ export default function PlateReaderView({
                 {hoveredWell ? (
                   <div class="flex items-center gap-2 truncate">
                     <span class="font-bold text-accent-600 dark:text-accent-400">{hoveredWell.id}</span>
-                    <span class="text-slate-400">|</span>
+                    <span class="text-slate-500 dark:text-slate-400">|</span>
                     <span class="text-slate-800 dark:text-slate-200 truncate">{hoveredWell.sampleName || 'Unassigned'}</span>
                     {hoveredWell.raw !== null && hoveredWell.raw !== undefined && (
-                      <span class="text-slate-500 font-semibold">
+                      <span class="text-slate-500 dark:text-slate-400 font-semibold">
                         Raw: {hoveredWell.raw.toFixed(2)}
                       </span>
                     )}
                     {hoveredWell.normalized !== null && hoveredWell.normalized !== undefined && (
-                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <span class="text-emerald-700 dark:text-emerald-400 font-semibold">
                         ({hoveredWell.normalized.toFixed(1)}%)
                       </span>
                     )}
                     {hoveredWell.concentration !== undefined && (
-                      <span class="text-slate-500">
+                      <span class="text-slate-500 dark:text-slate-400">
                         [{hoveredWell.concentration} {hoveredWell.concentrationUnit || ''}]
                       </span>
                     )}
                     {hoveredWell.isOutlier && (
-                      <span class="text-rose-600 dark:text-rose-400 font-bold">
+                      <span class="text-rose-700 dark:text-rose-400 font-bold">
                         ⚠️ OUTLIER
                       </span>
                     )}
                   </div>
                 ) : (
-                  <span class="text-slate-400 text-xs italic">
+                  <span class="text-slate-500 dark:text-slate-400 text-xs italic">
                     Hover over any well for live signal readout • Click well to inspect &amp; exclude
                   </span>
                 )}
@@ -1322,7 +1314,7 @@ export default function PlateReaderView({
                         class="flex h-10 w-10 items-center justify-center rounded-xl font-mono text-base font-black border border-black/10 shadow-xs"
                         style={{
                           backgroundColor: selectedGroup ? selectedGroup.color : '#e2e8f0',
-                          color: selectedGroup ? getContrastingTextColor(selectedGroup.color) : '#64748b',
+                          color: selectedGroup ? readableTextOn(selectedGroup.color) : '#64748b',
                         }}
                       >
                         {selectedWell.id}
@@ -1332,13 +1324,13 @@ export default function PlateReaderView({
                           <span class="font-bold text-sm text-slate-800 dark:text-slate-100">
                             {selectedWell.sampleName || 'Unassigned Well'}
                           </span>
-                          <span class="text-[11px] text-slate-500 font-mono">
+                          <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                             (Row {selectedWell.row}, Col {selectedWell.col})
                           </span>
                           {selectedGroup && (
                             <span
-                              class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
-                              style={{ backgroundColor: `${selectedGroup.color}25`, color: selectedGroup.color }}
+                              class="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase text-slate-800 dark:text-slate-100"
+                              style={{ backgroundColor: `${selectedGroup.color}25`, borderColor: selectedGroup.color }}
                             >
                               {selectedGroup.type}
                             </span>
@@ -1354,7 +1346,7 @@ export default function PlateReaderView({
                             </span>
                           )}
                         </div>
-                        <div class="text-slate-500 font-mono mt-0.5 flex flex-wrap gap-3">
+                        <div class="text-slate-500 dark:text-slate-400 font-mono mt-0.5 flex flex-wrap gap-3">
                           <span>Raw Signal: <strong>{selectedWell.raw ?? 'N/A'}</strong></span>
                           <span>Normalized: <strong>{selectedWell.normalized !== null ? `${selectedWell.normalized.toFixed(2)}%` : 'N/A'}</strong></span>
                           {selectedWell.concentration !== undefined && (
@@ -1374,7 +1366,7 @@ export default function PlateReaderView({
                       <button
                         type="button"
                         onClick={() => handleToggleExclude(selectedWell.id)}
-                        class={`px-3 py-1.5 rounded-lg font-semibold transition shadow-2xs ${selectedWell.isExcluded ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300'}`}
+                        class={`px-3 py-1.5 rounded-lg font-semibold transition shadow-2xs ${selectedWell.isExcluded ? 'bg-emerald-700 text-white hover:bg-emerald-700' : 'bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300'}`}
                       >
                         {selectedWell.isExcluded ? 'Include Well in Statistics' : 'Exclude Well'}
                       </button>
@@ -1427,7 +1419,7 @@ export default function PlateReaderView({
                       <button
                         type="button"
                         onClick={() => setSelectedWellId(null)}
-                        class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                        class="p-1 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
                         title="Dismiss Inspector"
                       >
                         ✕
@@ -1454,12 +1446,12 @@ export default function PlateReaderView({
                 }}
                 onWellMouseLeave={() => setHoveredWellId(null)}
                 title={`ANSI / SLAS 1-2004 Microplate · ${parsedPlate.format} Wells`}
-                subtitle={`${parsedPlate.rows.length} × ${parsedPlate.cols.length} Grid · ${parsedPlate.wells.length} Wells Recorded`}
+                subtitle={`${parsedPlate.rows.length} × ${parsedPlate.cols.length} Grid · ${Object.values(parsedPlate.wells).filter(w => w.raw !== null).length} Wells Recorded`}
                 getWellData={(wellId) => {
                   const well = normalizedWells[wellId];
                   const val = s.displayMode === 'normalized' ? well?.normalized : well?.raw;
                   const bgColor = getWellColor(val);
-                  const textColor = getContrastingTextColor(bgColor);
+                  const textColor = readableTextOn(bgColor);
                   const isOutlier = !!well?.isOutlier;
                   const isExcluded = !!well?.isExcluded;
 
@@ -1468,7 +1460,7 @@ export default function PlateReaderView({
                     row: wellId.charAt(0),
                     col: parseInt(wellId.slice(1), 10),
                     bgColor: isExcluded ? '#cbd5e1' : bgColor,
-                    textColor: isExcluded ? '#475569' : textColor,
+                    textColor: isExcluded ? '#334155' : textColor,
                     isSelected: selectedWellId === wellId,
                     isOutlier,
                     isExcluded,
@@ -1522,6 +1514,7 @@ export default function PlateReaderView({
                     </button>
                   </div>
                 </div>
+                <ImportAlert message={layoutImportError} />
 
                 <textarea
                   rows={4}
@@ -1544,7 +1537,7 @@ export default function PlateReaderView({
                         Select role (Blank, Standard, Controls, Samples), enter nominal concentrations, and set dilution factors.
                       </p>
                     </div>
-                    <span class="text-xs font-mono text-slate-500">
+                    <span class="text-xs font-mono text-slate-500 dark:text-slate-400">
                       {detectedLabels.length} unique labels detected
                     </span>
                   </div>
@@ -1567,7 +1560,7 @@ export default function PlateReaderView({
                             <td class="p-2 font-sans font-bold text-slate-800 dark:text-slate-200">
                               {item.label}
                             </td>
-                            <td class="p-2 text-center text-slate-500">
+                            <td class="p-2 text-center text-slate-500 dark:text-slate-400">
                               {item.count}
                             </td>
                             <td class="p-2">
@@ -1670,8 +1663,8 @@ export default function PlateReaderView({
                 <div class="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div class="flex flex-wrap items-center gap-3">
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Role</span>
-                      <select
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Role</span>
+                      <select aria-label="Role"
                         value={painterRole}
                         onChange={(e) => setPainterRole((e.target as HTMLSelectElement).value as SampleType)}
                         class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
@@ -1686,8 +1679,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Label / Group</span>
-                      <input
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Label / Group</span>
+                      <input aria-label="Label / Group"
                         type="text"
                         value={painterLabel}
                         onChange={(e) => setPainterLabel((e.target as HTMLInputElement).value)}
@@ -1697,8 +1690,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Conc</span>
-                      <input
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Conc</span>
+                      <input aria-label="Conc"
                         type="number"
                         step="any"
                         value={painterConc}
@@ -1709,8 +1702,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Unit</span>
-                      <input
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Unit</span>
+                      <input aria-label="Unit"
                         type="text"
                         value={painterUnit}
                         onChange={(e) => setPainterUnit((e.target as HTMLInputElement).value)}
@@ -1720,8 +1713,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Dilution</span>
-                      <input
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Dilution</span>
+                      <input aria-label="Dilution"
                         type="number"
                         min="1"
                         step="any"
@@ -1756,8 +1749,8 @@ export default function PlateReaderView({
 
                   <div class="flex flex-wrap items-center gap-3 pt-1">
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Start Conc</span>
-                      <input
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Start Conc</span>
+                      <input aria-label="Start Conc"
                         type="number"
                         step="any"
                         value={dilutionStartConc}
@@ -1767,8 +1760,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Dilution Factor</span>
-                      <select
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Dilution Factor</span>
+                      <select aria-label="Dilution Factor"
                         value={dilutionFactor}
                         onChange={(e) => setDilutionFactor(parseFloat((e.target as HTMLSelectElement).value) || 2)}
                         class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
@@ -1782,8 +1775,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Role</span>
-                      <select
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Role</span>
+                      <select aria-label="Role"
                         value={dilutionRole}
                         onChange={(e) => setDilutionRole((e.target as HTMLSelectElement).value as SampleType)}
                         class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
@@ -1794,8 +1787,8 @@ export default function PlateReaderView({
                     </div>
 
                     <div>
-                      <span class="block text-slate-500 text-[10px] uppercase font-bold mb-1">Unit</span>
-                      <input
+                      <span class="block text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold mb-1">Unit</span>
+                      <input aria-label="Unit"
                         type="text"
                         value={dilutionUnit}
                         onChange={(e) => setDilutionUnit((e.target as HTMLInputElement).value)}
@@ -1881,7 +1874,7 @@ export default function PlateReaderView({
           {s.activeTab === 'table' && (
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Replicate Summary ({groupStats.length} groups)
                 </span>
                 <button
@@ -1928,7 +1921,7 @@ export default function PlateReaderView({
                         <td class="p-2.5 text-right font-bold">
                           {g.mean.toFixed(3)} ± {g.sd.toFixed(3)}
                         </td>
-                        <td class="p-2.5 text-right text-slate-500">
+                        <td class="p-2.5 text-right text-slate-500 dark:text-slate-400">
                           {g.sem.toFixed(3)}
                         </td>
                         <td class="p-2.5 text-right">
@@ -1936,7 +1929,7 @@ export default function PlateReaderView({
                             {g.cv.toFixed(1)}%
                           </span>
                         </td>
-                        <td class="p-2.5 text-right text-slate-500 text-[11px]">
+                        <td class="p-2.5 text-right text-slate-500 dark:text-slate-400 text-[11px]">
                           {g.median.toFixed(2)} [{g.min.toFixed(2)} - {g.max.toFixed(2)}]
                         </td>
                         <td class="p-2.5 text-center font-sans">
@@ -1973,8 +1966,8 @@ export default function PlateReaderView({
 
                     <div class="flex items-center gap-3">
                       <div class="rounded-lg bg-white px-3 py-1.5 text-center shadow-xs border border-purple-200 dark:bg-slate-900 dark:border-purple-800">
-                        <span class="block text-[10px] uppercase font-bold text-slate-500">R² Fit Quality</span>
-                        <span class={`font-mono text-base font-extrabold ${standardCurve.rSquared >= 0.99 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                        <span class="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">R² Fit Quality</span>
+                        <span class={`font-mono text-base font-extrabold ${standardCurve.rSquared >= 0.99 ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
                           {standardCurve.rSquared.toFixed(4)}
                         </span>
                       </div>
@@ -2020,7 +2013,7 @@ export default function PlateReaderView({
                               <td class="p-2 text-right font-bold text-purple-700 dark:text-purple-300">
                                 {pt.concentration} {standardCurve.unit}
                               </td>
-                              <td class="p-2 text-center text-slate-500">
+                              <td class="p-2 text-center text-slate-500 dark:text-slate-400">
                                 {pt.rawValues.length}
                               </td>
                               <td class="p-2 text-right">
@@ -2047,7 +2040,7 @@ export default function PlateReaderView({
                       <h4 class="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
                         Unknown Samples Quantified ({standardCurve.quantifiedSamples.length} Groups)
                       </h4>
-                      <span class="text-[11px] text-slate-500">
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400">
                         Final Conc = Calculated Nominal × Dilution Factor
                       </span>
                     </div>
@@ -2072,7 +2065,7 @@ export default function PlateReaderView({
                               <td class="p-2 font-sans font-bold text-slate-800 dark:text-slate-200">
                                 {smp.sampleName}
                               </td>
-                              <td class="p-2 text-center text-slate-500">
+                              <td class="p-2 text-center text-slate-500 dark:text-slate-400">
                                 {smp.n}
                               </td>
                               <td class="p-2 text-right">
@@ -2110,7 +2103,7 @@ export default function PlateReaderView({
                   <h3 class="font-bold text-slate-700 dark:text-slate-200">
                     No ELISA Standards Detected
                   </h3>
-                  <p class="text-xs text-slate-500 max-w-md mx-auto">
+                  <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                     To compute an ELISA standard calibration curve, wells must be assigned role <strong>Standard</strong> with known nominal concentrations (e.g., 0 to 1000 pg/mL).
                   </p>
                   <div class="flex justify-center gap-3 pt-2">
@@ -2171,7 +2164,7 @@ export default function PlateReaderView({
                       <div key={ser.seriesName} class="p-3 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60 space-y-1">
                         <div class="flex items-center justify-between">
                           <span class="font-bold text-slate-900 dark:text-slate-100">{ser.seriesName}</span>
-                          <span class="font-mono text-slate-500">{ser.points.length} concentrations</span>
+                          <span class="font-mono text-slate-500 dark:text-slate-400">{ser.points.length} concentrations</span>
                         </div>
                         {ser.estimatedEc50 !== null && (
                           <div class="text-accent-600 dark:text-accent-400 font-mono font-semibold">
@@ -2253,7 +2246,7 @@ export default function PlateReaderView({
                     <div class="w-1/2 bg-emerald-500/80" title="Excellent (>= 0.5)" />
                   </div>
 
-                  <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+                  <div class="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     <span>&lt; 0.0 (Failed)</span>
                     <span>0.0 (Marginal)</span>
                     <span>0.5 (HTS Ready)</span>
@@ -2273,7 +2266,7 @@ export default function PlateReaderView({
                       <div key={g.groupId} class="py-2 flex items-center justify-between">
                         <div>
                           <span class="font-bold text-slate-800 dark:text-slate-200">{g.groupName}: </span>
-                          <span class="font-mono text-rose-600 dark:text-rose-400 font-semibold">
+                          <span class="font-mono text-rose-700 dark:text-rose-400 font-semibold">
                             {g.outlierWellIds.join(', ')}
                           </span>
                         </div>
@@ -2293,7 +2286,7 @@ export default function PlateReaderView({
                     ))}
                   </div>
                 ) : (
-                  <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium py-2">
+                  <p class="text-xs text-emerald-700 dark:text-emerald-400 font-medium py-2">
                     ✓ No statistically significant outliers detected across any sample group.
                   </p>
                 )}

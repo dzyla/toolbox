@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText } from '@/lib/export';
 import {
   schemesByGroup, findScheme, schemeSize, samplePalette, MAX_COLORS,
   simulatePalette, VISIONS, type Vision, type Deficiency,
@@ -21,12 +22,6 @@ const btn = 'rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:border
 async function copyText(text: string): Promise<boolean> {
   try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
 }
-function download(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 /** One clickable colour. Copies its hex and (optionally) selects it for the variations panel. */
 function Swatch({ hex, original, onPick, size = 'h-16' }: { hex: string; original?: string; onPick: (hex: string) => void; size?: string }) {
   const changed = original !== undefined && original !== hex;
@@ -113,7 +108,7 @@ export default function View() {
         <label for="col-n" class="block"><span class="mb-1 block text-sm font-medium">Number of colours (1–{MAX_COLORS})</span>
           <input id="col-n" type="number" min={1} max={MAX_COLORS} step={1} value={fixed ?? s.n} disabled={fixed !== undefined}
             onInput={e => { const v = Math.floor(Number((e.target as HTMLInputElement).value)); if (Number.isFinite(v)) set({ n: Math.min(MAX_COLORS, Math.max(1, v)) }); }} class={input} />
-          {fixed !== undefined && <span class="mt-1 block text-xs text-slate-500">Categorical scheme with a fixed set of {fixed} colours.</span>}
+          {fixed !== undefined && <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">Categorical scheme with a fixed set of {fixed} colours.</span>}
         </label>
         <fieldset>
           <legend class="mb-1 text-sm font-medium">Simulate colour vision deficiency (shown beside the original)</legend>
@@ -134,14 +129,14 @@ export default function View() {
               onKeyDown={e => { if (e.key === 'Enter') showCustom(); }} aria-invalid={!!customError} class={input} />
             <button type="button" class={btn} onClick={showCustom}>Show</button>
           </div>
-          {customError && <p role="alert" class="mt-1 text-xs text-red-600">{customError}</p>}
+          {customError && <p role="alert" class="mt-1 text-xs text-red-600 dark:text-red-400">{customError}</p>}
         </div>
       </>}
-      results={error ? <p role="alert" class="text-red-600">{error}</p> : <div class="space-y-6">
+      results={error ? <p role="alert" class="text-red-600 dark:text-red-400">{error}</p> : <div class="space-y-6">
         <div class={`grid gap-6 ${visions.length > 1 ? 'md:grid-cols-2' : ''}`}>
           {visions.map(v => <VisionPanel key={v} vision={v} palette={palette} onPick={pick} />)}
         </div>
-        <p class="text-xs text-slate-500">Click a swatch to copy its hex code and open its variations. Simulated swatches show the simulated colour; the tooltip names the original.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Click a swatch to copy its hex code and open its variations. Simulated swatches show the simulated colour; the tooltip names the original.</p>
         {vars && sel && (
           <section aria-label="Variations" class="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
             <div class="flex flex-wrap items-center gap-3">
@@ -165,15 +160,15 @@ export default function View() {
           <h3 class="text-sm font-semibold">Export</h3>
           <div class="flex flex-wrap gap-2">
             <button type="button" class={btn} onClick={() => copyExport(pymol(), 'PyMOL script')}>Copy PyMOL</button>
-            <button type="button" class={btn} onClick={() => download(`${s.name || 'colors'}.pml`, pymol())}>Download .pml</button>
+            <button type="button" class={btn} onClick={() => downloadText(pymol(), `${s.name || 'colors'}.pml`)}>Download .pml</button>
             <button type="button" class={btn} onClick={() => copyExport(mpl(), 'matplotlib list')}>Copy matplotlib</button>
-            <button type="button" class={btn} onClick={() => download(`${s.name || 'colors'}.py`, mpl())}>Download .py</button>
+            <button type="button" class={btn} onClick={() => downloadText(mpl(), `${s.name || 'colors'}.py`)}>Download .py</button>
             <button type="button" class={btn} onClick={() => copyExport(toHexList(palette), 'Hex list')}>Copy hex list</button>
             <button type="button" class={btn} onClick={() => copyExport(toRgbList(palette), 'RGB list')}>Copy RGB list</button>
           </div>
           <pre class="mono max-h-40 overflow-auto rounded-lg bg-slate-100 p-2 text-xs dark:bg-slate-800" data-testid="pymol">{pymol()}</pre>
         </section>
-        <p role="status" class="text-xs text-slate-500">{msg}</p>
+        <p role="status" class="text-xs text-slate-500 dark:text-slate-400">{msg}</p>
       </div>}
       actions={<ActionBar onCopy={() => `${header}\n${toHexList(palette)}\n\n${scienceText(SCIENCE)}`} shareUrl={shareUrl} />}
       science={<SciencePanel science={SCIENCE} />}

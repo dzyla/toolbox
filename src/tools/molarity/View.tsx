@@ -80,7 +80,7 @@ export default function View() {
     <ToolLayout icon="⚖️" title="Molarity & Dilution" blurb="Mass to weigh for a solution, and C1V1 = C2V2 with any unknown."
       mobileResultSummary={
         error ? (
-          <span class="text-rose-600 dark:text-rose-400 font-semibold">{error}</span>
+          <span class="text-rose-700 dark:text-rose-400 font-semibold">{error}</span>
         ) : s.tab === 'serial' && rows ? (
           <span>Well 1: <strong class="text-accent-700 dark:text-accent-300">{rows[0]!.preparationVolume} {s.serialVolume.unit}</strong> · Transfer <strong class="text-accent-700 dark:text-accent-300">{rows[0]!.transferVolume} {s.serialVolume.unit}</strong></span>
         ) : (
@@ -97,7 +97,7 @@ export default function View() {
               <input id="mol-mw" type="number" step="any" value={s.mw} onInput={e => set({ mw: Number((e.target as HTMLInputElement).value) })}
                 class="mono w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900" /></label>
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
-              <span class="text-[11px] text-slate-400 font-medium mr-0.5">Presets:</span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-0.5">Presets:</span>
               {MW_PRESETS.map(p => (
                 <button
                   key={p.name}
@@ -130,7 +130,7 @@ export default function View() {
         </div>
         <table class="w-full text-left text-sm"><thead><tr><th class="pb-2">Well</th><th class="pb-2 text-right">Concentration</th><th class="pb-2 text-right">Diluent</th></tr></thead>
           <tbody>{rows!.map(row => <tr key={row.well} class="border-t border-slate-200 dark:border-slate-700"><td class="py-2">Well {row.well}</td><td class="py-2 text-right font-mono font-bold text-accent-600 dark:text-accent-400">{Number(row.concentration.toPrecision(5))} {s.serialConc.unit}</td><td class="py-2 text-right font-mono">{row.diluentVolume} {s.serialVolume.unit}</td></tr>)}</tbody></table>
-        <p class="mt-3 text-xs text-slate-500">After mixing, transfer onward from each well; remove the same transfer volume from the final well so every well retains {s.serialVolume.value} {s.serialVolume.unit}.</p>
+        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">After mixing, transfer onward from each well; remove the same transfer volume from the final well so every well retains {s.serialVolume.value} {s.serialVolume.unit}.</p>
       </div> : <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p class="text-xl font-bold leading-snug text-slate-900 dark:text-slate-100" data-testid="result">{result}</p></div>}
       actions={<ActionBar onCopy={() => `${result}\n\n${scienceText(SCIENCE)}`} shareUrl={shareUrl} />}
       science={<SciencePanel science={SCIENCE} />}

@@ -11,6 +11,7 @@ import { ActionBar } from '@/app/components/ActionBar';
 import { MolstarViewer } from './MolstarViewer';
 import { downloadText } from '@/lib/export';
 import { useUrlState } from '@/lib/url-state';
+import { importErrorMessage, readTextFile } from '@/lib/file-import';
 import { SCIENCE } from './science';
 
 interface State {
@@ -49,7 +50,7 @@ function FormattedSequenceView({ sequence }: { sequence: string }) {
     <div class="font-mono text-xs max-h-64 overflow-y-auto rounded-lg bg-slate-950 text-slate-100 p-3 select-all border border-slate-800 space-y-1">
       {lines.map(line => (
         <div key={line.index} class="flex items-start gap-3">
-          <span class="text-slate-500 select-none text-[11px] w-12 text-right shrink-0 font-mono">
+          <span class="text-slate-500 dark:text-slate-400 select-none text-[11px] w-12 text-right shrink-0 font-mono">
             {line.index}
           </span>
           <span class="break-all tracking-wider text-slate-200">
@@ -189,18 +190,18 @@ export default function StructureView() {
     }
   }
 
-  function handleFileUpload(file: File) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const text = e.target?.result as string;
+  async function handleFileUpload(file: File) {
+    try {
+      const text = await readTextFile(file);
       const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
       setRawPdb(text);
       setLoadedPdb(cleanName);
       setInputPdb(cleanName);
       set({ pdbId: cleanName });
       setFetchError('');
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      setFetchError(importErrorMessage(err, file.name));
+    }
   }
 
   function handleDownloadPdb() {
@@ -317,7 +318,7 @@ export default function StructureView() {
                 {fetchLoading ? 'Fetching…' : 'Fetch & Load'}
               </button>
             </div>
-            {fetchError && <p class="text-xs text-rose-600 dark:text-rose-400 font-medium">{fetchError}</p>}
+            {fetchError && <p class="text-xs text-rose-700 dark:text-rose-400 font-medium">{fetchError}</p>}
           </div>
 
           {/* Benchmark Presets */}
@@ -341,7 +342,7 @@ export default function StructureView() {
                   }`}
                 >
                   <div class="font-mono font-bold text-slate-900 dark:text-slate-100">{p.id}</div>
-                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{p.name}</div>
+                  <div class="text-[11px] text-slate-600 dark:text-slate-400 truncate">{p.name}</div>
                 </button>
               ))}
             </div>
@@ -356,7 +357,7 @@ export default function StructureView() {
               <span class="text-xs font-medium text-slate-600 dark:text-slate-300">
                 Click or drag &amp; drop a <code class="font-mono font-semibold">.pdb</code> or <code class="font-mono font-semibold">.ent</code> file
               </span>
-              <span class="text-[10px] text-slate-400 mt-1">Parsed locally in browser</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Parsed locally in browser</span>
               <input
                 type="file"
                 accept=".pdb,.ent,.txt"
@@ -425,23 +426,23 @@ export default function StructureView() {
           {parsed && (
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Total Residues</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Total Residues</span>
                 <span class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">{parsed.sequence.length.toLocaleString()}</span>
-                <span class="text-[10px] text-slate-400 block mt-0.5">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                   {rnaChains.length > 0 ? 'amino acids & nucleotides' : 'amino acids'}
                 </span>
               </div>
 
               <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Radius of Gyration</span>
-                <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">{parsed.radiusOfGyration} Å</span>
-                <span class="text-[10px] text-slate-400 block mt-0.5">molecular compactness</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Radius of Gyration</span>
+                <span class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">{parsed.radiusOfGyration} Å</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">molecular compactness</span>
               </div>
 
               <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Chains</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Chains</span>
                 <span class="font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400">{parsed.chains.length}</span>
-                <span class="text-[10px] text-slate-400 block mt-0.5">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                   {proteinChains.length > 0 && rnaChains.length > 0
                     ? `${proteinChains.length} prot, ${rnaChains.length} rna`
                     : `${parsed.chains.length} subunits`}
@@ -449,17 +450,17 @@ export default function StructureView() {
               </div>
 
               <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Cα Atoms</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Cα Atoms</span>
                 <span class="font-mono text-2xl font-bold text-cyan-600 dark:text-cyan-400">{parsed.caAtoms.length.toLocaleString()}</span>
-                <span class="text-[10px] text-slate-400 block mt-0.5">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                   {rnaChains.length > 0 ? 'Cα & nucleic P trace' : 'backbone alpha carbons'}
                 </span>
               </div>
 
               <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs col-span-2 sm:col-span-1">
-                <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Total Atoms</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Total Atoms</span>
                 <span class="font-mono text-2xl font-bold text-slate-800 dark:text-slate-200">{parsed.allAtoms.length.toLocaleString()}</span>
-                <span class="text-[10px] text-slate-400 block mt-0.5">ATOM + HETATM</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">ATOM + HETATM</span>
               </div>
             </div>
           )}
@@ -572,7 +573,7 @@ export default function StructureView() {
                         <button
                           type="button"
                           onClick={() => setChainSearch('')}
-                          class="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded cursor-pointer"
+                          class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-600 px-2 py-1 rounded cursor-pointer"
                         >
                           ✕
                         </button>
@@ -714,7 +715,7 @@ export default function StructureView() {
                                 {c.polymerResidues.length > 0 ? (
                                   <span>{c.polymerResidues.length.toLocaleString()} {unit}</span>
                                 ) : (
-                                  <span class="text-slate-400">—</span>
+                                  <span class="text-slate-500 dark:text-slate-400">—</span>
                                 )}
                               </td>
                               <td class="p-2.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
@@ -773,7 +774,7 @@ export default function StructureView() {
                   {/* If user expanded all sequences in multi-chain complex, show collapse button */}
                   {activeChain === 'all' && parsed.chains.length > 3 && showAllSequencesExpanded && (
                     <div class="flex items-center justify-between pb-1">
-                      <span class="text-xs text-slate-500 font-medium">Viewing all {parsed.chains.length} sequences</span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Viewing all {parsed.chains.length} sequences</span>
                       <button
                         type="button"
                         onClick={() => setShowAllSequencesExpanded(false)}
@@ -823,7 +824,7 @@ export default function StructureView() {
                                     <span>📋 Copy Clean Sequence</span>
                                   </button>
                                 )}
-                                <span class="text-[11px] text-slate-400 font-mono">
+                                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                                   {c.polymerResidues.length > 0
                                     ? `Residues ${c.polymerResidues[0]?.resSeq}–${c.polymerResidues[c.polymerResidues.length - 1]?.resSeq}`
                                     : c.residues.length > 0
@@ -864,16 +865,16 @@ export default function StructureView() {
 
                             {c.ligands.length > 0 && (
                               <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center gap-1.5 text-xs">
-                                <span class="text-[11px] font-semibold text-slate-500">Ligands &amp; Heteroatoms in chain ({c.ligands.length}):</span>
+                                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Ligands &amp; Heteroatoms in chain ({c.ligands.length}):</span>
                                 {c.ligands.map(l => (
                                   <span
                                     key={`${l.chain}_${l.resSeq}_${l.resName}`}
                                     class="inline-flex items-center gap-1 text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800"
                                   >
                                     <strong class="font-mono">[{l.resName}]</strong>
-                                    <span class="text-slate-400 font-mono text-[10px]">#{l.resSeq}</span>
+                                    <span class="text-slate-500 dark:text-slate-400 font-mono text-[10px]">#{l.resSeq}</span>
                                     {l.fullName && l.fullName !== l.resName && (
-                                      <span class="text-slate-500 text-[10px]">({l.fullName})</span>
+                                      <span class="text-slate-500 dark:text-slate-400 text-[10px]">({l.fullName})</span>
                                     )}
                                   </span>
                                 ))}
@@ -896,7 +897,7 @@ export default function StructureView() {
                   <span>🧪</span> Ligands &amp; Cofactors ({parsed.ligands.length})
                 </span>
                 <div class="flex items-center gap-2">
-                  <span class="text-[11px] text-slate-400">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400">
                     {groupedLigands.length} unique species
                   </span>
                   {groupedLigands.length < parsed.ligands.length && (
@@ -932,7 +933,7 @@ export default function StructureView() {
                             {group.name}
                           </div>
                         </div>
-                        <span class="text-[10px] text-slate-400 shrink-0 font-mono">
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 shrink-0 font-mono">
                           {group.totalAtoms} atoms
                         </span>
                       </div>
@@ -955,13 +956,13 @@ export default function StructureView() {
                           <span class="font-mono font-bold text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
                             {lig.id}
                           </span>
-                          <span class="font-mono text-[11px] text-slate-500">Chain {lig.chain}:{lig.resSeq}</span>
+                          <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">Chain {lig.chain}:{lig.resSeq}</span>
                         </div>
                         <div class="text-xs text-slate-700 dark:text-slate-300 font-medium truncate mt-0.5" title={lig.name}>
                           {lig.name}
                         </div>
                       </div>
-                      <span class="text-[10px] text-slate-400 shrink-0 font-mono">{lig.atomCount} atoms</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 shrink-0 font-mono">{lig.atomCount} atoms</span>
                     </div>
                   ))}
                 </div>
@@ -974,7 +975,7 @@ export default function StructureView() {
       science={<SciencePanel science={SCIENCE} />}
     />
     {copiedMessage && (
-      <div class="fixed bottom-4 right-4 z-50 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg flex items-center gap-2">
+      <div class="fixed bottom-4 right-4 z-50 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-lg flex items-center gap-2">
         <span>✓</span>
         <span>{copiedMessage}</span>
       </div>

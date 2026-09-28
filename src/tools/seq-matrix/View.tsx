@@ -3,6 +3,7 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText } from '@/lib/export';
 import {
   parseFastaSequences,
   computeSequenceMatrices,
@@ -63,7 +64,7 @@ function getResidueColor(res: string): { bg: string; text: string } {
     case 'Y':
       return { bg: 'bg-teal-100 dark:bg-teal-950/80', text: 'text-teal-800 dark:text-teal-200' };
     case '-':
-      return { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-400 dark:text-slate-500' };
+      return { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-500 dark:text-slate-400' };
     // DNA bases
     case 'T': case 'U':
       return { bg: 'bg-rose-100 dark:bg-rose-950/80', text: 'text-rose-800 dark:text-rose-200' };
@@ -77,10 +78,10 @@ function getHeatmapBg(val: number, metric: MatrixMetric): string {
   if (metric === 'distance') {
     // Distance: 0 is closest (green), 100 is furthest (slate/red)
     const d = Math.min(100, Math.max(0, val));
-    if (d <= 20) return 'bg-emerald-600 text-white';
-    if (d <= 40) return 'bg-emerald-500 text-white';
-    if (d <= 60) return 'bg-amber-500 text-white';
-    if (d <= 80) return 'bg-rose-500 text-white';
+    if (d <= 20) return 'bg-emerald-700 text-white';
+    if (d <= 40) return 'bg-emerald-700 text-white';
+    if (d <= 60) return 'bg-amber-700 text-white';
+    if (d <= 80) return 'bg-rose-600 text-white';
     return 'bg-rose-700 text-white';
   }
 
@@ -90,12 +91,12 @@ function getHeatmapBg(val: number, metric: MatrixMetric): string {
 
   // Identity or Similarity (%): 0 to 100
   const pct = Math.min(100, Math.max(0, val));
-  if (pct >= 95) return 'bg-emerald-600 text-white font-bold';
-  if (pct >= 80) return 'bg-emerald-500 text-white font-semibold';
+  if (pct >= 95) return 'bg-emerald-700 text-white font-bold';
+  if (pct >= 80) return 'bg-emerald-700 text-white font-semibold';
   if (pct >= 65) return 'bg-teal-500 text-white';
-  if (pct >= 50) return 'bg-sky-500 text-white';
+  if (pct >= 50) return 'bg-sky-700 text-white';
   if (pct >= 35) return 'bg-sky-600/80 text-white';
-  if (pct >= 20) return 'bg-indigo-600/70 text-white';
+  if (pct >= 20) return 'bg-indigo-600 text-white';
   return 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
 }
 
@@ -138,16 +139,6 @@ export default function SeqMatrixView() {
     });
   }
 
-  function downloadText(content: string, filename: string, type: string) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const copySummaryText = useMemo(() => {
     if (!matrixResult) return 'No sequence alignment computed.';
     const metricLabel = s.metric === 'similarity' ? '% Similarity' : s.metric === 'distance' ? 'Distance' : '% Identity';
@@ -181,6 +172,7 @@ export default function SeqMatrixView() {
               </span>
             </div>
             <select
+              aria-label="Load Curated Preset"
               data-testid="preset-select"
               value={s.presetId}
               onChange={(e) => handlePresetChange((e.target as HTMLSelectElement).value)}
@@ -203,7 +195,7 @@ export default function SeqMatrixView() {
               <button
                 type="button"
                 onClick={() => set({ fastaInput: '' })}
-                class="text-[11px] text-slate-400 hover:text-rose-500 transition underline"
+                class="text-[11px] text-slate-500 dark:text-slate-400 hover:text-rose-500 transition underline"
               >
                 Clear
               </button>
@@ -215,8 +207,8 @@ export default function SeqMatrixView() {
               placeholder=">Seq_1 Description&#10;MKTIIALSYIFCLVFA...&#10;>Seq_2 Description&#10;MKTIIALSYIFCLVFA..."
               class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900 leading-relaxed"
             />
-            <p class="text-[11px] text-slate-400">
-              Paste 2 or more sequences in FASTA format (<code class="text-slate-500 font-mono">&gt;Header\nSequence</code>).
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
+              Paste 2 or more sequences in FASTA format (<code class="text-slate-500 dark:text-slate-400 font-mono">&gt;Header\nSequence</code>).
             </p>
           </div>
 
@@ -261,7 +253,7 @@ export default function SeqMatrixView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   PID Denominator
                 </label>
-                <select
+                <select aria-label="PID Denominator"
                   value={s.idDenominator}
                   onChange={(e) => set({ idDenominator: (e.target as HTMLSelectElement).value as IdentityDenominator })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -275,7 +267,7 @@ export default function SeqMatrixView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Scoring Matrix
                 </label>
-                <select
+                <select aria-label="Scoring Matrix"
                   value={s.matrixName}
                   onChange={(e) => set({ matrixName: (e.target as HTMLSelectElement).value as MatrixName })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -291,10 +283,10 @@ export default function SeqMatrixView() {
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Gap Open
                   </label>
-                  <input
+                  <input aria-label="Gap Open"
                     type="number"
                     min="1"
                     max="50"
@@ -304,10 +296,10 @@ export default function SeqMatrixView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Gap Extend
                   </label>
-                  <input
+                  <input aria-label="Gap Extend"
                     type="number"
                     min="1"
                     max="10"
@@ -352,41 +344,41 @@ export default function SeqMatrixView() {
             {/* Top Summary Stats Bar */}
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
-                <span class="text-xs text-slate-500 font-medium">Sequences</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Sequences</span>
                 <p class="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
                   {matrixResult.sequences.length}
                 </p>
-                <span class="text-[11px] text-slate-400 capitalize">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 capitalize">
                   {matrixResult.molType}
                 </span>
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
-                <span class="text-xs text-slate-500 font-medium">Mean Pairwise Identity</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Mean Pairwise Identity</span>
                 <p class="text-xl font-extrabold text-accent-600 dark:text-accent-400 mt-1">
                   {matrixResult.averageIdentityPct}%
                 </p>
-                <span class="text-[11px] text-slate-400">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400">
                   Sim: {matrixResult.averageSimilarityPct}%
                 </span>
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
-                <span class="text-xs text-slate-500 font-medium">Closest Homology Pair</span>
-                <p class="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Closest Homology Pair</span>
+                <p class="text-base font-bold text-emerald-700 dark:text-emerald-400 mt-1 truncate">
                   {matrixResult.maxIdentityPair?.pct}%
                 </p>
-                <span class="text-[11px] text-slate-400 truncate block">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
                   {matrixResult.maxIdentityPair?.name1} ↔ {matrixResult.maxIdentityPair?.name2}
                 </span>
               </div>
 
               <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
-                <span class="text-xs text-slate-500 font-medium">Most Divergent Pair</span>
-                <p class="text-base font-bold text-amber-600 dark:text-amber-400 mt-1 truncate">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Most Divergent Pair</span>
+                <p class="text-base font-bold text-amber-700 dark:text-amber-400 mt-1 truncate">
                   {matrixResult.minIdentityPair?.pct}%
                 </p>
-                <span class="text-[11px] text-slate-400 truncate block">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
                   {matrixResult.minIdentityPair?.name1} ↔ {matrixResult.minIdentityPair?.name2}
                 </span>
               </div>
@@ -461,13 +453,13 @@ export default function SeqMatrixView() {
                           ? 'Pairwise Alignment Score Matrix'
                           : 'Percent Identity Matrix (PIM)'}
                       </h3>
-                      <p class="text-xs text-slate-500 mt-0.5">
+                      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         Click any cell to inspect the pairwise alignment and alignment stats below.
                       </p>
                     </div>
 
                     {/* Color Legend */}
-                    <div class="hidden sm:flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+                    <div class="hidden sm:flex items-center gap-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                       <span>Low</span>
                       <span class="w-3.5 h-3.5 rounded bg-slate-200 dark:bg-slate-800"></span>
                       <span class="w-3.5 h-3.5 rounded bg-indigo-600/70"></span>
@@ -483,7 +475,7 @@ export default function SeqMatrixView() {
                     <table class="border-collapse select-none text-xs">
                       <thead>
                         <tr>
-                          <th class="p-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left font-bold text-slate-500 min-w-[120px]">
+                          <th class="p-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left font-bold text-slate-500 dark:text-slate-400 min-w-[120px]">
                             Sequence
                           </th>
                           {matrixResult.sequences.map((seq) => (
@@ -495,7 +487,7 @@ export default function SeqMatrixView() {
                               <div class="truncate max-w-[90px] mx-auto">
                                 {seq.name}
                               </div>
-                              <span class="text-[10px] text-slate-400 font-normal">
+                              <span class="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                                 {seq.sequence.length}
                               </span>
                             </th>
@@ -551,10 +543,10 @@ export default function SeqMatrixView() {
                         <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                           <span>Pairwise Alignment:</span>
                           <span class="text-accent-600 dark:text-accent-400">{activeComparison.name1}</span>
-                          <span class="text-slate-400">↔</span>
+                          <span class="text-slate-500 dark:text-slate-400">↔</span>
                           <span class="text-accent-600 dark:text-accent-400">{activeComparison.name2}</span>
                         </h4>
-                        <p class="text-xs text-slate-500 mt-0.5">
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           {activeComparison.len1} vs {activeComparison.len2} residues · Alignment length {activeComparison.alignmentLength} cols
                         </p>
                       </div>
@@ -585,48 +577,48 @@ export default function SeqMatrixView() {
                     {/* Stats pills */}
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                       <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
-                        <span class="text-slate-500 block text-[11px]">Identity</span>
-                        <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Identity</span>
+                        <strong class="text-emerald-700 dark:text-emerald-400 font-bold text-sm">
                           {activeComparison.identityPct}%
                         </strong>
-                        <span class="text-[10px] text-slate-400 block">
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                           {activeComparison.identityCount} / {activeComparison.alignmentLength}
                         </span>
                       </div>
 
                       <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
-                        <span class="text-slate-500 block text-[11px]">Similarity</span>
-                        <strong class="text-sky-600 dark:text-sky-400 font-bold text-sm">
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Similarity</span>
+                        <strong class="text-sky-700 dark:text-sky-400 font-bold text-sm">
                           {activeComparison.similarityPct}%
                         </strong>
-                        <span class="text-[10px] text-slate-400 block">
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                           {activeComparison.similarityCount} / {activeComparison.alignmentLength}
                         </span>
                       </div>
 
                       <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
-                        <span class="text-slate-500 block text-[11px]">Gaps</span>
-                        <strong class="text-amber-600 dark:text-amber-400 font-bold text-sm">
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Gaps</span>
+                        <strong class="text-amber-700 dark:text-amber-400 font-bold text-sm">
                           {activeComparison.gapPct}%
                         </strong>
-                        <span class="text-[10px] text-slate-400 block">
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                           {activeComparison.gapCount} gaps
                         </span>
                       </div>
 
                       <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
-                        <span class="text-slate-500 block text-[11px]">Score</span>
+                        <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Score</span>
                         <strong class="text-indigo-600 dark:text-indigo-400 font-bold text-sm">
                           {activeComparison.score}
                         </strong>
-                        <span class="text-[10px] text-slate-400 block">
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                           {s.matrixName}
                         </span>
                       </div>
                     </div>
 
                     {/* Pairwise Alignment Viewer */}
-                    <div class="overflow-x-auto rounded-xl bg-slate-950 p-4 font-mono text-xs text-slate-200">
+                    <div tabIndex={0} role="region" aria-label="Alignment view" class="overflow-x-auto rounded-xl bg-slate-950 p-4 font-mono text-xs text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
                       <div class="min-w-max space-y-1">
                         <div class="flex items-center gap-3 text-slate-400 text-[11px] pb-1 border-b border-slate-800">
                           <span class="w-28 shrink-0 truncate font-semibold">{activeComparison.name1}</span>
@@ -634,7 +626,7 @@ export default function SeqMatrixView() {
                             {activeComparison.aligned1}
                           </span>
                         </div>
-                        <div class="flex items-center gap-3 text-slate-500 text-[11px]">
+                        <div class="flex items-center gap-3 text-slate-400 text-[11px]">
                           <span class="w-28 shrink-0 text-right pr-2 font-mono">Match:</span>
                           <span class="tracking-widest whitespace-pre font-bold text-sky-400 select-all">
                             {activeComparison.midline}
@@ -661,20 +653,20 @@ export default function SeqMatrixView() {
                     <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                       Progressive Multiple Sequence Alignment (MSA)
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {matrixResult.msa.columns} columns · Clustal-colored amino acids · Conservation score histogram
                     </p>
                   </div>
 
                   <div class="flex items-center gap-3 text-[11px]">
                     <span class="flex items-center gap-1 font-mono">
-                      <strong class="text-emerald-600 dark:text-emerald-400">*</strong> Identical
+                      <strong class="text-emerald-700 dark:text-emerald-400">*</strong> Identical
                     </span>
                     <span class="flex items-center gap-1 font-mono">
-                      <strong class="text-sky-600 dark:text-sky-400">:</strong> Strong
+                      <strong class="text-sky-700 dark:text-sky-400">:</strong> Strong
                     </span>
                     <span class="flex items-center gap-1 font-mono">
-                      <strong class="text-slate-400">.</strong> Weak
+                      <strong class="text-slate-500 dark:text-slate-400">.</strong> Weak
                     </span>
                   </div>
                 </div>
@@ -683,7 +675,7 @@ export default function SeqMatrixView() {
                 <div class="overflow-x-auto pb-4">
                   <div class="inline-block min-w-full font-mono text-xs select-none">
                     {/* Position Ruler */}
-                    <div class="flex items-center text-[10px] text-slate-400 pb-1">
+                    <div class="flex items-center text-[10px] text-slate-500 dark:text-slate-400 pb-1">
                       <div class="w-32 flex-shrink-0"></div>
                       <div class="flex">
                         {Array.from({ length: Math.ceil(matrixResult.msa.columns / 10) }).map((_, idx) => (
@@ -719,7 +711,7 @@ export default function SeqMatrixView() {
 
                     {/* Conservation Histogram Bars */}
                     <div class="flex items-end pt-2 mt-2 border-t border-slate-200 dark:border-slate-800">
-                      <div class="w-32 flex-shrink-0 text-[10px] text-slate-400 font-sans">
+                      <div class="w-32 flex-shrink-0 text-[10px] text-slate-500 dark:text-slate-400 font-sans">
                         Conservation
                       </div>
                       <div class="flex items-end h-8">
@@ -751,7 +743,7 @@ export default function SeqMatrixView() {
 
                     {/* Consensus Symbol Row */}
                     <div class="flex items-center text-accent-600 dark:text-accent-400 font-bold pt-1">
-                      <div class="w-32 flex-shrink-0 text-[11px] text-slate-500 font-sans">
+                      <div class="w-32 flex-shrink-0 text-[11px] text-slate-500 dark:text-slate-400 font-sans">
                         Clustal Symbols
                       </div>
                       <div class="flex">
@@ -794,7 +786,7 @@ export default function SeqMatrixView() {
                   <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                     Pairwise Distance Hierarchy
                   </h3>
-                  <p class="text-xs text-slate-500 mt-0.5">
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Pairwise evolutionary distances sorted from closest homolog to most divergent.
                   </p>
                 </div>
@@ -817,20 +809,20 @@ export default function SeqMatrixView() {
                             <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
                               {comp.name1} ↔ {comp.name2}
                             </span>
-                            <span class="text-[11px] text-slate-400 block">
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
                               {comp.len1} vs {comp.len2} bp/aa · Score: {comp.score}
                             </span>
                           </div>
                         </div>
 
                         <div class="flex items-center gap-4 text-xs font-semibold">
-                          <span class="text-emerald-600 dark:text-emerald-400">
+                          <span class="text-emerald-700 dark:text-emerald-400">
                             {comp.identityPct}% Id
                           </span>
-                          <span class="text-sky-600 dark:text-sky-400">
+                          <span class="text-sky-700 dark:text-sky-400">
                             {comp.similarityPct}% Sim
                           </span>
-                          <span class="text-slate-400 text-[11px]">
+                          <span class="text-slate-500 dark:text-slate-400 text-[11px]">
                             Dist: {(100 - comp.identityPct).toFixed(1)}
                           </span>
                         </div>

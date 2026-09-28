@@ -57,9 +57,9 @@ function OverhangGraphic({ junction, method }: { junction: AssemblyJunction; met
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
         <div>
           <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
-            Junction: {junction.upstreamName} <span class="text-accent-600 font-normal">➔</span> {junction.downstreamName}
+            Junction: {junction.upstreamName} <span class="text-accent-600 dark:text-accent-400 font-normal">➔</span> {junction.downstreamName}
           </span>
-          <span class="text-[11px] text-slate-500 ml-2 font-mono">
+          <span class="text-[11px] text-slate-500 dark:text-slate-400 ml-2 font-mono">
             ({junction.overlapLength} bp homology, Overlap Tm: {junction.overlapTm}°C)
           </span>
         </div>
@@ -72,7 +72,7 @@ function OverhangGraphic({ junction, method }: { junction: AssemblyJunction; met
         </span>
       </div>
 
-      <p class="text-[11px] text-slate-500 italic">
+      <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">
         {method === 'nebuilder'
           ? "NEBuilder HiFi 3'→5' exonuclease generates 5' single-stranded overlaps that pair specifically, followed by high-fidelity Q5 polymerase fill-in & Taq ligation."
           : method === 'gibson'
@@ -88,7 +88,7 @@ function OverhangGraphic({ junction, method }: { junction: AssemblyJunction; met
             <span class="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 w-28 shrink-0 truncate" title={junction.upstreamName}>
               5' {junction.upstreamName}
             </span>
-            <div class="h-3 w-16 bg-indigo-500/80 rounded-l mr-1 flex items-center justify-center text-[9px] text-white font-sans font-bold">
+            <div class="h-3 w-16 bg-indigo-700 rounded-l mr-1 flex items-center justify-center text-[9px] text-white font-sans font-bold">
               dsDNA
             </div>
             {/* Exposed single-stranded overhang */}
@@ -99,28 +99,28 @@ function OverhangGraphic({ junction, method }: { junction: AssemblyJunction; met
                 </span>
               ))}
             </div>
-            <span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold ml-1.5">3'</span>
-            <span class="text-[10px] text-slate-400 italic ml-2">(homology arm)</span>
+            <span class="text-[10px] text-amber-700 dark:text-amber-400 font-bold ml-1.5">3'</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 italic ml-2">(homology arm)</span>
           </div>
 
           {/* Annealed Watson-Crick Base Pairing Lines */}
           <div class="flex items-center pl-[180px]">
             <div class="flex items-center px-1.5">
               {bases.map((_, i) => (
-                <span key={i} class="w-3 text-center text-slate-400 dark:text-slate-500 select-none font-bold">
+                <span key={i} class="w-3 text-center text-slate-500 dark:text-slate-400 select-none font-bold">
                   |
                 </span>
               ))}
             </div>
-            <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ml-2 font-sans">
+            <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 ml-2 font-sans">
               Annealed Homology Arm ({junction.overlapLength} bp, Tm {junction.overlapTm}°C)
             </span>
           </div>
 
           {/* Bottom Strand: Overhang <- Downstream dsDNA */}
           <div class="flex items-center pl-[98px]">
-            <span class="text-[10px] text-slate-400 italic mr-2">(homology arm)</span>
-            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mr-1.5">3'</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 italic mr-2">(homology arm)</span>
+            <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold mr-1.5">3'</span>
             {/* Complementary overhang */}
             <div class="flex items-center bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-0.5 shadow-sm">
               {compBases.map((b, i) => (
@@ -129,7 +129,7 @@ function OverhangGraphic({ junction, method }: { junction: AssemblyJunction; met
                 </span>
               ))}
             </div>
-            <div class="h-3 w-16 bg-emerald-500/80 rounded-r ml-1 flex items-center justify-center text-[9px] text-white font-sans font-bold">
+            <div class="h-3 w-16 bg-emerald-700 rounded-r ml-1 flex items-center justify-center text-[9px] text-white font-sans font-bold">
               dsDNA
             </div>
             <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 w-28 shrink-0 truncate ml-1.5" title={junction.downstreamName}>
@@ -284,8 +284,8 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
             {/* Polymerase & Circularize */}
             <div class="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <label class="block text-xs text-slate-500 mb-1">PCR Polymerase / Kit</label>
-                <select
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">PCR Polymerase / Kit</label>
+                <select aria-label="PCR Polymerase / Kit"
                   value={s.polymerase}
                   onChange={(e) => set({ polymerase: (e.target as HTMLSelectElement).value as PcrPolymerase })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-medium"
@@ -296,7 +296,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                 </select>
               </div>
               <div>
-                <label class="block text-xs text-slate-500 mb-1">Circularize Construct?</label>
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Circularize Construct?</label>
                 <div class="flex rounded-lg border border-slate-300 dark:border-slate-700 p-0.5 text-xs bg-slate-50 dark:bg-slate-950">
                   <button
                     type="button"
@@ -319,8 +319,8 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
             {/* Overlap & Tm Parameters */}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Min Overlap (nt)</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Min Overlap (nt)</label>
+                <DecimalInput aria-label="Min Overlap (nt)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.overlapLen}
                   onChange={overlapLen => set({ overlapLen: Math.round(overlapLen) })}
@@ -330,8 +330,8 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                 />
               </div>
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Min Primer Len (nt)</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Min Primer Len (nt)</label>
+                <DecimalInput aria-label="Min Primer Len (nt)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.minPrimerLen}
                   onChange={minPrimerLen => set({ minPrimerLen: Math.round(minPrimerLen) })}
@@ -341,8 +341,8 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                 />
               </div>
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Primer Conc (nM)</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Primer Conc (nM)</label>
+                <DecimalInput aria-label="Primer Conc (nM)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.primerConcNm}
                   onChange={primerConcNm => set({ primerConcNm: Math.round(primerConcNm) })}
@@ -352,8 +352,8 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                 />
               </div>
               <div>
-                <label class="block text-[11px] text-slate-500 mb-1">Max ΔTm (°C)</label>
-                <DecimalInput
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Max ΔTm (°C)</label>
+                <DecimalInput aria-label="Max ΔTm (°C)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.maxPrimerTmDiff}
                   onChange={maxPrimerTmDiff => set({ maxPrimerTmDiff })}
@@ -371,7 +371,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
               <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Fragment 1 / Vector
               </label>
-              <span class="text-[11px] text-slate-500 font-mono">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                 {s.vectorSeq.replace(/\s/g, '').length} bp
               </span>
             </div>
@@ -389,7 +389,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
               placeholder="Paste DNA sequence (5' to 3')..."
               class={FIELD}
             />
-            <p class="text-[11px] text-slate-500">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
               In circular assembly, Fragment 1 3' end connects to Fragment 2, and Fragment 1 5' connects to the final fragment.
             </p>
           </div>
@@ -441,7 +441,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                     placeholder="Paste sequence (5' to 3')..."
                     class={FIELD}
                   />
-                  <div class="flex justify-between text-[11px] text-slate-400 font-mono">
+                  <div class="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     <span>Length: {ins.sequence.replace(/\s/g, '').length} bp</span>
                     <span>GC: {calcGc(ins.sequence).toFixed(1)}%</span>
                   </div>
@@ -457,7 +457,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
           <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
-                <span class="text-xs font-bold uppercase tracking-wider text-accent-600">
+                <span class="text-xs font-bold uppercase tracking-wider text-accent-600 dark:text-accent-400">
                   {s.method === 'nebuilder' ? 'NEBuilder HiFi DNA Assembly' : s.method.toUpperCase()} Construct
                 </span>
                 <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -481,13 +481,13 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
               </span>
               {inserts.map(ins => (
                 <div key={ins.id} class="flex items-center gap-1.5">
-                  <span class="text-accent-600 font-bold">⇄</span>
+                  <span class="text-accent-600 dark:text-accent-400 font-bold">⇄</span>
                   <span class="px-2.5 py-1 rounded-md font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     {ins.name || 'Insert'}
                   </span>
                 </div>
               ))}
-              {s.circularize && <span class="text-accent-600 font-bold">⇄ (circularized)</span>}
+              {s.circularize && <span class="text-accent-600 dark:text-accent-400 font-bold">⇄ (circularized)</span>}
             </div>
           </div>
 
@@ -498,7 +498,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                 <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                   PCR Primers for Assembly ({assembly?.primers.length || 0})
                 </h3>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-slate-500 dark:text-slate-400">
                   5' lowercase represents homology overlap; 3' uppercase represents template annealing region.
                 </p>
               </div>
@@ -556,9 +556,9 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                         </td>
                         <td class="p-2.5 text-center">{p.totalLength}</td>
                         <td class="p-2.5 text-center">{p.gcPercent}</td>
-                        <td class="p-2.5 text-center font-bold text-emerald-600 dark:text-emerald-400">{p.recommendedTa}</td>
+                        <td class="p-2.5 text-center font-bold text-emerald-700 dark:text-emerald-400">{p.recommendedTa}</td>
                         <td class="p-2.5 text-center">{p.annealTm.toFixed(1)}</td>
-                        <td class="p-2.5 text-center text-slate-500">{p.overhangTm.toFixed(1)}</td>
+                        <td class="p-2.5 text-center text-slate-500 dark:text-slate-400">{p.overhangTm.toFixed(1)}</td>
                         <td class="p-2.5 text-right whitespace-nowrap">
                           <button
                             type="button"
@@ -586,15 +586,15 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                         <span class={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.direction === 'forward' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'}`}>
                           {p.direction.toUpperCase()}
                         </span>
-                        <span class="text-slate-400 font-mono">({p.totalLength} nt, {p.gcPercent}% GC)</span>
+                        <span class="text-slate-500 dark:text-slate-400 font-mono">({p.totalLength} nt, {p.gcPercent}% GC)</span>
                       </div>
                       <div class="flex items-center gap-3 font-mono">
                         <span>Anneal Tm: <strong>{p.annealTm.toFixed(1)}°C</strong></span>
-                        <span>Ta: <strong class="text-emerald-600 dark:text-emerald-400">{p.recommendedTa}°C</strong></span>
+                        <span>Ta: <strong class="text-emerald-700 dark:text-emerald-400">{p.recommendedTa}°C</strong></span>
                         <button
                           type="button"
                           onClick={() => handleCopyPrimer(p.name, p.fullSequence)}
-                          class="text-accent-600 hover:underline text-xs font-semibold ml-2"
+                          class="text-accent-600 dark:text-accent-400 hover:underline text-xs font-semibold ml-2"
                         >
                           {copiedPrimerId === p.name ? '✓ Copied!' : 'Copy Seq'}
                         </button>
@@ -611,7 +611,7 @@ export default function GibsonView(props?: ToolProps & { embedded?: boolean }) {
                     </div>
 
                     {p.warnings.length > 0 && (
-                      <div class="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                      <div class="flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                         <span>⚠️</span>
                         <span>{p.warnings.join(' ')}</span>
                       </div>

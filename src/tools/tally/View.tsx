@@ -4,6 +4,7 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
 import { useUrlState } from '@/lib/url-state';
+import { downloadText, toCsv } from '@/lib/export';
 import { SCIENCE } from './science';
 
 interface State {
@@ -83,21 +84,14 @@ export default function TallyView() {
       ['ID', 'Name', 'Count', 'Percentage', 'Goal'],
       ...counters.map(c => [
         c.id,
-        `"${c.name.replace(/"/g, '""')}"`,
+        c.name,
         c.count,
         totalCount > 0 ? `${((c.count / totalCount) * 100).toFixed(1)}%` : '0%',
         c.goal || 'None',
       ]),
       ['Total', 'All Categories', totalCount, '100%', ''],
     ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tally_counts_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(toCsv(rows), `tally_counts_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8');
   }
 
   const copyText = [
@@ -163,7 +157,7 @@ export default function TallyView() {
             </div>
           </div>
 
-          <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs space-y-1.5 text-slate-500">
+          <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs space-y-1.5 text-slate-500 dark:text-slate-400">
             <span class="font-semibold text-slate-700 dark:text-slate-300 block">⌨️ Keyboard Shortcuts:</span>
             <p>Press <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 font-mono text-[10px] border border-slate-300 dark:border-slate-600">1</kbd> through <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 font-mono text-[10px] border border-slate-300 dark:border-slate-600">9</kbd> to rapidly tap individual counters without moving your mouse.</p>
           </div>
@@ -179,7 +173,7 @@ export default function TallyView() {
             <button
               type="button"
               onClick={handleResetAll}
-              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
             >
               Reset All
             </button>
@@ -191,13 +185,13 @@ export default function TallyView() {
           {/* Total Banner */}
           <div class="flex items-center justify-between rounded-2xl bg-white p-4 border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
             <div>
-              <span class="text-xs text-slate-500 block">Total Combined Count</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400 block">Total Combined Count</span>
               <span data-testid="total-count" class="font-mono text-3xl font-bold text-slate-900 dark:text-slate-100">
                 {totalCount.toLocaleString()}
               </span>
             </div>
             <div class="text-right">
-              <span class="text-xs text-slate-400 block">{counters.length} active counters</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400 block">{counters.length} active counters</span>
             </div>
           </div>
 
@@ -234,7 +228,7 @@ export default function TallyView() {
                       <strong class="text-xs text-slate-900 dark:text-slate-100">{c.name}</strong>
                     </div>
                     <div class="flex items-center gap-1.5">
-                      <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-slate-500 font-semibold">
+                      <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-slate-600 dark:text-slate-400 font-semibold">
                         Key [{idx + 1}]
                       </span>
                       {counters.length > 1 && (
@@ -255,7 +249,7 @@ export default function TallyView() {
                     <span data-testid={`count-${idx}`} class="font-mono text-3xl font-extrabold text-slate-900 dark:text-slate-100">
                       {c.count}
                     </span>
-                    <span class="font-mono text-xs text-slate-500 font-semibold">
+                    <span class="font-mono text-xs text-slate-500 dark:text-slate-400 font-semibold">
                       {pct.toFixed(1)}% of total
                     </span>
                   </div>
@@ -263,7 +257,7 @@ export default function TallyView() {
                   {/* Goal progress if specified */}
                   {c.goal && (
                     <div class="space-y-1">
-                      <div class="flex justify-between text-[11px] text-slate-400">
+                      <div class="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                         <span>Goal: {c.goal}</span>
                         <span>{Math.min(100, Math.round((c.count / c.goal) * 100))}%</span>
                       </div>
@@ -297,7 +291,7 @@ export default function TallyView() {
                     <button
                       type="button"
                       onClick={() => handleReset(c.id)}
-                      class="px-3 min-h-[48px] text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                      class="px-3 min-h-[48px] text-xs text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
                       title="Reset counter"
                     >
                       ↺

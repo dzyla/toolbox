@@ -189,26 +189,26 @@ export default function View() {
         simulation.cleavageSite ? (
           <div class="flex items-center justify-between gap-2 text-xs">
             <div>
-              <span class="text-[10px] text-slate-500 block">Target Protein</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Target Protein</span>
               <strong class="font-mono text-accent-700 dark:text-accent-300">
                 {simulation.targetFragment?.mwKda.toFixed(1)} kDa
               </strong>
             </div>
             <div class="text-center">
-              <span class="text-[10px] text-slate-500 block">Cut Tag</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Cut Tag</span>
               <span class="font-mono text-slate-700 dark:text-slate-300">
                 {simulation.tagFragment?.mwKda.toFixed(1)} kDa
               </span>
             </div>
             <div class="text-right">
-              <span class="text-[10px] text-slate-500 block">Intact Fusion</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Intact Fusion</span>
               <span class="font-mono text-slate-700 dark:text-slate-300">
                 {simulation.intact.mwKda.toFixed(1)} kDa
               </span>
             </div>
           </div>
         ) : (
-          <span class="text-amber-600 dark:text-amber-400 text-xs font-semibold">
+          <span class="text-amber-700 dark:text-amber-400 text-xs font-semibold">
             No cleavage site detected for {simulation.protease.shortName}
           </span>
         )
@@ -221,21 +221,21 @@ export default function View() {
           <div class="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800 text-xs font-semibold">
             <button
               type="button"
-              class={`flex-1 rounded-lg py-1.5 transition ${current.tab === 'simulator' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+              class={`flex-1 rounded-lg py-1.5 transition ${current.tab === 'simulator' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
               onClick={() => set({ tab: 'simulator' })}
             >
               🔬 Simulator
             </button>
             <button
               type="button"
-              class={`flex-1 rounded-lg py-1.5 transition ${current.tab === 'builder' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+              class={`flex-1 rounded-lg py-1.5 transition ${current.tab === 'builder' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
               onClick={() => set({ tab: 'builder' })}
             >
               🧬 Construct Builder
             </button>
             <button
               type="button"
-              class={`flex-1 rounded-lg py-1.5 transition ${current.tab === 'library' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
+              class={`flex-1 rounded-lg py-1.5 transition ${current.tab === 'library' ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'}`}
               onClick={() => set({ tab: 'library' })}
             >
               📚 Tag &amp; Protease Library
@@ -285,7 +285,7 @@ export default function View() {
                     </option>
                   ))}
                 </select>
-                <div class="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                <div class="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span>Rule: {simulation.protease.cleavageRule}</span>
                   <span>{simulation.protease.optimalTemp}</span>
                 </div>
@@ -298,13 +298,13 @@ export default function View() {
                     type="checkbox"
                     checked={current.relaxedTev}
                     onChange={e => set({ relaxedTev: (e.target as HTMLInputElement).checked })}
-                    class="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="h-4 w-4 rounded border-slate-300 text-accent-600 dark:text-accent-400 focus:ring-accent-500"
                   />
                   <div class="text-xs">
                     <span class="font-medium text-slate-700 dark:text-slate-300 block">
                       Include non-canonical P1' residues (Kapust 2002)
                     </span>
-                    <span class="text-[11px] text-slate-500 block">
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
                       Screen non-optimal P1' residues (Asn, Tyr, His, etc.) with relative cleavage efficiencies.
                     </span>
                   </div>
@@ -338,7 +338,7 @@ export default function View() {
                   <label for="sequence-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Fusion Protein Sequence
                   </label>
-                  <span class="text-[11px] text-slate-500 font-mono">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     {simulation.intact.length} amino acids
                   </span>
                 </div>
@@ -503,12 +503,12 @@ export default function View() {
                   >
                     <div class="flex items-center justify-between mb-1">
                       <span class="font-bold text-slate-900 dark:text-slate-100">{tag.name}</span>
-                      <span class="font-mono text-[11px] text-slate-500">{tag.approxMwDa >= 1000 ? `${(tag.approxMwDa / 1000).toFixed(1)} kDa` : `${tag.approxMwDa.toFixed(0)} Da`}</span>
+                      <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">{tag.approxMwDa >= 1000 ? `${(tag.approxMwDa / 1000).toFixed(1)} kDa` : `${tag.approxMwDa.toFixed(0)} Da`}</span>
                     </div>
                     <div class="text-[11px] text-slate-600 dark:text-slate-400 space-y-0.5">
                       <div><strong class="text-slate-700 dark:text-slate-300">Resin:</strong> {tag.resin}</div>
                       <div><strong class="text-slate-700 dark:text-slate-300">Elution:</strong> {tag.elution}</div>
-                      <div class="text-slate-500 mt-1">{tag.description}</div>
+                      <div class="text-slate-500 dark:text-slate-400 mt-1">{tag.description}</div>
                     </div>
                   </div>
                 ))}
@@ -524,11 +524,11 @@ export default function View() {
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {/* Tile 1: Intact */}
               <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-[11px] font-medium text-slate-500 block">Intact Fusion</span>
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">Intact Fusion</span>
                 <strong class="font-mono text-lg text-slate-900 dark:text-slate-100 block">
                   {simulation.intact.mwKda.toFixed(1)} <span class="text-xs font-normal">kDa</span>
                 </strong>
-                <div class="text-[11px] text-slate-500 flex justify-between mt-1">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between mt-1">
                   <span>pI {simulation.intact.pI.toFixed(2)}</span>
                   <span>{simulation.intact.length} aa</span>
                 </div>
@@ -543,7 +543,7 @@ export default function View() {
                   <button
                     type="button"
                     onClick={() => copyFinalProduct(simulation.targetFragment?.seq)}
-                    class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition cursor-pointer"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-700 text-white hover:bg-emerald-700 transition cursor-pointer"
                     title="Copy final cleaved product sequence"
                   >
                     📋 Copy
@@ -552,7 +552,7 @@ export default function View() {
                 <strong class="font-mono text-lg text-emerald-700 dark:text-emerald-300 block">
                   {simulation.targetFragment?.mwKda.toFixed(1)} <span class="text-xs font-normal">kDa</span>
                 </strong>
-                <div class="text-[11px] text-emerald-600 dark:text-emerald-400 flex justify-between mt-1">
+                <div class="text-[11px] text-emerald-700 dark:text-emerald-400 flex justify-between mt-1">
                   <span>pI {simulation.targetFragment?.pI.toFixed(2)}</span>
                   <span>Abs 0.1%: {simulation.targetFragment?.abs01Percent.toFixed(2)}</span>
                 </div>
@@ -566,7 +566,7 @@ export default function View() {
                 <strong class="font-mono text-lg text-pink-700 dark:text-pink-300 block">
                   {simulation.tagFragment?.mwKda.toFixed(1)} <span class="text-xs font-normal">kDa</span>
                 </strong>
-                <div class="text-[11px] text-pink-600 dark:text-pink-400 flex justify-between mt-1">
+                <div class="text-[11px] text-pink-700 dark:text-pink-400 flex justify-between mt-1">
                   <span>pI {simulation.tagFragment?.pI.toFixed(2)}</span>
                   <span>{simulation.tagFragment?.length} aa</span>
                 </div>
@@ -574,11 +574,11 @@ export default function View() {
 
               {/* Tile 4: Cleavage Site / Scar */}
               <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-[11px] font-medium text-slate-500 block">Cleavage Site</span>
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">Cleavage Site</span>
                 <strong class="font-mono text-sm text-accent-700 dark:text-accent-300 block truncate mt-1">
                   {simulation.cleavageSite.p1Residue}↓{simulation.cleavageSite.p1PrimeResidue}
                 </strong>
-                <span class="text-[11px] text-slate-500 block truncate mt-1">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate mt-1">
                   Scar: {simulation.cleavageSite.scarOnTarget}
                 </span>
               </div>
@@ -620,12 +620,12 @@ export default function View() {
                 <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <span>🧪</span> Virtual SDS-PAGE Lane Mobility Preview
                 </h3>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-slate-500 dark:text-slate-400">
                   Relative electrophoretic migration (Weber &amp; Osborn 1969; y ∝ log₁₀ MW)
                 </p>
               </div>
               <div class="flex items-center gap-2 text-xs">
-                <span class="text-slate-400">Theme:</span>
+                <span class="text-slate-500 dark:text-slate-400">Theme:</span>
                 <button
                   type="button"
                   class={`rounded-md px-2 py-1 transition ${current.gelTheme === 'dark' ? 'bg-slate-800 text-white font-semibold' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
@@ -824,7 +824,7 @@ export default function View() {
                     {hoveredBand.name} — MW: {hoveredBand.mwKda.toFixed(1)} kDa
                   </span>
                 ) : (
-                  <span class="text-slate-400 text-[11px]">Hover over any band to inspect MW</span>
+                  <span class="text-slate-500 dark:text-slate-400 text-[11px]">Hover over any band to inspect MW</span>
                 )}
               </div>
             </div>
@@ -841,7 +841,7 @@ export default function View() {
                   <button
                     type="button"
                     onClick={() => copyFinalProduct(simulation.targetFragment?.seq)}
-                    class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1 cursor-pointer"
+                    class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-700 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1 cursor-pointer"
                     title="Copy strictly the cleaved target protein sequence (final product) without fusion tags"
                   >
                     <span>📋 Copy Cleaved Product ({simulation.targetFragment.length} aa)</span>
@@ -853,7 +853,7 @@ export default function View() {
                     class={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
                       seqDisplayMode === 'annotated'
                         ? 'bg-white shadow-xs text-slate-900 dark:bg-slate-700 dark:text-slate-100 font-semibold'
-                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                     onClick={() => setSeqDisplayMode('annotated')}
                   >
@@ -864,7 +864,7 @@ export default function View() {
                     class={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
                       seqDisplayMode === 'product'
                         ? 'bg-white shadow-xs text-emerald-700 dark:bg-slate-700 dark:text-emerald-300 font-semibold'
-                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                     onClick={() => setSeqDisplayMode('product')}
                   >
@@ -889,7 +889,7 @@ export default function View() {
                     </span>
                   </>
                 ) : (
-                  <span class="text-amber-600">No cleaved product available</span>
+                  <span class="text-amber-700 dark:text-amber-400">No cleaved product available</span>
                 )}
               </div>
             ) : (
@@ -933,7 +933,7 @@ export default function View() {
             )}
 
             {/* Legend & Details */}
-            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
               {seqDisplayMode === 'product' ? (
                 <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium">
                   <span>✓</span>
@@ -968,7 +968,7 @@ export default function View() {
             <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-1.5">
               <span>🔄</span> Subtractive Affinity Chromatography Depletion (Waugh 2011)
             </h3>
-            <p class="text-xs text-slate-500 mb-4">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
               Passing the cleaved mixture back over the affinity matrix eliminates both the excised fusion tag and tagged protease, yielding pure target protein in the flow-through.
             </p>
 
@@ -1026,7 +1026,7 @@ export default function View() {
                     <button
                       type="button"
                       onClick={() => copyFinalProduct(simulation.targetFragment?.seq)}
-                      class="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                      class="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-700 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                     >
                       <span>📋 Copy Cleaved Product ({simulation.targetFragment.length} aa)</span>
                     </button>
@@ -1045,7 +1045,7 @@ export default function View() {
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 text-[11px]">
+                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[11px]">
                     <th class="pb-2 font-medium">Species</th>
                     <th class="pb-2 font-medium">Position</th>
                     <th class="pb-2 font-medium">Length</th>
@@ -1062,7 +1062,7 @@ export default function View() {
                     <td class="py-2.5 font-sans font-semibold text-slate-900 dark:text-slate-100">
                       {simulation.intact.name}
                     </td>
-                    <td class="py-2.5 text-slate-500">1–{simulation.intact.length}</td>
+                    <td class="py-2.5 text-slate-500 dark:text-slate-400">1–{simulation.intact.length}</td>
                     <td class="py-2.5">{simulation.intact.length} aa</td>
                     <td class="py-2.5 font-bold text-slate-900 dark:text-slate-100">
                       {simulation.intact.mwKda.toFixed(2)}
@@ -1070,7 +1070,7 @@ export default function View() {
                     <td class="py-2.5">{simulation.intact.pI.toFixed(2)}</td>
                     <td class="py-2.5">{simulation.intact.extinction280.toLocaleString()}</td>
                     <td class="py-2.5">{simulation.intact.abs01Percent.toFixed(3)}</td>
-                    <td class="py-2.5 font-sans text-slate-500">Parent Fusion</td>
+                    <td class="py-2.5 font-sans text-slate-500 dark:text-slate-400">Parent Fusion</td>
                   </tr>
 
                   {/* Target Fragment */}
@@ -1079,7 +1079,7 @@ export default function View() {
                       <td class="py-2.5 font-sans font-semibold text-emerald-800 dark:text-emerald-300">
                         Cleaved Target ({simulation.targetFragment.name})
                       </td>
-                      <td class="py-2.5 text-slate-500">
+                      <td class="py-2.5 text-slate-500 dark:text-slate-400">
                         {simulation.targetFragment.start1Based}–{simulation.targetFragment.end1Based}
                       </td>
                       <td class="py-2.5">{simulation.targetFragment.length} aa</td>
@@ -1101,7 +1101,7 @@ export default function View() {
                       <td class="py-2.5 font-sans font-semibold text-pink-800 dark:text-pink-300">
                         Cut Tag ({simulation.tagFragment.name})
                       </td>
-                      <td class="py-2.5 text-slate-500">
+                      <td class="py-2.5 text-slate-500 dark:text-slate-400">
                         {simulation.tagFragment.start1Based}–{simulation.tagFragment.end1Based}
                       </td>
                       <td class="py-2.5">{simulation.tagFragment.length} aa</td>
@@ -1124,7 +1124,7 @@ export default function View() {
       }
     />
     {toastMessage && (
-      <div class="fixed bottom-4 right-4 z-50 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg flex items-center gap-2">
+      <div class="fixed bottom-4 right-4 z-50 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-lg flex items-center gap-2">
         <span>✓</span>
         <span>{toastMessage}</span>
       </div>

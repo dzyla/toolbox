@@ -1,12 +1,16 @@
 import { useUrlState } from '@/lib/url-state';
+import { lazyView } from '@/app/components/lazyView';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import { SCIENCE } from './science';
-import GibsonView from '@/tools/gibson/View';
-import MutagenesisView from '@/tools/mutagenesis/View';
 import { RESTRICTION_ENZYMES } from '@/core/plasmid';
+
+// Embedded designers are full tools of their own; load each only when its tab opens.
+const LOADING = <p class="p-6 text-sm text-slate-500 dark:text-slate-400">Loading designer…</p>;
+const GibsonView = lazyView(() => import('@/tools/gibson/View'), LOADING);
+const MutagenesisView = lazyView(() => import('@/tools/mutagenesis/View'), LOADING);
 
 type CloningTab = 'gibson' | 'mutagenesis' | 'restriction' | 'goldengate';
 
@@ -124,7 +128,7 @@ export default function CloningSuiteView() {
                 Unified Suite
               </span>
             </div>
-            <p class="text-xs text-slate-500 mt-1">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Select and design recombinant constructs with all primary modern and classical cloning methodologies.
             </p>
           </div>
@@ -208,8 +212,8 @@ export default function CloningSuiteView() {
 
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1 font-medium">Vector Length (bp)</label>
-                    <DecimalInput
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Vector Length (bp)</label>
+                    <DecimalInput aria-label="Vector Length (bp)"
                       class={FIELD}
                       value={s.vectorBp}
                       onChange={vectorBp => set({ vectorBp: Math.max(100, Math.round(vectorBp)) })}
@@ -218,8 +222,8 @@ export default function CloningSuiteView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1 font-medium">Insert Length (bp)</label>
-                    <DecimalInput
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Insert Length (bp)</label>
+                    <DecimalInput aria-label="Insert Length (bp)"
                       class={FIELD}
                       value={s.insertBp}
                       onChange={insertBp => set({ insertBp: Math.max(10, Math.round(insertBp)) })}
@@ -231,8 +235,8 @@ export default function CloningSuiteView() {
 
                 <div class="grid grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1 font-medium">Vector Mass (ng)</label>
-                    <DecimalInput
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Vector Mass (ng)</label>
+                    <DecimalInput aria-label="Vector Mass (ng)"
                       class={FIELD}
                       value={s.vectorNg}
                       onChange={vectorNg => set({ vectorNg: Math.max(5, Math.round(vectorNg)) })}
@@ -241,8 +245,8 @@ export default function CloningSuiteView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1 font-medium">Molar Ratio (Ins : Vec)</label>
-                    <select
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Molar Ratio (Ins : Vec)</label>
+                    <select aria-label="Molar Ratio (Ins : Vec)"
                       value={s.molarRatio}
                       onChange={e => set({ molarRatio: parseFloat((e.target as HTMLSelectElement).value) || 3 })}
                       class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-semibold"
@@ -259,8 +263,8 @@ export default function CloningSuiteView() {
                 {/* Concentrations */}
                 <div class="grid grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1 font-medium">Vector Conc (ng/µL)</label>
-                    <DecimalInput
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Vector Conc (ng/µL)</label>
+                    <DecimalInput aria-label="Vector Conc (ng/µL)"
                       class={FIELD}
                       value={s.vectorConc}
                       onChange={vectorConc => set({ vectorConc: Math.max(0.1, vectorConc) })}
@@ -269,8 +273,8 @@ export default function CloningSuiteView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1 font-medium">Insert Conc (ng/µL)</label>
-                    <DecimalInput
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Insert Conc (ng/µL)</label>
+                    <DecimalInput aria-label="Insert Conc (ng/µL)"
                       class={FIELD}
                       value={s.insertConc}
                       onChange={insertConc => set({ insertConc: Math.max(0.1, insertConc) })}
@@ -289,8 +293,8 @@ export default function CloningSuiteView() {
 
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">5' Upstream Enzyme</label>
-                    <select
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">5' Upstream Enzyme</label>
+                    <select aria-label="5' Upstream Enzyme"
                       value={s.enzyme5}
                       onChange={e => set({ enzyme5: (e.target as HTMLSelectElement).value })}
                       class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-semibold"
@@ -303,8 +307,8 @@ export default function CloningSuiteView() {
                     </select>
                   </div>
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">3' Downstream Enzyme</label>
-                    <select
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">3' Downstream Enzyme</label>
+                    <select aria-label="3' Downstream Enzyme"
                       value={s.enzyme3}
                       onChange={e => set({ enzyme3: (e.target as HTMLSelectElement).value })}
                       class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-semibold"
@@ -320,13 +324,13 @@ export default function CloningSuiteView() {
 
                 <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs space-y-1">
                   <div class="flex items-center justify-between">
-                    <span class="text-slate-500">Cloning Geometry:</span>
-                    <span class={`font-bold ${isDirectional ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    <span class="text-slate-500 dark:text-slate-400">Cloning Geometry:</span>
+                    <span class={`font-bold ${isDirectional ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
                       {isDirectional ? '✓ Directional (Dual Sticky)' : hasBlunt ? '⚠️ Blunt End' : '⚠️ Non-Directional (Single Cut)'}
                     </span>
                   </div>
                   {!isDirectional && (
-                    <p class="text-[11px] text-amber-600 dark:text-amber-400">
+                    <p class="text-[11px] text-amber-700 dark:text-amber-400">
                       Recommendation: Treat linearized vector with Alkaline Phosphatase (rSAP or CIP) to dephosphorylate 5' ends and eliminate background vector self-ligation.
                     </p>
                   )}
@@ -340,16 +344,16 @@ export default function CloningSuiteView() {
               <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
                 <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
                   <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Calculated Insert Required
                     </span>
                     <div class="text-3xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
-                      {requiredInsertNg} <span class="text-sm font-bold text-slate-500">ng</span>
+                      {requiredInsertNg} <span class="text-sm font-bold text-slate-500 dark:text-slate-400">ng</span>
                     </div>
                   </div>
                   <div class="text-right">
-                    <span class="text-xs text-slate-400 block">Molar Ratio</span>
-                    <span class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block">Molar Ratio</span>
+                    <span class="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
                       {s.molarRatio} : 1
                     </span>
                   </div>
@@ -357,24 +361,24 @@ export default function CloningSuiteView() {
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Vector DNA Vol</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Vector DNA Vol</span>
                     <span class="text-base font-bold font-mono text-slate-700 dark:text-slate-300">{vectorVolUl} µL</span>
-                    <span class="text-[10px] text-slate-400 block">({s.vectorNg} ng)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">({s.vectorNg} ng)</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Insert DNA Vol</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Insert DNA Vol</span>
                     <span class="text-base font-bold font-mono text-accent-600 dark:text-accent-400">{insertVolUl} µL</span>
-                    <span class="text-[10px] text-slate-400 block">({requiredInsertNg} ng)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">({requiredInsertNg} ng)</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">10X Ligase Buffer</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">10X Ligase Buffer</span>
                     <span class="text-base font-bold font-mono text-slate-700 dark:text-slate-300">2.0 µL</span>
-                    <span class="text-[10px] text-slate-400 block">Contains ATP</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Contains ATP</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Nuclease-free H2O</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Nuclease-free H2O</span>
                     <span class="text-base font-bold font-mono text-slate-700 dark:text-slate-300">{waterVolUl} µL</span>
-                    <span class="text-[10px] text-slate-400 block">Total 20 µL</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Total 20 µL</span>
                   </div>
                 </div>
               </div>
@@ -387,7 +391,7 @@ export default function CloningSuiteView() {
                 <div class="overflow-x-auto">
                   <table class="w-full text-xs text-left border-collapse">
                     <thead>
-                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400">
+                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                         <th class="py-2 font-semibold">Component</th>
                         <th class="py-2 font-semibold text-right">Volume</th>
                         <th class="py-2 font-semibold text-right">Mass / Units</th>
@@ -398,38 +402,38 @@ export default function CloningSuiteView() {
                       <tr>
                         <td class="py-2 font-sans font-medium text-slate-700 dark:text-slate-300">Linearized Vector DNA</td>
                         <td class="py-2 text-right font-bold text-slate-900 dark:text-slate-100">{vectorVolUl} µL</td>
-                        <td class="py-2 text-right text-slate-500">{s.vectorNg} ng</td>
-                        <td class="py-2 font-sans text-slate-400 pl-4">Gel purified / dephosphorylated</td>
+                        <td class="py-2 text-right text-slate-500 dark:text-slate-400">{s.vectorNg} ng</td>
+                        <td class="py-2 font-sans text-slate-500 dark:text-slate-400 pl-4">Gel purified / dephosphorylated</td>
                       </tr>
                       <tr>
                         <td class="py-2 font-sans font-medium text-slate-700 dark:text-slate-300">Purified Insert DNA</td>
                         <td class="py-2 text-right font-bold text-accent-600 dark:text-accent-400">{insertVolUl} µL</td>
-                        <td class="py-2 text-right text-slate-500">{requiredInsertNg} ng</td>
-                        <td class="py-2 font-sans text-slate-400 pl-4">{s.molarRatio}:1 molar ratio over vector</td>
+                        <td class="py-2 text-right text-slate-500 dark:text-slate-400">{requiredInsertNg} ng</td>
+                        <td class="py-2 font-sans text-slate-500 dark:text-slate-400 pl-4">{s.molarRatio}:1 molar ratio over vector</td>
                       </tr>
                       <tr>
                         <td class="py-2 font-sans font-medium text-slate-700 dark:text-slate-300">10X T4 DNA Ligase Buffer</td>
                         <td class="py-2 text-right font-bold text-slate-900 dark:text-slate-100">2.0 µL</td>
-                        <td class="py-2 text-right text-slate-500">1X final</td>
-                        <td class="py-2 font-sans text-slate-400 pl-4">Thaw thoroughly and vortex (contains ATP)</td>
+                        <td class="py-2 text-right text-slate-500 dark:text-slate-400">1X final</td>
+                        <td class="py-2 font-sans text-slate-500 dark:text-slate-400 pl-4">Thaw thoroughly and vortex (contains ATP)</td>
                       </tr>
                       <tr>
                         <td class="py-2 font-sans font-medium text-slate-700 dark:text-slate-300">T4 DNA Ligase</td>
                         <td class="py-2 text-right font-bold text-slate-900 dark:text-slate-100">1.0 µL</td>
-                        <td class="py-2 text-right text-slate-500">400 Units</td>
-                        <td class="py-2 font-sans text-slate-400 pl-4">Add last, mix gently by pipetting</td>
+                        <td class="py-2 text-right text-slate-500 dark:text-slate-400">400 Units</td>
+                        <td class="py-2 font-sans text-slate-500 dark:text-slate-400 pl-4">Add last, mix gently by pipetting</td>
                       </tr>
                       <tr>
                         <td class="py-2 font-sans font-medium text-slate-700 dark:text-slate-300">Nuclease-free Water</td>
                         <td class="py-2 text-right font-bold text-slate-900 dark:text-slate-100">{waterVolUl} µL</td>
-                        <td class="py-2 text-right text-slate-500">-</td>
-                        <td class="py-2 font-sans text-slate-400 pl-4">Bring reaction volume to 20 µL</td>
+                        <td class="py-2 text-right text-slate-500 dark:text-slate-400">-</td>
+                        <td class="py-2 font-sans text-slate-500 dark:text-slate-400 pl-4">Bring reaction volume to 20 µL</td>
                       </tr>
                       <tr class="font-bold border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950">
                         <td class="py-2 font-sans">Total Volume</td>
-                        <td class="py-2 text-right text-emerald-600 dark:text-emerald-400">20.0 µL</td>
+                        <td class="py-2 text-right text-emerald-700 dark:text-emerald-400">20.0 µL</td>
                         <td class="py-2 text-right">-</td>
-                        <td class="py-2 font-sans text-slate-400 pl-4">-</td>
+                        <td class="py-2 font-sans text-slate-500 dark:text-slate-400 pl-4">-</td>
                       </tr>
                     </tbody>
                   </table>
@@ -489,15 +493,15 @@ export default function CloningSuiteView() {
                         name="gg_enzyme"
                         checked={s.ggEnzyme === en.id}
                         onChange={() => set({ ggEnzyme: en.id })}
-                        class="mt-0.5 text-accent-600 focus:ring-accent-500"
+                        class="mt-0.5 text-accent-600 dark:text-accent-400 focus:ring-accent-500"
                       />
                       <div class="flex-1">
                         <div class="flex items-center justify-between">
                           <strong class="text-slate-900 dark:text-slate-100 font-bold">{en.name}</strong>
                           <span class="font-mono text-[11px] text-accent-600 dark:text-accent-400 font-semibold">{en.temp}°C</span>
                         </div>
-                        <div class="font-mono text-[11px] text-slate-500 mt-0.5">{en.site} ({en.overhangLen} bp overhang)</div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">{en.desc}</p>
+                        <div class="font-mono text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{en.site} ({en.overhangLen} bp overhang)</div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{en.desc}</p>
                       </div>
                     </label>
                   ))}
@@ -509,8 +513,8 @@ export default function CloningSuiteView() {
                   Construct Metrics
                 </label>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Destination Vector Length (bp)</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Destination Vector Length (bp)</label>
+                  <DecimalInput aria-label="Destination Vector Length (bp)"
                     class={FIELD}
                     value={s.ggVectorBp}
                     onChange={ggVectorBp => set({ ggVectorBp: Math.max(500, Math.round(ggVectorBp)) })}
@@ -519,8 +523,8 @@ export default function CloningSuiteView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1">Number of Inserts</label>
-                  <DecimalInput
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Number of Inserts</label>
+                  <DecimalInput aria-label="Number of Inserts"
                     class={FIELD}
                     value={s.ggFragmentCount}
                     onChange={ggFragmentCount => set({ ggFragmentCount: Math.max(1, Math.min(12, Math.round(ggFragmentCount))) })}
@@ -538,7 +542,7 @@ export default function CloningSuiteView() {
               <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
                 <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
                   <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Golden Gate Assembly System
                     </span>
                     <div class="text-2xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
@@ -546,8 +550,8 @@ export default function CloningSuiteView() {
                     </div>
                   </div>
                   <div class="text-right">
-                    <span class="text-xs text-slate-400 block">Optimal Stoichiometry</span>
-                    <span class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block">Optimal Stoichiometry</span>
+                    <span class="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
                       ~40 fmol each
                     </span>
                   </div>
@@ -555,24 +559,24 @@ export default function CloningSuiteView() {
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Destination Vector</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Destination Vector</span>
                     <span class="text-base font-bold font-mono text-slate-700 dark:text-slate-300">~{ggVectorMassNg} ng</span>
-                    <span class="text-[10px] text-slate-400 block">40 fmol ({s.ggVectorBp} bp)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">40 fmol ({s.ggVectorBp} bp)</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Inserts</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Inserts</span>
                     <span class="text-base font-bold font-mono text-accent-600 dark:text-accent-400">{s.ggFragmentCount} Fragments</span>
-                    <span class="text-[10px] text-slate-400 block">40 fmol each</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">40 fmol each</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Overhang Type</span>
-                    <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">4 bp Non-Palindromic</span>
-                    <span class="text-[10px] text-slate-400 block">Cohesive Type IIS</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Overhang Type</span>
+                    <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400">4 bp Non-Palindromic</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Cohesive Type IIS</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Cycling Profile</span>
-                    <span class="text-xs font-bold text-sky-600 dark:text-sky-400">30 Cycles</span>
-                    <span class="text-[10px] text-slate-400 block">Digest ⇄ Ligate</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Cycling Profile</span>
+                    <span class="text-xs font-bold text-sky-700 dark:text-sky-400">30 Cycles</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Digest ⇄ Ligate</span>
                   </div>
                 </div>
               </div>
@@ -584,20 +588,20 @@ export default function CloningSuiteView() {
                 </h3>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
                   <div class="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-                    <span class="text-[10px] text-slate-400 block font-sans">Promoter ➔ 5' UTR</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">Promoter ➔ 5' UTR</span>
                     <strong class="text-indigo-600 dark:text-indigo-400 text-sm">GGAG ... AATG</strong>
                   </div>
                   <div class="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-                    <span class="text-[10px] text-slate-400 block font-sans">CDS / Open Reading Frame</span>
-                    <strong class="text-emerald-600 dark:text-emerald-400 text-sm">AATG ... GCTT</strong>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">CDS / Open Reading Frame</span>
+                    <strong class="text-emerald-700 dark:text-emerald-400 text-sm">AATG ... GCTT</strong>
                   </div>
                   <div class="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-                    <span class="text-[10px] text-slate-400 block font-sans">Terminator / 3' UTR</span>
-                    <strong class="text-rose-600 dark:text-rose-400 text-sm">GCTT ... CGCT</strong>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">Terminator / 3' UTR</span>
+                    <strong class="text-rose-700 dark:text-rose-400 text-sm">GCTT ... CGCT</strong>
                   </div>
                   <div class="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-                    <span class="text-[10px] text-slate-400 block font-sans">Vector Backbone</span>
-                    <strong class="text-amber-600 dark:text-amber-400 text-sm">CGCT ... GGAG</strong>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">Vector Backbone</span>
+                    <strong class="text-amber-700 dark:text-amber-400 text-sm">CGCT ... GGAG</strong>
                   </div>
                 </div>
               </div>

@@ -28,7 +28,7 @@ export function AnnotationTable({ document, selection, onSelect }: AnnotationTab
       </select></label>
     </div>
     <div class="overflow-x-auto"><table aria-label="Annotations" class="w-full text-left text-sm">
-      <thead><tr class="border-b border-slate-200 text-slate-500"><th class="p-2">Annotation</th><th class="p-2">Type</th><th class="p-2">Coordinates (bp)</th><th class="p-2">Strand</th><th class="p-2">Source</th></tr></thead>
+      <thead><tr class="border-b border-slate-200 text-slate-500 dark:text-slate-400"><th class="p-2">Annotation</th><th class="p-2">Type</th><th class="p-2">Coordinates (bp)</th><th class="p-2">Strand</th><th class="p-2">Source</th></tr></thead>
       <tbody>{rows.map(annotation => {
         const segments = annotation.location.segments;
         const range = segments.map(segment => `${segment.start + 1}–${segment.end}`).join(', ');
@@ -41,6 +41,6 @@ export function AnnotationTable({ document, selection, onSelect }: AnnotationTab
         </tr>;
       })}</tbody>
     </table></div>
-    {!rows.length && <p class="text-sm text-slate-500">No matching annotations.</p>}
+    {!rows.length && <p class="text-sm text-slate-500 dark:text-slate-400">No matching annotations.</p>}
   </section>;
 }

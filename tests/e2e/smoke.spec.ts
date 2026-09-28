@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { READY_TOOLS } from './tools';
 
 test('home lists tools and opens molarity with a shareable state', async ({ page }) => {
   const errors: string[] = [];
@@ -66,20 +67,23 @@ test('methods index and study planner avoid horizontal overflow on phone and des
 });
 
 test('all ready tools open without page errors', async ({ page }) => {
-  const readyTools = [
-    'molarity', 'buffers', 'centrifuge', 'master-mix', 'ammonium-sulfate',
-    'sec', 'diafiltration', 'dsf', 'detergent', 'unit-converter',
-    'cryoem', 'fitting', 'protein', 'structure', 'protein-conc', 'nucleic', 'sequence', 'plasmid',
-    'cloning', 'rare-codons', 'align', 'seq-matrix', 'binding', 'primers', 'tags', 'gel', 'measure', 'colonies', 'hemocytometer',
-    'tally', 'plate', 'culture', 'timers', 'protocols', 'colors',
-    'plate-reader',
-    'study-design',
-  ];
-  for (const id of readyTools) {
+  for (const id of READY_TOOLS) {
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(`/#/t/${id}`);
     await expect(page.locator('h1')).toBeVisible();
     expect(errors, `Tool ${id} produced page errors`).toEqual([]);
   }
+});
+
+test('a saved protocol run reopens from Recent projects with its progress', async ({ page }) => {
+  await page.goto('/#/t/protocols');
+  await page.getByRole('checkbox', { name: 'Step 1 complete' }).check();
+  await page.getByRole('checkbox', { name: 'Step 2 complete' }).check();
+  await page.getByRole('button', { name: 'Save project' }).click();
+  await expect(page.getByText(/on this device/)).toBeVisible();
+  await page.goto('/');
+  await page.getByRole('button', { name: /\(2\/\d+ steps\)/ }).first().click();
+  await expect(page.getByText(/Opened saved project/)).toBeVisible();
+  await expect(page.getByTestId('progress-text')).toContainText('2 /');
 });

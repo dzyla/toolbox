@@ -293,7 +293,7 @@ export default function BindingView() {
             <div class="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400">P1 MW (kDa)</label>
-                <input
+                <input aria-label="P1 MW (kDa)"
                   type="number"
                   min="0"
                   step="any"
@@ -304,7 +304,7 @@ export default function BindingView() {
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400">P2 MW (kDa)</label>
-                <input
+                <input aria-label="P2 MW (kDa)"
                   type="number"
                   min="0"
                   step="any"
@@ -315,7 +315,7 @@ export default function BindingView() {
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400">Temperature (°C)</label>
-                <input
+                <input aria-label="Temperature (°C)"
                   type="number"
                   step="any"
                   class={FIELD}
@@ -328,7 +328,7 @@ export default function BindingView() {
 
           <div>
             <label class="block text-sm font-medium mb-1">Binding Model</label>
-            <select
+            <select aria-label="Binding Model"
               class={FIELD}
               value={s.model}
               onChange={e => set({ model: (e.target as HTMLSelectElement).value as Model })}
@@ -341,7 +341,7 @@ export default function BindingView() {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium mb-1">Stoichiometry n</label>
-              <input
+              <input aria-label="Stoichiometry n"
                 type="number"
                 min="1"
                 max="10"
@@ -354,7 +354,7 @@ export default function BindingView() {
             {s.model === 'stepwise' ? (
               <div>
                 <label class="block text-sm font-medium mb-1">Cooperativity (α)</label>
-                <input
+                <input aria-label="Cooperativity (α)"
                   type="number"
                   min="0.001"
                   step="any"
@@ -362,7 +362,7 @@ export default function BindingView() {
                   value={s.alpha}
                   onInput={e => set({ alpha: Number((e.target as HTMLInputElement).value) })}
                 />
-                <span class="text-[11px] text-slate-500">α=1 indep, &lt;1 pos, &gt;1 neg</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400">α=1 indep, &lt;1 pos, &gt;1 neg</span>
               </div>
             ) : null}
           </div>
@@ -372,13 +372,14 @@ export default function BindingView() {
             <div class="flex gap-2">
               <input
                 type="number"
+                aria-label="Protein 1 Total"
                 min="0"
                 step="any"
                 class={`${FIELD} flex-1`}
                 value={s.p1Val}
                 onInput={e => set({ p1Val: Number((e.target as HTMLInputElement).value) })}
               />
-              <select
+              <select aria-label="Protein 1 Total unit"
                 class="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                 value={s.p1Unit}
                 onChange={e => set({ p1Unit: (e.target as HTMLSelectElement).value as ConcUnit })}
@@ -396,13 +397,14 @@ export default function BindingView() {
             <div class="flex gap-2">
               <input
                 type="number"
+                aria-label="Protein 2 Total"
                 min="0"
                 step="any"
                 class={`${FIELD} flex-1`}
                 value={s.p2Val}
                 onInput={e => set({ p2Val: Number((e.target as HTMLInputElement).value) })}
               />
-              <select
+              <select aria-label="Protein 2 Total unit"
                 class="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                 value={s.p2Unit}
                 onChange={e => set({ p2Unit: (e.target as HTMLSelectElement).value as ConcUnit })}
@@ -420,13 +422,14 @@ export default function BindingView() {
             <div class="flex gap-2">
               <input
                 type="number"
+                aria-label="Dissociation Constant (Kd)"
                 min="0"
                 step="any"
                 class={`${FIELD} flex-1`}
                 value={s.kdVal}
                 onInput={e => set({ kdVal: Number((e.target as HTMLInputElement).value) })}
               />
-              <select
+              <select aria-label="Dissociation Constant (Kd) unit"
                 class="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                 value={s.kdUnit}
                 onChange={e => set({ kdUnit: (e.target as HTMLSelectElement).value as KdUnit })}
@@ -437,7 +440,7 @@ export default function BindingView() {
               </select>
             </div>
             {s.model === 'single_step' && s.n > 1 && (
-              <span class="text-xs text-amber-600 dark:text-amber-400">
+              <span class="text-xs text-amber-700 dark:text-amber-400">
                 Single-step Kd has units of conc^{s.n} ({s.kdUnit}^{s.n}).
               </span>
             )}
@@ -484,13 +487,13 @@ export default function BindingView() {
             <div class="space-y-4" data-testid="equilibrium-result">
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Free P1</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Free P1</div>
                   <div class="mono text-lg font-bold">
                     {eqResult.type === 'stepwise'
                       ? `${fromNM(eqResult.res.p1Free, s.p1Unit, s.mwP1).toFixed(2)} ${s.p1Unit}`
                       : `${fromNM(eqResult.res.p1Free, s.p1Unit, s.mwP1).toFixed(2)} ${s.p1Unit}`}
                   </div>
-                  <div class="text-xs text-slate-500">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">
                     {eqResult.type === 'stepwise'
                       ? `${(eqResult.res.probs[0]! * 100).toFixed(1)}% of total`
                       : `${((eqResult.res.p1Free / parsed.p1_nM) * 100).toFixed(1)}% of total`}
@@ -498,7 +501,7 @@ export default function BindingView() {
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Free P2</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Free P2</div>
                   <div class="mono text-lg font-bold">
                     {eqResult.type === 'stepwise'
                       ? `${fromNM(eqResult.res.L, s.p2Unit, s.mwP2).toFixed(2)} ${s.p2Unit}`
@@ -507,8 +510,8 @@ export default function BindingView() {
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Site Saturation (θ)</div>
-                  <div class="mono text-lg font-bold text-accent-600">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Site Saturation (θ)</div>
+                  <div class="mono text-lg font-bold text-accent-600 dark:text-accent-400">
                     {eqResult.type === 'stepwise'
                       ? `${(eqResult.res.theta * 100).toFixed(1)}%`
                       : `${((eqResult.res.complex / parsed.p1_nM) * 100).toFixed(1)}%`}
@@ -516,13 +519,13 @@ export default function BindingView() {
                 </div>
 
                 <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div class="text-xs text-slate-500">Standard ΔG° ({s.tempC} °C)</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Standard ΔG° ({s.tempC} °C)</div>
                   <div class="mono text-sm font-semibold">
                     {eqResult.type === 'stepwise'
                       ? `${eqResult.dg.kJ.toFixed(1)} kJ/mol`
                       : `${eqResult.dg.perSite.kJ.toFixed(1)} kJ/mol`}
                   </div>
-                  <div class="text-xs text-slate-500">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">
                     {eqResult.type === 'stepwise'
                       ? `${eqResult.dg.kcal.toFixed(1)} kcal/mol`
                       : `${eqResult.dg.perSite.kcal.toFixed(1)} kcal/mol`}
@@ -536,7 +539,7 @@ export default function BindingView() {
                 <div class="overflow-x-auto">
                   <table class="w-full text-left text-sm">
                     <thead>
-                      <tr class="border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500">
+                      <tr class="border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
                         <th class="pb-1">Species</th>
                         <th class="pb-1">Fraction</th>
                         <th class="pb-1">Concentration (nM)</th>
@@ -633,11 +636,11 @@ export default function BindingView() {
               <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                 <div class="flex items-baseline justify-between">
                   <h3 class="font-semibold">Hill Analysis on Free Ligand</h3>
-                  <span class="mono text-lg font-bold text-accent-600">
+                  <span class="mono text-lg font-bold text-accent-600 dark:text-accent-400">
                     nH = {Number.isFinite(titrationData.hill.slope) ? titrationData.hill.slope.toFixed(3) : '—'}
                   </span>
                 </div>
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Computed by linear regression of log(θ/(1−θ)) against log[L]free over 0.1 &lt; θ &lt; 0.9.
                   R² = {Number.isFinite(titrationData.hill.r2) ? titrationData.hill.r2.toFixed(4) : '—'}
                 </p>
@@ -668,13 +671,13 @@ export default function BindingView() {
           {s.activeTab === 'target' && targetResult && (
             <div class="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
               <h3 class="font-semibold">Target Occupancy Solver</h3>
-              <p class="text-sm text-slate-500">
+              <p class="text-sm text-slate-500 dark:text-slate-400">
                 Calculate the exact total amount of Protein 2 required to achieve a target saturation.
               </p>
               <div class="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label class="block text-sm font-medium mb-1">Target Saturation (%)</label>
-                  <input
+                  <input aria-label="Target Saturation (%)"
                     type="number"
                     min="1"
                     max="99"
@@ -687,7 +690,7 @@ export default function BindingView() {
                 {s.model === 'stepwise' && (
                   <div>
                     <label class="block text-sm font-medium mb-1">Target Criterion</label>
-                    <select
+                    <select aria-label="Target Criterion"
                       class={FIELD}
                       value={s.targetMode}
                       onChange={e => set({ targetMode: (e.target as HTMLSelectElement).value as TargetMode })}
@@ -700,14 +703,14 @@ export default function BindingView() {
               </div>
 
               {targetResult.error ? (
-                <div role="alert" class="text-sm text-red-600">{targetResult.error}</div>
+                <div role="alert" class="text-sm text-red-600 dark:text-red-400">{targetResult.error}</div>
               ) : (
                 <div class="mt-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <div class="text-xs text-slate-500">Required Total Protein 2:</div>
-                  <div class="mono text-2xl font-bold text-accent-600">
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Required Total Protein 2:</div>
+                  <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                     {targetResult.reqDisp.toFixed(2)} {s.p2Unit}
                   </div>
-                  <div class="mono text-xs text-slate-500 mt-1">
+                  <div class="mono text-xs text-slate-500 dark:text-slate-400 mt-1">
                     ({targetResult.req_nM.toFixed(1)} nM total; free: {(targetResult.req_nM - (s.targetFrac / 100) * parsed.p1_nM * s.n).toFixed(1)} nM)
                   </div>
                 </div>
@@ -719,13 +722,13 @@ export default function BindingView() {
           {s.activeTab === 'ki' && kiResult && (
             <div class="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
               <h3 class="font-semibold">Cheng–Prusoff Ki Calculator</h3>
-              <p class="text-sm text-slate-500">
+              <p class="text-sm text-slate-500 dark:text-slate-400">
                 Calculates the inhibition constant Ki for a competitive inhibitor using Ki = IC50 / (1 + [L]/Kd).
               </p>
               <div class="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label class="block text-sm font-medium mb-1">IC50 (nM)</label>
-                  <input
+                  <input aria-label="IC50 (nM)"
                     type="number"
                     min="0"
                     step="any"
@@ -736,7 +739,7 @@ export default function BindingView() {
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">Substrate / Ligand [L] (nM)</label>
-                  <input
+                  <input aria-label="Substrate / Ligand [L] (nM)"
                     type="number"
                     min="0"
                     step="any"
@@ -748,8 +751,8 @@ export default function BindingView() {
               </div>
 
               <div class="mt-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                <div class="text-xs text-slate-500">Inhibition Constant (Ki):</div>
-                <div class="mono text-2xl font-bold text-accent-600">
+                <div class="text-xs text-slate-500 dark:text-slate-400">Inhibition Constant (Ki):</div>
+                <div class="mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                   {Number.isFinite(kiResult.ki) ? `${kiResult.ki.toFixed(2)} nM` : '—'}
                 </div>
               </div>
@@ -762,8 +765,8 @@ export default function BindingView() {
               <h3 class="font-semibold">Reaction Mix Helper</h3>
               <div class="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label class="block text-xs text-slate-500">Final Volume (µL)</label>
-                  <input
+                  <label class="block text-xs text-slate-500 dark:text-slate-400">Final Volume (µL)</label>
+                  <input aria-label="Final Volume (µL)"
                     type="number"
                     min="1"
                     step="any"
@@ -773,7 +776,7 @@ export default function BindingView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500">P1 Stock ({s.p1Unit})</label>
+                  <label class="block text-xs text-slate-500 dark:text-slate-400">P1 Stock ({s.p1Unit})</label>
                   <input
                     type="number"
                     min="0"
@@ -784,7 +787,7 @@ export default function BindingView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500">P2 Stock ({s.p2Unit})</label>
+                  <label class="block text-xs text-slate-500 dark:text-slate-400">P2 Stock ({s.p2Unit})</label>
                   <input
                     type="number"
                     min="0"
@@ -796,11 +799,11 @@ export default function BindingView() {
                 </div>
               </div>
 
-              {mixData.error && <p role="alert" class="text-sm text-red-600">{mixData.error}</p>}
+              {mixData.error && <p role="alert" class="text-sm text-red-600 dark:text-red-400">{mixData.error}</p>}
 
               {mixData.recipe && (
                 <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <div class="text-xs font-semibold uppercase text-slate-500 mb-1">Pipetting Recipe:</div>
+                  <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Pipetting Recipe:</div>
                   <ul class="text-sm space-y-1">
                     <li>• P1 Stock: <strong class="mono">{mixData.recipe.v1.toFixed(2)} µL</strong></li>
                     <li>• P2 Stock: <strong class="mono">{mixData.recipe.v2.toFixed(2)} µL</strong></li>
@@ -814,8 +817,8 @@ export default function BindingView() {
               <h4 class="font-semibold text-sm">Serial Dilution Scheme for P2</h4>
               <div class="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label class="block text-xs text-slate-500">High Conc</label>
-                  <input
+                  <label class="block text-xs text-slate-500 dark:text-slate-400">High Conc</label>
+                  <input aria-label="High Conc"
                     type="number"
                     min="0"
                     step="any"
@@ -825,8 +828,8 @@ export default function BindingView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500">Low Conc</label>
-                  <input
+                  <label class="block text-xs text-slate-500 dark:text-slate-400">Low Conc</label>
+                  <input aria-label="Low Conc"
                     type="number"
                     min="0"
                     step="any"
@@ -836,8 +839,8 @@ export default function BindingView() {
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500">Dilution Factor</label>
-                  <input
+                  <label class="block text-xs text-slate-500 dark:text-slate-400">Dilution Factor</label>
+                  <input aria-label="Dilution Factor"
                     type="number"
                     min="1.1"
                     step="any"
@@ -880,7 +883,7 @@ export default function BindingView() {
               <div class="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label class="block text-sm font-medium mb-1">kon (M⁻¹s⁻¹)</label>
-                  <input
+                  <input aria-label="kon (M⁻¹s⁻¹)"
                     type="number"
                     min="0"
                     step="any"
@@ -891,7 +894,7 @@ export default function BindingView() {
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">koff (s⁻¹)</label>
-                  <input
+                  <input aria-label="koff (s⁻¹)"
                     type="number"
                     min="0"
                     step="any"
@@ -904,19 +907,19 @@ export default function BindingView() {
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <div class="text-xs text-slate-500">Calculated Kd:</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Calculated Kd:</div>
                   <div class="mono text-lg font-bold">{kineticsData.kd_calc.toFixed(2)} nM</div>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <div class="text-xs text-slate-500">Observed rate kobs:</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Observed rate kobs:</div>
                   <div class="mono text-lg font-bold">{kineticsData.kobs.toFixed(4)} s⁻¹</div>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <div class="text-xs text-slate-500">Association t½:</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Association t½:</div>
                   <div class="mono text-lg font-bold">{kineticsData.thalfAssoc.toFixed(1)} s</div>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <div class="text-xs text-slate-500">Dissociation t½:</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">Dissociation t½:</div>
                   <div class="mono text-lg font-bold">{kineticsData.thalfDiss.toFixed(1)} s</div>
                 </div>
               </div>

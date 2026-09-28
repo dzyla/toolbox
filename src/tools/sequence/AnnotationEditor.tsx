@@ -26,9 +26,9 @@ export function AnnotationEditor({ selection, annotations, onCreate, onSelect, o
     <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-sm font-bold">Annotations</h2>
-        <span class="text-xs text-slate-500">{annotations.length} saved</span>
+        <span class="text-xs text-slate-500 dark:text-slate-400">{annotations.length} saved</span>
       </div>
-      <p class="mt-1 text-xs text-slate-500">{selection ? `Selected residues ${selection.start}–${selection.end}` : 'Select a residue or drag a range to annotate it.'}</p>
+      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{selection ? `Selected residues ${selection.start}–${selection.end}` : 'Select a residue or drag a range to annotate it.'}</p>
 
       <div class="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_3rem]">
         <label class="text-xs font-medium">Annotation name
@@ -50,8 +50,8 @@ export function AnnotationEditor({ selection, annotations, onCreate, onSelect, o
 
       {annotations.length > 0 && <ul class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200 text-xs dark:divide-slate-800 dark:border-slate-800">
         {annotations.map(annotation => <li key={annotation.id} class="flex items-center justify-between gap-2 p-2">
-          <button type="button" onClick={() => onSelect(annotation)} class="min-w-0 text-left hover:underline"><span class="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: annotation.color }} /><strong>{annotation.name}</strong> <span class="text-slate-500">{annotation.type} · {annotation.start}–{annotation.end}</span></button>
-          <button type="button" aria-label={`Remove ${annotation.name}`} onClick={() => onRemove(annotation.id)} class="text-slate-400 hover:text-rose-600">Remove</button>
+          <button type="button" onClick={() => onSelect(annotation)} class="min-w-0 text-left hover:underline"><span class="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: annotation.color }} /><strong>{annotation.name}</strong> <span class="text-slate-500 dark:text-slate-400">{annotation.type} · {annotation.start}–{annotation.end}</span></button>
+          <button type="button" aria-label={`Remove ${annotation.name}`} onClick={() => onRemove(annotation.id)} class="text-slate-500 dark:text-slate-400 hover:text-rose-600">Remove</button>
         </li>)}
       </ul>}
     </section>

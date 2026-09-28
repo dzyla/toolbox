@@ -259,7 +259,7 @@ export default function DetergentView() {
       lines.push(
         `Illustrative one-micelle PDC mass model: ${complex.complexMwKDa.toFixed(1)} kDa (Protein input: ${(complex.proteinMassFraction * 100).toFixed(1)}%, reference micelle: ${(complex.detergentMassFraction * 100).toFixed(1)}%; not measured PDC mass)`
       );
-      lines.push(`Stokes Radius Rh: ~${complex.estimatedStokesRadiusNm.toFixed(2)} nm`);
+      lines.push(`Globular-equivalent Stokes radius Rs: ~${complex.estimatedStokesRadiusNm.toFixed(2)} nm`);
       lines.push(
         `Estimated bulk micelle:protein ratio: ${proteinRatio.bulkMicelleToProteinRatio.toFixed(2)} (detergent-only pseudophase estimate; not PDC stoichiometry)`
       );
@@ -290,8 +290,8 @@ export default function DetergentView() {
           <span
             class={
               partition.isAboveCmc
-                ? 'font-semibold text-emerald-600 dark:text-emerald-400'
-                : 'font-semibold text-amber-600 dark:text-amber-400'
+                ? 'font-semibold text-emerald-700 dark:text-emerald-400'
+                : 'font-semibold text-amber-700 dark:text-amber-400'
             }
           >
             {partition.cmcRatio.toFixed(1)}× CMC
@@ -358,8 +358,8 @@ export default function DetergentView() {
                 <span class="font-semibold text-accent-800 dark:text-accent-300">Custom Detergent Parameters</span>
                 <div class="grid grid-cols-2 gap-2">
                   <div>
-                    <label class="block text-[11px] text-slate-500 mb-0.5">Detergent Name</label>
-                    <input
+                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">Detergent Name</label>
+                    <input aria-label="Detergent Name"
                       type="text"
                       value={s.customName}
                       onInput={(e) => set({ customName: (e.target as HTMLInputElement).value })}
@@ -367,8 +367,8 @@ export default function DetergentView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-[11px] text-slate-500 mb-0.5">Monomer MW (g/mol)</label>
-                    <DecimalInput
+                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">Monomer MW (g/mol)</label>
+                    <DecimalInput aria-label="Monomer MW (g/mol)"
                       class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                       value={s.customMw}
                       onChange={(customMw) => set({ customMw })}
@@ -377,8 +377,8 @@ export default function DetergentView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-[11px] text-slate-500 mb-0.5">CMC (mM)</label>
-                    <DecimalInput
+                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">CMC (mM)</label>
+                    <DecimalInput aria-label="CMC (mM)"
                       class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                       value={s.customCmcMm}
                       onChange={(customCmcMm) => set({ customCmcMm })}
@@ -387,8 +387,8 @@ export default function DetergentView() {
                     />
                   </div>
                   <div>
-                    <label class="block text-[11px] text-slate-500 mb-0.5">Aggregation Number (Nagg)</label>
-                    <DecimalInput
+                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">Aggregation Number (Nagg)</label>
+                    <DecimalInput aria-label="Aggregation Number (Nagg)"
                       class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                       value={s.customNagg}
                       onChange={(customNagg) => set({ customNagg })}
@@ -397,8 +397,8 @@ export default function DetergentView() {
                     />
                   </div>
                   <div class="col-span-2">
-                    <label class="block text-[11px] text-slate-500 mb-0.5">Micelle MW (kDa)</label>
-                    <DecimalInput
+                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">Micelle MW (kDa)</label>
+                    <DecimalInput aria-label="Micelle MW (kDa)"
                       class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                       value={s.customMicelleMwKDa}
                       onChange={(customMicelleMwKDa) => set({ customMicelleMwKDa })}
@@ -465,7 +465,7 @@ export default function DetergentView() {
                   type="checkbox"
                   checked={s.includeProtein}
                   onChange={(e) => set({ includeProtein: (e.target as HTMLInputElement).checked })}
-                  class="rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                  class="rounded border-slate-300 text-accent-600 dark:text-accent-400 focus:ring-accent-500"
                 />
                 <span>Include Protein</span>
               </label>
@@ -483,7 +483,7 @@ export default function DetergentView() {
 
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">Subunit Stoichiometry</label>
+                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Subunit Stoichiometry</label>
                     <select
                       id="stoichiometry-select"
                       aria-label="Subunit Stoichiometry"
@@ -538,7 +538,7 @@ export default function DetergentView() {
             />
 
             <div>
-              <label class="block text-xs text-slate-500 mb-1">Target Buffer Detergent Level</label>
+              <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Target Buffer Detergent Level</label>
               <div class="grid grid-cols-3 gap-1 rounded-lg border border-slate-200 p-0.5 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs">
                 <button
                   type="button"
@@ -566,8 +566,8 @@ export default function DetergentView() {
 
             {s.targetMode === 'cmc_mult' && (
               <div>
-                <label class="block text-xs text-slate-500 mb-1">CMC Multiplier (e.g. 2× CMC)</label>
-                <DecimalInput
+                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">CMC Multiplier (e.g. 2× CMC)</label>
+                <DecimalInput aria-label="CMC Multiplier (e.g. 2× CMC)"
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-mono"
                   value={s.targetCmcMultiplier}
                   onChange={(targetCmcMultiplier) => set({ targetCmcMultiplier })}
@@ -603,12 +603,12 @@ export default function DetergentView() {
             {/* Card 1: Micelle vs Free Partition */}
             <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex flex-col justify-between">
               <div>
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   CMC Phase Partition
                 </span>
                 <div class="mt-1 text-2xl font-black font-mono text-accent-600 dark:text-accent-400">
                   {partition.cmcRatio.toFixed(1)}×{' '}
-                  <span class="text-sm font-semibold text-slate-500">CMC</span>
+                  <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">CMC</span>
                 </div>
                 <div class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                   Total: <strong class="font-mono text-slate-900 dark:text-slate-100">{totalConcMm.toFixed(2)} mM</strong> ({partition.totalConcPct.toFixed(3)}%)
@@ -617,11 +617,11 @@ export default function DetergentView() {
 
               <div class="mt-3 space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <div class="flex justify-between text-[11px]">
-                  <span class="text-slate-500">Free Monomer:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Free Monomer:</span>
                   <span class="font-mono font-semibold">{partition.freeConcMm.toFixed(3)} mM</span>
                 </div>
                 <div class="flex justify-between text-[11px]">
-                  <span class="text-slate-500">Micellar:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Micellar:</span>
                   <span class="font-mono font-semibold text-accent-600 dark:text-accent-400">
                     {partition.micellarConcMm.toFixed(3)} mM ({(partition.micellarFraction * 100).toFixed(0)}%)
                   </span>
@@ -645,7 +645,7 @@ export default function DetergentView() {
             {/* Card 2: Absolute Micelle Count */}
             <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex flex-col justify-between">
               <div>
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Micelle Particle Count
                 </span>
                 <div class="mt-1 text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
@@ -653,24 +653,24 @@ export default function DetergentView() {
                     ? `${micelles.micelleConcUm.toFixed(1)} µM`
                     : `${(micelles.micelleConcUm / 1000).toFixed(2)} mM`}
                 </div>
-                <div class="mt-1 text-xs text-slate-500">
+                <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   In {sampleVolumeMl} mL solution
                 </div>
               </div>
 
               <div class="mt-3 space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Total Micelles:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Total Micelles:</span>
                   <span class="font-mono font-bold text-accent-600 dark:text-accent-400">
                     {micelles.micelleCount > 0 ? micelles.micelleCount.toExponential(2) : '0'}
                   </span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Monomers/Micelle:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Monomers/Micelle:</span>
                   <span class="font-mono">{activeDet.aggregationNumber}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Free Monomers:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Free Monomers:</span>
                   <span class="font-mono">{micelles.freeMonomerCount.toExponential(2)}</span>
                 </div>
               </div>
@@ -679,29 +679,29 @@ export default function DetergentView() {
             {/* Card 3: Illustrative PDC mass model */}
             <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex flex-col justify-between">
               <div>
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Illustrative PDC Mass Model
                 </span>
-                <div class="mt-1 text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                <div class="mt-1 text-2xl font-black font-mono text-emerald-700 dark:text-emerald-400">
                   {complex.complexMwKDa.toFixed(1)}{' '}
-                  <span class="text-sm font-semibold text-slate-500">kDa</span>
+                  <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">kDa</span>
                 </div>
-                <div class="mt-1 text-xs text-slate-500">
+                <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Protein {complex.proteinTotalMwKDa} kDa + reference micelle {complex.micelleMwKDa} kDa
                 </div>
               </div>
 
               <div class="mt-3 space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Protein input:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Protein input:</span>
                   <span class="font-mono">{(complex.proteinMassFraction * 100).toFixed(1)}%</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Reference micelle:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Reference micelle:</span>
                   <span class="font-mono">{(complex.detergentMassFraction * 100).toFixed(1)}%</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-slate-500">Globular-equivalent R<sub>h</sub>:</span>
+                  <span class="text-slate-500 dark:text-slate-400">Globular-equivalent R<sub>s</sub>:</span>
                   <span class="font-mono font-semibold">~{complex.estimatedStokesRadiusNm.toFixed(2)} nm</span>
                 </div>
               </div>
@@ -710,7 +710,7 @@ export default function DetergentView() {
             {/* Card 4: Dialyzability */}
             <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex flex-col justify-between">
               <div>
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Dialyzability
                 </span>
                 <div class="mt-1 text-lg font-black">
@@ -726,12 +726,12 @@ export default function DetergentView() {
                     {dialyzability.label}
                   </span>
                 </div>
-                <div class="mt-1 text-xs text-slate-500">
+                <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Score: <strong class="font-mono">{dialyzability.score} / 100</strong>
                 </div>
               </div>
 
-              <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 leading-tight">
+              <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                 {activeDet.cmcMm >= 2.0
                   ? 'Readily passes dialysis membrane pores (MWCO 3.5–14 kDa).'
                   : activeDet.cmcMm >= 0.5
@@ -749,7 +749,7 @@ export default function DetergentView() {
                   <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Bulk Detergent–Protein Estimate
                   </h3>
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
                     Detergent-only pseudophase calculation for {s.proteinMw.value} {s.proteinMw.unit} ({s.stoichiometry > 1 ? `${s.stoichiometry}-mer` : 'monomer'}) at {s.proteinConc.value} {s.proteinConc.unit}; not PDC stoichiometry
                   </p>
                 </div>
@@ -760,32 +760,32 @@ export default function DetergentView() {
 
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-400 block text-[11px]">Bulk Micelles : Protein</span>
+                  <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Bulk Micelles : Protein</span>
                   <span class="text-lg font-bold font-mono text-accent-600 dark:text-accent-400">
                     {proteinRatio.bulkMicelleToProteinRatio.toFixed(2)} : 1
                   </span>
-                  <span class="text-[10px] text-slate-400 block">Not PDC coverage</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Not PDC coverage</span>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-400 block text-[11px]">Detergent : Protein Molar Ratio</span>
+                  <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Detergent : Protein Molar Ratio</span>
                   <span class="text-lg font-bold font-mono text-slate-800 dark:text-slate-200">
                     {proteinRatio.detergentMolarRatio.toFixed(0)} : 1
                   </span>
-                  <span class="text-[10px] text-slate-400 block">Total monomers; not bound detergent</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Total monomers; not bound detergent</span>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-400 block text-[11px]">Protein Molarity</span>
+                  <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Protein Molarity</span>
                   <span class="text-lg font-bold font-mono text-slate-800 dark:text-slate-200">
                     {proteinRatio.proteinMolarConcUm.toFixed(1)} µM
                   </span>
-                  <span class="text-[10px] text-slate-400 block">{proteinConcMgMl.toFixed(2)} mg/mL</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block">{proteinConcMgMl.toFixed(2)} mg/mL</span>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-400 block text-[11px]">Micelle Molarity</span>
+                  <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Micelle Molarity</span>
                   <span class="text-lg font-bold font-mono text-slate-800 dark:text-slate-200">
                     {micelles.micelleConcUm.toFixed(1)} µM
                   </span>
-                  <span class="text-[10px] text-slate-400 block">Agg. Number = {activeDet.aggregationNumber}</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Agg. Number = {activeDet.aggregationNumber}</span>
                 </div>
               </div>
 
@@ -802,8 +802,8 @@ export default function DetergentView() {
                 <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">
                   Size Exclusion Chromatography (SEC) Sizing
                 </h3>
-                <p class="text-xs text-slate-500">
-                  Mass-based screen using the illustrative {complex.complexMwKDa.toFixed(1)} kDa model (globular-equivalent R<sub>h</sub> ≈ {complex.estimatedStokesRadiusNm.toFixed(2)} nm); confirm by pilot SEC because PDC shape and binding alter elution.
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                  Mass-based screen using the illustrative {complex.complexMwKDa.toFixed(1)} kDa model (globular-equivalent R<sub>s</sub> ≈ {complex.estimatedStokesRadiusNm.toFixed(2)} nm); confirm by pilot SEC because PDC shape and binding alter elution.
                 </p>
               </div>
             </div>
@@ -838,7 +838,7 @@ export default function DetergentView() {
                         : 'outside mass range'}
                     </span>
                   </div>
-                  <div class="text-[11px] font-mono text-slate-500 mb-2">
+                  <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400 mb-2">
                     Range: {col.fractionationRangeKDa[0]} – {col.fractionationRangeKDa[1]} kDa
                   </div>
                   <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
@@ -857,7 +857,7 @@ export default function DetergentView() {
                   <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Buffer Preparation &amp; Pipetting Protocol
                   </h3>
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
                     Recipe to prepare {s.bufferVolume.value} {s.bufferVolume.unit} of {activeDet.name} buffer ({dilution.finalCmcMultiplier.toFixed(1)}× CMC)
                   </p>
                 </div>
@@ -888,13 +888,13 @@ export default function DetergentView() {
                   <div class="text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
                     {dilution.bufferVolumeMl.toFixed(2)} mL
                   </div>
-                  <span class="text-[11px] text-slate-500">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400">
                     Bring total volume to exactly {targetBufferVolMl} mL
                   </span>
                 </div>
               </div>
 
-              <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono pt-1">
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono pt-1">
                 <span>Final Target Conc: <strong>{dilution.targetConcMm.toFixed(3)} mM</strong></span>
                 <span>•</span>
                 <span><strong>{dilution.targetConcPct.toFixed(4)}% (w/v)</strong></span>
@@ -912,7 +912,7 @@ export default function DetergentView() {
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs font-mono">
                 <thead>
-                  <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400">
+                  <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
                     <th class="py-2 pr-4 font-semibold">Fraction</th>
                     <th class="py-2 pr-4 font-semibold">mM</th>
                     <th class="py-2 pr-4 font-semibold">% (w/v)</th>
@@ -921,25 +921,25 @@ export default function DetergentView() {
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                   <tr>
-                    <td class="py-2 pr-4 text-slate-500 font-sans font-medium">Critical Micelle Conc (CMC)</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400 font-sans font-medium">Critical Micelle Conc (CMC)</td>
                     <td class="py-2 pr-4 text-accent-600 dark:text-accent-400 font-bold">{activeDet.cmcMm}</td>
                     <td class="py-2 pr-4">{activeDet.cmcPct}%</td>
                     <td class="py-2">{((activeDet.cmcMm * activeDet.molecularWeight) / 1000).toFixed(3)}</td>
                   </tr>
                   <tr>
-                    <td class="py-2 pr-4 text-slate-500 font-sans font-medium">Current Total Sample</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400 font-sans font-medium">Current Total Sample</td>
                     <td class="py-2 pr-4 font-bold">{totalConcMm.toFixed(3)}</td>
                     <td class="py-2 pr-4">{partition.totalConcPct.toFixed(4)}%</td>
                     <td class="py-2">{partition.totalConcMgMl.toFixed(3)}</td>
                   </tr>
                   <tr>
-                    <td class="py-2 pr-4 text-slate-500 font-sans font-medium">Free Monomer Fraction</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400 font-sans font-medium">Free Monomer Fraction</td>
                     <td class="py-2 pr-4">{partition.freeConcMm.toFixed(3)}</td>
                     <td class="py-2 pr-4">{partition.freeConcPct.toFixed(4)}%</td>
                     <td class="py-2">{partition.freeConcMgMl.toFixed(3)}</td>
                   </tr>
                   <tr>
-                    <td class="py-2 pr-4 text-slate-500 font-sans font-medium">Micellar Aggregate Fraction</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400 font-sans font-medium">Micellar Aggregate Fraction</td>
                     <td class="py-2 pr-4">{partition.micellarConcMm.toFixed(3)}</td>
                     <td class="py-2 pr-4">{partition.micellarConcPct.toFixed(4)}%</td>
                     <td class="py-2">{partition.micellarConcMgMl.toFixed(3)}</td>
@@ -958,7 +958,7 @@ export default function DetergentView() {
               {dialyzability.description}
             </p>
             <div class="space-y-1.5 pt-1">
-              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Recommended Experimental Techniques:
               </span>
               <ul class="space-y-1 text-xs text-slate-600 dark:text-slate-300">

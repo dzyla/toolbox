@@ -64,7 +64,7 @@ export default function View() {
   return <ToolLayout icon="🧫" title="Master Mix" blurb="Scale reaction components with pipetting excess and dead volume."
     mobileResultSummary={
       calculation.error ? (
-        <span class="text-rose-600 dark:text-rose-400 font-semibold">{calculation.error}</span>
+        <span class="text-rose-700 dark:text-rose-400 font-semibold">{calculation.error}</span>
       ) : (
         <span>Total MM: <strong class="text-accent-700 dark:text-accent-300 font-mono text-sm">{shown(result!.totalVolume)} µL</strong> ({result!.effectiveReactions.toFixed(1)} rxns)</span>
       )
@@ -115,7 +115,7 @@ export default function View() {
         <div>
           {numberField('Number of reactions', 'reactions', 1, '1')}
           <div class="mt-2 flex flex-wrap items-center gap-1">
-            <span class="text-[11px] text-slate-400 font-medium mr-0.5">Quick rxns:</span>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-0.5">Quick rxns:</span>
             {[-1, 1, 8, 16, 24, 48, 96].map(delta => (
               <button
                 key={delta}
@@ -144,10 +144,10 @@ export default function View() {
       <button type="button" onClick={() => set({ components: [...s.components, { id: `mm-${nextId++}`, name: 'Reagent', perReaction: 1 }] })}
         class="w-full rounded-lg border border-dashed border-slate-400 px-3 py-2 text-sm hover:border-accent-500 hover:text-accent-600 transition">+ Add reagent</button>
     </div>}
-    results={calculation.error ? <p role="alert" class="text-red-600">{calculation.error}</p> : <div data-testid="mastermix-results" class="space-y-3">
+    results={calculation.error ? <p role="alert" class="text-red-600 dark:text-red-400">{calculation.error}</p> : <div data-testid="mastermix-results" class="space-y-3">
       <div class="flex items-baseline justify-between">
         <h2 class="font-semibold text-slate-900 dark:text-slate-100">Total master mix</h2>
-        <span class="text-sm text-slate-500">{result!.effectiveReactions.toFixed(1)} reaction equivalents</span>
+        <span class="text-sm text-slate-500 dark:text-slate-400">{result!.effectiveReactions.toFixed(1)} reaction equivalents</span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -166,11 +166,12 @@ export default function View() {
                 <tr
                   key={row.name}
                   onClick={() => toggleCheck(row.name)}
-                  class={`border-t border-slate-200 dark:border-slate-700 cursor-pointer transition ${isChecked ? 'bg-emerald-50/60 dark:bg-emerald-950/20 text-slate-400 line-through' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}
+                  class={`border-t border-slate-200 dark:border-slate-700 cursor-pointer transition ${isChecked ? 'bg-emerald-50/60 dark:bg-emerald-950/20 text-slate-500 dark:text-slate-400 line-through' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}
                 >
                   <td class="py-2.5 pl-1">
                     <input
                       type="checkbox"
+                      aria-label={`${row.name} added`}
                       checked={isChecked}
                       onChange={() => toggleCheck(row.name)}
                       onClick={e => e.stopPropagation()}
@@ -178,7 +179,7 @@ export default function View() {
                     />
                   </td>
                   <td class="py-2.5 font-medium">{row.name}</td>
-                  <td class="py-2.5 text-right font-mono text-slate-500">{shown(row.perReaction)} µL</td>
+                  <td class="py-2.5 text-right font-mono text-slate-500 dark:text-slate-400">{shown(row.perReaction)} µL</td>
                   <td class="py-2.5 text-right font-mono font-bold text-accent-700 dark:text-accent-300">{shown(row.total)} µL</td>
                 </tr>
               );
@@ -194,7 +195,7 @@ export default function View() {
           </tfoot>
         </table>
       </div>
-      <p class="text-xs text-slate-500">Tap any component row above to mark it added as you pipette at the bench.</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Tap any component row above to mark it added as you pipette at the bench.</p>
     </div>}
     actions={<div class="space-y-2"><ActionBar onCopy={() => copyText} shareUrl={shareUrl} /><button type="button" onClick={exportCsv} disabled={!result}
       class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900">Export CSV</button></div>}

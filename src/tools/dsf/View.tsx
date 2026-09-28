@@ -3,6 +3,9 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { useUrlState } from '@/lib/url-state';
+import { useDraftText } from '@/lib/drafts';
+import { importErrorMessage, readTextFile } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
 import { downloadSvg, svgToPngBlob, downloadBlob, toCsv } from '@/lib/export';
 import {
   type DsfEffectClassification,
@@ -89,9 +92,11 @@ export default function DsfView() {
     stateSig.value = { ...stateSig.value, ...patch };
   };
 
-  const [rawText, setRawText] = useState<string>(() => {
-    return formatDsfToCsv(generateLysozymeDemoDataset());
-  });
+  const [rawText, setRawText] = useDraftText(
+    'dsf:raw',
+    () => formatDsfToCsv(generateLysozymeDemoDataset()),
+    () => set({ presetKey: 'custom' }),
+  );
 
   const [hoverData, setHoverData] = useState<{
     temperature: number;
@@ -102,6 +107,8 @@ export default function DsfView() {
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [importError, setImportError] = useState('');
   const meltSvgRef = useRef<SVGSVGElement>(null);
   const derivSvgRef = useRef<SVGSVGElement>(null);
   const residSvgRef = useRef<SVGSVGElement>(null);
@@ -110,7 +117,7 @@ export default function DsfView() {
   function handleLoadPreset(preset: 'lysozyme' | 'nanodsf' | 'prometheus') {
     if (preset === 'lysozyme') {
       const data = generateLysozymeDemoDataset();
-      setRawText(formatDsfToCsv(data));
+      setRawText(formatDsfToCsv(data), { persist: false });
       set({
         presetKey: 'lysozyme',
         selectedConditionId: '',
@@ -125,7 +132,7 @@ export default function DsfView() {
       });
     } else if (preset === 'nanodsf') {
       const data = generateNanoDsfDemoDataset();
-      setRawText(formatDsfToCsv(data));
+      setRawText(formatDsfToCsv(data), { persist: false });
       set({
         presetKey: 'nanodsf',
         selectedConditionId: '',
@@ -140,7 +147,7 @@ export default function DsfView() {
       });
     } else {
       const data = generatePrometheusDemoDataset();
-      setRawText(formatDsfToCsv(data));
+      setRawText(formatDsfToCsv(data), { persist: false });
       // For Prometheus multi-channel, default to selecting the Ratio channel
       const ratioIds = data.conditions
         .map((c, idx) => (c.channel === 'ratio' ? `cond_${idx + 1}` : null))
@@ -161,24 +168,23 @@ export default function DsfView() {
     }
   }
 
-  function handleFileUpload(file: File) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      if (content) {
-        setRawText(content);
-        set({
-          presetKey: 'custom',
-          selectedConditionId: '',
-          referenceConditionId: '',
-          selectedTraceIds: null,
-          tempMinCrop: null,
-          tempMaxCrop: null,
-          removedPeakKeys: [],
-        });
-      }
-    };
-    reader.readAsText(file);
+  async function handleFileUpload(file: File) {
+    setImportError('');
+    try {
+      const content = await readTextFile(file);
+      setRawText(content);
+      set({
+        presetKey: 'custom',
+        selectedConditionId: '',
+        referenceConditionId: '',
+        selectedTraceIds: null,
+        tempMinCrop: null,
+        tempMaxCrop: null,
+        removedPeakKeys: [],
+      });
+    } catch (err) {
+      setImportError(importErrorMessage(err, file.name));
+    }
   }
 
   // Parse Raw Tabular Data
@@ -618,12 +624,12 @@ export default function DsfView() {
         analysis && !('error' in analysis) ? (
           <span>
             Ref Tm: <strong class="font-mono text-accent-700 dark:text-accent-300">{analysis.referenceTm.toFixed(1)}°C</strong> |{' '}
-            Top Hit: <strong class="text-emerald-600 dark:text-emerald-400">
+            Top Hit: <strong class="text-emerald-700 dark:text-emerald-400">
               {analysis.summary.topHit ? `+${analysis.summary.topHit.deltaTm.toFixed(1)}°C` : '—'}
             </strong>
           </span>
         ) : analysis && 'error' in analysis ? (
-          <span class="text-rose-600 font-semibold">{analysis.error}</span>
+          <span class="text-rose-700 dark:text-rose-400 font-semibold">{analysis.error}</span>
         ) : null
       }
       inputs={
@@ -640,7 +646,7 @@ export default function DsfView() {
                 class={`w-full text-left p-2.5 rounded-lg text-xs font-medium transition ${s.presetKey === 'lysozyme' ? 'bg-accent-50 text-accent-700 dark:bg-accent-950/40 dark:text-accent-300 border border-accent-300 dark:border-accent-700 font-semibold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 <div class="font-semibold">Lysozyme + NAG Screen (SYPRO Orange)</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Literature benchmark: Niesen et al. (2007) Nat Protoc</div>
+                <div class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">Literature benchmark: Niesen et al. (2007) Nat Protoc</div>
               </button>
               <button
                 type="button"
@@ -648,7 +654,7 @@ export default function DsfView() {
                 class={`w-full text-left p-2.5 rounded-lg text-xs font-medium transition ${s.presetKey === 'nanodsf' ? 'bg-accent-50 text-accent-700 dark:bg-accent-950/40 dark:text-accent-300 border border-accent-300 dark:border-accent-700 font-semibold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 <div class="font-semibold">mAb Fab Screening (nanoDSF Ratio F350/F330)</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Label-free intrinsic tryptophan ratio screening</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Label-free intrinsic tryptophan ratio screening</div>
               </button>
               <button
                 type="button"
@@ -661,7 +667,7 @@ export default function DsfView() {
                     Prometheus NT.48
                   </span>
                 </div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Multi-channel: Ratio (350/330nm), 330nm, 350nm channels</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Multi-channel: Ratio (350/330nm), 330nm, 350nm channels</div>
               </button>
             </div>
           </div>
@@ -680,7 +686,7 @@ export default function DsfView() {
             {/* Channel Filters (if multiple channels present, e.g. Prometheus) */}
             {availableChannels.length > 1 && (
               <div class="space-y-1">
-                <span class="text-[11px] font-semibold text-slate-500">Channel Filter:</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Channel Filter:</span>
                 <div class="flex flex-wrap gap-1">
                   <button
                     type="button"
@@ -771,7 +777,7 @@ export default function DsfView() {
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => handleToggleTrace(cond.id)}
-                        class="rounded text-accent-600 accent-accent-600"
+                        class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                       />
                       <span class="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                       <span class="truncate text-xs font-medium text-slate-800 dark:text-slate-200">
@@ -784,7 +790,7 @@ export default function DsfView() {
                         type="button"
                         title="Solo this trace (isolate only this condition)"
                         onClick={() => handleSoloTrace(cond.id)}
-                        class="px-1.5 py-0.5 text-[10px] rounded font-semibold border border-slate-200 dark:border-slate-700 hover:bg-amber-100 hover:text-amber-900 dark:hover:bg-amber-950 dark:hover:text-amber-300 text-slate-500 transition"
+                        class="px-1.5 py-0.5 text-[10px] rounded font-semibold border border-slate-200 dark:border-slate-700 hover:bg-amber-100 hover:text-amber-900 dark:hover:bg-amber-950 dark:hover:text-amber-300 text-slate-500 dark:text-slate-400 transition"
                       >
                         Solo
                       </button>
@@ -792,7 +798,7 @@ export default function DsfView() {
                         type="button"
                         title="Inspect condition detail"
                         onClick={() => set({ selectedConditionId: cond.id })}
-                        class={`px-1.5 py-0.5 text-[10px] rounded font-mono transition ${isFocused ? 'bg-accent-600 text-white font-bold' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                        class={`px-1.5 py-0.5 text-[10px] rounded font-mono transition ${isFocused ? 'bg-accent-600 text-white font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                       >
                         {isFocused ? 'FOCUS' : 'Inspect'}
                       </button>
@@ -948,7 +954,7 @@ export default function DsfView() {
                   <button
                     type="button"
                     onClick={() => set({ tempMinCrop: null, tempMaxCrop: null })}
-                    class="text-[10px] text-rose-600 font-semibold hover:underline"
+                    class="text-[10px] text-rose-700 dark:text-rose-400 font-semibold hover:underline"
                   >
                     Reset Crop
                   </button>
@@ -994,7 +1000,7 @@ export default function DsfView() {
                     const checked = (e.target as HTMLInputElement).checked;
                     set({ normalizeFluorescence: checked, normMode: checked ? 'normalized' : 'raw' });
                   }}
-                  class="rounded text-accent-600 accent-accent-600"
+                  class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                 />
                 <span>Normalize Fluorescence (0 - 100%)</span>
               </label>
@@ -1004,7 +1010,7 @@ export default function DsfView() {
                   type="checkbox"
                   checked={s.showBoltzmannOverlay}
                   onChange={(e) => set({ showBoltzmannOverlay: (e.target as HTMLInputElement).checked })}
-                  class="rounded text-accent-600 accent-accent-600"
+                  class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                 />
                 <span>Show Boltzmann Sigmoid Fit Curves</span>
               </label>
@@ -1014,7 +1020,7 @@ export default function DsfView() {
                   type="checkbox"
                   checked={s.showResiduals}
                   onChange={(e) => set({ showResiduals: (e.target as HTMLInputElement).checked })}
-                  class="rounded text-accent-600 accent-accent-600"
+                  class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                 />
                 <span>Show Fit Residuals Plot (Obs - Fit)</span>
               </label>
@@ -1027,7 +1033,7 @@ export default function DsfView() {
               <label for="dsf-data-input" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Raw Thermal Cycler Data
               </label>
-              <span class="text-[11px] text-slate-400 font-mono">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                 {parsedData && !('error' in parsedData)
                   ? `${parsedData.temperatures.length} pts · ${parsedData.conditions.length} wells (${parsedData.format ?? 'standard'})`
                   : 'Empty'}
@@ -1066,19 +1072,22 @@ export default function DsfView() {
                 accept=".csv,.tsv,.txt"
                 class="hidden"
                 onChange={(e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) handleFileUpload(file);
+                  const input = e.target as HTMLInputElement;
+                  const file = input.files?.[0];
+                  input.value = '';
+                  if (file) void handleFileUpload(file);
                 }}
               />
               <button
                 type="button"
                 onClick={() => setRawText('')}
-                class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
+                class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
               >
                 Clear
               </button>
             </div>
-            <p class="text-[11px] text-slate-500">
+            <ImportAlert message={importError} />
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
               💡 Supports Bio-Rad CFX, QuantStudio, Roche LightCycler, and NanoTemper Prometheus nanoDSF exported CSV/TSV matrices.
             </p>
           </div>
@@ -1087,7 +1096,7 @@ export default function DsfView() {
       results={
         <div class="space-y-4">
           {!analysis ? (
-            <p class="text-xs text-slate-500 py-8 text-center">Please paste or upload thermal shift assay data to begin analysis.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 py-8 text-center">Please paste or upload thermal shift assay data to begin analysis.</p>
           ) : 'error' in analysis ? (
             <div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
               <strong>Analysis error:</strong> {analysis.error}
@@ -1096,7 +1105,7 @@ export default function DsfView() {
             <div class="rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900 space-y-3">
               <div class="text-3xl">📉</div>
               <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">No Traces Selected</h3>
-              <p class="text-xs text-slate-500 max-w-sm mx-auto">
+              <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                 All traces are currently deselected. Check individual traces in the left panel, click "Solo" on any trace, or click below to restore all traces.
               </p>
               <button
@@ -1119,7 +1128,7 @@ export default function DsfView() {
                         {analysis.conditions.length} of {allConditionsList.length} traces active
                       </span>
                     </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Reference: <strong class="text-slate-700 dark:text-slate-300">{referenceCondition?.name}</strong> (Tm = {analysis.referenceTm.toFixed(2)} °C) · Method: {s.tmMethod === 'derivative' ? 'Savitzky-Golay 1st Derivative' : 'Two-State Boltzmann Sigmoid'}
                     </p>
                   </div>
@@ -1145,16 +1154,16 @@ export default function DsfView() {
                 {/* Stat Badges */}
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
                   <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-500 block text-[11px]">Reference Tm</span>
+                    <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Reference Tm</span>
                     <span data-testid="reference-tm" class="font-mono text-lg font-bold text-slate-900 dark:text-slate-100">
                       {analysis.referenceTm.toFixed(2)} °C
                     </span>
-                    <span class="text-[10px] text-slate-400 block mt-0.5 truncate">{referenceCondition?.name}</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">{referenceCondition?.name}</span>
                   </div>
 
                   <div class="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
                     <span class="text-emerald-800 dark:text-emerald-300 block text-[11px]">Top Stabilizer Hit</span>
-                    <span data-testid="top-hit-shift" class="font-mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    <span data-testid="top-hit-shift" class="font-mono text-lg font-bold text-emerald-700 dark:text-emerald-400">
                       {analysis.summary.topHit ? `+${analysis.summary.topHit.deltaTm.toFixed(2)} °C` : '—'}
                     </span>
                     <span class="text-[10px] text-emerald-700 dark:text-emerald-400 block mt-0.5 truncate">
@@ -1174,7 +1183,7 @@ export default function DsfView() {
 
                   <div class="p-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40">
                     <span class="text-rose-800 dark:text-rose-300 block text-[11px]">Destabilizers (ΔTm ≤ -2°C)</span>
-                    <span class="font-mono text-lg font-bold text-rose-600 dark:text-rose-400">
+                    <span class="font-mono text-lg font-bold text-rose-700 dark:text-rose-400">
                       {analysis.summary.destabilizersCount}
                     </span>
                     <span class="text-[10px] text-rose-700 dark:text-rose-400 block mt-0.5">
@@ -1191,7 +1200,7 @@ export default function DsfView() {
                     <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                       Thermal Denaturation Melt Curves F(T)
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {s.normalizeFluorescence ? 'Normalized emission intensity (0 - 100%)' : 'Emission intensity / ratiometric signal'} vs temperature (°C)
                     </p>
                   </div>
@@ -1395,7 +1404,7 @@ export default function DsfView() {
                     <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                       Numerical First Derivative dF/dT
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Savitzky-Golay smoothed dF/dT (or dRatio/dT); extrema identify transition midpoints (Tm)
                     </p>
                   </div>
@@ -1611,7 +1620,7 @@ export default function DsfView() {
                       <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                         Boltzmann Sigmoid Fit Residuals ({activeCondition.name})
                       </h3>
-                      <p class="text-xs text-slate-500 mt-0.5">
+                      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         Residual = Observed - Fitted (R² = {activeCondition.boltzmannFit.r2.toFixed(4)}, RMSE = {activeCondition.boltzmannFit.rmse.toFixed(2)})
                       </p>
                     </div>
@@ -1690,7 +1699,7 @@ export default function DsfView() {
                   <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Active Condition Series:
                   </span>
-                  <span class="text-[11px] text-slate-500">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400">
                     Click to inspect · {analysis.conditions.length} rendered
                   </span>
                 </div>
@@ -1707,7 +1716,7 @@ export default function DsfView() {
                       >
                         <span class="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                         <span class="truncate max-w-[140px]">{cond.name}</span>
-                        <span class="text-slate-500 font-mono text-[11px]">({cond.tm.toFixed(1)}°C)</span>
+                        <span class="text-slate-600 dark:text-slate-400 font-mono text-[11px]">({cond.tm.toFixed(1)}°C)</span>
                       </button>
                     );
                   })}
@@ -1720,7 +1729,7 @@ export default function DsfView() {
                   <h3 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Condition Ranking Table (Sorted by Stabilization ΔTm)
                   </h3>
-                  <span class="text-[11px] text-slate-400 font-mono">
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     ΔTm = Tm(sample) - Tm(ref)
                   </span>
                 </div>
@@ -1728,7 +1737,7 @@ export default function DsfView() {
                 <div class="overflow-x-auto">
                   <table class="w-full text-xs text-left">
                     <thead>
-                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 font-semibold">
+                      <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold">
                         <th class="py-2 px-1">Rank</th>
                         <th class="py-2 px-2">Condition</th>
                         <th class="py-2 px-2 text-right">Tm (°C)</th>
@@ -1753,7 +1762,7 @@ export default function DsfView() {
                             onClick={() => set({ selectedConditionId: cond.id })}
                             class={`cursor-pointer transition ${isInspected ? 'bg-accent-50/70 dark:bg-accent-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}
                           >
-                            <td class="py-2 px-1 font-mono font-semibold text-slate-400">
+                            <td class="py-2 px-1 font-mono font-semibold text-slate-600 dark:text-slate-400">
                               {isTop ? '🏆 1' : `#${idx + 1}`}
                             </td>
                             <td class="py-2 px-2 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -1780,13 +1789,13 @@ export default function DsfView() {
                             </td>
                             <td class="py-2 px-2 font-mono font-bold text-right">
                               {isRef ? (
-                                <span class="text-slate-400">0.00</span>
+                                <span class="text-slate-500 dark:text-slate-400">0.00</span>
                               ) : cond.deltaTm >= 2.0 ? (
-                                <span class="text-emerald-600 dark:text-emerald-400 font-bold">
+                                <span class="text-emerald-700 dark:text-emerald-400 font-bold">
                                   +{cond.deltaTm.toFixed(2)}
                                 </span>
                               ) : cond.deltaTm <= -2.0 ? (
-                                <span class="text-rose-600 dark:text-rose-400 font-bold">
+                                <span class="text-rose-700 dark:text-rose-400 font-bold">
                                   {cond.deltaTm.toFixed(2)}
                                 </span>
                               ) : (
@@ -1817,7 +1826,7 @@ export default function DsfView() {
                                         e.stopPropagation();
                                         handleRemovePeak(cond.id, p);
                                       }}
-                                      class="ml-0.5 text-slate-400 hover:text-rose-600 font-bold leading-none cursor-pointer"
+                                      class="ml-0.5 text-slate-500 dark:text-slate-400 hover:text-rose-600 font-bold leading-none cursor-pointer"
                                       aria-label={`Remove false peak ${p.label} from ${cond.name}`}
                                     >
                                       ×
@@ -1825,17 +1834,17 @@ export default function DsfView() {
                                   </span>
                                 ))}
                                 {cond.peaks.length === 0 && (
-                                  <span class="text-slate-400 italic text-[11px]">No peaks</span>
+                                  <span class="text-slate-500 dark:text-slate-400 italic text-[11px]">No peaks</span>
                                 )}
                               </div>
                             </td>
-                            <td class="py-2 px-2 font-mono text-right text-slate-500">
+                            <td class="py-2 px-2 font-mono text-right text-slate-600 dark:text-slate-400">
                               {cond.primaryPeak ? cond.primaryPeak.height.toFixed(2) : '—'}
                             </td>
-                            <td class="py-2 px-2 font-mono text-right text-slate-500">
+                            <td class="py-2 px-2 font-mono text-right text-slate-600 dark:text-slate-400">
                               {cond.boltzmannFit ? cond.boltzmannFit.r2.toFixed(3) : '—'}
                             </td>
-                            <td class="py-2 px-2 font-mono text-right text-slate-500">
+                            <td class="py-2 px-2 font-mono text-right text-slate-600 dark:text-slate-400">
                               {cond.boltzmannFit ? cond.boltzmannFit.deltaHunf_kJ.toFixed(0) : '—'}
                             </td>
                             <td class="py-2 px-2 text-center">
@@ -1867,7 +1876,7 @@ export default function DsfView() {
                                 name="ref-condition-radio"
                                 checked={isRef}
                                 onChange={() => set({ referenceConditionId: cond.id })}
-                                class="text-accent-600 accent-accent-600 cursor-pointer"
+                                class="text-accent-600 dark:text-accent-400 accent-accent-600 cursor-pointer"
                                 title="Set as reference condition"
                               />
                             </td>
@@ -1887,7 +1896,7 @@ export default function DsfView() {
                       <h4 class="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
                         Condition Detail: {activeCondition.name}
                       </h4>
-                      <p class="text-[11px] text-slate-500 mt-0.5">
+                      <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {activeCondition.channel ? `Channel: ${activeCondition.channel.toUpperCase()} · ` : ''}
                         Transition statistics and thermodynamics
                       </p>
@@ -1905,7 +1914,7 @@ export default function DsfView() {
 
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                      <div class="text-slate-500 flex items-center justify-between text-[11px] mb-0.5">
+                      <div class="text-slate-500 dark:text-slate-400 flex items-center justify-between text-[11px] mb-0.5">
                         <span>1st Deriv Tm</span>
                         <span class={`text-[10px] px-1 py-0.2 rounded font-bold ${activeCondition.tmSign === '-' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'}`}>
                           {activeCondition.tmSign === '+' ? '+ Melt Peak' : '− Trough'}
@@ -1914,33 +1923,33 @@ export default function DsfView() {
                       <span class="font-mono text-base font-bold text-slate-900 dark:text-slate-100">
                         {activeCondition.tmDerivative !== null ? `${activeCondition.tmSign}${activeCondition.tmDerivative.toFixed(2)} °C` : '—'}
                       </span>
-                      <span class="text-[10px] text-slate-400 block mt-0.5">Parabolic peak vertex</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">Parabolic peak vertex</span>
                     </div>
 
                     <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                      <span class="text-slate-500 block text-[11px]">Boltzmann Midpoint</span>
+                      <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Boltzmann Midpoint</span>
                       <span class="font-mono text-base font-bold text-slate-900 dark:text-slate-100">
                         {activeCondition.tmBoltzmann !== null ? `${activeCondition.tmBoltzmann.toFixed(2)} °C` : '—'}
                       </span>
-                      <span class="text-[10px] text-slate-400 block mt-0.5">
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                         {activeCondition.boltzmannFit ? `R² = ${activeCondition.boltzmannFit.r2.toFixed(3)}` : 'No fit'}
                       </span>
                     </div>
 
                     <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                      <span class="text-slate-500 block text-[11px]">Slope Factor (a)</span>
+                      <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Slope Factor (a)</span>
                       <span class="font-mono text-base font-bold text-slate-900 dark:text-slate-100">
                         {activeCondition.boltzmannFit ? `${activeCondition.boltzmannFit.a.toFixed(2)} °C` : '—'}
                       </span>
-                      <span class="text-[10px] text-slate-400 block mt-0.5">Transition width</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">Transition width</span>
                     </div>
 
                     <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                      <span class="text-slate-500 block text-[11px]">Apparent ΔH_unf</span>
+                      <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Apparent ΔH_unf</span>
                       <span class="font-mono text-base font-bold text-indigo-600 dark:text-indigo-400">
                         {activeCondition.boltzmannFit ? `${activeCondition.boltzmannFit.deltaHunf_kJ.toFixed(0)} kJ/mol` : '—'}
                       </span>
-                      <span class="text-[10px] text-slate-400 block mt-0.5">van 't Hoff enthalpy</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">van 't Hoff enthalpy</span>
                     </div>
                   </div>
 
@@ -1960,7 +1969,7 @@ export default function DsfView() {
                               ↺ Restore Removed Peaks
                             </button>
                           )}
-                          <span class="text-[10px] text-slate-400">
+                          <span class="text-[10px] text-slate-500 dark:text-slate-400">
                             (+) Upward melt · (−) Downward trough
                           </span>
                         </div>
@@ -1988,7 +1997,7 @@ export default function DsfView() {
                                   type="button"
                                   title="Remove this false peak"
                                   onClick={() => handleRemovePeak(activeCondition.id, p)}
-                                  class="p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-400 hover:text-rose-600 transition"
+                                  class="p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-500 dark:text-slate-400 hover:text-rose-600 transition"
                                   aria-label={`Remove false peak ${p.label}`}
                                 >
                                   ✕
@@ -2005,7 +2014,7 @@ export default function DsfView() {
                       </div>
                     </div>
                   ) : (
-                    <div class="pt-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 flex items-center justify-between">
+                    <div class="pt-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between">
                       <span>No transition peaks detected (or false peaks were removed).</span>
                       {s.removedPeakKeys.some(k => k.startsWith(`${activeCondition.id}:`)) && (
                         <button

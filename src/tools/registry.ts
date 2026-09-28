@@ -4,7 +4,7 @@ export type Category = 'calculators' | 'sequences' | 'gels' | 'counting' | 'plat
 export interface ToolProps { projectId?: string }
 export interface ToolMeta {
   id: string; name: string; category: Category; icon: string; blurb: string;
-  keywords: string[]; hasProjects?: boolean; status?: 'ready' | 'porting' | 'planned';
+  keywords: string[]; /** True only when the tool saves to and reopens from the projects store (`/p/:id`). */ hasProjects?: boolean; status?: 'ready' | 'porting' | 'planned';
   /** Research preview: surfaced on the home page and the tool page so visitors know before they use it. */
   preview?: string;
   load?: () => Promise<{ default: ComponentType<ToolProps> }>;

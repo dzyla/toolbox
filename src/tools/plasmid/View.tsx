@@ -99,7 +99,7 @@ export default function PlasmidView({ projectId }: ToolProps) {
   };
 
   return <section class="mx-auto max-w-[92rem] space-y-4 p-3 sm:p-4">
-    <header><h1 class="text-xl font-bold sm:text-2xl">⭕ Plasmid Viewer &amp; Map</h1><p class="text-sm text-slate-500">Inspect, annotate, and export a local sequence document.</p></header>
+    <header><h1 class="text-xl font-bold sm:text-2xl">⭕ Plasmid Viewer &amp; Map</h1><p class="text-sm text-slate-500 dark:text-slate-400">Inspect, annotate, and export a local sequence document.</p></header>
     <div class="space-y-4 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 sm:p-4">
       <ImportToolbar document={document} onOpen={openDocument} onSave={saveLocal} onUndo={() => setWorkspace(undoWorkspace)} onRedo={() => setWorkspace(redoWorkspace)}
         canUndo={workspace.history.past.length > 0} canRedo={workspace.history.future.length > 0}
@@ -107,7 +107,7 @@ export default function PlasmidView({ projectId }: ToolProps) {
       <section aria-label="Analysis settings" class="flex flex-wrap items-end gap-4 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-950">
         <label>Minimum ORF size (aa)<input class="block w-28 rounded border border-slate-300 bg-transparent px-2 py-1" type="number" min="1" value={minOrfAa} onInput={event => setMinOrfAa(Math.max(1, Math.floor(Number(event.currentTarget.value) || 1)))} /></label>
         <label>Maximum ORF size (aa)<input class="block w-28 rounded border border-slate-300 bg-transparent px-2 py-1" type="number" min="0" value={maxOrfAa} onInput={event => setMaxOrfAa(Math.max(0, Math.floor(Number(event.currentTarget.value) || 0)))} /></label>
-        <span class="text-xs text-slate-500">Maximum 0 means unlimited</span>
+        <span class="text-xs text-slate-500 dark:text-slate-400">Maximum 0 means unlimited</span>
         <label>Restriction sites<select class="block rounded border border-slate-300 bg-transparent px-2 py-1" value={restrictionFilter} onChange={event => setRestrictionFilter(event.currentTarget.value)}><option value="unique">Unique cutters</option><option value="dual">Dual cutters</option><option value="all">All sites</option><option value="none">Hidden</option></select></label>
         <label class="flex items-center gap-2"><input type="checkbox" checked={showOrfs} onChange={event => setShowOrfs(event.currentTarget.checked)} />Show predicted ORFs on maps</label>
         <p data-testid="plasmid-orf-summary" class="font-mono text-sm">{orfs.length} ORFs · {calculateGC(document.sequence).toFixed(1)}% GC</p>

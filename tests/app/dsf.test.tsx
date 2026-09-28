@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/preact';
+import { render, screen, fireEvent, waitFor } from '@testing-library/preact';
+import { loadDraft } from '@/lib/drafts';
 import DsfView from '@/tools/dsf/View';
 import { route } from '@/app/router';
 
@@ -170,5 +171,25 @@ describe('DSF / nanoDSF Tool View UI', () => {
     // Click Restore button
     fireEvent.click(restoreBtn);
     expect(screen.getAllByText(/-Tm2/i).length).toBeGreaterThan(0);
+  });
+
+  it('keeps an uploaded dataset after the tool is reopened, and reports unreadable files', async () => {
+    route.value = { name: 'tool', toolId: 'dsf' };
+    const csv = 'Temperature,A1\n' + Array.from({ length: 60 }, (_, i) => `${25 + i},${1000 + 20000 / (1 + Math.exp((62 - (25 + i)) / 1.5))}`).join('\n');
+    const upload = (container: Element, file: File) => {
+      const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      fireEvent.change(input);
+    };
+    const first = render(<DsfView />);
+    upload(first.container, new File(['   '], 'blank.csv'));
+    expect((await screen.findByRole('alert')).textContent).toBe('blank.csv is empty.');
+    upload(first.container, new File([csv], 'run.csv'));
+    await waitFor(() => expect((first.container.querySelector('textarea') as HTMLTextAreaElement).value).toBe(csv));
+    await waitFor(async () => expect(await loadDraft('dsf:raw')).toBe(csv));
+    first.unmount();
+
+    const second = render(<DsfView />);
+    await waitFor(() => expect((second.container.querySelector('textarea') as HTMLTextAreaElement).value).toBe(csv));
   });
 });

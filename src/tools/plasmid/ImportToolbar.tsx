@@ -53,7 +53,7 @@ export function ImportToolbar({ document, onOpen, onSave, onUndo, onRedo, onExpo
   };
   return <section aria-label="Document toolbar" class="space-y-3">
     <div class="flex flex-wrap items-end justify-between gap-3">
-      <div><h2 class="text-xl font-semibold">{document.name}</h2><p class="text-sm text-slate-500">{document.sequence.length.toLocaleString()} bp · {document.topology} · {document.annotations.length} annotations</p></div>
+      <div><h2 class="text-xl font-semibold">{document.name}</h2><p class="text-sm text-slate-500 dark:text-slate-400">{document.sequence.length.toLocaleString()} bp · {document.topology} · {document.annotations.length} annotations</p></div>
       <label class="text-sm">Preset vector<select class="ml-2 rounded border border-slate-300 bg-transparent px-2 py-1" value="" disabled={busy} onChange={event => {
         const preset = PRESET_PLASMIDS.find(item => item.id === event.currentTarget.value);
         if (preset) void run(() => open(legacyPlasmidToDocument(preset)));
@@ -80,10 +80,10 @@ export function ImportToolbar({ document, onOpen, onSave, onUndo, onRedo, onExpo
       <button class={BUTTON} disabled={!canExportSvg} onClick={() => void run(onExportSvg)}>Download SVG</button>
       <button class={BUTTON} onClick={() => void shareSummary()}>Copy summary</button>
     </div>
-    <p class="text-xs text-slate-500">Source: {document.provenance.format}{document.provenance.filename ? ` · ${document.provenance.filename}` : ''} · Parser {document.provenance.parserVersion}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">Source: {document.provenance.format}{document.provenance.filename ? ` · ${document.provenance.filename}` : ''} · Parser {document.provenance.parserVersion}</p>
     {!!document.provenance.warnings.length && <section aria-label="Import warnings" class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><h3 class="font-semibold">Import warnings</h3><ul>{document.provenance.warnings.map((warning, index) => <li key={`${warning.code}-${index}`}>{warning.message}</li>)}</ul></section>}
     {notice && <p role="status" class="text-sm text-teal-700 dark:text-teal-300">{notice}</p>}
-    {error && <div role="alert" class="flex items-center justify-between gap-3 rounded border border-red-300 p-3 text-sm text-red-700"><p>{error}</p><button class={BUTTON} onClick={() => onError('')}>Dismiss error</button></div>}
+    {error && <div role="alert" class="flex items-center justify-between gap-3 rounded border border-red-300 p-3 text-sm text-red-700 dark:text-red-400"><p>{error}</p><button class={BUTTON} onClick={() => onError('')}>Dismiss error</button></div>}
     {summaryFallback && (summaryFallback === 'Summary copied.' ? <p role="status" class="text-xs">{summaryFallback}</p> : <label class="block text-xs">Summary to copy<textarea ref={summaryRef} class="block w-full rounded border p-2" readOnly value={summaryFallback} onFocus={() => summaryRef.current?.select()} /><span>Select and copy with Ctrl+C or ⌘C. The summary omits DNA and selection.</span></label>)}
   </section>;
 }

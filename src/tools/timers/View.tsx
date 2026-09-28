@@ -232,7 +232,7 @@ export default function TimersView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Timer Label
                 </label>
-                <input
+                <input aria-label="Timer Label"
                   type="text"
                   placeholder="e.g. Blocking Step"
                   value={newTimerName}
@@ -245,7 +245,7 @@ export default function TimersView() {
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Duration (minutes)
                 </label>
-                <input
+                <input aria-label="Duration (minutes)"
                   type="number"
                   min="0.5"
                   step="0.5"
@@ -279,7 +279,7 @@ export default function TimersView() {
             </div>
           ) : (
             <div class="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 text-xs">
-              <p class="text-slate-500">
+              <p class="text-slate-500 dark:text-slate-400">
                 Precision millisecond lab stopwatch with split lap times.
               </p>
             </div>
@@ -317,10 +317,10 @@ export default function TimersView() {
 
                     {/* Big Digital Display */}
                     <div class="flex items-baseline justify-between">
-                      <span data-testid={`timer-display-${t.id}`} class={`font-mono text-3xl font-extrabold tracking-wider ${isComplete ? 'text-rose-600' : 'text-slate-900 dark:text-slate-100'}`}>
+                      <span data-testid={`timer-display-${t.id}`} class={`font-mono text-3xl font-extrabold tracking-wider ${isComplete ? 'text-rose-700' : 'text-slate-900 dark:text-slate-100'}`}>
                         {formatTime(t.remainingSeconds)}
                       </span>
-                      <span class="text-xs font-mono text-slate-400">
+                      <span class="text-xs font-mono text-slate-500 dark:text-slate-400">
                         / {formatTime(t.totalSeconds)}
                       </span>
                     </div>
@@ -362,7 +362,7 @@ export default function TimersView() {
                       <button
                         type="button"
                         onClick={() => handleResetTimer(t.id)}
-                        class="px-2.5 min-h-[44px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition"
+                        class="px-2.5 min-h-[44px] text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition"
                         title="Reset"
                       >
                         ↺
@@ -377,7 +377,7 @@ export default function TimersView() {
             <div class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 text-center space-y-6">
               <div class="font-mono text-5xl sm:text-6xl font-extrabold text-slate-900 dark:text-slate-100 tracking-wider">
                 {formatTime(Math.floor(stopwatchMs / 1000))}.
-                <span class="text-3xl text-slate-400">
+                <span class="text-3xl text-slate-500 dark:text-slate-400">
                   {Math.floor((stopwatchMs % 1000) / 10).toString().padStart(2, '0')}
                 </span>
               </div>
@@ -386,7 +386,7 @@ export default function TimersView() {
                 <button
                   type="button"
                   onClick={() => setIsStopwatchRunning(!isStopwatchRunning)}
-                  class={`px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-xs transition ${isStopwatchRunning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                  class={`px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-xs transition ${isStopwatchRunning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-700 hover:bg-emerald-700'}`}
                 >
                   {isStopwatchRunning ? 'Pause' : 'Start'}
                 </button>
@@ -404,11 +404,11 @@ export default function TimersView() {
 
               {laps.length > 0 && (
                 <div class="max-w-md mx-auto pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-left">
-                  <h4 class="font-bold text-slate-500 uppercase tracking-wider mb-2">Recorded Laps</h4>
+                  <h4 class="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Recorded Laps</h4>
                   <div class="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                     {laps.map((lap, i) => (
                       <div key={i} class="py-1.5 flex justify-between font-mono">
-                        <span class="text-slate-400">Lap #{i + 1}</span>
+                        <span class="text-slate-500 dark:text-slate-400">Lap #{i + 1}</span>
                         <span class="font-semibold text-slate-800 dark:text-slate-200">
                           {formatTime(Math.floor(lap / 1000))}.{(Math.floor((lap % 1000) / 10)).toString().padStart(2, '0')}
                         </span>

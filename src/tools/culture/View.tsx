@@ -115,7 +115,7 @@ function ExponentPills({
 
   return (
     <div class="flex items-center gap-1.5 flex-wrap pt-1">
-      <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 select-none">{label}</span>
+      <span class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 select-none">{label}</span>
       <div class="flex gap-1 flex-wrap">
         {exponents.map(exp => {
           const isActive = currentExp === exp;
@@ -292,27 +292,27 @@ export default function CultureView() {
       mobileResultSummary={
         s.activeTab === 'passaging' ? (
           'error' in seedingResult ? (
-            <span class="text-rose-600 dark:text-rose-400 font-semibold">{seedingResult.error}</span>
+            <span class="text-rose-700 dark:text-rose-400 font-semibold">{seedingResult.error}</span>
           ) : (
             <span>Seed <strong class="text-accent-700 dark:text-accent-300 font-mono">{(seedingResult.volumePerVesselMl * 1000).toFixed(1)} µL</strong> ({seedingResult.cellsPerVessel.toLocaleString()} cells)</span>
           )
         ) : s.activeTab === 'doubling' ? (
           s.doublingMode === 'multipoint' ? (
             'error' in multiPointResult ? (
-              <span class="text-rose-600 dark:text-rose-400 font-semibold">{multiPointResult.error}</span>
+              <span class="text-rose-700 dark:text-rose-400 font-semibold">{multiPointResult.error}</span>
             ) : (
               <span>Td: <strong class="text-accent-700 dark:text-accent-300 font-mono">{multiPointResult.fit.doublingTimeHours.toFixed(1)} h</strong> (R²={multiPointResult.fit.rSquared.toFixed(3)})</span>
             )
           ) : (
             'error' in doublingResult ? (
-              <span class="text-rose-600 dark:text-rose-400 font-semibold">{doublingResult.error}</span>
+              <span class="text-rose-700 dark:text-rose-400 font-semibold">{doublingResult.error}</span>
             ) : (
               <span>Doubling time: <strong class="text-accent-700 dark:text-accent-300 font-mono">{doublingResult.doublingTimeHours.toFixed(1)} h</strong></span>
             )
           )
         ) : (
           'error' in harvestResult ? (
-            <span class="text-rose-600 dark:text-rose-400 font-semibold">{harvestResult.error}</span>
+            <span class="text-rose-700 dark:text-rose-400 font-semibold">{harvestResult.error}</span>
           ) : (
             <span>Available: <strong class="text-accent-700 dark:text-accent-300 font-mono">{harvestResult.targetDateFormatted}</strong> ({harvestResult.hoursRequired.toFixed(1)} h)</span>
           )
@@ -357,21 +357,21 @@ export default function CultureView() {
             <button
               type="button"
               onClick={() => set({ activeTab: 'passaging' })}
-              class={`py-1.5 rounded-lg text-center transition cursor-pointer ${s.activeTab === 'passaging' ? 'bg-white dark:bg-slate-700 shadow-xs text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              class={`py-1.5 rounded-lg text-center transition cursor-pointer ${s.activeTab === 'passaging' ? 'bg-white dark:bg-slate-700 shadow-xs text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
             >
               Passaging &amp; Seeding
             </button>
             <button
               type="button"
               onClick={() => set({ activeTab: 'doubling' })}
-              class={`py-1.5 rounded-lg text-center transition cursor-pointer ${s.activeTab === 'doubling' ? 'bg-white dark:bg-slate-700 shadow-xs text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              class={`py-1.5 rounded-lg text-center transition cursor-pointer ${s.activeTab === 'doubling' ? 'bg-white dark:bg-slate-700 shadow-xs text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
             >
               Doubling Time &amp; Growth
             </button>
             <button
               type="button"
               onClick={() => set({ activeTab: 'harvest' })}
-              class={`py-1.5 rounded-lg text-center transition cursor-pointer ${s.activeTab === 'harvest' ? 'bg-white dark:bg-slate-700 shadow-xs text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              class={`py-1.5 rounded-lg text-center transition cursor-pointer ${s.activeTab === 'harvest' ? 'bg-white dark:bg-slate-700 shadow-xs text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
             >
               Harvest Predictor
             </button>
@@ -384,7 +384,7 @@ export default function CultureView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Destination Culture Vessel
                 </label>
-                <select
+                <select aria-label="Destination Culture Vessel"
                   value={s.selectedVesselId}
                   onChange={(e) => set({ selectedVesselId: (e.target as HTMLSelectElement).value })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -401,7 +401,7 @@ export default function CultureView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Harvest Cell Concentration (cells / mL)
                 </label>
-                <DecimalInput
+                <DecimalInput aria-label="Harvest Cell Concentration (cells / mL)"
                   min={1}
                   value={s.harvestConc}
                   onChange={(val) => set({ harvestConc: val || 1 })}
@@ -438,7 +438,7 @@ export default function CultureView() {
                   <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Target Seeding Density (cells / cm²)
                   </label>
-                  <DecimalInput
+                  <DecimalInput aria-label="Target Seeding Density (cells / cm²)"
                     min={0}
                     value={s.targetDensity}
                     onChange={(val) => set({ targetDensity: val || 0 })}
@@ -457,7 +457,7 @@ export default function CultureView() {
                   <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Split Ratio (1:X)
                   </label>
-                  <input
+                  <input aria-label="Split Ratio (1:X)"
                     type="number"
                     min="2"
                     max="20"
@@ -473,7 +473,7 @@ export default function CultureView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Number of Vessels to Seed
                 </label>
-                <input
+                <input aria-label="Number of Vessels to Seed"
                   type="number"
                   min="1"
                   step="1"
@@ -492,14 +492,14 @@ export default function CultureView() {
                 <button
                   type="button"
                   onClick={() => set({ doublingMode: 'interval' })}
-                  class={`flex-1 py-1 rounded-md transition cursor-pointer ${s.doublingMode === 'interval' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}
+                  class={`flex-1 py-1 rounded-md transition cursor-pointer ${s.doublingMode === 'interval' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}
                 >
                   2-Point Count Interval
                 </button>
                 <button
                   type="button"
                   onClick={() => set({ doublingMode: 'multipoint' })}
-                  class={`flex-1 py-1 rounded-md transition cursor-pointer ${s.doublingMode === 'multipoint' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}
+                  class={`flex-1 py-1 rounded-md transition cursor-pointer ${s.doublingMode === 'multipoint' ? 'bg-white shadow-2xs text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}
                 >
                   Multi-Point Observations (t₁, N₁, t₂, N₂…)
                 </button>
@@ -526,7 +526,7 @@ export default function CultureView() {
                     <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Initial Cell Count (N₀)
                     </label>
-                    <DecimalInput
+                    <DecimalInput aria-label="Initial Cell Count (N₀)"
                       min={1}
                       value={s.initialCount}
                       onChange={(val) => set({ initialCount: val || 1 })}
@@ -545,7 +545,7 @@ export default function CultureView() {
                     <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Final Harvest Count (Nt)
                     </label>
-                    <DecimalInput
+                    <DecimalInput aria-label="Final Harvest Count (Nt)"
                       min={1}
                       value={s.finalCount}
                       onChange={(val) => set({ finalCount: val || 1 })}
@@ -564,7 +564,7 @@ export default function CultureView() {
                     <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Elapsed Time (hours)
                     </label>
-                    <input
+                    <input aria-label="Elapsed Time (hours)"
                       type="number"
                       min="0.01"
                       step="any"
@@ -583,7 +583,7 @@ export default function CultureView() {
                     <button
                       type="button"
                       onClick={() => set({ observations: DEFAULT_OBSERVATIONS })}
-                      class="text-[11px] text-slate-500 hover:underline cursor-pointer"
+                      class="text-[11px] text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
                     >
                       Reset Example Points
                     </button>
@@ -593,13 +593,13 @@ export default function CultureView() {
                   <div class="space-y-1.5 max-h-48 overflow-y-auto">
                     {(s.observations || DEFAULT_OBSERVATIONS).map((obs, idx) => (
                       <div key={idx} class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs">
-                        <span class="font-mono text-slate-400 w-5 text-center">#{idx + 1}</span>
+                        <span class="font-mono text-slate-500 dark:text-slate-400 w-5 text-center">#{idx + 1}</span>
                         <div class="flex-1 flex items-center gap-1">
-                          <span class="text-slate-500 text-[11px]">t:</span>
+                          <span class="text-slate-500 dark:text-slate-400 text-[11px]">t:</span>
                           <span class="font-mono font-semibold text-slate-800 dark:text-slate-200">{obs.timeHours} h</span>
                         </div>
                         <div class="flex-2 flex items-center gap-1">
-                          <span class="text-slate-500 text-[11px]">Count:</span>
+                          <span class="text-slate-500 dark:text-slate-400 text-[11px]">Count:</span>
                           <span class="font-mono font-bold text-slate-900 dark:text-slate-100">{obs.count.toLocaleString()}</span>
                         </div>
                         <button
@@ -622,8 +622,8 @@ export default function CultureView() {
                     </span>
                     <div class="grid grid-cols-2 gap-2">
                       <div>
-                        <label class="block text-[10px] text-slate-500 mb-0.5">Elapsed Time (h):</label>
-                        <input
+                        <label class="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">Elapsed Time (h):</label>
+                        <input aria-label="Elapsed Time (h)"
                           type="number"
                           min="0"
                           step="any"
@@ -633,8 +633,8 @@ export default function CultureView() {
                         />
                       </div>
                       <div>
-                        <label class="block text-[10px] text-slate-500 mb-0.5">Cell Count:</label>
-                        <DecimalInput
+                        <label class="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">Cell Count:</label>
+                        <DecimalInput aria-label="Cell Count"
                           min={1}
                           value={newObsCount}
                           onChange={v => setNewObsCount(v || 1)}
@@ -656,7 +656,7 @@ export default function CultureView() {
                     <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Predict Time to Reach Target Yield (cells):
                     </label>
-                    <DecimalInput
+                    <DecimalInput aria-label="Predict Time to Reach Target Yield (cells)"
                       min={1}
                       value={s.obsTargetCount}
                       onChange={v => set({ obsTargetCount: v || 1 })}
@@ -719,7 +719,7 @@ export default function CultureView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Initial Seeded Count (N₀):
                 </label>
-                <DecimalInput
+                <DecimalInput aria-label="Initial Seeded Count (N₀)"
                   min={1}
                   value={s.harvestStartCount}
                   onChange={v => set({ harvestStartCount: v || 1 })}
@@ -737,7 +737,7 @@ export default function CultureView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Target Harvest Count (N_target):
                 </label>
-                <DecimalInput
+                <DecimalInput aria-label="Target Harvest Count (N_target)"
                   min={1}
                   value={s.harvestTargetCount}
                   onChange={v => set({ harvestTargetCount: v || 1 })}
@@ -755,7 +755,7 @@ export default function CultureView() {
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Expected Doubling Time Td (hours):
                 </label>
-                <input
+                <input aria-label="Expected Doubling Time Td (hours)"
                   type="number"
                   min="0.5"
                   step="0.5"
@@ -773,34 +773,34 @@ export default function CultureView() {
           {/* RESULTS FOR TAB 1: PASSAGING */}
           {s.activeTab === 'passaging' && (
             'error' in seedingResult ? (
-              <p role="alert" class="text-sm text-red-600">{seedingResult.error}</p>
+              <p role="alert" class="text-sm text-red-600 dark:text-red-400">{seedingResult.error}</p>
             ) : (
               <>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs">
-                    <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Suspension per Vessel</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Suspension per Vessel</span>
                     <span data-testid="suspension-vol" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                       {seedingResult.volumePerVesselMl >= 1
                         ? `${seedingResult.volumePerVesselMl.toFixed(2)} mL`
                         : `${(seedingResult.volumePerVesselMl * 1000).toFixed(0)} µL`}
                     </span>
-                    <span class="text-[11px] text-slate-400 block">cell suspension</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">cell suspension</span>
                   </div>
 
                   <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs">
-                    <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Media Top-Up</span>
-                    <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Media Top-Up</span>
+                    <span class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                       {Math.max(0, selectedVessel.typicalVolumeMl - seedingResult.volumePerVesselMl).toFixed(2)} mL
                     </span>
-                    <span class="text-[11px] text-slate-400 block">fresh media per vessel</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">fresh media per vessel</span>
                   </div>
 
                   <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs">
-                    <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Cells per Vessel</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Cells per Vessel</span>
                     <span class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                       {seedingResult.cellsPerVessel.toLocaleString()}
                     </span>
-                    <span class="text-[11px] text-slate-400 block">total seeded</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">total seeded</span>
                   </div>
                 </div>
 
@@ -821,32 +821,32 @@ export default function CultureView() {
           {s.activeTab === 'doubling' && (
             s.doublingMode === 'interval' ? (
               'error' in doublingResult ? (
-                <p role="alert" class="text-sm text-red-600">{doublingResult.error}</p>
+                <p role="alert" class="text-sm text-red-600 dark:text-red-400">{doublingResult.error}</p>
               ) : (
                 <>
                   <div class="grid grid-cols-3 gap-3">
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Doubling Time (Td)</span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Doubling Time (Td)</span>
                       <span data-testid="doubling-time" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {doublingResult.doublingTimeHours.toFixed(1)} h
                       </span>
-                      <span class="text-[11px] text-slate-400 block">{(doublingResult.doublingTimeHours / 24).toFixed(2)} days</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">{(doublingResult.doublingTimeHours / 24).toFixed(2)} days</span>
                     </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Growth Rate (µ)</span>
-                      <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Growth Rate (µ)</span>
+                      <span class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                         {doublingResult.growthRatePerHour.toFixed(3)}
                       </span>
-                      <span class="text-[11px] text-slate-400 block">per hour</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">per hour</span>
                     </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Population Doublings</span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Population Doublings</span>
                       <span class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                         {doublingResult.populationDoublings.toFixed(2)}
                       </span>
-                      <span class="text-[11px] text-slate-400 block">generations</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">generations</span>
                     </div>
                   </div>
 
@@ -871,40 +871,40 @@ export default function CultureView() {
               )
             ) : (
               'error' in multiPointResult ? (
-                <p role="alert" class="text-sm text-red-600">{multiPointResult.error}</p>
+                <p role="alert" class="text-sm text-red-600 dark:text-red-400">{multiPointResult.error}</p>
               ) : (
                 <>
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs text-center">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Fitted Td</span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Fitted Td</span>
                       <span data-testid="multipoint-td" class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
                         {multiPointResult.fit.doublingTimeHours.toFixed(1)} h
                       </span>
-                      <span class="text-[11px] text-slate-400 block">{(multiPointResult.fit.doublingTimeHours / 24).toFixed(2)} days</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">{(multiPointResult.fit.doublingTimeHours / 24).toFixed(2)} days</span>
                     </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs text-center">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Goodness of Fit</span>
-                      <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Goodness of Fit</span>
+                      <span class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                         {multiPointResult.fit.rSquared.toFixed(4)}
                       </span>
-                      <span class="text-[11px] text-slate-400 block">R² coefficient</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">R² coefficient</span>
                     </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs text-center">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Growth Rate (µ)</span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Growth Rate (µ)</span>
                       <span class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {multiPointResult.fit.growthRatePerHour.toFixed(4)}
                       </span>
-                      <span class="text-[11px] text-slate-400 block">h⁻¹</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">h⁻¹</span>
                     </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs text-center">
-                      <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Fitted N₀</span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Fitted N₀</span>
                       <span class="font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                         {Math.round(multiPointResult.fit.initialCountEstimate).toLocaleString()}
                       </span>
-                      <span class="text-[11px] text-slate-400 block">estimated initial</span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 block">estimated initial</span>
                     </div>
                   </div>
 
@@ -920,18 +920,18 @@ export default function CultureView() {
                     </div>
                     <div class="grid grid-cols-2 gap-3 pt-1">
                       <div class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800">
-                        <span class="text-[11px] text-slate-500 block">Total time from t=0:</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 block">Total time from t=0:</span>
                         <span class="font-mono text-xl font-bold text-slate-900 dark:text-slate-100">
                           {multiPointResult.targetPred.totalHoursFromZero.toFixed(1)} h
                         </span>
-                        <span class="text-[10px] text-slate-400 block">({(multiPointResult.targetPred.totalHoursFromZero / 24).toFixed(1)} days)</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">({(multiPointResult.targetPred.totalHoursFromZero / 24).toFixed(1)} days)</span>
                       </div>
                       <div class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800">
-                        <span class="text-[11px] text-slate-500 block">Remaining from last count:</span>
-                        <span class="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 block">Remaining from last count:</span>
+                        <span class="font-mono text-xl font-bold text-emerald-700 dark:text-emerald-400">
                           {multiPointResult.targetPred.hoursFromLastObs.toFixed(1)} h
                         </span>
-                        <span class="text-[10px] text-slate-400 block">({(multiPointResult.targetPred.hoursFromLastObs / 24).toFixed(1)} days)</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">({(multiPointResult.targetPred.hoursFromLastObs / 24).toFixed(1)} days)</span>
                       </div>
                     </div>
                   </div>
@@ -944,7 +944,7 @@ export default function CultureView() {
                     <div class="overflow-x-auto">
                       <table class="w-full text-xs">
                         <thead>
-                          <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 text-left">
+                          <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-left">
                             <th class="py-1 px-2">Point</th>
                             <th class="py-1 px-2">Elapsed Time</th>
                             <th class="py-1 px-2">Observed Cells</th>
@@ -955,12 +955,12 @@ export default function CultureView() {
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                           {multiPointResult.fit.predictions.map((p, idx) => (
                             <tr key={idx} class="text-slate-700 dark:text-slate-300">
-                              <td class="py-1.5 px-2 text-slate-400">#{idx + 1}</td>
+                              <td class="py-1.5 px-2 text-slate-500 dark:text-slate-400">#{idx + 1}</td>
                               <td class="py-1.5 px-2">{p.timeHours} h</td>
                               <td class="py-1.5 px-2 font-bold">{p.observedCount.toLocaleString()}</td>
-                              <td class="py-1.5 px-2 text-slate-500">{Math.round(p.fittedCount).toLocaleString()}</td>
+                              <td class="py-1.5 px-2 text-slate-500 dark:text-slate-400">{Math.round(p.fittedCount).toLocaleString()}</td>
                               <td class="py-1.5 px-2">
-                                <span class={Math.abs(p.residual / p.observedCount) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}>
+                                <span class={Math.abs(p.residual / p.observedCount) < 0.1 ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
                                   {p.residual >= 0 ? '+' : ''}{Math.round(p.residual).toLocaleString()} ({((p.residual / p.observedCount) * 100).toFixed(1)}%)
                                 </span>
                               </td>
@@ -978,7 +978,7 @@ export default function CultureView() {
           {/* RESULTS FOR TAB 3: HARVEST PREDICTOR */}
           {s.activeTab === 'harvest' && (
             'error' in harvestResult ? (
-              <p role="alert" class="text-sm text-red-600">{harvestResult.error}</p>
+              <p role="alert" class="text-sm text-red-600 dark:text-red-400">{harvestResult.error}</p>
             ) : (
               <>
                 <div class="rounded-2xl border-2 border-accent-500/40 bg-accent-50/40 dark:bg-accent-950/20 p-5 space-y-3 shadow-xs">
@@ -1000,27 +1000,27 @@ export default function CultureView() {
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                    <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Required Doublings</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Required Doublings</span>
                     <span class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
                       {harvestResult.doublingsRequired.toFixed(2)}
                     </span>
-                    <span class="text-[11px] text-slate-400 block">generations</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">generations</span>
                   </div>
 
                   <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                    <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Total Incubation</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Total Incubation</span>
                     <span class="font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                       {harvestResult.hoursRequired.toFixed(1)} h
                     </span>
-                    <span class="text-[11px] text-slate-400 block">{(harvestResult.hoursRequired / 24).toFixed(2)} days</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">{(harvestResult.hoursRequired / 24).toFixed(2)} days</span>
                   </div>
 
                   <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 text-center shadow-xs">
-                    <span class="text-xs text-slate-500 block font-semibold uppercase tracking-wider">Fold Expansion</span>
-                    <span class="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">Fold Expansion</span>
+                    <span class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                       {(s.harvestTargetCount / s.harvestStartCount).toFixed(1)}×
                     </span>
-                    <span class="text-[11px] text-slate-400 block">biomass increase</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400 block">biomass increase</span>
                   </div>
                 </div>
 
@@ -1030,7 +1030,7 @@ export default function CultureView() {
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                       Biological Variation Tolerance Window (±10% Td)
                     </span>
-                    <span class="text-[11px] text-slate-400">Earliest to Latest Window</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">Earliest to Latest Window</span>
                   </div>
                   <div class="grid grid-cols-2 gap-3 text-xs pt-1">
                     <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40">

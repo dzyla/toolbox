@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "preact/hooks";
+import { downloadBlob } from "@/lib/export";
 import {
   type MrcData,
   parseMrc,
@@ -431,13 +432,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
       offset += sliceBytes;
     }
 
-    const blob = new Blob([buffer], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `selected_classes_${nzSelected}.mrcs`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([buffer], { type: 'application/octet-stream' }), `selected_classes_${nzSelected}.mrcs`);
   }
 
   return (
@@ -465,7 +460,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                 </button>
               )}
             </div>
-            <p class="mt-0.5 text-xs text-slate-500">
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               2D class stacks (.mrcs), 3D orthogonal slices, and maximum intensity projections (MIP).
             </p>
           </div>
@@ -519,7 +514,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <span>{mrcData.header.pixelSize.toFixed(3)} Å/px</span>
           <span>Mode {mrcData.header.mode}</span>
           <span>density {mrcData.header.dmin.toFixed(2)}–{mrcData.header.dmax.toFixed(2)}</span>
-          <span class={`font-semibold ${mrcData.header.is3DVolume ? "text-emerald-600 dark:text-emerald-400" : "text-sky-600 dark:text-sky-400"}`}>
+          <span class={`font-semibold ${mrcData.header.is3DVolume ? "text-emerald-700 dark:text-emerald-400" : "text-sky-700 dark:text-sky-400"}`}>
             {mrcData.header.is3DVolume ? "3D Density Map" : "2D Particle Stack"}
           </span>
         </div>
@@ -563,7 +558,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <button
                 type="button"
                 onClick={exportPublicationPng}
-                class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
+                class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-700 shadow-xs transition"
               >
                 Export PNG
               </button>
@@ -574,7 +569,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
             <button
               type="button"
               onClick={exportMipPng}
-              class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
+              class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-700 shadow-xs transition"
             >
               Export MIP (PNG)
             </button>
@@ -592,7 +587,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs space-y-2.5">
             <div class="flex items-center justify-between font-semibold text-slate-800 dark:text-slate-200">
               <span>Publication Figure Export Settings</span>
-              <span class="text-[11px] text-slate-400 font-normal">Customizes output PNG image layout</span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Customizes output PNG image layout</span>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -602,7 +597,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                   type="checkbox"
                   checked={exportShowNumbers}
                   onChange={(e) => setExportShowNumbers((e.target as HTMLInputElement).checked)}
-                  class="rounded text-accent-600 accent-accent-600"
+                  class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                 />
                 <span class="text-slate-700 dark:text-slate-300 font-medium">Add class numbers (#) to output image</span>
               </label>
@@ -658,7 +653,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
 
           {/* Quick Presets */}
           <div class="flex items-center gap-1.5 text-xs">
-            <span class="text-slate-400 text-[11px]">Presets:</span>
+            <span class="text-slate-500 dark:text-slate-400 text-[11px]">Presets:</span>
             <button
               type="button"
               onClick={() => applyPreset("cryo")}
@@ -696,7 +691,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <div>
             <div class="flex justify-between mb-1">
               <label class="text-slate-600 dark:text-slate-400">Black Level (Floor)</label>
-              <span class="font-mono text-slate-500">{(blackLevel * 100).toFixed(0)}%</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400">{(blackLevel * 100).toFixed(0)}%</span>
             </div>
             <input
               type="range"
@@ -712,7 +707,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <div>
             <div class="flex justify-between mb-1">
               <label class="text-slate-600 dark:text-slate-400">White Level (Ceiling)</label>
-              <span class="font-mono text-slate-500">{(whiteLevel * 100).toFixed(0)}%</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400">{(whiteLevel * 100).toFixed(0)}%</span>
             </div>
             <input
               type="range"
@@ -728,7 +723,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
           <div>
             <div class="flex justify-between mb-1">
               <label class="text-slate-600 dark:text-slate-400">Gamma Correction</label>
-              <span class="font-mono text-slate-500">{gamma.toFixed(2)}</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400">{gamma.toFixed(2)}</span>
             </div>
             <input
               type="range"
@@ -747,7 +742,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                 type="checkbox"
                 checked={invert}
                 onChange={(e) => setInvert((e.target as HTMLInputElement).checked)}
-                class="rounded text-accent-600 accent-accent-600"
+                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
               />
               <span class="text-slate-700 dark:text-slate-300">Invert Contrast (Negative Stain / NS)</span>
             </label>
@@ -757,7 +752,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                 type="checkbox"
                 checked={showScaleBar}
                 onChange={(e) => setShowScaleBar((e.target as HTMLInputElement).checked)}
-                class="rounded text-accent-600 accent-accent-600"
+                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
               />
               <span class="text-slate-700 dark:text-slate-300">Include Scale Bar ({scaleBarLengthA} Å)</span>
             </label>
@@ -772,7 +767,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <div class="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <h3 class="text-base font-bold text-slate-100">Density projection</h3>
-                  <p class="mt-1 max-w-xl text-xs leading-5 text-slate-400">Rotate the map, then integrate density through the viewing axis. This is a cryo-EM-style projection, not a maximum-intensity projection.</p>
+                  <p class="mt-1 max-w-xl text-xs leading-5 text-slate-500 dark:text-slate-400">Rotate the map, then integrate density through the viewing axis. This is a cryo-EM-style projection, not a maximum-intensity projection.</p>
                 </div>
                 <span class="shrink-0 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-200">{mrcData.header.nx} × {mrcData.header.ny} px</span>
               </div>
@@ -783,13 +778,13 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
             <aside class="border-t border-slate-800 bg-slate-900/70 p-4 sm:p-5 lg:border-l lg:border-t-0">
               <p class="mb-4 text-xs font-semibold text-slate-200">Rotation (degrees)</p>
               <div class="space-y-4">
-                <label class="block text-xs text-slate-400" for="projection-rotate-x">Rotate X <span class="float-right font-mono text-cyan-200">{projectionAngles.x}°</span>
+                <label class="block text-xs text-slate-500 dark:text-slate-400" for="projection-rotate-x">Rotate X <span class="float-right font-mono text-cyan-200">{projectionAngles.x}°</span>
                   <input id="projection-rotate-x" aria-label="Rotate X" type="range" min="-180" max="180" step="1" value={projectionAngles.x} onInput={(e) => setProjectionAngles({ ...projectionAngles, x: parseFloat((e.target as HTMLInputElement).value) })} class="mt-2 w-full accent-cyan-400" />
                 </label>
-                <label class="block text-xs text-slate-400" for="projection-rotate-y">Rotate Y <span class="float-right font-mono text-cyan-200">{projectionAngles.y}°</span>
+                <label class="block text-xs text-slate-500 dark:text-slate-400" for="projection-rotate-y">Rotate Y <span class="float-right font-mono text-cyan-200">{projectionAngles.y}°</span>
                   <input id="projection-rotate-y" aria-label="Rotate Y" type="range" min="-180" max="180" step="1" value={projectionAngles.y} onInput={(e) => setProjectionAngles({ ...projectionAngles, y: parseFloat((e.target as HTMLInputElement).value) })} class="mt-2 w-full accent-cyan-400" />
                 </label>
-                <label class="block text-xs text-slate-400" for="projection-rotate-z">Rotate Z <span class="float-right font-mono text-cyan-200">{projectionAngles.z}°</span>
+                <label class="block text-xs text-slate-500 dark:text-slate-400" for="projection-rotate-z">Rotate Z <span class="float-right font-mono text-cyan-200">{projectionAngles.z}°</span>
                   <input id="projection-rotate-z" aria-label="Rotate Z" type="range" min="-180" max="180" step="1" value={projectionAngles.z} onInput={(e) => setProjectionAngles({ ...projectionAngles, z: parseFloat((e.target as HTMLInputElement).value) })} class="mt-2 w-full accent-cyan-400" />
                 </label>
               </div>
@@ -824,7 +819,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
             <p class="pb-2 text-[11px] text-slate-500 dark:text-slate-400">Sampling is capped at 256 views to keep processing in-browser.</p>
           </div>
           {templateProjections.length > 0 && <div class="mt-5 border-t border-amber-200 pt-4 dark:border-slate-800">
-            <div class="mb-3 flex items-center justify-between"><h4 class="text-sm font-bold text-slate-900 dark:text-slate-100">Generated templates</h4><span class="text-xs text-slate-500">{templateProjections.length} projections</span></div>
+            <div class="mb-3 flex items-center justify-between"><h4 class="text-sm font-bold text-slate-900 dark:text-slate-100">Generated templates</h4><span class="text-xs text-slate-500 dark:text-slate-400">{templateProjections.length} projections</span></div>
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {templateProjections.map((template, index) => <figure key={index} class="overflow-hidden rounded-lg border border-slate-200 bg-black dark:border-slate-800">
                 <canvas ref={(canvas) => { if (canvas) templateCanvasRefs.current[index] = canvas; }} class="block aspect-square w-full" />
@@ -840,7 +835,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
         <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
             <div class="flex flex-wrap items-center gap-2 text-xs">
-              <span class="text-slate-500 font-medium">
+              <span class="text-slate-500 dark:text-slate-400 font-medium">
                 Selected: <strong class="text-slate-900 dark:text-slate-100">{selectedIndices.size}</strong> of {totalSlices}
               </span>
               <button
@@ -873,14 +868,14 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                   type="checkbox"
                   checked={showLabels}
                   onChange={(e) => setShowLabels((e.target as HTMLInputElement).checked)}
-                  class="rounded text-accent-600 accent-accent-600"
+                  class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
                 />
                 <span>Show # on cards</span>
               </label>
 
               {/* Card Zoom */}
               <div class="flex items-center gap-1.5">
-                <label class="text-slate-500">Size:</label>
+                <label class="text-slate-500 dark:text-slate-400">Size:</label>
                 <select
                   aria-label="Card size"
                   value={cardSize}
@@ -895,7 +890,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
 
               {/* Display Columns */}
               <div class="flex items-center gap-1.5">
-                <label class="text-slate-500">Columns:</label>
+                <label class="text-slate-500 dark:text-slate-400">Columns:</label>
                 <select
                   aria-label="Display columns"
                   value={cols}
@@ -951,7 +946,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                 Inspect map
               </h3>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-slate-500 dark:text-slate-400">
                 Scrub the sliders to inspect the volume from all three axes.
               </p>
             </div>
@@ -1036,7 +1031,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100">
                 3D Maximum Intensity Projection (MIP)
               </h3>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-slate-500 dark:text-slate-400">
                 Projects maximum voxel density along viewing rays.
               </p>
             </div>
@@ -1101,7 +1096,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                     name="mipDepth"
                     checked={mipFullVolume}
                     onChange={() => setMipFullVolume(true)}
-                    class="text-accent-600 accent-accent-600"
+                    class="text-accent-600 dark:text-accent-400 accent-accent-600"
                   />
                   <span>Full Volume ({mrcData.header.nz} slices)</span>
                 </label>
@@ -1111,13 +1106,13 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                     name="mipDepth"
                     checked={!mipFullVolume}
                     onChange={() => setMipFullVolume(false)}
-                    class="text-accent-600 accent-accent-600"
+                    class="text-accent-600 dark:text-accent-400 accent-accent-600"
                   />
                   <span>Sub-volume Slab Range</span>
                 </label>
               </div>
 
-              <span class="font-mono text-slate-500">
+              <span class="font-mono text-slate-500 dark:text-slate-400">
                 {mipFullVolume
                   ? `Full volume slab: 1 to ${mrcData.header.nz}`
                   : `Slices ${mipSlabRange.start + 1} to ${mipSlabRange.end + 1} (${((mipSlabRange.end - mipSlabRange.start + 1) * mrcData.header.pixelSize).toFixed(1)} Å slab)`}
@@ -1127,7 +1122,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
             {!mipFullVolume && (
               <div class="grid grid-cols-2 gap-4 pt-1">
                 <div>
-                  <div class="flex justify-between mb-1 text-[11px] text-slate-500">
+                  <div class="flex justify-between mb-1 text-[11px] text-slate-500 dark:text-slate-400">
                     <span>Slab Start Slice</span>
                     <span class="font-mono">{mipSlabRange.start + 1}</span>
                   </div>
@@ -1141,7 +1136,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                   />
                 </div>
                 <div>
-                  <div class="flex justify-between mb-1 text-[11px] text-slate-500">
+                  <div class="flex justify-between mb-1 text-[11px] text-slate-500 dark:text-slate-400">
                     <span>Slab End Slice</span>
                     <span class="font-mono">{mipSlabRange.end + 1}</span>
                   </div>
@@ -1165,12 +1160,12 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <div class="space-y-2 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
                 <div class="flex items-center justify-between text-xs font-semibold">
                   <span class="text-slate-800 dark:text-slate-200">XY Plane (Axial)</span>
-                  <span class="text-slate-400 font-mono text-[11px]">along Z</span>
+                  <span class="text-slate-500 dark:text-slate-400 font-mono text-[11px]">along Z</span>
                 </div>
                 <div class="flex justify-center bg-black rounded-lg overflow-hidden p-1 shadow-inner">
                   <canvas ref={canvasMipXyRef} class="w-full max-w-[320px] aspect-square object-contain" />
                 </div>
-                <div class="text-[11px] text-slate-400 font-mono text-center">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono text-center">
                   {(mrcData.header.nx * mrcData.header.pixelSize).toFixed(1)} × {(mrcData.header.ny * mrcData.header.pixelSize).toFixed(1)} Å
                 </div>
               </div>
@@ -1179,12 +1174,12 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <div class="space-y-2 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
                 <div class="flex items-center justify-between text-xs font-semibold">
                   <span class="text-slate-800 dark:text-slate-200">XZ Plane (Coronal)</span>
-                  <span class="text-slate-400 font-mono text-[11px]">along Y</span>
+                  <span class="text-slate-500 dark:text-slate-400 font-mono text-[11px]">along Y</span>
                 </div>
                 <div class="flex justify-center bg-black rounded-lg overflow-hidden p-1 shadow-inner">
                   <canvas ref={canvasMipXzRef} class="w-full max-w-[320px] aspect-square object-contain" />
                 </div>
-                <div class="text-[11px] text-slate-400 font-mono text-center">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono text-center">
                   {(mrcData.header.nx * mrcData.header.pixelSize).toFixed(1)} × {(mrcData.header.nz * mrcData.header.pixelSize).toFixed(1)} Å
                 </div>
               </div>
@@ -1193,12 +1188,12 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
               <div class="space-y-2 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
                 <div class="flex items-center justify-between text-xs font-semibold">
                   <span class="text-slate-800 dark:text-slate-200">YZ Plane (Sagittal)</span>
-                  <span class="text-slate-400 font-mono text-[11px]">along X</span>
+                  <span class="text-slate-500 dark:text-slate-400 font-mono text-[11px]">along X</span>
                 </div>
                 <div class="flex justify-center bg-black rounded-lg overflow-hidden p-1 shadow-inner">
                   <canvas ref={canvasMipYzRef} class="w-full max-w-[320px] aspect-square object-contain" />
                 </div>
-                <div class="text-[11px] text-slate-400 font-mono text-center">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono text-center">
                   {(mrcData.header.ny * mrcData.header.pixelSize).toFixed(1)} × {(mrcData.header.nz * mrcData.header.pixelSize).toFixed(1)} Å
                 </div>
               </div>
@@ -1210,7 +1205,7 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
                 <h4 class="font-bold text-slate-800 dark:text-slate-200">
                   Maximum Intensity Projection: {mipPlane === "xy" ? "XY Plane (Axial - Projected along Z)" : mipPlane === "xz" ? "XZ Plane (Coronal - Projected along Y)" : "YZ Plane (Sagittal - Projected along X)"}
                 </h4>
-                <span class="font-mono text-slate-400">
+                <span class="font-mono text-slate-500 dark:text-slate-400">
                   {mipPlane === "xy"
                     ? `${(mrcData.header.nx * mrcData.header.pixelSize).toFixed(1)} × ${(mrcData.header.ny * mrcData.header.pixelSize).toFixed(1)} Å`
                     : mipPlane === "xz"
@@ -1285,7 +1280,7 @@ function ParticleThumbnailCard({
         {showNumber ? (
           <span class="font-bold text-slate-700 dark:text-slate-300">#{index + 1}</span>
         ) : (
-          <span class="text-slate-400">·</span>
+          <span class="text-slate-500 dark:text-slate-400">·</span>
         )}
         <input
           type="checkbox"
@@ -1294,7 +1289,7 @@ function ParticleThumbnailCard({
             e.stopPropagation();
             onToggle();
           }}
-          class="rounded text-accent-600 accent-accent-600 cursor-pointer"
+          class="rounded text-accent-600 dark:text-accent-400 accent-accent-600 cursor-pointer"
         />
       </div>
 
@@ -1302,7 +1297,7 @@ function ParticleThumbnailCard({
         <canvas ref={canvasRef} class="w-full aspect-square object-contain" />
       </div>
 
-      <div class="pt-1 text-[10px] text-slate-400 text-center font-mono truncate">
+      <div class="pt-1 text-[10px] text-slate-500 dark:text-slate-400 text-center font-mono truncate">
         {(nx * pixelSize).toFixed(0)} Å box
       </div>
     </div>

@@ -18,6 +18,8 @@ import {
   BatchMutationResult,
 } from '@/core/mutagenesis';
 import { findORFs, reverseComplement, type ORF } from '@/core/plasmid';
+import { importPlasmidFile } from '@/core/plasmid/import';
+import { MAX_TEXT_IMPORT_BYTES, importErrorMessage, readBinaryFile } from '@/lib/file-import';
 
 interface State {
   mode: 'free' | 'codon' | 'list';
@@ -71,6 +73,26 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
 
   const [copiedPrimerId, setCopiedPrimerId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState('');
+
+  /** FASTA, GenBank, raw DNA, or binary SnapGene (.dna) — parsed by the shared plasmid importer. */
+  async function importConstruct(file: File) {
+    setImportError('');
+    try {
+      const bytes = await readBinaryFile(file, MAX_TEXT_IMPORT_BYTES);
+      const { document } = await importPlasmidFile(new Blob([bytes]));
+      // FASTA headers and GenBank LOCUS carry a real name; SnapGene files are named by their file name.
+      const named = document.provenance.format !== 'snapgene' && document.name !== 'Untitled sequence';
+      const fromHeader = named ? document.name.trim().split(/[\s,]+/)[0] : '';
+      set({
+        constructName: fromHeader || file.name.replace(/\.[^/.]+$/, ''),
+        plasmidDna: cleanDna(document.sequence),
+        selectedOrfId: 'full',
+      });
+    } catch (err) {
+      setImportError(importErrorMessage(err, file.name));
+    }
+  }
 
   // Auto-detect ORFs in template plasmid
   const detectedOrfs = useMemo<ORF[]>(() => {
@@ -265,7 +287,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
               class={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg transition ${
                 s.mode === 'free'
                   ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-200'
               }`}
             >
               Sequence Freedom
@@ -276,7 +298,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
               class={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg transition ${
                 s.mode === 'codon'
                   ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-200'
               }`}
             >
               Codon Picker
@@ -287,7 +309,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
               class={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-lg transition ${
                 s.mode === 'list'
                   ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-200'
               }`}
             >
               Mutation List
@@ -301,7 +323,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                   Construct / Gene Name
                 </label>
-                <input
+                <input aria-label="Construct / Gene Name"
                   type="text"
                   value={s.constructName}
                   onInput={(e) => set({ constructName: (e.target as HTMLInputElement).value })}
@@ -316,24 +338,10 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   accept=".fasta,.fa,.dna,.gb,.gbk,.txt,.seq"
                   style={{ display: 'none' }}
                   onChange={(e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (evt) => {
-                      const text = evt.target?.result as string;
-                      if (!text) return;
-                      const fastaHeader = text.match(/^>([^\r\n]+)/);
-                      if (fastaHeader && fastaHeader[1]) {
-                        const name = fastaHeader[1].trim().split(/[\s,]+/)[0] || 'Construct';
-                        set({ constructName: name });
-                      } else {
-                        const baseName = file.name.replace(/\.[^/.]+$/, '');
-                        set({ constructName: baseName });
-                      }
-                      const cleaned = cleanDna(text);
-                      set({ plasmidDna: cleaned, selectedOrfId: 'full' });
-                    };
-                    reader.readAsText(file);
+                    const input = e.target as HTMLInputElement;
+                    const file = input.files?.[0];
+                    input.value = '';
+                    if (file) void importConstruct(file);
                   }}
                 />
                 <button
@@ -347,6 +355,11 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 </button>
               </div>
             </div>
+            {importError && (
+              <p role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200">
+                {importError}
+              </p>
+            )}
 
             {/* Plasmid DNA Input */}
             <div class="space-y-1">
@@ -354,7 +367,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 <label class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Plasmid / Template Sequence (5' to 3')
                 </label>
-                <span class="text-[11px] text-slate-500 font-mono">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                   {cleanDna(s.plasmidDna).length} bp
                 </span>
               </div>
@@ -412,10 +425,10 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
 
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1 font-medium">
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">
                     Start Position (bp, 1-indexed)
                   </label>
-                  <DecimalInput
+                  <DecimalInput aria-label="Start Position (bp, 1-indexed)"
                     class={FIELD}
                     value={s.targetPosition}
                     onChange={(pos) => set({ targetPosition: Math.max(1, Math.round(pos)) })}
@@ -425,10 +438,10 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500 mb-1 font-medium">
+                  <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">
                     Length to Replace (bp)
                   </label>
-                  <DecimalInput
+                  <DecimalInput aria-label="Length to Replace (bp)"
                     class={FIELD}
                     value={s.replaceLength}
                     onChange={(len) => set({ replaceLength: Math.max(0, Math.round(len)) })}
@@ -436,7 +449,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                     max={1000}
                     step={1}
                   />
-                  <span class="text-[10px] text-slate-400 block mt-0.5">
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                     0 = Insert without deleting
                   </span>
                 </div>
@@ -460,21 +473,21 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Replacement / Insert DNA Sequence
                 </label>
-                <input
+                <input aria-label="Replacement / Insert DNA Sequence"
                   type="text"
                   value={s.replacementSeq}
                   onInput={(e) => set({ replacementSeq: (e.target as HTMLInputElement).value.toUpperCase() })}
                   placeholder="Enter mutant sequence, tag, or leave blank for deletion..."
                   class={FIELD}
                 />
-                <span class="text-[10px] text-slate-500">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">
                   {s.replacementSeq.length > 0 ? `${cleanDna(s.replacementSeq).length} bp sequence` : 'Empty = Clean Deletion'}
                 </span>
               </div>
 
               {/* Quick Tag Insert Presets */}
               <div>
-                <label class="block text-[11px] text-slate-400 mb-1 font-medium">Quick Insert Presets:</label>
+                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Quick Insert Presets:</label>
                 <div class="flex flex-wrap gap-1.5">
                   {QUICK_TAGS.map(tag => (
                     <button
@@ -509,14 +522,14 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 placeholder="Enter mutations: A22Y, Y443H, S65T..."
                 class={FIELD}
               />
-              <span class="text-[10px] text-slate-400 block">
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                 Standard residue mutation notation: [WT][ResidueNumber][MUT] separated by comma or space.
               </span>
 
               {/* Mutation chips selector */}
               {parsedMutations.length > 0 && (
                 <div class="space-y-1.5 pt-1">
-                  <span class="text-[11px] text-slate-500 font-medium block">Select Active Mutation:</span>
+                  <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">Select Active Mutation:</span>
                   <div class="flex flex-wrap gap-1.5">
                     {parsedMutations.map((m, idx) => {
                       const isSelected = (s.activeListMutationIdx ?? 0) === idx;
@@ -547,9 +560,9 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                           {!m.valid ? (
                             <span class="text-[10px] text-rose-500">✗</span>
                           ) : !targetC ? (
-                            <span class="text-[10px] text-amber-500" title="Residue outside ORF bounds">⚠</span>
+                            <span class="text-[10px] text-amber-700 dark:text-amber-400" title="Residue outside ORF bounds">⚠</span>
                           ) : !isMatch ? (
-                            <span class="text-[10px] text-amber-500" title={`WT is ${targetC.wtAa}, not ${m.wtAa}`}>⚠</span>
+                            <span class="text-[10px] text-amber-700 dark:text-amber-400" title={`WT is ${targetC.wtAa}, not ${m.wtAa}`}>⚠</span>
                           ) : (
                             <span class="text-[10px] text-emerald-400">✓</span>
                           )}
@@ -590,7 +603,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Desired Mutation (Replacement Amino Acid)
                 </label>
-                <select
+                <select aria-label="Desired Mutation (Replacement Amino Acid)"
                   value={s.targetAa}
                   onChange={(e) => set({ targetAa: (e.target as HTMLSelectElement).value })}
                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 text-xs font-semibold"
@@ -610,7 +623,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               Target Annealing Tm (°C)
             </label>
-            <DecimalInput
+            <DecimalInput aria-label="Target Annealing Tm (°C)"
               class={FIELD}
               value={s.targetPrimerTm}
               onChange={tm => set({ targetPrimerTm: Math.round(tm) })}
@@ -618,7 +631,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
               max={72}
               step={1}
             />
-            <span class="text-[10px] text-slate-500">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">
               Optimal annealing region Tm for Q5 High-Fidelity DNA Polymerase (default 62°C)
             </span>
           </div>
@@ -634,7 +647,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <span>📋 Batch Mutagenesis Primers ({batchResult.items.filter(i => i.valid).length} Variants)</span>
                   </h3>
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
                     Non-overlapping back-to-back primers generated for all requested point mutations.
                   </p>
                 </div>
@@ -649,7 +662,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
 
               <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                  <thead class="bg-slate-50 dark:bg-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
+                  <thead class="bg-slate-50 dark:bg-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     <tr>
                       <th class="p-2 rounded-l-lg">Mutation</th>
                       <th class="p-2">Forward Primer (5'→3')</th>
@@ -680,15 +693,15 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                           </td>
                           <td class="p-2 font-mono text-[11px]">
                             <div class="font-semibold text-slate-800 dark:text-slate-200">{item.fwdPrimerName}</div>
-                            <div class="text-slate-500 truncate max-w-xs">{item.fwdPrimerSeq}</div>
-                            <div class="text-[10px] text-slate-400">{item.fwdLen} nt · {item.fwdTm}°C · {item.fwdGc}% GC</div>
+                            <div class="text-slate-500 dark:text-slate-400 truncate max-w-xs">{item.fwdPrimerSeq}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400">{item.fwdLen} nt · {item.fwdTm}°C · {item.fwdGc}% GC</div>
                           </td>
                           <td class="p-2 font-mono text-[11px]">
                             <div class="font-semibold text-slate-800 dark:text-slate-200">{item.revPrimerName}</div>
-                            <div class="text-slate-500 truncate max-w-xs">{item.revPrimerSeq}</div>
-                            <div class="text-[10px] text-slate-400">{item.revLen} nt · {item.revTm}°C · {item.revGc}% GC</div>
+                            <div class="text-slate-500 dark:text-slate-400 truncate max-w-xs">{item.revPrimerSeq}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400">{item.revLen} nt · {item.revTm}°C · {item.revGc}% GC</div>
                           </td>
-                          <td class="p-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                          <td class="p-2 font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                             {item.recommendedTa}°C
                           </td>
                           <td class="p-2 text-right whitespace-nowrap space-x-1">
@@ -730,7 +743,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
               <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
                 <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
                   <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Engineered Mutation ({result.mutationType})
                     </span>
                     <div class="text-2xl font-black text-accent-600 dark:text-accent-400 font-mono mt-0.5">
@@ -738,8 +751,8 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                     </div>
                   </div>
                   <div class="text-right">
-                    <span class="text-xs text-slate-400 block">Recommended Q5 PCR Ta</span>
-                    <span class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    <span class="text-xs text-slate-500 dark:text-slate-400 block">Recommended Q5 PCR Ta</span>
+                    <span class="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
                       {result.recommendedTa}°C
                     </span>
                   </div>
@@ -747,34 +760,34 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Target Position</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Target Position</span>
                     <span class="text-base font-bold font-mono text-slate-700 dark:text-slate-300">
                       bp {result.targetBpStart + 1}
                     </span>
-                    <span class="text-[10px] text-slate-400 block">
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                       {result.replacedSequence.length > 0 ? `Length: ${result.replacedSequence.length} bp` : 'Insertion point'}
                     </span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Replaced / Deleted</span>
-                    <span class="text-base font-bold font-mono text-rose-600 dark:text-rose-400 truncate block">
+                    <span class="text-slate-500 dark:text-slate-400 block">Replaced / Deleted</span>
+                    <span class="text-base font-bold font-mono text-rose-700 dark:text-rose-400 truncate block">
                       {result.replacedSequence || '(none)'}
                     </span>
-                    <span class="text-[10px] text-slate-400 block">Original segment</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Original segment</span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Replacement Sequence</span>
-                    <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 truncate block">
+                    <span class="text-slate-500 dark:text-slate-400 block">Replacement Sequence</span>
+                    <span class="text-base font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate block">
                       {result.replacementSequence || '(deletion)'}
                     </span>
-                    <span class="text-[10px] text-slate-400 block">
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">
                       {result.replacementSequence.length > 0 ? `+${result.replacementSequence.length} bp` : '0 bp inserted'}
                     </span>
                   </div>
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <span class="text-slate-400 block">Primer Alignment</span>
-                    <span class="text-xs font-bold text-sky-600 dark:text-sky-400">Back-to-Back</span>
-                    <span class="text-[10px] text-slate-400 block">Non-overlapping (Q5)</span>
+                    <span class="text-slate-500 dark:text-slate-400 block">Primer Alignment</span>
+                    <span class="text-xs font-bold text-sky-700 dark:text-sky-400">Back-to-Back</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Non-overlapping (Q5)</span>
                   </div>
                 </div>
               </div>
@@ -790,7 +803,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                           Window: bp {preview.mutationWindow.startBp}–{preview.mutationWindow.endBp}
                         </span>
                       </h3>
-                      <p class="text-xs text-slate-500">
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
                         Direct base-pair and amino acid translation comparison between wild-type template and engineered construct.
                       </p>
                     </div>
@@ -799,7 +812,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   {/* Side-by-side DNA comparison */}
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
                     <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
-                      <div class="flex items-center justify-between text-[11px] text-slate-400 font-sans font-semibold">
+                      <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-sans font-semibold">
                         <span>ORIGINAL TEMPLATE DNA (5' → 3')</span>
                         <span>WT</span>
                       </div>
@@ -813,7 +826,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                     </div>
 
                     <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-emerald-200 dark:border-emerald-900/60 space-y-1">
-                      <div class="flex items-center justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-sans font-semibold">
+                      <div class="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 font-sans font-semibold">
                         <span>MUTATED CONSTRUCT DNA (5' → 3')</span>
                         <span>MUTANT</span>
                       </div>
@@ -831,19 +844,19 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                   <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
                     <div class="flex items-center justify-between text-xs">
                       <span class="font-semibold text-slate-700 dark:text-slate-300">Translated Protein Comparison</span>
-                      <span class="text-[11px] font-mono text-slate-400">
+                      <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                         WT: {preview.originalProtein.length} aa · Mut: {preview.mutatedProtein.length} aa
                       </span>
                     </div>
                     <div class="space-y-1.5 font-mono text-xs select-text overflow-x-auto">
                       <div class="flex items-center gap-2">
-                        <span class="w-12 shrink-0 text-slate-400 text-[10px] uppercase font-sans">WT AA:</span>
+                        <span class="w-12 shrink-0 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-sans">WT AA:</span>
                         <span class="text-slate-700 dark:text-slate-300 tracking-wider">
                           {preview.originalProtein.slice(0, 80)}{preview.originalProtein.length > 80 ? '…' : ''}
                         </span>
                       </div>
                       <div class="flex items-center gap-2">
-                        <span class="w-12 shrink-0 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase font-sans font-bold">MUT AA:</span>
+                        <span class="w-12 shrink-0 text-emerald-700 dark:text-emerald-400 text-[10px] uppercase font-sans font-bold">MUT AA:</span>
                         <span class="text-emerald-700 dark:text-emerald-300 tracking-wider font-semibold">
                           {preview.mutatedProtein.slice(0, 80)}{preview.mutatedProtein.length > 80 ? '…' : ''}
                         </span>
@@ -861,7 +874,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                       <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                         Interactive ORF Codons Track ({codons.length} aa)
                       </h4>
-                      <p class="text-[11px] text-slate-500">
+                      <p class="text-[11px] text-slate-500 dark:text-slate-400">
                         Click any amino acid / codon below with your mouse to target it for point mutation.
                       </p>
                     </div>
@@ -927,14 +940,14 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                       <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
                         FWD
                       </span>
-                      <span class="text-slate-400 font-mono">({result.forwardPrimer.length} nt, {result.forwardPrimer.gc}% GC)</span>
+                      <span class="text-slate-500 dark:text-slate-400 font-mono">({result.forwardPrimer.length} nt, {result.forwardPrimer.gc}% GC)</span>
                     </div>
                     <div class="flex items-center gap-3 font-mono">
                       <span>Anneal Tm: <strong>{result.forwardPrimer.tm}°C</strong></span>
                       <button
                         type="button"
                         onClick={() => handleCopyText('fwd', result.forwardPrimer.sequence)}
-                        class="text-accent-600 hover:underline font-semibold"
+                        class="text-accent-600 dark:text-accent-400 hover:underline font-semibold"
                       >
                         {copiedPrimerId === 'fwd' ? '✓ Copied!' : 'Copy Seq'}
                       </button>
@@ -961,14 +974,14 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                       <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
                         REV
                       </span>
-                      <span class="text-slate-400 font-mono">({result.reversePrimer.length} nt, {result.reversePrimer.gc}% GC)</span>
+                      <span class="text-slate-500 dark:text-slate-400 font-mono">({result.reversePrimer.length} nt, {result.reversePrimer.gc}% GC)</span>
                     </div>
                     <div class="flex items-center gap-3 font-mono">
                       <span>Anneal Tm: <strong>{result.reversePrimer.tm}°C</strong></span>
                       <button
                         type="button"
                         onClick={() => handleCopyText('rev', result.reversePrimer.sequence)}
-                        class="text-accent-600 hover:underline font-semibold"
+                        class="text-accent-600 dark:text-accent-400 hover:underline font-semibold"
                       >
                         {copiedPrimerId === 'rev' ? '✓ Copied!' : 'Copy Seq'}
                       </button>
@@ -988,7 +1001,7 @@ export default function MutagenesisView(props?: ToolProps & { embedded?: boolean
                     <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100">
                       IDT Bulk Order Format (CSV / TSV)
                     </h3>
-                    <p class="text-xs text-slate-500">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
                       Copy and paste directly into Integrated DNA Technologies (IDT) Bulk Oligo Entry.
                     </p>
                   </div>
