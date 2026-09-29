@@ -51,3 +51,42 @@ describe('gel transforms', () => {
     expect(cropped.data[0]).toBeCloseTo(0.5, 4);
   });
 });
+
+describe('exact right-angle transforms', () => {
+  const w = 5, h = 3;
+  const p = { width: w, height: h, data: Float32Array.from({ length: w * h }, (_, i) => i) };
+  const at = (q: { width: number; data: Float32Array }, x: number, y: number) => q.data[y * q.width + x];
+
+  it('rotates 90° CCW (as seen on screen) exactly', () => {
+    const o = transformPlane(p, { rotation: 90, flipH: false, flipV: false });
+    expect([o.width, o.height]).toEqual([3, 5]);
+    // every output value is an original value (no interpolation, no padding)
+    expect(new Set(o.data)).toEqual(new Set(p.data));
+  });
+  it('rotates 180° exactly', () => {
+    const o = transformPlane(p, { rotation: 180, flipH: false, flipV: false });
+    expect([o.width, o.height]).toEqual([5, 3]);
+    expect(at(o, 0, 0)).toBe(at(p, 4, 2));
+    expect(at(o, 4, 2)).toBe(at(p, 0, 0));
+  });
+  it('rotation by 90 then 270 is the identity', () => {
+    const a = transformPlane(p, { rotation: 90, flipH: false, flipV: false });
+    const b = transformPlane(a, { rotation: 270, flipH: false, flipV: false });
+    expect(Array.from(b.data)).toEqual(Array.from(p.data));
+  });
+  it('flips horizontally and vertically exactly', () => {
+    const fh = transformPlane(p, { rotation: 0, flipH: true, flipV: false });
+    expect(Array.from(fh.data.slice(0, 5))).toEqual([4, 3, 2, 1, 0]);
+    const fv = transformPlane(p, { rotation: 0, flipH: false, flipV: true });
+    expect(Array.from(fv.data.slice(0, 5))).toEqual([10, 11, 12, 13, 14]);
+  });
+  it('the direction of 90° matches the general path', () => {
+    // A tiny non-right angle uses the bilinear path; 90° must turn the same way as 89.9°.
+    const big = { width: 41, height: 21, data: Float32Array.from({ length: 41 * 21 }, (_, i) => (i % 41) / 40) };
+    const exact = transformPlane(big, { rotation: 90, flipH: false, flipV: false });
+    const approx = transformPlane(big, { rotation: 89.9, flipH: false, flipV: false });
+    const cx = Math.floor(exact.width / 2), cy = 2;
+    const ax = Math.floor(approx.width / 2), ay = 2 + Math.round((approx.height - exact.height) / 2);
+    expect(Math.abs(exact.data[cy * exact.width + cx]! - approx.data[ay * approx.width + ax]!)).toBeLessThan(0.1);
+  });
+});

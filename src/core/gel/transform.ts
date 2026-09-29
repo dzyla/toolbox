@@ -88,8 +88,44 @@ export function sampleNearest(p: Plane, x: number, y: number): number {
   return p.data[yi * p.width + xi]!;
 }
 
+/** Exact index remap for rotations by multiples of 90° and flips (no interpolation). Null when not applicable. */
+function rightAngleRemap(raw: Plane, g: Geometry): Plane | null {
+  const q = ((Math.round(g.rotation / 90) % 4) + 4) % 4;
+  if (Math.abs(g.rotation - Math.round(g.rotation / 90) * 90) > 1e-9) return null;
+  if (g.crop && ![g.crop.x, g.crop.y, g.crop.w, g.crop.h].every(Number.isInteger)) return null;
+  const W = raw.width, H = raw.height;
+  const w = q % 2 ? H : W, h = q % 2 ? W : H;
+  let out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // Source pixel for output (x, y). Counter-clockwise on screen with y down, matching rotate(deg).
+      let sx: number, sy: number;
+      if (q === 0) { sx = x; sy = y; }
+      else if (q === 1) { sx = y; sy = H - 1 - x; }
+      else if (q === 2) { sx = W - 1 - x; sy = H - 1 - y; }
+      else { sx = W - 1 - y; sy = x; }
+      out[y * w + x] = raw.data[sy * W + sx]!;
+    }
+  }
+  if (g.flipH) { const f = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f[y * w + x] = out[y * w + (w - 1 - x)]!; out = f; }
+  if (g.flipV) { const f = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f[y * w + x] = out[(h - 1 - y) * w + x]!; out = f; }
+  let plane: Plane = { width: w, height: h, data: out };
+  if (g.crop) {
+    const c = g.crop;
+    const cw = c.w, ch = c.h, cropped = new Float32Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+      const sx = c.x + x, sy = c.y + y;
+      cropped[y * cw + x] = sx >= 0 && sy >= 0 && sx < w && sy < h ? out[sy * w + sx]! : 1;
+    }
+    plane = { width: cw, height: ch, data: cropped };
+  }
+  return plane;
+}
+
 /** Resample a plane under a geometry (rotation, flips, and crop) into a new Plane. */
 export function transformPlane(raw: Plane, g: Geometry): Plane {
+  const exact = rightAngleRemap(raw, g);
+  if (exact) return exact;
   const size = frameSize(raw.width, raw.height, g);
   const w = size.w, h = size.h;
   const out = new Float32Array(w * h);
