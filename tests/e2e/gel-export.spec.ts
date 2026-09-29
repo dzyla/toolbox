@@ -41,6 +41,7 @@ test('gel tidy bands CSV and condition summary CSV download with the new headers
   ]);
   expect(tidy.suggestedFilename()).toMatch(/_bands_tidy\.csv$/);
   expect(fs.readFileSync((await tidy.path())!, 'utf8').split('\n')[0]).toContain('Lane_Normalized_Value');
+  expect(fs.readFileSync((await tidy.path())!, 'utf8').split('\n')[0]).toContain('TPN_Factor');
 
   const [summary] = await Promise.all([
     page.waitForEvent('download'),

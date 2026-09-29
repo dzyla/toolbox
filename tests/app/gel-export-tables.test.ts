@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupSummaryRows, methodsText, calibrationRows } from '@/tools/gel/export-tables';
+import { tidyRows, groupSummaryRows, methodsText, calibrationRows } from '@/tools/gel/export-tables';
 import { summarizeGroups } from '@/core/gel/groups';
 import { fitCalibration } from '@/core/gel/calibration';
 
@@ -22,5 +22,27 @@ describe('export tables', () => {
       laneWidths: [20, 22], bgMethod: 'rolling', radius: 40, prominence: 0.05, calibModel: 'monotone', calibR2: 0.998, massModel: null, massR2: null,
       norm: 'control-band', welch: true, version: '0.1.0' });
     for (const k of ['16-bit TIFF', 'rolling', '40', 'monotone', '0.998', 'control', 'Welch', 'Holm', '0.1.0', 'crop']) expect(t).toContain(k);
+  });
+  it('tidy rows: unknowns are empty cells and loading columns repeat per band', () => {
+    const metric = { number: 1, raw: 1, background: 0, net: 1, share: 100, ratio: null, sizeEst: null, massEst: null, massFlags: null, saturation: null,
+      ladderAssigned: null, sizeResidualPct: null, baselineWarning: false };
+    const analysis = [{ laneIdx: 0, lane: { id: 'a' }, totalLaneSignal: 12.5, loadingRatio: 1.25, normFactor: 0.8, metrics: [metric, { ...metric, number: 2 }] }] as never;
+    const rows = tidyRows({ analysis, labels: {}, roles: {}, meta: {}, valueByLane: {}, sizeUnit: 'kDa', massUnit: 'ng' });
+    const h = rows[0]!;
+    for (const r of rows.slice(1)) {
+      expect(r[h.indexOf('Saturated')]).toBe('');
+      expect(r[h.indexOf('Mass_Extrapolated')]).toBe('');
+      expect(r[h.indexOf('Mass_Below_LOQ')]).toBe('');
+      expect(r[h.indexOf('Lane_Normalized_Value')]).toBe('');
+      expect(r[h.indexOf('Total_Lane_Signal')]).toBe(12.5);
+      expect(r[h.indexOf('Loading_Ratio_vs_Reference')]).toBe(1.25);
+      expect(r[h.indexOf('TPN_Factor')]).toBe(0.8);
+    }
+  });
+  it('methods text uses readable model names', () => {
+    const t = methodsText({ source: null, transforms: [], deskewAngle: 0, laneWidths: [], bgMethod: 'none', radius: 40, prominence: 0.05,
+      calibModel: 'monotone', calibR2: null, massModel: 'linear_zero', massR2: null, norm: 'none', welch: false, version: 'x' });
+    expect(t).toContain('Fritsch–Carlson');
+    expect(t).toContain('linear through the origin');
   });
 });

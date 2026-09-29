@@ -8,7 +8,7 @@ import type { GelCore, GelLadders, GelAnalysis, GelGroups } from '../workspace';
 
 /** Annotated image, SVG, print and CSV exports. */
 export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelAnalysis, groups: GelGroups) {
-  const { canvasRef, gelTitle, imageName, laneLabels, lanes, plane, s, showLaneHeaders, showMwLabels, } = core;
+  const { canvasRef, gelTitle, imageName, laneLabels, lanes, plane, s, showLaneHeaders, showMwLabels, stripLanePrefix } = core;
   const { activeLadder } = ladders;
   const { allLanesAnalysis, calibration, massCalibration, selectedLane } = analysis;
 
@@ -113,7 +113,7 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
       bands: resolvedBands(),
       title: gelTitle,
       subtitle,
-      footnote: `Quantification: raw-pixel densitometry with ${s.bgMethod} baseline; ${method} ladder calibration (${s.calibMethod}).`,
+      footnote: `Quantification: raw-pixel densitometry with ${s.bgMethod} baseline; ${method} ladder calibration (${s.calibMethod}); compare bands within one gel only.`,
     });
     downloadText(svg, `${imageName.replace(/\.[^/.]+$/, '')}_annotated.svg`, 'image/svg+xml;charset=utf-8');
   }
@@ -129,7 +129,12 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
     const roles: Record<string, string> = {}, meta: Record<string, { condition: string; replicate: number | null }> = {}, valueByLane: Record<string, { value: number | null; reason: string | null }> = {};
     for (const l of lanes) roles[l.id] = laneRole(l.id, core.laneMeta[l.id], analysis.effectiveLadderLaneId, s.massLaneId);
     for (const r of groups.groupRows) { meta[r.laneId] = { condition: r.condition, replicate: r.replicate }; valueByLane[r.laneId] = { value: r.value, reason: r.reason }; }
-    const rows = tidyRows({ analysis: allLanesAnalysis, labels: laneLabels, roles, meta, valueByLane, sizeUnit: sizeUnit(), massUnit: massCalibration?.unit ?? 'ng' });
+    const labels: Record<string, string> = {};
+    for (const l of lanes) {
+      const label = laneLabels[l.id] || '';
+      labels[l.id] = stripLanePrefix && label ? (label.replace(/^(?:L\d+|Lane\s*\d+)[\s:\-_]*/i, '').trim() || label) : label;
+    }
+    const rows = tidyRows({ analysis: allLanesAnalysis, labels, roles, meta, valueByLane, sizeUnit: sizeUnit(), massUnit: massCalibration?.unit ?? 'ng' });
     downloadText(toCsv(rows), `${base()}_bands_tidy.csv`, 'text/csv;charset=utf-8');
   }
   function handleExportGroupCsv() {
@@ -137,12 +142,12 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
   }
   function handleExportCalibrationCsv() {
     const ladder = allLanesAnalysis.find(a => a.lane.id === analysis.effectiveLadderLaneId);
-    const ladderRows = (ladder?.metrics ?? []).filter(m => m.ladderAssigned !== null && m.sizeEst !== null)
-      .map(m => ({ y: m.peakY ?? 0, assigned: m.ladderAssigned!, fitted: m.sizeEst!, residualPct: m.sizeResidualPct ?? 0 }));
+    const ladderRows = (ladder?.metrics ?? []).filter(m => m.ladderAssigned !== null && m.sizeEst !== null && m.peakY !== undefined)
+      .map(m => ({ y: m.peakY!, assigned: m.ladderAssigned!, fitted: m.sizeEst!, residualPct: m.sizeResidualPct }));
     downloadText(toCsv(calibrationRows({ calibration, ladderRows, mass: massCalibration, sizeUnit: sizeUnit() })), `${base()}_calibration.csv`, 'text/csv;charset=utf-8');
   }
   function currentMethodsText() {
-    return methodsText({ source: core.sourceInfo, transforms: core.appliedTransforms, deskewAngle: core.deskewAngle, laneWidths: lanes.map(l => l.width),
+    return methodsText({ source: core.sourceInfo, transforms: core.appliedTransforms, deskewAngle: core.deskewAngle, laneWidths: lanes.filter(l => laneRole(l.id, core.laneMeta[l.id], analysis.effectiveLadderLaneId, s.massLaneId) === 'sample').map(l => l.width),
       bgMethod: s.bgMethod, radius: s.rollingRadius, prominence: s.prominence, calibModel: s.calibMethod, calibR2: calibration?.r2 ?? null,
       massModel: massCalibration?.model ?? null, massR2: massCalibration?.r2 ?? null, norm: s.groupNorm, welch: s.groupWelch, version: __APP_VERSION__ });
   }

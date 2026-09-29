@@ -12,7 +12,7 @@ export function tidyRows(i: { analysis: LaneAnalysisItem[]; labels: Record<strin
   meta: Record<string, { condition: string; replicate: number | null }>; valueByLane: Record<string, { value: number | null; reason: string | null }>; sizeUnit: string; massUnit: string }): Cell[][] {
   const head = ['Lane', 'Lane_Label', 'Role', 'Condition', 'Replicate', 'Band', 'Peak_Y_px', `Size_${i.sizeUnit}`, `Ladder_Assigned_${i.sizeUnit}`, 'Size_Residual_Pct',
     'Raw', 'Background', 'Net', 'Percent_Of_Lane', 'Ratio_To_Reference', `Mass_${i.massUnit}`, 'Mass_Extrapolated', 'Mass_Below_LOQ',
-    'Saturation_Fraction', 'Saturated', 'Baseline_Warning', 'Lane_Normalized_Value', 'Lane_Value_Note'];
+    'Saturation_Fraction', 'Saturated', 'Baseline_Warning', 'Lane_Normalized_Value', 'Lane_Value_Note', 'Total_Lane_Signal', 'Loading_Ratio_vs_Reference', 'TPN_Factor'];
   const rows: Cell[][] = [head];
   for (const a of i.analysis) {
     const id = a.lane.id, meta = i.meta[id], lv = i.valueByLane[id];
@@ -21,7 +21,7 @@ export function tidyRows(i: { analysis: LaneAnalysisItem[]; labels: Record<strin
       num(m.sizeEst), num(m.ladderAssigned), num(m.sizeResidualPct, 3), num(m.raw, 6), num(m.background, 6), num(m.net, 6), num(m.share, 4), num(m.ratio),
       num(m.massEst), m.massFlags ? (m.massFlags.extrapolated ? 'YES' : 'NO') : '', m.massFlags ? (m.massFlags.belowLoq ? 'YES' : 'NO') : '',
       num(m.saturation, 3), m.saturation === null ? '' : isSaturated(m.saturation) ? 'YES' : 'NO', m.baselineWarning ? 'YES' : 'NO',
-      num(lv?.value ?? null, 6), lv?.reason ?? '',
+      num(lv?.value ?? null, 6), lv?.reason ?? '', num(a.totalLaneSignal, 6), num(a.loadingRatio, 4), num(a.normFactor, 4),
     ]);
   }
   return rows;
@@ -34,7 +34,7 @@ export function groupSummaryRows(s: GroupSummary[], control: string): Cell[][] {
     num(g.test?.t ?? null, 6), num(g.test?.df ?? null, 5), num(g.test?.p ?? null, 4), num(g.test?.pAdj ?? null, 4), g.flags.join('; ')])];
 }
 
-export function calibrationRows(i: { calibration: Calibration | null; ladderRows: { y: number; assigned: number; fitted: number; residualPct: number }[]; mass: MassCalibration | null; sizeUnit: string }): Cell[][] {
+export function calibrationRows(i: { calibration: Calibration | null; ladderRows: { y: number; assigned: number; fitted: number; residualPct: number | null }[]; mass: MassCalibration | null; sizeUnit: string }): Cell[][] {
   const rows: Cell[][] = [];
   if (i.calibration) {
     rows.push(['Size calibration', `model=${i.calibration.model}`, `R2=${i.calibration.r2.toFixed(5)}`, i.calibration.slope !== undefined ? `slope=${i.calibration.slope}` : '', i.calibration.intercept !== undefined ? `intercept=${i.calibration.intercept}` : '']);
@@ -53,6 +53,8 @@ export function calibrationRows(i: { calibration: Calibration | null; ladderRows
 
 export function methodsText(i: { source: SourceInfo | null; transforms: string[]; deskewAngle: number; laneWidths: number[]; bgMethod: string; radius: number; prominence: number;
   calibModel: string; calibR2: number | null; massModel: string | null; massR2: number | null; norm: string; welch: boolean; version: string }): string {
+  const CAL: Record<string, string> = { linear: 'log-linear fit', piecewise: 'piecewise-linear interpolation', monotone: 'monotone cubic (Fritsch–Carlson) interpolation' };
+  const MASS: Record<string, string> = { linear: 'linear', linear_zero: 'linear through the origin', quadratic: 'quadratic', power: 'power-law' };
   const src = i.source ? `${i.source.bitDepth}-bit ${i.source.format.toUpperCase()}${i.source.lossy ? ' (lossy compression)' : ''}${i.source.rescaled ? ' (float, min–max rescaled)' : ''}` : 'an image of unrecorded format';
   const geo = [...i.transforms, ...(Math.abs(i.deskewAngle) > 1e-6 ? [`deskew ${i.deskewAngle.toFixed(2)}° (bilinear)`] : [])];
   const widths = i.laneWidths.length ? `${Math.min(...i.laneWidths).toFixed(0)}–${Math.max(...i.laneWidths).toFixed(0)} px` : 'n/a';
@@ -62,8 +64,8 @@ export function methodsText(i: { source: SourceInfo | null; transforms: string[]
     `Band densitometry was performed in Bio-Bench v${i.version} on ${src}${geo.length ? `; geometric corrections: ${geo.join(', ')}` : ''}.`,
     `Lane profiles were the mean signal across each lane (width ${widths}); bands were detected at ≥ ${(i.prominence * 100).toFixed(0)} % relative prominence and integrated after ${bg}.`,
     `Bands with more than 1 % of pixels at the detector limits were flagged as saturated.`,
-    `Apparent sizes were interpolated from the ladder with a ${i.calibModel} fit of log10(size) vs migration${i.calibR2 !== null ? ` (R² = ${i.calibR2.toFixed(3)})` : ''}.`,
-    i.massModel ? `Amounts were read from a ${i.massModel} standard curve${i.massR2 !== null ? ` (R² = ${i.massR2.toFixed(3)})` : ''}; LOD and LOQ were 3.3σ and 10σ of the fit residuals (ICH Q2).` : '',
+    `Apparent sizes were estimated from the ladder by ${CAL[i.calibModel] ?? i.calibModel} of log10(size) vs migration${i.calibR2 !== null ? ` (R² = ${i.calibR2.toFixed(3)})` : ''}.`,
+    i.massModel ? `Amounts were read from a ${MASS[i.massModel] ?? i.massModel} standard curve${i.massR2 !== null ? ` (R² = ${i.massR2.toFixed(3)})` : ''}; LOD and LOQ were 3.3σ and 10σ of the fit residuals (ICH Q2).` : '',
     `Target signal was ${norm}. Conditions are summarized as mean ± SD with t-based 95 % confidence intervals${i.welch ? '; each condition was compared with the control by Welch\'s t-test with Holm adjustment' : ''}.`,
   ].filter(Boolean).join(' ');
 }
