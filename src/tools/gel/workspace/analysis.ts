@@ -2,7 +2,7 @@ import { useMemo } from 'preact/hooks';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
 import { sharedCrossLaneBaseline, baselineFor, integrateLaneSignal } from '@/core/gel/background';
 import { quantifyBands } from '@/core/gel/quant';
-import { matchLadder, type LadderPeak } from '@/core/gel/ladder-match';
+import { matchLadderWithPins, peakProminence, type LadderPeak, type LadderPair } from '@/core/gel/ladder-match';
 import { fitCalibration, fitMassCalibration, MASS_STANDARD_PRESETS, type Calibration, type CalibrationPoint, type MassCalibration, type MassCalibrationPoint, massFlags } from '@/core/gel/calibration';
 import { suggestGelCropAndTilt } from '@/core/gel/transform';
 import { type Lane } from '@/core/gel/types';
@@ -21,7 +21,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
   }, [s.ladderLaneId, lanes]);
 
   // Calibration from ladder lane
-  const ladderFit = useMemo(() => {
+  const ladderFit = useMemo((): { fit: Calibration | null; assigned: Record<string, number>; match: LadderPair[] | null; conflict: string | null } | null => {
     if (!plane || !effectiveLadderLaneId) return null;
     const ladderLane = lanes.find(l => l.id === effectiveLadderLaneId);
     if (!ladderLane) return null;
@@ -40,19 +40,19 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
         const o = ladderSizeMap[b.id];
         if (o === null) continue; // excluded by the user
         if (typeof o === 'number') pinned.push({ y, size: o });
-        else free.push({ y, prominence: 1, id: b.id });
+        else free.push({ y, prominence: peakProminence(prof, y, b.y0, b.y1), id: b.id });
       }
-      const pinnedSizes = new Set(pinned.map(p => p.size));
-      const match = matchLadder(free, activeLadder.sizes.filter(sz => !pinnedSizes.has(sz)));
-      const pairs: CalibrationPoint[] = [...pinned, ...(match?.pairs ?? []).map(p => ({ y: p.y, size: p.size }))];
+      const match = matchLadderWithPins(free, pinned, activeLadder.sizes);
+      if (match.conflict) return { fit: null, assigned: {}, match: null, conflict: 'Pinned ladder sizes conflict with band order' };
+      const pairs: CalibrationPoint[] = [...pinned, ...match.pairs.map(p => ({ y: p.y, size: p.size }))];
       const assigned: Record<string, number> = {};
       for (const b of sortedBands) {
         const o = ladderSizeMap[b.id];
         if (typeof o === 'number') assigned[b.id] = o;
       }
-      for (const p of match?.pairs ?? []) if (p.id) assigned[p.id] = p.size;
+      for (const p of match.pairs) if (p.id) assigned[p.id] = p.size;
       if (pairs.length < 2) return null;
-      return { fit: fitCalibration(pairs, s.calibMethod), assigned, match };
+      return { fit: fitCalibration(pairs, s.calibMethod), assigned, match: match.pairs, conflict: null };
     } catch {
       return null;
     }
@@ -60,6 +60,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
 
   const calibration: Calibration | null = ladderFit?.fit ?? null;
   const ladderMatch = ladderFit?.match ?? null;
+  const ladderConflict: string | null = ladderFit?.conflict ?? null;
 
   const massFit: { cal: MassCalibration; unassigned: number } | null = useMemo(() => {
     if (!plane || !s.massLaneId) return null;
@@ -312,6 +313,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
     effectiveLadderLaneId,
     calibration,
     ladderMatch,
+    ladderConflict,
     massCalibration,
     unassignedStandardBands,
     allLanesAnalysis,

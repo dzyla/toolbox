@@ -102,3 +102,34 @@ export function matchLadder(peaks: LadderPeak[], sizes: number[]): LadderMatch |
     residualSD: best.sd,
   };
 }
+
+export interface LadderPin { y: number; size: number }
+export interface PinnedLadderMatch { /** Pairs for the free (unpinned) peaks only. */ pairs: LadderPair[]; /** True when the pins contradict the band order (sizes must strictly decrease with y). */ conflict: boolean }
+
+/** Ladder matching with user-pinned bands. Pins partition the lane: each segment (above the first pin, between two
+ * pins, below the last) is matched on its own free peaks using only the sizes strictly between the neighbouring pinned sizes.
+ * A segment that cannot be matched contributes no pairs. Conflicting pins (sizes not strictly decreasing with y, incl.
+ * duplicates) yield conflict = true and no pairs. With no pins this is exactly matchLadder. */
+export function matchLadderWithPins(free: LadderPeak[], pins: LadderPin[], sizes: number[]): PinnedLadderMatch {
+  const sp = [...pins].sort((a, b) => a.y - b.y);
+  for (let i = 1; i < sp.length; i++) if (!(sp[i]!.size < sp[i - 1]!.size)) return { pairs: [], conflict: true };
+  const pairs: LadderPair[] = [];
+  const bounds = [-Infinity, ...sp.map(p => p.y), Infinity];
+  for (let k = 0; k < bounds.length - 1; k++) {
+    const lo = bounds[k]!, hi = bounds[k + 1]!;
+    const upper = k === 0 ? Infinity : sp[k - 1]!.size, lower = k === sp.length ? -Infinity : sp[k]!.size;
+    const seg = free.map((p, i) => ({ p, i })).filter(({ p }) => p.y > lo && p.y < hi);
+    const m = matchLadder(seg.map(q => q.p), sizes.filter(sz => sz < upper && sz > lower));
+    if (!m) continue;
+    for (const pr of m.pairs) pairs.push({ ...pr, peakIndex: seg[pr.peakIndex]!.i });
+  }
+  const all = [...sp.map(p => ({ y: p.y, size: p.size })), ...pairs.map(p => ({ y: p.y, size: p.size }))].sort((a, b) => a.y - b.y);
+  for (let i = 1; i < all.length; i++) if (!(all[i]!.size < all[i - 1]!.size)) return { pairs: [], conflict: true };
+  return { pairs, conflict: false };
+}
+
+/** Height of a band's peak above the higher of its two valley floors, read from the lane profile (never negative). */
+export function peakProminence(profile: ArrayLike<number>, peakY: number, y0: number, y1: number): number {
+  const at = (y: number) => profile[Math.max(0, Math.min(profile.length - 1, Math.round(y)))] ?? 0;
+  return Math.max(0, at(peakY) - Math.max(at(y0), at(y1)));
+}

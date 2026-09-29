@@ -55,3 +55,59 @@ describe('matchLadder', () => {
     expect(m.skippedSizes.map(i => SIZES[i])).toEqual([50]);
   });
 });
+
+describe('matchLadderWithPins', () => {
+  const pk = (sizes: number[]) => sizes.map(s => ({ y: yOf(s), prominence: 1, id: `b${s}` }));
+  it('with no pins equals matchLadder', async () => {
+    const { matchLadderWithPins } = await import('@/core/gel/ladder-match');
+    const r = matchLadderWithPins(pk(SIZES), [], SIZES);
+    expect(r.conflict).toBe(false);
+    expect(r.pairs).toEqual(matchLadder(pk(SIZES), SIZES)!.pairs);
+  });
+  it('a middle pin constrains both sides', async () => {
+    const { matchLadderWithPins } = await import('@/core/gel/ladder-match');
+    const free = pk(SIZES.filter(s => s !== 50));
+    const r = matchLadderWithPins(free, [{ y: yOf(50), size: 50 }], SIZES);
+    expect(r.conflict).toBe(false);
+    for (const p of r.pairs) expect(p.y < yOf(50) ? p.size > 50 : p.size < 50).toBe(true);
+    expect(r.pairs.map(p => p.size)).toEqual(SIZES.filter(s => s !== 50));
+    expect(r.pairs.every((p, i) => p.peakIndex === i)).toBe(true);
+  });
+  it('a pin below every large size forces the sizes above it to be larger', async () => {
+    const { matchLadderWithPins } = await import('@/core/gel/ladder-match');
+    // pin 50 kDa on the band that is really 37: sizes above must all be > 50, below < 50
+    const free = pk(SIZES.filter(s => s !== 37));
+    const r = matchLadderWithPins(free, [{ y: yOf(37), size: 50 }], SIZES);
+    for (const p of r.pairs) expect(p.y < yOf(37) ? p.size > 50 : p.size < 50).toBe(true);
+  });
+  it('conflicting pins are reported', async () => {
+    const { matchLadderWithPins } = await import('@/core/gel/ladder-match');
+    const r = matchLadderWithPins(pk(SIZES), [{ y: yOf(250), size: 20 }, { y: yOf(10), size: 100 }], SIZES);
+    expect(r.conflict).toBe(true);
+    expect(r.pairs).toEqual([]);
+  });
+  it('duplicate pinned sizes are a conflict', async () => {
+    const { matchLadderWithPins } = await import('@/core/gel/ladder-match');
+    expect(matchLadderWithPins([], [{ y: 10, size: 50 }, { y: 20, size: 50 }], SIZES).conflict).toBe(true);
+  });
+});
+
+describe('peakProminence + trim', () => {
+  it('reads prominence from the profile and clamps indices', async () => {
+    const { peakProminence } = await import('@/core/gel/ladder-match');
+    const prof = [0, 1, 5, 1, 0.5, 0];
+    expect(peakProminence(prof, 2, 0, 4)).toBeCloseTo(4.5);
+    expect(peakProminence(prof, 2, -3, 99)).toBeCloseTo(5);
+    expect(peakProminence(prof, 1, 0, 4)).toBe(0.5);
+    expect(peakProminence([1, 1, 1], 1, 0, 2)).toBe(0);
+  });
+  it('real prominences keep weak-but-real bottom bands over a strong top smear', () => {
+    const peaks = SIZES.map(s => ({ y: yOf(s), prominence: s <= 20 ? 0.3 : 1 }));
+    for (let k = 0; k < 3; k++) peaks.push({ y: 5 + k * 3, prominence: 0.05 }); // top smear, weaker than the real bands
+    // with flat prominences the trim would be positional and drop the bottom band
+    expect(matchLadder(peaks.map(p => ({ ...p, prominence: 1 })).sort((a, b) => a.y - b.y), SIZES)!.pairs.map(p => p.size)).not.toEqual(SIZES);
+    peaks.sort((a, b) => a.y - b.y);
+    const m = matchLadder(peaks, SIZES)!;
+    expect(m.pairs.map(p => p.size)).toEqual(SIZES);
+  });
+});

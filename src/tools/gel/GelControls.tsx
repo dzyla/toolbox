@@ -10,6 +10,7 @@ export function GelControls({ g }: { g: GelWorkspace }) {
     applyFlip,
     applyRotation,
     calibration,
+    ladderConflict,
     cropBox,
     cropSuggestion,
     customLadderError,
@@ -425,6 +426,9 @@ export function GelControls({ g }: { g: GelWorkspace }) {
           </select>
         </div>
 
+        {ladderConflict && (
+          <div role="alert" class="rounded-lg bg-rose-50 p-2 text-xs text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800">{ladderConflict}</div>
+        )}
         {calibration && (
           <div class="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             ✓ Calibrated ({calibration.points.length} ladder bands matched).

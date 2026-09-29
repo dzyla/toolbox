@@ -8,6 +8,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
     canvasCursor,
     canvasRef,
     calibration,
+    ladderConflict,
     canvasZoom,
     effectiveLadderLaneId,
     gelLayout,
@@ -376,6 +377,9 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                 )}
               </div>
 
+              {ladderConflict && selectedLane?.id === effectiveLadderLaneId && (
+                <div role="alert" class="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300">{ladderConflict}</div>
+              )}
               {laneAnalysis.metrics.length > 0 ? (
                 <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                   <table class="w-full text-xs text-left">
@@ -433,7 +437,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                     <span class="text-[10px] text-slate-500 dark:text-slate-400">
                                       {m.ladderAssigned !== null ? `Assigned ${formatSize(m.ladderAssigned, activeLadder.kind)}` : 'Assigned –'}
                                     </span>
-                                    {!calibration && <span class="text-[10px] text-slate-500 dark:text-slate-400">– (needs ≥ 3 ladder bands or pinned sizes)</span>}
+                                    {!calibration && !ladderConflict && <span class="text-[10px] text-slate-500 dark:text-slate-400">– (needs ≥ 3 ladder bands or pinned sizes)</span>}
                                     {m.sizeEst !== null && <span class="mono text-[11px]">fit {formatSize(m.sizeEst, activeLadder.kind)}</span>}
                                     {m.sizeResidualPct !== null && (
                                       <span class={`mono text-[10px] ${Math.abs(m.sizeResidualPct) > 5 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
