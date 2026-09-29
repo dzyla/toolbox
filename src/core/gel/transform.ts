@@ -360,3 +360,8 @@ export function deskewAngle(plane: Plane, polarity: Polarity = 'dark', range = 8
   return { angle: Number(bestAngle.toFixed(2)), margin: Number(margin.toFixed(4)), peaked };
 }
 
+
+/** Applied-transform list with any pending (uncommitted) deskew resampling appended, so it is never lost when a later transform or a project save resets the angle. */
+export function withPendingDeskew(transforms: string[], angle: number): string[] {
+  return Math.abs(angle) > 1e-6 ? [...transforms, `deskew ${angle.toFixed(2)}° (bilinear)`] : transforms;
+}

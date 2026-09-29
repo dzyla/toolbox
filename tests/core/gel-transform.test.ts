@@ -90,3 +90,12 @@ describe('exact right-angle transforms', () => {
     expect(Math.abs(exact.data[cy * exact.width + cx]! - approx.data[ay * approx.width + ax]!)).toBeLessThan(0.1);
   });
 });
+
+describe('withPendingDeskew', () => {
+  it('records a non-zero deskew before a committed transform, exactly once', async () => {
+    const { withPendingDeskew } = await import('@/core/gel/transform');
+    const t = withPendingDeskew([], 2);
+    expect([...t, 'crop (exact)']).toEqual(['deskew 2.00° (bilinear)', 'crop (exact)']);
+    expect(withPendingDeskew(['crop (exact)'], 0)).toEqual(['crop (exact)']);
+  });
+});

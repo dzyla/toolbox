@@ -4,12 +4,12 @@ import { decodeImageFile, sourceInfoOf } from '@/lib/image';
 import { demoGel } from '@/core/gel/synthetic';
 import { autoLanes, equalLanes } from '@/core/gel/lanes';
 import { detectPolarity } from '@/core/gel/quant';
-import { transformPlane, type Geometry } from '@/core/gel/transform';
+import { transformPlane, withPendingDeskew, type Geometry } from '@/core/gel/transform';
 import type { GelCore, GelAnalysis, GelProject } from '../workspace';
 
 /** Image loading (demo, upload) and orientation/crop transforms. */
 export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: GelProject) {
-  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setLadderSizeMap, setLaneMeta, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
+  const { basePlane, cropBox, deskewAngle, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setLadderSizeMap, setLaneMeta, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
   const { cropSuggestion } = analysis;
   const { project } = projectApi;
 
@@ -86,7 +86,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const rotated = transformPlane(plane, g);
     setBasePlane(rotated);
     setPlane(rotated);
-    setAppliedTransforms(t => [...t, `rotate ${deltaDeg}° (exact)`]);
+    setAppliedTransforms(t => [...withPendingDeskew(t, deskewAngle), `rotate ${deltaDeg}° (exact)`]);
     setDeskewAngle(0);
     setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
@@ -107,7 +107,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const flipped = transformPlane(plane, g);
     setBasePlane(flipped);
     setPlane(flipped);
-    setAppliedTransforms(t => [...t, `flip ${horizontal ? 'horizontal' : 'vertical'} (exact)`]);
+    setAppliedTransforms(t => [...withPendingDeskew(t, deskewAngle), `flip ${horizontal ? 'horizontal' : 'vertical'} (exact)`]);
     setDeskewAngle(0);
     setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
@@ -137,7 +137,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const cropped = transformPlane(plane, { rotation: 0, flipH: false, flipV: false, crop: cb });
     setBasePlane(cropped);
     setPlane(cropped);
-    setAppliedTransforms(t => [...t, 'crop (exact)']);
+    setAppliedTransforms(t => [...withPendingDeskew(t, deskewAngle), 'crop (exact)']);
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);

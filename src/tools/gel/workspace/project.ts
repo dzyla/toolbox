@@ -1,13 +1,14 @@
 import { mergeLinkState } from '@/lib/url-state';
 import { useToolProject } from '@/lib/use-tool-project';
 import { canvasThumbnail } from '@/lib/image';
+import { withPendingDeskew } from '@/core/gel/transform';
 import { gelProjectSnapshot, restoreGelProject } from '../project';
 import type { GelCore } from '../workspace';
 import { DEFAULTS } from '../workspace-model';
 
 /** Save/restore of gel projects (/p/:id). */
 export function useGelProject(projectId: string | undefined, core: GelCore) {
-  const { bandMap, canvasRef, customMassMap, gelLayout, gelTitle, imageName, laneLabels, lanes, plane, selectedLaneId, laneMeta, ladderSizeMap, sourceInfo, appliedTransforms, setLaneMeta, setBandMap, setLadderSizeMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setGelLayout, setGelTitle, setImageError, setImageName, setIsCropping, setLaneLabels, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setShowLaneHeaders, setShowMwLabels, setStripLanePrefix, setSourceInfo, setAppliedTransforms, showLaneHeaders, showMwLabels, stateSig, stripLanePrefix } = core;
+  const { bandMap, canvasRef, customMassMap, gelLayout, gelTitle, imageName, laneLabels, lanes, plane, selectedLaneId, laneMeta, ladderSizeMap, sourceInfo, appliedTransforms, deskewAngle, setLaneMeta, setBandMap, setLadderSizeMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setGelLayout, setGelTitle, setImageError, setImageName, setIsCropping, setLaneLabels, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setShowLaneHeaders, setShowMwLabels, setStripLanePrefix, setSourceInfo, setAppliedTransforms, showLaneHeaders, showMwLabels, stateSig, stripLanePrefix } = core;
 
   // Saved projects: restore from /p/:id and save the working image + annotations on this device.
   const project = useToolProject('gel', projectId, async stored => {
@@ -42,7 +43,7 @@ export function useGelProject(projectId: string | undefined, core: GelCore) {
     try {
       snapshot = gelProjectSnapshot(plane, {
         imageName, gelTitle, lanes, selectedLaneId, bandMap, laneLabels, customMassMap,
-        laneMeta, ladderSizeMap, sourceInfo, appliedTransforms,
+        laneMeta, ladderSizeMap, sourceInfo, appliedTransforms: withPendingDeskew(appliedTransforms, deskewAngle),
         display: { showMwLabels, showLaneHeaders, stripLanePrefix, gelLayout },
         settings: { ...stateSig.value },
       }, await canvasThumbnail(canvasRef.current));
