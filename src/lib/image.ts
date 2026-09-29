@@ -14,6 +14,14 @@ export interface DecodedImage {
   original: Blob;
   channels: number;
   format: 'tiff' | 'png' | 'jpeg' | 'webp' | 'other';
+  /** True when values were min–max normalized (32-bit float TIFF); saturation cannot be judged. */
+  rescaled: boolean;
+}
+
+export interface SourceInfo { format: DecodedImage['format'] | 'demo'; bitDepth: 8 | 16 | 32; lossy: boolean; rescaled: boolean }
+/** What the analysis needs to know about where the pixels came from (JPEG/WebP may be lossy; float TIFF is rescaled). */
+export function sourceInfoOf(d: Pick<DecodedImage, 'format' | 'bitDepth' | 'rescaled'>): SourceInfo {
+  return { format: d.format, bitDepth: d.bitDepth, lossy: d.format === 'jpeg' || d.format === 'webp', rescaled: d.rescaled };
 }
 
 export class ImageDecodeError extends Error {}
@@ -45,6 +53,7 @@ export function decodeTiff(buffer: ArrayBuffer, original: Blob = new Blob([buffe
   const raw = ifd.data;
   let bitDepth: DecodedImage['bitDepth'] = 8;
   let rgba: Uint8ClampedArray | undefined;
+  let rescaled = false;
 
   if (bps === 8) {
     if (channels === 1) { for (let i = 0; i < n; i++) data[i] = raw[i]! / 255; }
@@ -66,6 +75,7 @@ export function decodeTiff(buffer: ArrayBuffer, original: Blob = new Blob([buffe
     else for (let i = 0; i < n; i++) data[i] = REC601(read(i * channels), read(i * channels + 1), read(i * channels + 2)) / 65535;
   } else if (bps === 32 && sampleFormat === 3) {
     bitDepth = 32;
+    rescaled = true;
     const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
     let lo = Infinity, hi = -Infinity;
     for (let i = 0; i < n; i++) { const v = dv.getFloat32(i * channels * 4, true); data[i] = v; if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -76,7 +86,7 @@ export function decodeTiff(buffer: ArrayBuffer, original: Blob = new Blob([buffe
     throw new ImageDecodeError(`Unsupported TIFF: ${bps}-bit, sample format ${sampleFormat}. Supported: ${SUPPORTED}.`);
   }
   if (photometric === 0) for (let i = 0; i < n; i++) data[i] = 1 - data[i]!;
-  return { width, height, data, bitDepth, rgba, original, channels, format: 'tiff' };
+  return { width, height, data, bitDepth, rgba, original, channels, format: 'tiff', rescaled };
 }
 
 /** RGBA bytes to a luminance plane (Rec. 601 weights). */
@@ -130,7 +140,7 @@ export async function decodeImageFile(blob: Blob): Promise<DecodedImage> {
   const { rgba, width, height } = await decodeWithBrowser(blob);
   const data = rgbaToPlane(rgba, width, height);
   const gray = isGray(rgba);
-  return { width, height, data, bitDepth: 8, rgba: gray ? undefined : rgba, original: blob, channels: gray ? 1 : 3, format };
+  return { width, height, data, bitDepth: 8, rgba: gray ? undefined : rgba, original: blob, channels: gray ? 1 : 3, format, rescaled: false };
 }
 
 /** Small JPEG preview of a canvas for project cards; undefined when the canvas is missing or encoding fails. */
