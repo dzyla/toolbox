@@ -156,3 +156,9 @@ export function integrateLaneSignal(profile: ArrayLike<number>, baseline: ArrayL
   }
   return sum * Math.max(1, laneWidth);
 }
+
+/** True when a band's valley-to-valley extent exceeds the diameter (2 × radius) of the morphological opening used by the
+ * rolling-ball ('rolling') and shared cross-lane ('shared') baselines, so the opening would eat into the band itself. */
+export function bandWiderThanBall(bgMethod: string, y0: number, y1: number, radius: number): boolean {
+  return (bgMethod === 'rolling' || bgMethod === 'shared') && (y1 - y0) > 2 * radius;
+}

@@ -1,6 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
-import { sharedCrossLaneBaseline, baselineFor, integrateLaneSignal } from '@/core/gel/background';
+import { sharedCrossLaneBaseline, baselineFor, bandWiderThanBall, integrateLaneSignal } from '@/core/gel/background';
 import { quantifyBands } from '@/core/gel/quant';
 import { matchLadderWithPins, peakProminence, type LadderPeak, type LadderPair } from '@/core/gel/ladder-match';
 import { fitCalibration, fitMassCalibration, MASS_STANDARD_PRESETS, type Calibration, type CalibrationPoint, type MassCalibration, type MassCalibrationPoint, massFlags } from '@/core/gel/calibration';
@@ -173,7 +173,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
           const sizeResidualPct = ladderAssigned !== null && sizeEst !== null ? (sizeEst / ladderAssigned - 1) * 100 : null;
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
           const flags = massCalibration && massEst !== null ? massFlags(massCalibration, m.net, massEst) : null;
-          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, baselineWarning: s.bgMethod === 'rolling' && ((m.y1 ?? 0) - (m.y0 ?? 0)) > s.rollingRadius, ladderAssigned, sizeResidualPct };
+          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, baselineWarning: bandWiderThanBall(s.bgMethod, m.y0 ?? 0, m.y1 ?? 0, s.rollingRadius), ladderAssigned, sizeResidualPct };
         });
 
         return {

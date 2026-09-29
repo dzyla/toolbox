@@ -28,3 +28,14 @@ describe('shared cross-lane baseline', () => {
     expect(baselineFor('shared', b, { sharedBaseline: shared }).length).toBe(150);
   });
 });
+
+describe('bandWiderThanBall', () => {
+  it('flags only bands wider than 2 x radius, for rolling and shared baselines', async () => {
+    const { bandWiderThanBall } = await import('@/core/gel/background');
+    expect(bandWiderThanBall('rolling', 10, 60, 40)).toBe(false); // 50 px < 80 px diameter
+    expect(bandWiderThanBall('rolling', 10, 100, 40)).toBe(true);
+    expect(bandWiderThanBall('shared', 10, 100, 40)).toBe(true);
+    expect(bandWiderThanBall('valley', 10, 100, 40)).toBe(false);
+    expect(bandWiderThanBall('none', 10, 100, 40)).toBe(false);
+  });
+});
