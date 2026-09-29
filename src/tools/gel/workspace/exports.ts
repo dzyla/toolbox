@@ -2,12 +2,13 @@ import { downloadText, downloadBlob, toCsv } from '@/lib/export';
 import { formatSize, formatMass } from '@/core/gel/calibration';
 import { massFlagSuffix } from '../analysis';
 import { applyDisplayTransform, buildGelSvg, type BandAnnotation } from '@/core/gel/svg-export';
-import { isSaturated } from '@/core/gel/quant';
-import type { GelCore, GelLadders, GelAnalysis } from '../workspace';
+import { laneRole } from '../lane-meta';
+import { tidyRows, groupSummaryRows, calibrationRows, methodsText } from '../export-tables';
+import type { GelCore, GelLadders, GelAnalysis, GelGroups } from '../workspace';
 
 /** Annotated image, SVG, print and CSV exports. */
-export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelAnalysis) {
-  const { canvasRef, gelTitle, imageName, laneLabels, lanes, plane, s, showLaneHeaders, showMwLabels, stripLanePrefix } = core;
+export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelAnalysis, groups: GelGroups) {
+  const { canvasRef, gelTitle, imageName, laneLabels, lanes, plane, s, showLaneHeaders, showMwLabels, } = core;
   const { activeLadder } = ladders;
   const { allLanesAnalysis, calibration, massCalibration, selectedLane } = analysis;
 
@@ -112,7 +113,7 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
       bands: resolvedBands(),
       title: gelTitle,
       subtitle,
-      footnote: `Quantification: raw-pixel densitometry with ${s.bgMethod} baseline; ${method} ladder calibration (${s.calibMethod}); compare bands within one gel only.`,
+      footnote: `Quantification: raw-pixel densitometry with ${s.bgMethod} baseline; ${method} ladder calibration (${s.calibMethod}).`,
     });
     downloadText(svg, `${imageName.replace(/\.[^/.]+$/, '')}_annotated.svg`, 'image/svg+xml;charset=utf-8');
   }
@@ -122,66 +123,31 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
     window.print();
   }
 
-  // Export CSV
-  function handleExportCsv() {
-    const unit = activeLadder.kind === 'protein' ? 'kDa' : 'bp';
-    const massUnit = massCalibration?.unit || 'ng';
-    const rows = [
-      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Band_Number', 'Migration_Y_px', 'Estimated_Size', 'Size_Unit', 'Calibrated_Mass', 'Mass_Unit', 'Raw_Area', 'Baseline_Area', 'Net_Intensity', 'Percent_Of_Lane', 'Ratio_To_Reference', 'Saturated'],
-      ...allLanesAnalysis.flatMap(item =>
-        item.metrics.map(m => {
-          let label = laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`;
-          if (stripLanePrefix) {
-            label = label.replace(/^(?:L\d+|Lane\s*\d+)[\s:\-_]*/i, '').trim() || label;
-          }
-          return [
-            item.laneIdx + 1,
-            stripLanePrefix ? item.lane.id.replace(/^l/i, '') : item.lane.id,
-            label,
-            m.number,
-            m.peakY ? Number(m.peakY.toFixed(2)) : '',
-            m.sizeEst ? Number(m.sizeEst.toFixed(1)) : '',
-            unit,
-            m.massEst ? Number(m.massEst.toFixed(2)) : '',
-            massUnit,
-            Number(m.raw.toFixed(1)),
-            Number(m.background.toFixed(1)),
-            Number(m.net.toFixed(1)),
-            Number(m.share.toFixed(2)),
-            m.ratio === null ? '' : Number(m.ratio.toFixed(2)),
-            m.saturation === null ? '' : isSaturated(m.saturation) ? 'YES' : 'NO',
-          ];
-        })
-      ),
-    ];
-    downloadText(toCsv(rows), `${imageName.replace(/\.[^/.]+$/, '')}_all_lanes_quantification.csv`, 'text/csv;charset=utf-8');
+  const base = () => imageName.replace(/\.[^/.]+$/, '') || 'gel';
+  const sizeUnit = () => (activeLadder.kind === 'protein' ? 'kDa' : 'bp');
+  function handleExportTidyCsv() {
+    const roles: Record<string, string> = {}, meta: Record<string, { condition: string; replicate: number | null }> = {}, valueByLane: Record<string, { value: number | null; reason: string | null }> = {};
+    for (const l of lanes) roles[l.id] = laneRole(l.id, core.laneMeta[l.id], analysis.effectiveLadderLaneId, s.massLaneId);
+    for (const r of groups.groupRows) { meta[r.laneId] = { condition: r.condition, replicate: r.replicate }; valueByLane[r.laneId] = { value: r.value, reason: r.reason }; }
+    const rows = tidyRows({ analysis: allLanesAnalysis, labels: laneLabels, roles, meta, valueByLane, sizeUnit: sizeUnit(), massUnit: massCalibration?.unit ?? 'ng' });
+    downloadText(toCsv(rows), `${base()}_bands_tidy.csv`, 'text/csv;charset=utf-8');
   }
-
-  // Export Whole-Lane Loading CSV
-  function handleExportLoadingCsv() {
-    const rows = [
-      ['Lane_Number', 'Lane_ID', 'Lane_Custom_Name', 'Total_Integrated_Signal_OD_px', 'Total_Bands_Signal_OD_px', 'Relative_Loading_Ratio', 'Loading_Deviation_Pct', 'TPN_Normalization_Factor', 'Is_Reference_Lane'],
-      ...allLanesAnalysis.map(item => {
-        let label = laneLabels[item.lane.id] || `Lane ${item.laneIdx + 1}`;
-        if (stripLanePrefix) {
-          label = label.replace(/^(?:L\d+|Lane\s*\d+)[\s:\-_]*/i, '').trim() || label;
-        }
-        const isRef = item.lane.id === (s.loadingRefLaneId || allLanesAnalysis[0]?.lane.id);
-        return [
-          item.laneIdx + 1,
-          stripLanePrefix ? item.lane.id.replace(/^l/i, '') : item.lane.id,
-          label,
-          Number(item.totalLaneSignal.toFixed(1)),
-          Number(item.totalBandsSignal.toFixed(1)),
-          Number(item.loadingRatio.toFixed(3)),
-          Number(item.loadingDeviationPct.toFixed(2)),
-          Number(item.normFactor.toFixed(3)),
-          isRef ? 'YES' : 'NO',
-        ];
-      }),
-    ];
-    downloadText(toCsv(rows), `${imageName.replace(/\.[^/.]+$/, '')}_lane_loading_comparison.csv`, 'text/csv;charset=utf-8');
+  function handleExportGroupCsv() {
+    downloadText(toCsv(groupSummaryRows(groups.groupSummaries, groups.groupControlCondition)), `${base()}_condition_summary.csv`, 'text/csv;charset=utf-8');
   }
+  function handleExportCalibrationCsv() {
+    const ladder = allLanesAnalysis.find(a => a.lane.id === analysis.effectiveLadderLaneId);
+    const ladderRows = (ladder?.metrics ?? []).filter(m => m.ladderAssigned !== null && m.sizeEst !== null)
+      .map(m => ({ y: m.peakY ?? 0, assigned: m.ladderAssigned!, fitted: m.sizeEst!, residualPct: m.sizeResidualPct ?? 0 }));
+    downloadText(toCsv(calibrationRows({ calibration, ladderRows, mass: massCalibration, sizeUnit: sizeUnit() })), `${base()}_calibration.csv`, 'text/csv;charset=utf-8');
+  }
+  function currentMethodsText() {
+    return methodsText({ source: core.sourceInfo, transforms: core.appliedTransforms, deskewAngle: core.deskewAngle, laneWidths: lanes.map(l => l.width),
+      bgMethod: s.bgMethod, radius: s.rollingRadius, prominence: s.prominence, calibModel: s.calibMethod, calibR2: calibration?.r2 ?? null,
+      massModel: massCalibration?.model ?? null, massR2: massCalibration?.r2 ?? null, norm: s.groupNorm, welch: s.groupWelch, version: __APP_VERSION__ });
+  }
+  function handleExportMethods() { downloadText(currentMethodsText(), `${base()}_methods.txt`); }
+  async function handleCopyMethods() { await navigator.clipboard?.writeText(currentMethodsText()); }
 
   return {
     handleExportAnnotatedGel,
@@ -189,8 +155,11 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
     resolvedBands,
     handleExportSvg,
     handlePrintGel,
-    handleExportCsv,
-    handleExportLoadingCsv,
+    handleExportTidyCsv,
+    handleExportGroupCsv,
+    handleExportCalibrationCsv,
+    handleExportMethods,
+    handleCopyMethods,
   };
 }
 

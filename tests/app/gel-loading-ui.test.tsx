@@ -32,10 +32,8 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
     // Verify TPN factor column is rendered
     expect(screen.getAllByText(/TPN Factor/i).length).toBeGreaterThan(0);
 
-    // Export Loading CSV button exists
-    const exportLoadingBtn = screen.getByRole('button', { name: /Export Loading CSV/i });
-    expect(exportLoadingBtn).toBeTruthy();
-    fireEvent.click(exportLoadingBtn);
+    // Tidy bands CSV export is available from the Quant tab
+    expect(screen.getAllByRole('button', { name: /Bands CSV \(tidy\)/i }).length).toBeGreaterThan(0);
   });
 
   it('supports toggling between Unified Table and Strips & Tables cards view', async () => {

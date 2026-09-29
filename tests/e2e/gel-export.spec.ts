@@ -27,3 +27,24 @@ test('gel SVG export downloads a vector file with embedded image and annotations
   expect(svg).toContain('Bio-Bench');
   expect(errors).toEqual([]);
 });
+
+test('gel tidy bands CSV and condition summary CSV download with the new headers', async ({ page }) => {
+  await page.goto('/#/t/gel');
+  await page.getByRole('button', { name: /Export Annotated Gel/ }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /Load Demo Gel/ }).click();
+  await page.getByRole('button', { name: /Band Quantification & Amounts/ }).click();
+  const fs = await import('node:fs');
+
+  const [tidy] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /Bands CSV \(tidy\)/ }).first().click(),
+  ]);
+  expect(tidy.suggestedFilename()).toMatch(/_bands_tidy\.csv$/);
+  expect(fs.readFileSync((await tidy.path())!, 'utf8').split('\n')[0]).toContain('Lane_Normalized_Value');
+
+  const [summary] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /Condition summary CSV/ }).first().click(),
+  ]);
+  expect(summary.suggestedFilename()).toMatch(/_condition_summary\.csv$/);
+});

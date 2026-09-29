@@ -26,8 +26,8 @@ export function useGelWorkspace({ projectId }: ToolProps) {
   const lanes = useGelLanes(core, analysis);
   const bands = useGelBands(core, analysis);
   const canvas = useGelCanvas(core, ladders, analysis, bands);
-  const exports = useGelExports(core, ladders, analysis);
   const groups = useGelGroups(core, ladders, analysis, core.deskewAngle);
+  const exports = useGelExports(core, ladders, analysis, groups);
   return { ...core, ...ladders, ...analysis, ...project, ...image, ...lanes, ...bands, ...canvas, ...exports, ...groups };
 }
 

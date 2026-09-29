@@ -24,7 +24,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
     handleDeleteSelectedLane,
     handleEqualLanes,
     handleExportAnnotatedGel,
-    handleExportCsv,
+    handleExportTidyCsv,
     handleExportSvg,
     handleGridFromPlaced,
     handlePrintGel,
@@ -347,10 +347,10 @@ export default function GelView({ projectId }: ToolProps = {}) {
               </label>
               <button
                 type="button"
-                onClick={handleExportCsv}
+                onClick={handleExportTidyCsv}
                 class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 transition text-center"
               >
-                Export All Lanes CSV
+                Bands CSV (tidy)
               </button>
             </div>
           </div>

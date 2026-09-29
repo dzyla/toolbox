@@ -12,8 +12,11 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
     allLanesAnalysis,
     effectiveLadderLaneId,
     getLaneStripDataUrl,
-    handleExportCsv,
-    handleExportLoadingCsv,
+    handleCopyMethods,
+    handleExportCalibrationCsv,
+    handleExportGroupCsv,
+    handleExportMethods,
+    handleExportTidyCsv,
     laneAnalysis,
     laneLabels,
     lanes,
@@ -148,22 +151,40 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
               <span>Omit L1/L2 prefix</span>
             </label>
 
-            {s.quantSubView === 'loading' && (
-              <button
-                type="button"
-                onClick={handleExportLoadingCsv}
-                class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition"
-              >
-                Export Loading CSV
-              </button>
-            )}
-
             <button
               type="button"
-              onClick={handleExportCsv}
+              onClick={handleExportTidyCsv}
               class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              Export All Lanes CSV
+              Bands CSV (tidy)
+            </button>
+            <button
+              type="button"
+              onClick={handleExportGroupCsv}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Condition summary CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCalibrationCsv}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Calibration CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleExportMethods}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Methods text
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyMethods}
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Copy methods
             </button>
           </div>
         </div>

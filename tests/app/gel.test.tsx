@@ -46,7 +46,7 @@ describe('Gel and Blot analysis tool view', () => {
     const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/ });
     fireEvent.click(quantTab);
     expect(screen.getByText(/Net Intensity \(Amount\)/)).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /Export All Lanes CSV/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Bands CSV \(tidy\)/ }).length).toBeGreaterThan(0);
   });
 
   it('selects lane and adds/removes bands when canvas is clicked', async () => {
