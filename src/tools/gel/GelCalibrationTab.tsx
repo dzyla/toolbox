@@ -2,6 +2,11 @@ import { formatSize, formatMass, MASS_STANDARD_PRESETS, type MassCalibrationMode
 import { LADDERS } from './workspace';
 import type { GelWorkspace } from './workspace';
 
+/** A limit of exactly 0 (perfect fit) is a real value, not "not computable". */
+function fmtLimit(v: number, unit: string): string {
+  return v === 0 ? `0 ${unit}` : formatMass(v, unit);
+}
+
 /** Calibration tab: molecular-weight and mass-densitometry standard curves. */
 export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
   const {
@@ -73,18 +78,23 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
               <span class="font-medium text-slate-500 dark:text-slate-400">
                 R²: <strong class="text-emerald-700 dark:text-emerald-400">{massCalibration.r2.toFixed(4)}</strong>
               </span>
-              <span class="text-xs text-slate-600 dark:text-slate-400">
-                Standard range {formatMass(massCalibration.range.minMass, massCalibration.unit)}–{formatMass(massCalibration.range.maxMass, massCalibration.unit)}
-                {' · '}LOD {massCalibration.lod === null ? '–' : formatMass(massCalibration.lod, massCalibration.unit)}
-                {' · '}LOQ {massCalibration.loq === null ? '– (needs ≥ 3 standards)' : formatMass(massCalibration.loq, massCalibration.unit)}
-              </span>
-              {unassignedStandardBands > 0 && (
-                <span class="text-xs text-amber-700 dark:text-amber-400">{unassignedStandardBands} band(s) have no known mass and are excluded; enter masses in the table.</span>
-              )}
             </div>
           )}
         </div>
       </div>
+
+      {s.calibSubTab === 'mass' && massCalibration && (
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
+          <span class="text-xs text-slate-600 dark:text-slate-400">
+            Standard range {formatMass(massCalibration.range.minMass, massCalibration.unit)}–{formatMass(massCalibration.range.maxMass, massCalibration.unit)}
+            {' · '}LOD {massCalibration.lod === null ? '–' : fmtLimit(massCalibration.lod, massCalibration.unit)}
+            {' · '}LOQ {massCalibration.loq === null ? '– (needs ≥ 3 standards)' : fmtLimit(massCalibration.loq, massCalibration.unit)}
+          </span>
+          {unassignedStandardBands > 0 && (
+            <span class="text-xs text-amber-700 dark:text-amber-400">{unassignedStandardBands} band(s) have no known mass and are excluded; enter masses in the table.</span>
+          )}
+        </div>
+      )}
 
       {s.calibSubTab === 'mw' ? (
         <div class="space-y-4">
@@ -410,11 +420,14 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
                           if (sx > 570 || sy < 20 || sy > 270) return null;
                           return (
                             <g key={m.bandId}>
+                              {m.massFlags && (m.massFlags.extrapolated || m.massFlags.belowLoq) && (
+                                <title>{[m.massFlags.extrapolated ? 'Extrapolated: outside the standard curve signal range' : '', m.massFlags.belowLoq ? 'Below the limit of quantitation' : ''].filter(Boolean).join('; ')}</title>
+                              )}
                               <polygon
                                 points={`${sx},${sy - 5} ${sx + 5},${sy} ${sx},${sy + 5} ${sx - 5},${sy}`}
-                                fill="#3b82f6"
-                                stroke="#ffffff"
-                                stroke-width="1.2"
+                                fill={m.massFlags && (m.massFlags.extrapolated || m.massFlags.belowLoq) ? 'none' : '#3b82f6'}
+                                stroke={m.massFlags && (m.massFlags.extrapolated || m.massFlags.belowLoq) ? '#d97706' : '#ffffff'}
+                                stroke-width={m.massFlags && (m.massFlags.extrapolated || m.massFlags.belowLoq) ? 2 : 1.2}
                               />
                             </g>
                           );

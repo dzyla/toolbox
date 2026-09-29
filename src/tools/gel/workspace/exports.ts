@@ -1,5 +1,6 @@
 import { downloadText, downloadBlob, toCsv } from '@/lib/export';
 import { formatSize, formatMass } from '@/core/gel/calibration';
+import { massFlagSuffix } from '../analysis';
 import { applyDisplayTransform, buildGelSvg, type BandAnnotation } from '@/core/gel/svg-export';
 import { isSaturated } from '@/core/gel/quant';
 import type { GelCore, GelLadders, GelAnalysis } from '../workspace';
@@ -82,7 +83,7 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
           laneId: item.lane.id,
           y: (item.lane.y0 ?? 0) + m.peakY,
           sizeText: showMwLabels && calibration && m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : null,
-          massText: s.showMassLabels && massCalibration && m.massEst !== null ? formatMass(m.massEst, massCalibration.unit) : null,
+          massText: s.showMassLabels && massCalibration && m.massEst !== null ? formatMass(m.massEst, massCalibration.unit) + massFlagSuffix(m.massFlags) : null,
         });
       }
     }

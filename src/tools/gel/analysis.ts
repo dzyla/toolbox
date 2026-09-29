@@ -307,3 +307,9 @@ export function findTargetBandInLane(
 
   return bestMatch;
 }
+
+/** Label suffix marking a mass that is extrapolated (" *") and/or below the limit of quantitation (" <LOQ"). */
+export function massFlagSuffix(flags: MassFlags | null | undefined): string {
+  if (!flags) return '';
+  return (flags.extrapolated ? ' *' : '') + (flags.belowLoq ? ' <LOQ' : '');
+}

@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { formatSize, formatMass } from '@/core/gel/calibration';
 import { type Lane } from '@/core/gel/types';
+import { massFlagSuffix } from '../analysis';
 import type { GelCore, GelLadders, GelAnalysis, GelBands } from '../workspace';
 
 /** Canvas drawing and pointer interaction (lanes, bands, crop). */
@@ -149,7 +150,7 @@ export function useGelCanvas(core: GelCore, ladders: GelLadders, analysis: GelAn
           if (s.showMassLabels && massCalibration) {
             const ms = band.massEst;
             if (ms !== null) {
-              const text = formatMass(ms, massCalibration.unit);
+              const text = formatMass(ms, massCalibration.unit) + massFlagSuffix(band.massFlags);
               ctx.font = 'bold 9px sans-serif';
               ctx.fillStyle = 'rgba(5, 150, 105, 0.85)';
               const txtW = ctx.measureText(text).width;
