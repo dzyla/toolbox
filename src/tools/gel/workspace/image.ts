@@ -9,7 +9,7 @@ import type { GelCore, GelAnalysis, GelProject } from '../workspace';
 
 /** Image loading (demo, upload) and orientation/crop transforms. */
 export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: GelProject) {
-  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
+  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setLadderSizeMap, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
   const { cropSuggestion } = analysis;
   const { project } = projectApi;
 
@@ -28,6 +28,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setImageName('demo_gel.png');
     setSourceInfo({ format: 'demo', bitDepth: 32, lossy: false, rescaled: false });
     setAppliedTransforms([]);
+    setLadderSizeMap({});
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
@@ -57,6 +58,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
       setImageName(file.name);
       setSourceInfo(sourceInfoOf(decoded));
       setAppliedTransforms([]);
+      setLadderSizeMap({});
       setDeskewAngle(0);
       setIsCropping(false);
       setCropBox(null);

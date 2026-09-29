@@ -75,6 +75,8 @@ export function useGelCore() {
 
   // Densitometric Mass Calibration
   const [customMassMap, setCustomMassMap] = useState<Record<string, number>>({});
+  // Manual ladder overrides: a number pins that band's size, null excludes the band from calibration.
+  const [ladderSizeMap, setLadderSizeMap] = useState<Record<string, number | null>>({});
 
   // Where the pixels came from and what was done to them (data-quality panel, methods text).
   const [sourceInfo, setSourceInfo] = useState<SourceInfo | null>(null);
@@ -140,6 +142,8 @@ export function useGelCore() {
     fileInputRef,
     customMassMap,
     setCustomMassMap,
+    ladderSizeMap,
+    setLadderSizeMap,
   };
 }
 

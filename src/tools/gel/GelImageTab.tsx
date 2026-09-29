@@ -8,6 +8,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
     canvasCursor,
     canvasRef,
     canvasZoom,
+    effectiveLadderLaneId,
     gelLayout,
     handleMouseDown,
     handleMouseMove,
@@ -15,6 +16,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
     handleProfileSvgClick,
     laneAnalysis,
     laneStripDataUrl,
+    ladderSizeMap,
     plane,
     removePeakFromLane,
     s,
@@ -24,6 +26,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
     setBandMap,
     setCanvasZoom,
     setGelLayout,
+    setLadderSizeMap,
     setShowLaneHeaders,
     setShowMwLabels,
     showLaneHeaders,
@@ -389,20 +392,11 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                       {(() => {
-                        const isLadderLane = selectedLane?.id === s.ladderLaneId;
-                        const sortedLadderSizes = [...activeLadder.sizes].sort((a, b) => b - a);
-                        const sortedLaneMetrics = isLadderLane
-                          ? [...laneAnalysis.metrics].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0))
-                          : [];
+                        const isLadderLane = selectedLane?.id === effectiveLadderLaneId;
                         return laneAnalysis.metrics.map(m => {
                           const isRef = m.bandId === s.refBandId;
                           const peakIdx = Math.min(laneAnalysis.profile.length - 1, Math.round(m.peakY ?? 0));
                           const peakVal = laneAnalysis.profile[peakIdx] ?? 0;
-                          const ladderBandIdx = isLadderLane ? sortedLaneMetrics.findIndex(p => p.bandId === m.bandId) : -1;
-                          const nominalStdSize =
-                            isLadderLane && ladderBandIdx >= 0 && ladderBandIdx < sortedLadderSizes.length
-                              ? sortedLadderSizes[ladderBandIdx]
-                              : null;
                           return (
                             <tr
                               key={m.bandId}
@@ -419,14 +413,29 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                 {m.peakY !== undefined ? `${m.peakY.toFixed(1)} px` : '-'}
                               </td>
                               <td class="px-3 py-2">
-                                {nominalStdSize != null ? (
+                                {isLadderLane ? (
                                   <div class="flex items-center gap-1.5">
-                                    <span class="font-bold text-accent-600 dark:text-accent-400">
-                                      {formatSize(nominalStdSize, activeLadder.kind)}
-                                    </span>
-                                    <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                      Std Ladder
-                                    </span>
+                                    <label class="sr-only" for={`ladder-size-${m.bandId}`}>Assigned ladder size</label>
+                                    <select
+                                      id={`ladder-size-${m.bandId}`}
+                                      class="rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] px-1 py-0.5"
+                                      value={ladderSizeMap[m.bandId] === null ? 'exclude' : String(m.ladderAssigned ?? '')}
+                                      onChange={e => {
+                                        const v = (e.target as HTMLSelectElement).value;
+                                        setLadderSizeMap(prev => { const n = { ...prev }; if (v === '') delete n[m.bandId]; else n[m.bandId] = v === 'exclude' ? null : Number(v); return n; });
+                                      }}
+                                    >
+                                      <option value="">Auto</option>
+                                      {[...activeLadder.sizes].sort((a, b) => b - a).map(sz => <option value={String(sz)}>{formatSize(sz, activeLadder.kind)}</option>)}
+                                      <option value="exclude">Exclude</option>
+                                    </select>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Assigned</span>
+                                    {m.sizeEst !== null && <span class="mono text-[11px]">fit {formatSize(m.sizeEst, activeLadder.kind)}</span>}
+                                    {m.sizeResidualPct !== null && (
+                                      <span class={`mono text-[10px] ${Math.abs(m.sizeResidualPct) > 5 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                        Δ {m.sizeResidualPct.toFixed(1)}%
+                                      </span>
+                                    )}
                                   </div>
                                 ) : m.sizeEst ? (
                                   <span class="font-bold text-accent-600 dark:text-accent-400">

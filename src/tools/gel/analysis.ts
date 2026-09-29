@@ -10,7 +10,7 @@ export interface LaneAnalysisItem {
   profile: Float32Array;
   baseline: Float32Array;
   netProfile: Float32Array;
-  metrics: (Omit<BandMetrics, 'saturation'> & { saturation: number | null; number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null })[];
+  metrics: (Omit<BandMetrics, 'saturation'> & { saturation: number | null; number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null; ladderAssigned: number | null; sizeResidualPct: number | null })[];
   totalNet: number;
   totalBandsSignal: number;
   totalLaneSignal: number;

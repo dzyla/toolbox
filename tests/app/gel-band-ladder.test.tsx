@@ -69,7 +69,8 @@ describe('gel ladder calibration + band interaction', () => {
         Array.from(s.options).some((o) => /^lane\d/.test(String(o.value))) &&
         !Array.from(s.options).some((o) => o.value === 'biorad-precision-plus'),
     )!;
-    const other = Array.from(laneSel.options).find((o) => o.value !== laneSel.value && o.value !== '')!;
+    // Lane 2 has only two bands, too few for the robust matcher; lane 3 has enough to calibrate.
+    const other = Array.from(laneSel.options).filter((o) => o.value !== '')[2]!;
     fireEvent.change(laneSel, { target: { value: other.value } });
     await new Promise((r) => setTimeout(r, 30));
     const after = calibLabels(doc);
@@ -193,13 +194,12 @@ describe('gel ladder calibration + band interaction', () => {
     expect(screen.queryByText(/⚖️ Loading Ref/)).toBeNull();
   });
 
-  it('detected peaks table displays Std Ladder badges when viewing ladder lane', () => {
+  it('detected peaks table offers an assigned-size selector on the ladder lane', () => {
     route.value = { name: 'tool', toolId: 'gel' };
     render(<GelView />);
 
-    // When viewing the ladder lane (Lane 1 by default), bands should have Std Ladder tags
-    const stdBadges = screen.getAllByText(/Std Ladder/);
-    expect(stdBadges.length).toBeGreaterThanOrEqual(2);
+    const selects = screen.getAllByLabelText('Assigned ladder size');
+    expect(selects.length).toBeGreaterThanOrEqual(2);
   });
 
   it('Tab 2 MW Calibration sub-tab exposes synchronized ladder controls', async () => {
@@ -246,5 +246,14 @@ describe('gel ladder calibration + band interaction', () => {
     expect(deleteBtn).toBeTruthy();
     fireEvent.click(deleteBtn);
     await new Promise((r) => setTimeout(r, 20));
+  });
+
+  it('ladder lane shows the fitted size and residual, not a nominal size by index', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+    // demo gel: lane 1 is the ladder lane and the Gel tab band table shows the selected (ladder) lane
+    expect(screen.queryByText('Std Ladder')).toBeNull();
+    expect(screen.getAllByText(/Assigned/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Δ\s*-?\d+(\.\d)?%/).length).toBeGreaterThan(0);
   });
 });

@@ -2,6 +2,7 @@ import { useMemo } from 'preact/hooks';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
 import { sharedCrossLaneBaseline, baselineFor, integrateLaneSignal } from '@/core/gel/background';
 import { quantifyBands } from '@/core/gel/quant';
+import { matchLadder, type LadderPeak } from '@/core/gel/ladder-match';
 import { fitCalibration, fitMassCalibration, MASS_STANDARD_PRESETS, type Calibration, type CalibrationPoint, type MassCalibration, type MassCalibrationPoint } from '@/core/gel/calibration';
 import { suggestGelCropAndTilt } from '@/core/gel/transform';
 import { type Lane } from '@/core/gel/types';
@@ -10,7 +11,7 @@ import type { GelCore, GelLadders } from '../workspace';
 
 /** Size and mass calibrations, the all-lanes densitometry analysis and derived selections. */
 export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
-  const { bandMap, customMassMap, lanes, plane, s, selectedLaneId } = core;
+  const { bandMap, customMassMap, ladderSizeMap, lanes, plane, s, selectedLaneId } = core;
   const { activeLadder } = ladders;
 
   // Effective ladder lane: robust fallback so calibration never breaks if ladderLaneId is unset
@@ -20,7 +21,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
   }, [s.ladderLaneId, lanes]);
 
   // Calibration from ladder lane
-  const calibration: Calibration | null = useMemo(() => {
+  const ladderFit = useMemo(() => {
     if (!plane || !effectiveLadderLaneId) return null;
     const ladderLane = lanes.find(l => l.id === effectiveLadderLaneId);
     if (!ladderLane) return null;
@@ -32,23 +33,33 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
       if (bands.length < 2) return null;
 
       const sortedBands = [...bands].sort((a, b) => (a.peakY ?? 0) - (b.peakY ?? 0));
-      const sortedSizes = [...activeLadder.sizes].sort((a, b) => b - a);
-
-      const pairs: CalibrationPoint[] = [];
-      for (let i = 0; i < Math.min(sortedBands.length, sortedSizes.length); i++) {
-        const b = sortedBands[i]!;
+      const pinned: CalibrationPoint[] = [];
+      const free: LadderPeak[] = [];
+      for (const b of sortedBands) {
         const y = b.peakY ?? (b.y0 + b.y1) / 2;
-        if (pairs.length === 0 || y > pairs[pairs.length - 1]!.y + 0.1) {
-          pairs.push({ y, size: sortedSizes[i]! });
-        }
+        const o = ladderSizeMap[b.id];
+        if (o === null) continue; // excluded by the user
+        if (typeof o === 'number') pinned.push({ y, size: o });
+        else free.push({ y, prominence: 1, id: b.id });
       }
-
+      const pinnedSizes = new Set(pinned.map(p => p.size));
+      const match = matchLadder(free, activeLadder.sizes.filter(sz => !pinnedSizes.has(sz)));
+      const pairs: CalibrationPoint[] = [...pinned, ...(match?.pairs ?? []).map(p => ({ y: p.y, size: p.size }))];
+      const assigned: Record<string, number> = {};
+      for (const b of sortedBands) {
+        const o = ladderSizeMap[b.id];
+        if (typeof o === 'number') assigned[b.id] = o;
+      }
+      for (const p of match?.pairs ?? []) if (p.id) assigned[p.id] = p.size;
       if (pairs.length < 2) return null;
-      return fitCalibration(pairs, s.calibMethod);
+      return { fit: fitCalibration(pairs, s.calibMethod), assigned, match };
     } catch {
       return null;
     }
-  }, [plane, lanes, effectiveLadderLaneId, bandMap, s.prominence, s.polarity, activeLadder, s.calibMethod]);
+  }, [plane, lanes, effectiveLadderLaneId, bandMap, s.prominence, s.polarity, activeLadder, s.calibMethod, ladderSizeMap]);
+
+  const calibration: Calibration | null = ladderFit?.fit ?? null;
+  const ladderMatch = ladderFit?.match ?? null;
 
   const massCalibration: MassCalibration | null = useMemo(() => {
     if (!plane || !s.massLaneId) return null;
@@ -145,17 +156,17 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
         const ladderLane = lanes.find(l => l.id === effectiveLadderLaneId);
         const ladderTop = ladderLane?.y0 ?? 0;
         const isLadderLane = lane.id === effectiveLadderLaneId;
-        const sortedLadderSizes = [...activeLadder.sizes].sort((a, b) => b - a);
 
         const enriched = metrics.map((m, i) => {
           const share = totalNet > 0 ? (Math.max(0, m.net) / totalNet) * 100 : 0;
           const ratio = refNet > 0 ? Math.max(0, m.net) / refNet : 1;
           const peakY = m.peakY ?? 0;
           const effMigrationY = (lane.y0 ?? 0) + peakY - ladderTop;
-          const nominalLadderSize = (isLadderLane && i < sortedLadderSizes.length) ? sortedLadderSizes[i]! : null;
-          const sizeEst = nominalLadderSize ?? (calibration ? calibration.sizeAt(effMigrationY) : null);
+          const sizeEst = calibration ? calibration.sizeAt(effMigrationY) : null;
+          const ladderAssigned = isLadderLane ? (ladderFit?.assigned[m.bandId] ?? null) : null;
+          const sizeResidualPct = ladderAssigned !== null && sizeEst !== null ? (sizeEst / ladderAssigned - 1) * 100 : null;
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
-          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst };
+          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, ladderAssigned, sizeResidualPct };
         });
 
         return {
@@ -205,7 +216,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
         normFactor,
       };
     });
-  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, massCalibration, effectiveLadderLaneId, activeLadder, core.sourceInfo]);
+  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, ladderFit, massCalibration, effectiveLadderLaneId, activeLadder, core.sourceInfo]);
 
   const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
   const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);
@@ -294,6 +305,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
   return {
     effectiveLadderLaneId,
     calibration,
+    ladderMatch,
     massCalibration,
     allLanesAnalysis,
     selectedLane,
