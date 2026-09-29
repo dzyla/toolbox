@@ -405,6 +405,10 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
             }
           />
 
+          {!allLanesAnalysis.some(a => a.metrics.some(m => m.bandId === s.refBandId)) && (
+            <p class="text-xs text-slate-500 dark:text-slate-400">Ratio column: pick a reference band (the "Set" button in the Gel tab band table).</p>
+          )}
+
           {quantLayoutMode === 'cards' ? (
             /* LANE CARDS WITH EXTRACTED GEL STRIPS CLOSE TO DATA TABLE */
             <div class="space-y-4">
@@ -576,7 +580,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                     {isBandRef ? (
                                       <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span>
                                     ) : (
-                                      m.ratio.toFixed(2)
+                                      m.ratio === null ? '–' : m.ratio.toFixed(2)
                                     )}
                                   </td>
                                   <td class="px-2.5 py-2 text-center">
@@ -669,7 +673,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                           <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}</td>
                           <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
                           <td class="py-2.5 mono text-right">
-                            {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
+                            {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio === null ? '–' : m.ratio.toFixed(2)}
                           </td>
                           <td class="py-2.5 text-center">
                             {m.saturation === null ? (

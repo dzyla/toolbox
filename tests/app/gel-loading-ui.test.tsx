@@ -152,4 +152,11 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
     expect(resetDisplayBtn).toBeTruthy();
     fireEvent.click(resetDisplayBtn);
   });
+
+  it('shows no ratio until a reference band is chosen', () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+    fireEvent.click(screen.getByRole('button', { name: /Band Quantification & Amounts/i }));
+    expect(screen.getAllByText(/pick a reference band/i).length).toBeGreaterThan(0);
+  });
 });

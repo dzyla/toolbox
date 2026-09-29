@@ -156,7 +156,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
         const totalBandsSignal = totalNet;
 
         const refBand = metrics.find(m => m.bandId === s.refBandId);
-        const refNet = refBand && refBand.net > 0 ? refBand.net : (metrics[0]?.net ?? 1);
+        const refNet = refBand && refBand.net > 0 ? refBand.net : null;
 
         const ladderLane = lanes.find(l => l.id === effectiveLadderLaneId);
         const ladderTop = ladderLane?.y0 ?? 0;
@@ -164,7 +164,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
 
         const enriched = metrics.map((m, i) => {
           const share = totalNet > 0 ? (Math.max(0, m.net) / totalNet) * 100 : 0;
-          const ratio = refNet > 0 ? Math.max(0, m.net) / refNet : 1;
+          const ratio = refNet === null ? null : Math.max(0, m.net) / refNet;
           const peakY = m.peakY ?? 0;
           const effMigrationY = (lane.y0 ?? 0) + peakY - ladderTop;
           const sizeEst = calibration ? calibration.sizeAt(effMigrationY) : null;
