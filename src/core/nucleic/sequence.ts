@@ -185,11 +185,13 @@ export interface Site {
   overhang: Overhang; overhangLength: number;
 }
 function siteRegex(site: string): RegExp {
-  return new RegExp([...site.toUpperCase()].map(c => { const s = IUPAC[c]; if (!s) throw new NucleicError(`Bad site "${site}"`); return s.length === 1 ? s : `[${s}]`; }).join(''));
+  return new RegExp([...site.toUpperCase()].map(c => { const s = IUPAC[c]; if (!s) throw new NucleicError(`Bad site "${site}"`); return s.length === 1 ? s : `[${s}]`; }).join(''), 'g');
 }
+/** Start positions of every (possibly overlapping) match. */
 function scan(s: string, re: RegExp): number[] {
   const out: number[] = [];
-  for (let i = 0; i < s.length; i++) { const m = re.exec(s.slice(i)); if (!m) break; out.push(i + m.index); i += m.index; }
+  re.lastIndex = 0;
+  for (let m = re.exec(s); m; m = re.exec(s)) { out.push(m.index); re.lastIndex = m.index + 1; }
   return out;
 }
 /** All recognition sites for the given enzymes on both strands. Circular sequences wrap around the origin. */

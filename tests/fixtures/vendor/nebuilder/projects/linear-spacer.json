@@ -1,0 +1,45 @@
+{
+ "prefs": {
+  "minOverlapLength": 15,
+  "disallowLinearAssemblies": false,
+  "primerMinLen": 18,
+  "primerCt": 500,
+  "primerMaxTmDiff": 5,
+  "pcrPol": {
+   "name": "Q5 High-Fidelity DNA Polymerase",
+   "id": "q5-0",
+   "buffer": "q5",
+   "group": "Q5",
+   "catnum": "M0491"
+  },
+  "polGroup": "Q5",
+  "primerMethod": 4,
+  "kit": {
+   "cat": "E5520",
+   "name": "NEBuilder HiFi DNA Assembly Cloning Kit"
+  }
+ },
+ "fragments": [
+  {
+   "name": "left",
+   "topology": "linear",
+   "type": "pcr",
+   "seq": "GGTACCGAGCTCGAATTCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGGCGTTACCCAACTTAATCGCCTTGCAGCACATCCCCCTTTCGCCAGCTGGCGTAATAGCGAAGAGGCCCGCACCGATCGCCCTTCCCAACAGTTGCGCAGCCTGAATGGCGAATGGCGCTTTGCCTGGTTTCCGGCACCAGAAGCGGTGCCGGAAAGCTGGCTGGAGTGCGATCTTCCTGAGGCCGATACTGTCGTCGTCCCCTCAAACTGGCAGATGCACGGT"
+  },
+  {
+   "name": "right",
+   "topology": "linear",
+   "type": "pcr",
+   "seq": "ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAG"
+  }
+ ],
+ "junctions": [
+  {
+   "upstreamFrag": 1,
+   "downstreamFrag": 2,
+   "customspacer": "GGATCC",
+   "overlapMode": "downstream"
+  }
+ ],
+ "name": "nb-linear-spacer-downstream"
+}

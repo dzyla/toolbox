@@ -1,414 +1,56 @@
 {
- "_source": "REBASE, Roberts RJ, Vincze T, Posfai J, Macelis D (2023) Nucleic Acids Res 51:D629, http://rebase.neb.com ; site and cut positions extracted from Bio.Restriction (Biopython 1.88, emboss_e REBASE release)",
- "_note": "site: recognition sequence on the top strand 5'->3' (IUPAC). cut: [top, bottom] = number of nucleotides from the site start to the cut on the top strand and (in top-strand coordinates) on the bottom strand. bottom-top > 0: 5' overhang; < 0: 3' overhang; 0: blunt. Type IIS enzymes cut outside the site (offsets > site length).",
+ "_source": "REBASE, Roberts RJ, Vincze T, Posfai J, Macelis D (2023) Nucleic Acids Res 51:D629, http://rebase.neb.com ; commercially available enzymes extracted from Bio.Restriction (Biopython 1.84) by scripts/data/build-restriction-enzymes.py",
+ "_note": "site: recognition sequence on the top strand 5'->3' (IUPAC). cut: [top, bottom] = number of nucleotides from the site start to the cut on the top strand and (in top-strand coordinates) on the bottom strand. bottom-top > 0: 5' overhang; < 0: 3' overhang; 0: blunt. Type IIS enzymes cut outside the site. suppliers: REBASE supplier codes (see _suppliers). optTempC / inactTempC: REBASE incubation and heat-inactivation temperatures when recorded. Enzymes cutting on both sides of their site are omitted.",
+ "_suppliers": {
+  "B": "Thermo Fisher Scientific",
+  "C": "Minotech Biotechnology",
+  "E": "Agilent Technologies",
+  "I": "SibEnzyme Ltd.",
+  "J": "Nippon Gene Co., Ltd.",
+  "K": "Takara Bio Inc.",
+  "M": "Roche Applied Science",
+  "N": "New England Biolabs",
+  "O": "Toyobo Biochemicals",
+  "Q": "Molecular Biology Resources - CHIMERx",
+  "R": "Promega Corporation",
+  "S": "Sigma Chemical Corporation",
+  "V": "Vivantis Technologies",
+  "X": "EURx Ltd.",
+  "Y": "SinaClon BioScience Co."
+ },
  "enzymes": [
   {
-   "name": "EcoRI",
-   "site": "GAATTC",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "BamHI",
-   "site": "GGATCC",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "HindIII",
-   "site": "AAGCTT",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "NdeI",
-   "site": "CATATG",
-   "cut": [
-    2,
-    4
-   ]
-  },
-  {
-   "name": "XhoI",
-   "site": "CTCGAG",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "NcoI",
-   "site": "CCATGG",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "NotI",
-   "site": "GCGGCCGC",
-   "cut": [
-    2,
-    6
-   ]
-  },
-  {
-   "name": "XbaI",
-   "site": "TCTAGA",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "SalI",
-   "site": "GTCGAC",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "KpnI",
-   "site": "GGTACC",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "SacI",
-   "site": "GAGCTC",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "PstI",
-   "site": "CTGCAG",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "SmaI",
-   "site": "CCCGGG",
+   "name": "AanI",
+   "site": "TTATAA",
    "cut": [
     3,
     3
-   ]
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
-   "name": "XmaI",
-   "site": "CCCGGG",
+   "name": "AarI",
+   "site": "CACCTGC",
    "cut": [
-    1,
-    5
-   ]
+    11,
+    15
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
-   "name": "EcoRV",
-   "site": "GATATC",
-   "cut": [
-    3,
-    3
-   ]
-  },
-  {
-   "name": "BglII",
-   "site": "AGATCT",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "SpeI",
-   "site": "ACTAGT",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "NheI",
-   "site": "GCTAGC",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "BsaI",
-   "site": "GGTCTC",
+   "name": "AasI",
+   "site": "GACNNNNNNGTC",
    "cut": [
     7,
-    11
-   ]
-  },
-  {
-   "name": "BbsI",
-   "site": "GAAGAC",
-   "cut": [
-    8,
-    12
-   ]
-  },
-  {
-   "name": "BsmBI",
-   "site": "CGTCTC",
-   "cut": [
-    7,
-    11
-   ]
-  },
-  {
-   "name": "SapI",
-   "site": "GCTCTTC",
-   "cut": [
-    8,
-    11
-   ]
-  },
-  {
-   "name": "ClaI",
-   "site": "ATCGAT",
-   "cut": [
-    2,
-    4
-   ]
-  },
-  {
-   "name": "ApaI",
-   "site": "GGGCCC",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "SphI",
-   "site": "GCATGC",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "AgeI",
-   "site": "ACCGGT",
-   "cut": [
-    1,
     5
-   ]
-  },
-  {
-   "name": "MluI",
-   "site": "ACGCGT",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "NsiI",
-   "site": "ATGCAT",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "PvuII",
-   "site": "CAGCTG",
-   "cut": [
-    3,
-    3
-   ]
-  },
-  {
-   "name": "ScaI",
-   "site": "AGTACT",
-   "cut": [
-    3,
-    3
-   ]
-  },
-  {
-   "name": "StuI",
-   "site": "AGGCCT",
-   "cut": [
-    3,
-    3
-   ]
-  },
-  {
-   "name": "HpaI",
-   "site": "GTTAAC",
-   "cut": [
-    3,
-    3
-   ]
-  },
-  {
-   "name": "BstBI",
-   "site": "TTCGAA",
-   "cut": [
-    2,
-    4
-   ]
-  },
-  {
-   "name": "AflII",
-   "site": "CTTAAG",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "AvrII",
-   "site": "CCTAGG",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "AscI",
-   "site": "GGCGCGCC",
-   "cut": [
-    2,
-    6
-   ]
-  },
-  {
-   "name": "PacI",
-   "site": "TTAATTAA",
-   "cut": [
-    5,
-    3
-   ]
-  },
-  {
-   "name": "PmeI",
-   "site": "GTTTAAAC",
-   "cut": [
-    4,
-    4
-   ]
-  },
-  {
-   "name": "SbfI",
-   "site": "CCTGCAGG",
-   "cut": [
-    6,
-    2
-   ]
-  },
-  {
-   "name": "SwaI",
-   "site": "ATTTAAAT",
-   "cut": [
-    4,
-    4
-   ]
-  },
-  {
-   "name": "FseI",
-   "site": "GGCCGGCC",
-   "cut": [
-    6,
-    2
-   ]
-  },
-  {
-   "name": "SfiI",
-   "site": "GGCCNNNNNGGCC",
-   "cut": [
-    8,
-    5
-   ]
-  },
-  {
-   "name": "BspHI",
-   "site": "TCATGA",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "DpnI",
-   "site": "GATC",
-   "cut": [
-    2,
-    2
-   ]
-  },
-  {
-   "name": "MboI",
-   "site": "GATC",
-   "cut": [
-    0,
-    4
-   ]
-  },
-  {
-   "name": "HaeIII",
-   "site": "GGCC",
-   "cut": [
-    2,
-    2
-   ]
-  },
-  {
-   "name": "AluI",
-   "site": "AGCT",
-   "cut": [
-    2,
-    2
-   ]
-  },
-  {
-   "name": "TaqI",
-   "site": "TCGA",
-   "cut": [
-    1,
-    3
-   ]
-  },
-  {
-   "name": "MseI",
-   "site": "TTAA",
-   "cut": [
-    1,
-    3
-   ]
-  },
-  {
-   "name": "EcoRII",
-   "site": "CCWGG",
-   "cut": [
-    0,
-    5
-   ]
-  },
-  {
-   "name": "BsrGI",
-   "site": "TGTACA",
-   "cut": [
-    1,
-    5
-   ]
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
    "name": "AatII",
@@ -416,63 +58,98 @@
    "cut": [
     5,
     1
-   ]
+   ],
+   "suppliers": "BIKMNV",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
-   "name": "BsiWI",
-   "site": "CGTACG",
+   "name": "AbaSI",
+   "site": "C",
    "cut": [
-    1,
-    5
-   ]
+    12,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
-   "name": "NruI",
-   "site": "TCGCGA",
+   "name": "AbsI",
+   "site": "CCTCGAGG",
    "cut": [
-    3,
-    3
-   ]
-  },
-  {
-   "name": "XmnI",
-   "site": "GAANNNNTTC",
-   "cut": [
-    5,
-    5
-   ]
-  },
-  {
-   "name": "BstEII",
-   "site": "GGTNACC",
-   "cut": [
-    1,
+    2,
     6
-   ]
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
-   "name": "PciI",
-   "site": "ACATGT",
-   "cut": [
-    1,
-    5
-   ]
-  },
-  {
-   "name": "NspI",
-   "site": "RCATGY",
-   "cut": [
-    5,
-    1
-   ]
-  },
-  {
-   "name": "HincII",
-   "site": "GTYRAC",
+   "name": "Acc16I",
+   "site": "TGCGCA",
    "cut": [
     3,
     3
-   ]
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Acc36I",
+   "site": "ACCTGC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Acc65I",
+   "site": "GGTACC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BINV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AccB1I",
+   "site": "GGYRCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AccB7I",
+   "site": "CCANNNNNTGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AccBSI",
+   "site": "CCGCTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
   },
   {
    "name": "AccI",
@@ -480,7 +157,6599 @@
    "cut": [
     2,
     4
-   ]
+   ],
+   "suppliers": "BJKMNQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AccII",
+   "site": "CGCG",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "JK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AccIII",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "JK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AciI",
+   "site": "CCGC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AclI",
+   "site": "AACGTT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AclWI",
+   "site": "GGATC",
+   "cut": [
+    9,
+    10
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AcoI",
+   "site": "YGGCCR",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AcsI",
+   "site": "RAATTY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AcuI",
+   "site": "CTGAAG",
+   "cut": [
+    22,
+    20
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AcvI",
+   "site": "CACGTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AcyI",
+   "site": "GRCGYC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "J",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AdeI",
+   "site": "CACNNNGTG",
+   "cut": [
+    6,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AfaI",
+   "site": "GTAC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AfeI",
+   "site": "AGCGCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AfiI",
+   "site": "CCNNNNNNNGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AflII",
+   "site": "CTTAAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "JKN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AflIII",
+   "site": "ACRYGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "MNS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AgeI",
+   "site": "ACCGGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "JNR",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AgsI",
+   "site": "TTSAA",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AhdI",
+   "site": "GACNNNNNGTC",
+   "cut": [
+    6,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AhlI",
+   "site": "ACTAGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AjiI",
+   "site": "CACGTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AjnI",
+   "site": "CCWGG",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AleI",
+   "site": "CACNNNNGTG",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AluBI",
+   "site": "AGCT",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AluI",
+   "site": "AGCT",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "BCIJKMNOQRSVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Alw21I",
+   "site": "GWGCWC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Alw26I",
+   "site": "GTCTC",
+   "cut": [
+    6,
+    10
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Alw44I",
+   "site": "GTGCAC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BJ",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AlwI",
+   "site": "GGATC",
+   "cut": [
+    9,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AlwNI",
+   "site": "CAGNNNCTG",
+   "cut": [
+    6,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Ama87I",
+   "site": "CYCGRG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Aor13HI",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Aor51HI",
+   "site": "AGCGCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AoxI",
+   "site": "GGCC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ApaI",
+   "site": "GGGCCC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "BIJKMNQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ApaLI",
+   "site": "GTGCAC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "CKN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ApeKI",
+   "site": "GCWGC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ApoI",
+   "site": "RAATTY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AscI",
+   "site": "GGCGCGCC",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AseI",
+   "site": "ATTAAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "JN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AsiGI",
+   "site": "ACCGGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AsiSI",
+   "site": "GCGATCGC",
+   "cut": [
+    5,
+    3
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Asp700I",
+   "site": "GAANNNNTTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "M",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Asp718I",
+   "site": "GGTACC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "MS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AspA2I",
+   "site": "CCTAGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AspLEI",
+   "site": "GCGC",
+   "cut": [
+    3,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AspS9I",
+   "site": "GGNCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AsuC2I",
+   "site": "CCSGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AsuHPI",
+   "site": "GGTGA",
+   "cut": [
+    13,
+    12
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AsuII",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AsuNHI",
+   "site": "GCTAGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AvaI",
+   "site": "CYCGRG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "JNQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AvaII",
+   "site": "GGWCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "JNX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AvrII",
+   "site": "CCTAGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "AxyI",
+   "site": "CCTNAGG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "J",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BaeGI",
+   "site": "GKGCMC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BalI",
+   "site": "TGGCCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BJKQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BamHI",
+   "site": "GGATCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCIJKMNOQRSVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BanI",
+   "site": "GGYRCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BanII",
+   "site": "GRGCYC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "KNX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BauI",
+   "site": "CACGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BbrPI",
+   "site": "CACGTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "M",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BbsI",
+   "site": "GAAGAC",
+   "cut": [
+    8,
+    12
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bbv12I",
+   "site": "GWGCWC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BbvCI",
+   "site": "CCTCAGC",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BbvI",
+   "site": "GCAGC",
+   "cut": [
+    13,
+    17
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BccI",
+   "site": "CCATC",
+   "cut": [
+    9,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BceAI",
+   "site": "ACGGC",
+   "cut": [
+    17,
+    19
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BciT130I",
+   "site": "CCWGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BciVI",
+   "site": "GTATCC",
+   "cut": [
+    12,
+    11
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BclI",
+   "site": "TGATCA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCJMNORS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BcnI",
+   "site": "CCSGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BcoDI",
+   "site": "GTCTC",
+   "cut": [
+    6,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BcuI",
+   "site": "ACTAGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BfaI",
+   "site": "CTAG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BfmI",
+   "site": "CTRYAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BfoI",
+   "site": "RGCGCY",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BfrI",
+   "site": "CTTAAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "MS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BfuAI",
+   "site": "ACCTGC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BfuI",
+   "site": "GTATCC",
+   "cut": [
+    12,
+    11
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BglI",
+   "site": "GCCNNNNNGGC",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "BCIJKNOQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BglII",
+   "site": "AGATCT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCIJKMNOQRSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BisI",
+   "site": "GCNGC",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BlnI",
+   "site": "CCTAGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "KMS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BlpI",
+   "site": "GCTNAGC",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BlsI",
+   "site": "GCNGC",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmcAI",
+   "site": "AGTACT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bme1390I",
+   "site": "CCNGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bme18I",
+   "site": "GGWCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmeRI",
+   "site": "GACNNNNNGTC",
+   "cut": [
+    6,
+    5
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmeT110I",
+   "site": "CYCGRG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmgBI",
+   "site": "CACGTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmgT120I",
+   "site": "GGNCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmiI",
+   "site": "GGNNCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmrFI",
+   "site": "CCNGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmrI",
+   "site": "ACTGGG",
+   "cut": [
+    11,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmsI",
+   "site": "GCATC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmtI",
+   "site": "GCTAGC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BmuI",
+   "site": "ACTGGG",
+   "cut": [
+    11,
+    10
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BoxI",
+   "site": "GACNNNNGTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BpiI",
+   "site": "GAAGAC",
+   "cut": [
+    8,
+    12
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BpmI",
+   "site": "CTGGAG",
+   "cut": [
+    22,
+    20
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bpu10I",
+   "site": "CCTNAGC",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "BINV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bpu1102I",
+   "site": "GCTNAGC",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bpu14I",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BpuEI",
+   "site": "CTTGAG",
+   "cut": [
+    22,
+    20
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BpuMI",
+   "site": "CCSGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsa29I",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsaAI",
+   "site": "YACGTR",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsaBI",
+   "site": "GATNNNNATC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsaHI",
+   "site": "GRCGYC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsaI",
+   "site": "GGTCTC",
+   "cut": [
+    7,
+    11
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsaJI",
+   "site": "CCNNGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsaWI",
+   "site": "WCCGGW",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsc4I",
+   "site": "CCNNNNNNNGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bse118I",
+   "site": "RCCGGY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bse1I",
+   "site": "ACTGG",
+   "cut": [
+    6,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bse21I",
+   "site": "CCTNAGG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bse3DI",
+   "site": "GCAATG",
+   "cut": [
+    8,
+    6
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bse8I",
+   "site": "GATNNNNATC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseAI",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseBI",
+   "site": "CCWGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseCI",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseDI",
+   "site": "CCNNGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseGI",
+   "site": "GGATG",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseJI",
+   "site": "GATNNNNATC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseLI",
+   "site": "CCNNNNNNNGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseMI",
+   "site": "GCAATG",
+   "cut": [
+    8,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseMII",
+   "site": "CTCAG",
+   "cut": [
+    15,
+    13
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseNI",
+   "site": "ACTGG",
+   "cut": [
+    6,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsePI",
+   "site": "GCGCGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseRI",
+   "site": "GAGGAG",
+   "cut": [
+    16,
+    14
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseSI",
+   "site": "GKGCMC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseX3I",
+   "site": "CGGCCG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseXI",
+   "site": "GCAGC",
+   "cut": [
+    13,
+    17
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BseYI",
+   "site": "CCCAGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsgI",
+   "site": "GTGCAG",
+   "cut": [
+    22,
+    20
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsh1236I",
+   "site": "CGCG",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsh1285I",
+   "site": "CGRYCG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BshFI",
+   "site": "GGCC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BshNI",
+   "site": "GGYRCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BshTI",
+   "site": "ACCGGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BshVI",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsiEI",
+   "site": "CGRYCG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsiHKAI",
+   "site": "GWGCWC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsiHKCI",
+   "site": "CYCGRG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsiSI",
+   "site": "CCGG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "CY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsiWI",
+   "site": "CGTACG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BslFI",
+   "site": "GGGAC",
+   "cut": [
+    15,
+    19
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BslI",
+   "site": "CCNNNNNNNGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsmAI",
+   "site": "GTCTC",
+   "cut": [
+    6,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsmBI",
+   "site": "CGTCTC",
+   "cut": [
+    7,
+    11
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsmFI",
+   "site": "GGGAC",
+   "cut": [
+    15,
+    19
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsmI",
+   "site": "GAATGC",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "JMNS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsnI",
+   "site": "GGCC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bso31I",
+   "site": "GGTCTC",
+   "cut": [
+    7,
+    11
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsoBI",
+   "site": "CYCGRG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp119I",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp120I",
+   "site": "GGGCCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp1286I",
+   "site": "GDGCHC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "JKN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp13I",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp1407I",
+   "site": "TGTACA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp143I",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp1720I",
+   "site": "GCTNAGC",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp19I",
+   "site": "CCATGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsp68I",
+   "site": "TCGCGA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspACI",
+   "site": "CCGC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspANI",
+   "site": "GGCC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "X",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspCNI",
+   "site": "CTCAG",
+   "cut": [
+    14,
+    12
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspDI",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspEI",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspFNI",
+   "site": "CGCG",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspHI",
+   "site": "TCATGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspLI",
+   "site": "GGNNCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspMAI",
+   "site": "CTGCAG",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "X",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspMI",
+   "site": "ACCTGC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspOI",
+   "site": "GCTAGC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspPI",
+   "site": "GGATC",
+   "cut": [
+    9,
+    10
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspQI",
+   "site": "GCTCTTC",
+   "cut": [
+    8,
+    11
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspT104I",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspT107I",
+   "site": "GGYRCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspTI",
+   "site": "CTTAAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BspTNI",
+   "site": "GGTCTC",
+   "cut": [
+    7,
+    11
+   ],
+   "suppliers": "X",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsrBI",
+   "site": "CCGCTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsrDI",
+   "site": "GCAATG",
+   "cut": [
+    8,
+    6
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsrFI",
+   "site": "RCCGGY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsrGI",
+   "site": "TGTACA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsrI",
+   "site": "ACTGG",
+   "cut": [
+    6,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssAI",
+   "site": "RCCGGY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssECI",
+   "site": "CCNNGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssHII",
+   "site": "GCGCGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "JKMNQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssMI",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssNAI",
+   "site": "GTATAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssNI",
+   "site": "GRCGYC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssSI",
+   "site": "CACGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BssT1I",
+   "site": "CCWWGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bst1107I",
+   "site": "GTATAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bst2BI",
+   "site": "CACGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bst2UI",
+   "site": "CCWGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bst4CI",
+   "site": "ACNGT",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bst6I",
+   "site": "CTCTTC",
+   "cut": [
+    7,
+    10
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstACI",
+   "site": "GRCGYC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstAFI",
+   "site": "CTTAAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstAPI",
+   "site": "GCANNNNNTGC",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstAUI",
+   "site": "TGTACA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstBAI",
+   "site": "YACGTR",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstBI",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstC8I",
+   "site": "GCNNGC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstDEI",
+   "site": "CTNAG",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstDSI",
+   "site": "CCRYGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstEII",
+   "site": "GGTNACC",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "CJN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstENI",
+   "site": "CCTNNNNNAGG",
+   "cut": [
+    5,
+    6
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstF5I",
+   "site": "GGATG",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstFNI",
+   "site": "CGCG",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstH2I",
+   "site": "RGCGCY",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstHHI",
+   "site": "GCGC",
+   "cut": [
+    3,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstKTI",
+   "site": "GATC",
+   "cut": [
+    3,
+    1
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstMAI",
+   "site": "GTCTC",
+   "cut": [
+    6,
+    10
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstMBI",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstMCI",
+   "site": "CGRYCG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstMWI",
+   "site": "GCNNNNNNNGC",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstNI",
+   "site": "CCWGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstNSI",
+   "site": "RCATGY",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstPAI",
+   "site": "GACNNNNGTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstPI",
+   "site": "GGTNACC",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstSCI",
+   "site": "CCNGG",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstSFI",
+   "site": "CTRYAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstSLI",
+   "site": "GKGCMC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstSNI",
+   "site": "TACGTA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstUI",
+   "site": "CGCG",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstV1I",
+   "site": "GCAGC",
+   "cut": [
+    13,
+    17
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstV2I",
+   "site": "GAAGAC",
+   "cut": [
+    8,
+    12
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstX2I",
+   "site": "RGATCY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstXI",
+   "site": "CCANNNNNNTGG",
+   "cut": [
+    8,
+    4
+   ],
+   "suppliers": "BIJKMNQVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstYI",
+   "site": "RGATCY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstZ17I",
+   "site": "GTATAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BstZI",
+   "site": "CGGCCG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "R",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsu15I",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Bsu36I",
+   "site": "CCTNAGG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsuI",
+   "site": "GTATCC",
+   "cut": [
+    12,
+    11
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsuRI",
+   "site": "GGCC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "BI",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BsuTUI",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "X",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtgI",
+   "site": "CCRYGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtgZI",
+   "site": "GCGATG",
+   "cut": [
+    16,
+    20
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtrI",
+   "site": "CACGTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtsCI",
+   "site": "GGATG",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtsI",
+   "site": "GCAGTG",
+   "cut": [
+    8,
+    6
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtsIMutI",
+   "site": "CAGTG",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BtuMI",
+   "site": "TCGCGA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "BveI",
+   "site": "ACCTGC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Cac8I",
+   "site": "GCNNGC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CaiI",
+   "site": "CAGNNNCTG",
+   "cut": [
+    6,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CciI",
+   "site": "TCATGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CciNI",
+   "site": "GCGGCCGC",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CfoI",
+   "site": "GCGC",
+   "cut": [
+    3,
+    1
+   ],
+   "suppliers": "MRS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Cfr10I",
+   "site": "RCCGGY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Cfr13I",
+   "site": "GGNCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Cfr42I",
+   "site": "CCGCGG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Cfr9I",
+   "site": "CCCGGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ClaI",
+   "site": "ATCGAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "BKMNQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CpoI",
+   "site": "CGGWCCG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CseI",
+   "site": "GACGC",
+   "cut": [
+    10,
+    15
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CsiI",
+   "site": "ACCWGGT",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Csp6I",
+   "site": "GTAC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CspAI",
+   "site": "ACCGGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CspI",
+   "site": "CGGWCCG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "R",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CviAII",
+   "site": "CATG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CviJI",
+   "site": "RGCY",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CviKI_1",
+   "site": "RGCY",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "CviQI",
+   "site": "GTAC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DdeI",
+   "site": "CTNAG",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "KMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DinI",
+   "site": "GGCGCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DpnI",
+   "site": "GATC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "BEKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DpnII",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DraI",
+   "site": "TTTAAA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BIJKMNQSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DraIII",
+   "site": "CACNNNGTG",
+   "cut": [
+    6,
+    3
+   ],
+   "suppliers": "IMNV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DrdI",
+   "site": "GACNNNNNNGTC",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DriI",
+   "site": "GACNNNNNGTC",
+   "cut": [
+    6,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "DseDI",
+   "site": "GACNNNNNNGTC",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EaeI",
+   "site": "YGGCCR",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "KN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EagI",
+   "site": "CGGCCG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eam1104I",
+   "site": "CTCTTC",
+   "cut": [
+    7,
+    10
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eam1105I",
+   "site": "GACNNNNNGTC",
+   "cut": [
+    6,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EarI",
+   "site": "CTCTTC",
+   "cut": [
+    7,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EciI",
+   "site": "GGCGGA",
+   "cut": [
+    17,
+    15
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Ecl136II",
+   "site": "GAGCTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EclXI",
+   "site": "CGGCCG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "S",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco105I",
+   "site": "TACGTA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco130I",
+   "site": "CCWWGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco147I",
+   "site": "AGGCCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco24I",
+   "site": "GRGCYC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco31I",
+   "site": "GGTCTC",
+   "cut": [
+    7,
+    11
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco32I",
+   "site": "GATATC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco47I",
+   "site": "GGWCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco47III",
+   "site": "AGCGCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BMS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco52I",
+   "site": "CGGCCG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco53kI",
+   "site": "GAGCTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco57I",
+   "site": "CTGAAG",
+   "cut": [
+    22,
+    20
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco72I",
+   "site": "CACGTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco81I",
+   "site": "CCTNAGG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco88I",
+   "site": "CYCGRG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Eco91I",
+   "site": "GGTNACC",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoICRI",
+   "site": "GAGCTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoNI",
+   "site": "CCTNNNNNAGG",
+   "cut": [
+    5,
+    6
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoO109I",
+   "site": "RGGNCCY",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "BJKN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoO65I",
+   "site": "GGTNACC",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoRI",
+   "site": "GAATTC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCIJKMNOQRSVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoRII",
+   "site": "CCWGG",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "BJ",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoRV",
+   "site": "GATATC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCIJKMNOQRSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoT14I",
+   "site": "CCWWGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoT22I",
+   "site": "ATGCAT",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EcoT38I",
+   "site": "GRGCYC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "J",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EgeI",
+   "site": "GGCGCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "EheI",
+   "site": "GGCGCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ErhI",
+   "site": "CCWWGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Esp3I",
+   "site": "CGTCTC",
+   "cut": [
+    7,
+    11
+   ],
+   "suppliers": "BN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FaeI",
+   "site": "CATG",
+   "cut": [
+    4,
+    0
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FaiI",
+   "site": "YATR",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FaqI",
+   "site": "GGGAC",
+   "cut": [
+    15,
+    19
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FatI",
+   "site": "CATG",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FauI",
+   "site": "CCCGC",
+   "cut": [
+    9,
+    11
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FauNDI",
+   "site": "CATATG",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FbaI",
+   "site": "TGATCA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FblI",
+   "site": "GTMKAC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Fnu4HI",
+   "site": "GCNGC",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FokI",
+   "site": "GGATG",
+   "cut": [
+    14,
+    18
+   ],
+   "suppliers": "BIJKMNVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FriOI",
+   "site": "GRGCYC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FseI",
+   "site": "GGCCGGCC",
+   "cut": [
+    6,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Fsp4HI",
+   "site": "GCNGC",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FspAI",
+   "site": "RTGCGCAY",
+   "cut": [
+    4,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FspBI",
+   "site": "CTAG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FspEI",
+   "site": "CC",
+   "cut": [
+    14,
+    18
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "FspI",
+   "site": "TGCGCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "JN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "GlaI",
+   "site": "GCGC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "GluI",
+   "site": "GCNGC",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "GsaI",
+   "site": "CCCAGC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "GsuI",
+   "site": "CTGGAG",
+   "cut": [
+    22,
+    20
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HaeII",
+   "site": "RGCGCY",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "JKN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HaeIII",
+   "site": "GGCC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "BIJKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HapII",
+   "site": "CCGG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HgaI",
+   "site": "GACGC",
+   "cut": [
+    10,
+    15
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HhaI",
+   "site": "GCGC",
+   "cut": [
+    3,
+    1
+   ],
+   "suppliers": "BJKNQRX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hin1I",
+   "site": "GRCGYC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hin1II",
+   "site": "CATG",
+   "cut": [
+    4,
+    0
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hin6I",
+   "site": "GCGC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HincII",
+   "site": "GTYRAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BJKNOQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HindII",
+   "site": "GTYRAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IMSV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HindIII",
+   "site": "AAGCTT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCIJKMNOQRSVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HinfI",
+   "site": "GANTC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "BCIJKMNOQRVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HinP1I",
+   "site": "GCGC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpaI",
+   "site": "GTTAAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCIJKMNQSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpaII",
+   "site": "CCGG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "BINQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HphI",
+   "site": "GGTGA",
+   "cut": [
+    13,
+    12
+   ],
+   "suppliers": "BN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hpy166II",
+   "site": "GTNNAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hpy188I",
+   "site": "TCNGA",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hpy188III",
+   "site": "TCNNGA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hpy8I",
+   "site": "GTNNAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hpy99I",
+   "site": "CGWCG",
+   "cut": [
+    5,
+    0
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpyAV",
+   "site": "CCTTC",
+   "cut": [
+    11,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpyCH4III",
+   "site": "ACNGT",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpyCH4IV",
+   "site": "ACGT",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpyCH4V",
+   "site": "TGCA",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpyF10VI",
+   "site": "GCNNNNNNNGC",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpyF3I",
+   "site": "CTNAG",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HpySE526I",
+   "site": "ACGT",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hsp92I",
+   "site": "GRCGYC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "R",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Hsp92II",
+   "site": "CATG",
+   "cut": [
+    4,
+    0
+   ],
+   "suppliers": "R",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "HspAI",
+   "site": "GCGC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KasI",
+   "site": "GGCGCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KflI",
+   "site": "GGGWCCC",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Kpn2I",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KpnI",
+   "site": "GGTACC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "BCIJKMNOQRSVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KroI",
+   "site": "GCCGGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KroNI",
+   "site": "GCCGGC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Ksp22I",
+   "site": "TGATCA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KspAI",
+   "site": "GTTAAC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "KspI",
+   "site": "CCGCGG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "MS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Kzo9I",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "LguI",
+   "site": "GCTCTTC",
+   "cut": [
+    8,
+    11
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "LmnI",
+   "site": "GCTCC",
+   "cut": [
+    6,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "LpnPI",
+   "site": "CCDG",
+   "cut": [
+    14,
+    18
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Lsp1109I",
+   "site": "GCAGC",
+   "cut": [
+    13,
+    17
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "LweI",
+   "site": "GCATC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MabI",
+   "site": "ACCWGGT",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MaeI",
+   "site": "CTAG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "M",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MaeII",
+   "site": "ACGT",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "M",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MaeIII",
+   "site": "GTNAC",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "MS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MalI",
+   "site": "GATC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MauBI",
+   "site": "CGCGCGCG",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MbiI",
+   "site": "CCGCTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MboI",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "BCKNQRXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MboII",
+   "site": "GAAGA",
+   "cut": [
+    13,
+    12
+   ],
+   "suppliers": "BIJKNQVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MfeI",
+   "site": "CAATTG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MflI",
+   "site": "RGATCY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MhlI",
+   "site": "GDGCHC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MlsI",
+   "site": "TGGCCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MluCI",
+   "site": "AATT",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MluI",
+   "site": "ACGCGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BIJKMNOQRSV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MluNI",
+   "site": "TGGCCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "M",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Mly113I",
+   "site": "GGCGCC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MlyI",
+   "site": "GAGTC",
+   "cut": [
+    10,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MmeI",
+   "site": "TCCRAC",
+   "cut": [
+    26,
+    24
+   ],
+   "suppliers": "NX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MnlI",
+   "site": "CCTC",
+   "cut": [
+    11,
+    10
+   ],
+   "suppliers": "BINQVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Mox20I",
+   "site": "TGGCCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Mph1103I",
+   "site": "ATGCAT",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MreI",
+   "site": "CGCCGGCG",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MroI",
+   "site": "TCCGGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "MO",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MroNI",
+   "site": "GCCGGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MroXI",
+   "site": "GAANNNNTTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MscI",
+   "site": "TGGCCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "NO",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MseI",
+   "site": "TTAA",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MslI",
+   "site": "CAYNNNNRTG",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Msp20I",
+   "site": "TGGCCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MspA1I",
+   "site": "CMGCKG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MspCI",
+   "site": "CTTAAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MspI",
+   "site": "CCGG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "BIJKNQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MspJI",
+   "site": "CNNR",
+   "cut": [
+    13,
+    17
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MspR9I",
+   "site": "CCNGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MssI",
+   "site": "GTTTAAAC",
+   "cut": [
+    4,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MteI",
+   "site": "GCGCNGCGC",
+   "cut": [
+    4,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MunI",
+   "site": "CAATTG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BKMS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Mva1269I",
+   "site": "GAATGC",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MvaI",
+   "site": "CCWGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "BM",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MvnI",
+   "site": "CGCG",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "M",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "MwoI",
+   "site": "GCNNNNNNNGC",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NaeI",
+   "site": "GCCGGC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "CKN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NarI",
+   "site": "GGCGCC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "JMNQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NciI",
+   "site": "CCSGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "JN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NcoI",
+   "site": "CCATGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCJKMNOQRSXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NdeI",
+   "site": "CATATG",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "BJKMNQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NdeII",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "JM",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NgoMIV",
+   "site": "GCCGGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NheI",
+   "site": "GCTAGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCJKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NlaIII",
+   "site": "CATG",
+   "cut": [
+    4,
+    0
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NlaIV",
+   "site": "GGNNCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NmeAIII",
+   "site": "GCCGAG",
+   "cut": [
+    27,
+    25
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NmuCI",
+   "site": "GTSAC",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NotI",
+   "site": "GCGGCCGC",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "BCJKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NruI",
+   "site": "TCGCGA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCIJKMNQSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NsbI",
+   "site": "TGCGCA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NsiI",
+   "site": "ATGCAT",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "JMNQSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NspI",
+   "site": "RCATGY",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "NspV",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "J",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "OliI",
+   "site": "CACNNNNGTG",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PacI",
+   "site": "TTAATTAA",
+   "cut": [
+    5,
+    3
+   ],
+   "suppliers": "BNO",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PaeI",
+   "site": "GCATGC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PaeR7I",
+   "site": "CTCGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PagI",
+   "site": "TCATGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PalAI",
+   "site": "GGCGCGCC",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PaqCI",
+   "site": "CACCTGC",
+   "cut": [
+    11,
+    15
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PasI",
+   "site": "CCCWGGG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PauI",
+   "site": "GCGCGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PceI",
+   "site": "AGGCCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PciI",
+   "site": "ACATGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PciSI",
+   "site": "GCTCTTC",
+   "cut": [
+    8,
+    11
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PcsI",
+   "site": "WCGNNNNNNNCGW",
+   "cut": [
+    7,
+    6
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PctI",
+   "site": "GAATGC",
+   "cut": [
+    7,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PdiI",
+   "site": "GCCGGC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PdmI",
+   "site": "GAANNNNTTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PfeI",
+   "site": "GAWTC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Pfl23II",
+   "site": "CGTACG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PflFI",
+   "site": "GACNNNGTC",
+   "cut": [
+    4,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PflMI",
+   "site": "CCANNNNNTGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PfoI",
+   "site": "TCCNGGA",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PinAI",
+   "site": "ACCGGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PkrI",
+   "site": "GCNGC",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Ple19I",
+   "site": "CGATCG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PleI",
+   "site": "GAGTC",
+   "cut": [
+    9,
+    10
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PluTI",
+   "site": "GGCGCC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PmaCI",
+   "site": "CACGTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PmeI",
+   "site": "GTTTAAAC",
+   "cut": [
+    4,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PmlI",
+   "site": "CACGTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PpsI",
+   "site": "GAGTC",
+   "cut": [
+    9,
+    10
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Ppu21I",
+   "site": "YACGTR",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PpuMI",
+   "site": "RGGWCCY",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PscI",
+   "site": "ACATGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PshAI",
+   "site": "GACNNNNGTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "KN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PshBI",
+   "site": "ATTAAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PsiI",
+   "site": "TTATAA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Psp124BI",
+   "site": "GAGCTC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Psp1406I",
+   "site": "AACGTT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Psp5II",
+   "site": "RGGWCCY",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Psp6I",
+   "site": "CCWGG",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspCI",
+   "site": "CACGTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspEI",
+   "site": "GGTNACC",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspFI",
+   "site": "CCCAGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspGI",
+   "site": "CCWGG",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspLI",
+   "site": "CGTACG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspN4I",
+   "site": "GGNNCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspOMI",
+   "site": "GGGCCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspPI",
+   "site": "GGNCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspPPI",
+   "site": "RGGWCCY",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PspXI",
+   "site": "VCTCGAGB",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "IN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PstI",
+   "site": "CTGCAG",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "BCIJKMNOQRSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PstNI",
+   "site": "CAGNNNCTG",
+   "cut": [
+    6,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PsuI",
+   "site": "RGATCY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PsyI",
+   "site": "GACNNNGTC",
+   "cut": [
+    4,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PteI",
+   "site": "GCGCGC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PvuI",
+   "site": "CGATCG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "BKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "PvuII",
+   "site": "CAGCTG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCIJKMNOQSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RgaI",
+   "site": "GCGATCGC",
+   "cut": [
+    5,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RigI",
+   "site": "GGCCGGCC",
+   "cut": [
+    6,
+    2
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RruI",
+   "site": "TCGCGA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RsaI",
+   "site": "GTAC",
+   "cut": [
+    2,
+    2
+   ],
+   "suppliers": "BCIJMNQRVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RsaNI",
+   "site": "GTAC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RseI",
+   "site": "CAYNNNNRTG",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Rsr2I",
+   "site": "CGGWCCG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "RsrII",
+   "site": "CGGWCCG",
+   "cut": [
+    2,
+    5
+   ],
+   "suppliers": "NQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SacI",
+   "site": "GAGCTC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "BJKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SacII",
+   "site": "CCGCGG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "BJKNOQRX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SalI",
+   "site": "GTCGAC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCIJKMNOQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SapI",
+   "site": "GCTCTTC",
+   "cut": [
+    8,
+    11
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SaqAI",
+   "site": "TTAA",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SatI",
+   "site": "GCNGC",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Sau3AI",
+   "site": "GATC",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "CJKMNX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Sau96I",
+   "site": "GGNCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "JN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SbfI",
+   "site": "CCTGCAGG",
+   "cut": [
+    6,
+    2
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ScaI",
+   "site": "AGTACT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCJKMNOQRX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SchI",
+   "site": "GAGTC",
+   "cut": [
+    10,
+    10
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ScrFI",
+   "site": "CCNGG",
+   "cut": [
+    2,
+    3
+   ],
+   "suppliers": "JN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SdaI",
+   "site": "CCTGCAGG",
+   "cut": [
+    6,
+    2
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SduI",
+   "site": "GDGCHC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SetI",
+   "site": "ASST",
+   "cut": [
+    4,
+    0
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SexAI",
+   "site": "ACCWGGT",
+   "cut": [
+    1,
+    6
+   ],
+   "suppliers": "MN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SfaAI",
+   "site": "GCGATCGC",
+   "cut": [
+    5,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SfaNI",
+   "site": "GCATC",
+   "cut": [
+    10,
+    14
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SfcI",
+   "site": "CTRYAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SfiI",
+   "site": "GGCCNNNNNGGCC",
+   "cut": [
+    8,
+    5
+   ],
+   "suppliers": "BCIJKMNOQVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SfoI",
+   "site": "GGCGCC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Sfr274I",
+   "site": "CTCGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Sfr303I",
+   "site": "CCGCGG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SfuI",
+   "site": "TTCGAA",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "MS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SgeI",
+   "site": "CNNG",
+   "cut": [
+    13,
+    17
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SgfI",
+   "site": "GCGATCGC",
+   "cut": [
+    5,
+    3
+   ],
+   "suppliers": "R",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SgrAI",
+   "site": "CRCCGGYG",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SgrBI",
+   "site": "CCGCGG",
+   "cut": [
+    4,
+    2
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SgrDI",
+   "site": "CGTCGACG",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SgsI",
+   "site": "GGCGCGCC",
+   "cut": [
+    2,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SinI",
+   "site": "GGWCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "X",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SlaI",
+   "site": "CTCGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "CY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SmaI",
+   "site": "CCCGGG",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCIJKMNOQRSVXY",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SmiI",
+   "site": "ATTTAAAT",
+   "cut": [
+    4,
+    4
+   ],
+   "suppliers": "BIKV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SmiMI",
+   "site": "CAYNNNNRTG",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SmlI",
+   "site": "CTYRAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SmoI",
+   "site": "CTYRAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SnaBI",
+   "site": "TACGTA",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "CKMN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SpeI",
+   "site": "ACTAGT",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BJKMNOQRSX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SphI",
+   "site": "GCATGC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "BCIJKMNOQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SrfI",
+   "site": "GCCCGGGC",
+   "cut": [
+    4,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Sse8387I",
+   "site": "CCTGCAGG",
+   "cut": [
+    6,
+    2
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Sse9I",
+   "site": "AATT",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SseBI",
+   "site": "AGGCCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SsiI",
+   "site": "CCGC",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SspDI",
+   "site": "GGCGCC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SspI",
+   "site": "AATATT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BCIJKNQVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SspMI",
+   "site": "CTAG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SstI",
+   "site": "GAGCTC",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "C",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "StuI",
+   "site": "AGGCCT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "BJKMNQX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "StyD4I",
+   "site": "CCNGG",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "StyI",
+   "site": "CCWWGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "CJN",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "SwaI",
+   "site": "ATTTAAAT",
+   "cut": [
+    4,
+    4
+   ],
+   "suppliers": "JMNS",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TaaI",
+   "site": "ACNGT",
+   "cut": [
+    3,
+    2
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TaiI",
+   "site": "ACGT",
+   "cut": [
+    4,
+    0
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TaqI",
+   "site": "TCGA",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "BCIJKMNQRVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TaqII",
+   "site": "GACCGA",
+   "cut": [
+    17,
+    15
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TasI",
+   "site": "AATT",
+   "cut": [
+    0,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TatI",
+   "site": "WGTACW",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TauI",
+   "site": "GCSGC",
+   "cut": [
+    4,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TfiI",
+   "site": "GAWTC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Tru1I",
+   "site": "TTAA",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Tru9I",
+   "site": "TTAA",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "IMV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TscAI",
+   "site": "CASTG",
+   "cut": [
+    7,
+    -2
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TseFI",
+   "site": "GTSAC",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TseI",
+   "site": "GCWGC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Tsp45I",
+   "site": "GTSAC",
+   "cut": [
+    0,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TspDTI",
+   "site": "ATGAA",
+   "cut": [
+    16,
+    14
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TspGWI",
+   "site": "ACGGA",
+   "cut": [
+    16,
+    14
+   ],
+   "suppliers": "QX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TspMI",
+   "site": "CCCGGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "TspRI",
+   "site": "CASTG",
+   "cut": [
+    7,
+    -2
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Tth111I",
+   "site": "GACNNNGTC",
+   "cut": [
+    4,
+    5
+   ],
+   "suppliers": "IKNQVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Van91I",
+   "site": "CCANNNNNTGG",
+   "cut": [
+    7,
+    4
+   ],
+   "suppliers": "BK",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Vha464I",
+   "site": "CTTAAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "V",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "VneI",
+   "site": "GTGCAC",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "VpaK11BI",
+   "site": "GGWCC",
+   "cut": [
+    1,
+    4
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "VspI",
+   "site": "ATTAAT",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "BIV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XagI",
+   "site": "CCTNNNNNAGG",
+   "cut": [
+    5,
+    6
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XapI",
+   "site": "RAATTY",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XbaI",
+   "site": "TCTAGA",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BCIJKMNQRSVX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XceI",
+   "site": "RCATGY",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XcmI",
+   "site": "CCANNNNNNNNNTGG",
+   "cut": [
+    8,
+    7
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XhoI",
+   "site": "CTCGAG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "BJKMNOQRX",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XmaI",
+   "site": "CCCGGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XmaJI",
+   "site": "CCTAGG",
+   "cut": [
+    1,
+    5
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XmiI",
+   "site": "GTMKAC",
+   "cut": [
+    2,
+    4
+   ],
+   "suppliers": "B",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XmnI",
+   "site": "GAANNNNTTC",
+   "cut": [
+    5,
+    5
+   ],
+   "suppliers": "N",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "XspI",
+   "site": "CTAG",
+   "cut": [
+    1,
+    3
+   ],
+   "suppliers": "K",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ZraI",
+   "site": "GACGTC",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "INV",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "ZrmI",
+   "site": "AGTACT",
+   "cut": [
+    3,
+    3
+   ],
+   "suppliers": "I",
+   "optTempC": 37,
+   "inactTempC": 65
+  },
+  {
+   "name": "Zsp2I",
+   "site": "ATGCAT",
+   "cut": [
+    5,
+    1
+   ],
+   "suppliers": "IV",
+   "optTempC": 37,
+   "inactTempC": 65
   }
  ]
 }
