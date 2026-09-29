@@ -57,8 +57,9 @@ export interface SdmDesign {
   reverse: SdmPrimer;
   /** Annealing temperature for the pair, °C. */
   ta: number;
-  /** Plasmid after the edit. */
+  /** Plasmid after the edit (same coordinates as the input, with the edit spliced in). */
   product: string;
+  edit: SdmEdit;
   findings: Finding[];
 }
 
@@ -118,16 +119,14 @@ export function designSdm(plasmid: string, edit: SdmEdit, options: SdmOptions = 
   const reverse = build(`${edit.label}_R`, 'reverse', reverseTail, pair.reverse, pair.reverseTm);
   const ta = annealingTemperature('q5', Math.min(pair.forwardTm, pair.reverseTm), Math.min(pair.forward.length, pair.reverse.length));
 
-  // Product: rotate so the edit is contiguous, then splice.
-  const rotated = sequence.slice(edit.start) + sequence.slice(0, edit.start);
-  const product = replacement + rotated.slice(removed);
+  const product = sequence.slice(0, edit.start) + replacement + sequence.slice(edit.end);
   const original = sequence.slice(edit.start, edit.end).toLowerCase();
   const description = !removed
     ? `Insert ${replacement} between bases ${edit.start}-${edit.start + 1}`
     : !replacement
       ? `Delete ${original} between bases ${edit.start}-${edit.end + 1}`
       : `Replace ${original} between bases ${edit.start}-${edit.end + 1} with ${replacement}`;
-  return { label: edit.label, description, forward, reverse, ta, product, findings: [] };
+  return { label: edit.label, description, forward, reverse, ta, product, edit: { ...edit, replacement }, findings: [] };
 }
 
 /* ---------- amino-acid changes ---------- */

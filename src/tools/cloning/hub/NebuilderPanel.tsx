@@ -1,0 +1,204 @@
+import { useMemo, useState } from 'preact/hooks';
+import { designNebuilder, type NebuilderFragment, type OverlapMode } from '@/core/cloning/methods/nebuilder';
+import { NEB_POLYMERASES, findPolymerase } from '@/core/cloning/methods/neb-polymerases';
+import { designedPrimers, designToIdt, exportNebuilderProject, fragmentsToFasta, parseNebuilderProject } from '@/core/cloning/interchange';
+import { nebuilderAmounts } from '@/core/cloning/amounts';
+import { nebuilderProtocol } from '@/core/cloning/protocols';
+import { nebuilderProduct } from '@/core/cloning/products';
+import { moleculeFromDocument } from '@/core/cloning/molecule';
+import { importPlasmidText } from '@/core/plasmid/import';
+import { downloadText } from '@/lib/export';
+import { readTextFile, importErrorMessage } from '@/lib/file-import';
+import { ImportAlert } from '@/app/components/ImportAlert';
+import { DecimalInput } from '@/app/components/DecimalInput';
+import type { FragmentOption, HubSource, NebuilderSettings } from './state';
+import { orderEnzymes, singleCutters, suggestPair } from './enzymes';
+import { BUTTON, FIELD, FindingsList, Labeled, PrimerTable, ProductCard, ProtocolCard, Section } from './results';
+
+interface Props {
+  sources: HubSource[];
+  settings: NebuilderSettings;
+  onSettings: (patch: Partial<NebuilderSettings>) => void;
+  onReplaceSources: (sources: HubSource[]) => void;
+}
+
+function defaultOption(source: HubSource): FragmentOption {
+  const molecule = moleculeFromDocument(source.document);
+  if (molecule.topology === 'linear') return { kind: 'pcr', enzymeA: '', enzymeB: '' };
+  const [a, b] = suggestPair(singleCutters(molecule));
+  return { kind: 'digest', enzymeA: a, enzymeB: b };
+}
+
+export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources }: Props) {
+  const [importError, setImportError] = useState('');
+  const molecules = useMemo(() => sources.map(source => moleculeFromDocument(source.document)), [sources]);
+  const cutters = useMemo(() => molecules.map(molecule => molecule.topology === 'circular' ? singleCutters(molecule) : []), [molecules]);
+  const option = (source: HubSource): FragmentOption => settings.fragments[source.id] ?? defaultOption(source);
+  const setOption = (source: HubSource, patch: Partial<FragmentOption>) => onSettings({ fragments: { ...settings.fragments, [source.id]: { ...option(source), ...patch } } });
+
+  const fragments: NebuilderFragment[] = sources.map((source, index) => {
+    const chosen = option(source);
+    const molecule = molecules[index]!;
+    const digest = chosen.kind === 'digest' && molecule.topology === 'circular';
+    const [left, right] = digest ? orderEnzymes(molecule, chosen.enzymeA, chosen.enzymeB, source.role === 'vector' ? 'larger' : 'smaller') : ['', ''];
+    return {
+      name: source.document.name,
+      sequence: molecule.sequence,
+      topology: molecule.topology,
+      kind: digest ? 'digest' : 'pcr',
+      isVectorBackbone: source.role === 'vector',
+      leftEnzyme: digest ? left : undefined,
+      rightEnzyme: digest ? right : undefined,
+    };
+  });
+  const junctionOptions = fragments.map((_, index) => {
+    const entry = settings.junctions[String(index)];
+    if (!entry || (!entry.spacer && entry.mode === 'default')) return undefined;
+    return { spacer: entry.spacer, mode: entry.mode === 'default' ? undefined : (entry.mode as OverlapMode) };
+  });
+  const design = useMemo(() => fragments.length < 2 ? null : designNebuilder(fragments, {
+    polymeraseId: settings.polymeraseId,
+    minOverlap: settings.minOverlap,
+    minPrimerLength: settings.minPrimerLength,
+    maxTmDifference: settings.maxTmDifference,
+    circularize: settings.circularize,
+    junctions: junctionOptions,
+  }), [JSON.stringify(fragments), settings.polymeraseId, settings.minOverlap, settings.minPrimerLength, settings.maxTmDifference, settings.circularize, JSON.stringify(junctionOptions)]);
+
+  const product = design && design.product ? nebuilderProduct(design, molecules, 'NEBuilder assembly', settings.circularize) : null;
+  const amounts = design && design.product ? nebuilderAmounts(design.templates.map((template, index) => ({
+    name: template.name,
+    bp: template.sequence.length,
+    ngPerUl: settings.concentrations[sources[index]!.id] ?? 50,
+    isVector: sources[index]!.role === 'vector',
+  }))) : null;
+  const polymerase = findPolymerase(settings.polymeraseId);
+
+  const importProject = async (file: File) => {
+    setImportError('');
+    try {
+      const parsed = parseNebuilderProject(await readTextFile(file));
+      const imported: HubSource[] = parsed.fragments.map((fragment, index) => {
+        const document = importPlasmidText(`>${fragment.name}\n${fragment.sequence}`).document;
+        return { id: `src-${Date.now().toString(36)}-${index}`, role: fragment.isVectorBackbone ? 'vector' : 'insert', document: { ...document, topology: fragment.topology } };
+      });
+      const fragmentOptions: Record<string, FragmentOption> = {};
+      parsed.fragments.forEach((fragment, index) => {
+        fragmentOptions[imported[index]!.id] = { kind: fragment.kind, enzymeA: fragment.leftEnzyme ?? '', enzymeB: fragment.rightEnzyme ?? '' };
+      });
+      const junctions: NebuilderSettings['junctions'] = {};
+      (parsed.settings.junctions ?? []).forEach((entry, index) => { if (entry) junctions[String(index)] = { spacer: entry.spacer ?? '', mode: entry.mode && entry.mode !== 'none' ? entry.mode : 'default' }; });
+      onReplaceSources(imported);
+      onSettings({
+        polymeraseId: parsed.settings.polymeraseId, minOverlap: parsed.settings.minOverlap, minPrimerLength: parsed.settings.minPrimerLength,
+        maxTmDifference: parsed.settings.maxTmDifference, circularize: parsed.settings.circularize, fragments: fragmentOptions, junctions,
+      });
+      if (parsed.warnings.length) setImportError(parsed.warnings.join(' '));
+    } catch (cause) { setImportError(importErrorMessage(cause, file.name)); }
+  };
+
+  return <div class="space-y-4">
+    <Section id="nb-settings" title="2 · NEBuilder settings" aside="Defaults follow the NEBuilder Assembly Tool (E5520, Q5)">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Labeled label="PCR polymerase / kit">
+          <select class={FIELD} value={settings.polymeraseId} onChange={event => onSettings({ polymeraseId: event.currentTarget.value })}>
+            {NEB_POLYMERASES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </Labeled>
+        <Labeled label="Minimum overlap (nt)" hint="NEBuilder: 20; 25 for more than 3 fragments">
+          <DecimalInput aria-label="Minimum overlap (nt)" class={FIELD} value={settings.minOverlap} min={10} max={75} step={1} onChange={value => onSettings({ minOverlap: Math.min(75, Math.max(10, Math.round(value))) })} />
+        </Labeled>
+        <Labeled label="Minimum primer length (nt)">
+          <DecimalInput aria-label="Minimum primer length (nt)" class={FIELD} value={settings.minPrimerLength} min={10} max={60} step={1} onChange={value => onSettings({ minPrimerLength: Math.min(60, Math.max(10, Math.round(value))) })} />
+        </Labeled>
+        <Labeled label="Maximum Tm difference (°C)">
+          <DecimalInput aria-label="Maximum Tm difference (°C)" class={FIELD} value={settings.maxTmDifference} min={1} step={1} onChange={value => onSettings({ maxTmDifference: Math.max(1, value) })} />
+        </Labeled>
+      </div>
+      <label class="flex items-center gap-2 text-xs"><input type="checkbox" checked={settings.circularize} onChange={event => onSettings({ circularize: event.currentTarget.checked })} /> Circularize the assembly (join the last fragment back to the first)</label>
+      {polymerase && <p class="text-xs text-slate-600 dark:text-slate-400">Tm: NEB Tm calculator ({polymerase.taRule === 'phusion' ? 'Breslauer, Phusion' : 'SantaLucia 1998 + Owczarzy 2004'}), buffer {polymerase.monovalentMm} mM Na⁺.</p>}
+      <div class="flex flex-wrap items-center gap-3">
+        <label class="text-xs font-medium">Import a NEBuilder project file
+          <input class="mt-1 block max-w-full text-xs" type="file" accept=".json,application/json" onChange={event => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = '';
+            if (file) void importProject(file);
+          }} />
+        </label>
+      </div>
+      {importError && <ImportAlert message={importError} />}
+    </Section>
+
+    {sources.length > 0 && <Section id="nb-fragments" title="How each fragment is made" aside="PCR-amplified, or cut out with two enzymes">
+      <ul class="space-y-2">
+        {sources.map((source, index) => {
+          const chosen = option(source);
+          const molecule = molecules[index]!;
+          return <li key={source.id} class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 p-2 text-xs dark:border-slate-700">
+            <strong class="min-w-24">{index + 1}. {source.document.name}</strong>
+            <span class="text-slate-600 dark:text-slate-400">{source.role}, {molecule.sequence.length.toLocaleString()} bp</span>
+            <select aria-label={`How ${source.document.name} is made`} class="rounded border border-slate-300 bg-transparent px-2 py-1 dark:border-slate-600" value={chosen.kind} disabled={molecule.topology === 'linear'} onChange={event => setOption(source, { kind: event.currentTarget.value as 'pcr' | 'digest' })}>
+              <option value="pcr">PCR product</option>
+              <option value="digest" disabled={molecule.topology === 'linear'}>Restriction digest</option>
+            </select>
+            {chosen.kind === 'digest' && molecule.topology === 'circular' && <>
+              <select aria-label={`First enzyme for ${source.document.name}`} class="rounded border border-slate-300 bg-transparent px-2 py-1 dark:border-slate-600" value={chosen.enzymeA} onChange={event => setOption(source, { enzymeA: event.currentTarget.value })}>
+                {cutters[index]!.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+              <select aria-label={`Second enzyme for ${source.document.name}`} class="rounded border border-slate-300 bg-transparent px-2 py-1 dark:border-slate-600" value={chosen.enzymeB} onChange={event => setOption(source, { enzymeB: event.currentTarget.value })}>
+                {cutters[index]!.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+              <span class="text-slate-600 dark:text-slate-400">single cutters only; the {source.role === 'vector' ? 'larger' : 'smaller'} piece is kept</span>
+            </>}
+            {chosen.kind === 'pcr' && molecule.topology === 'circular' && <span class="text-slate-600 dark:text-slate-400">a circular sequence is amplified whole</span>}
+          </li>;
+        })}
+      </ul>
+    </Section>}
+
+    {sources.length < 2 && <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400">Add at least two sequences (a vector and an insert) above to design an assembly.</p>}
+
+    {design && <>
+      <FindingsList findings={design.findings} />
+      {design.primers.length > 0 && <Section id="nb-primers" title="Primers" aside={`${design.primers.length} oligos`}>
+        <PrimerTable primers={designedPrimers(design)} fileName="nebuilder" caption="NEBuilder primers" />
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class={BUTTON} onClick={() => downloadText(designToIdt(design), 'nebuilder-idt.txt')}>Download IDT (NEBuilder-compatible)</button>
+          <button type="button" class={BUTTON} onClick={() => downloadText(fragmentsToFasta(design.templates), 'nebuilder-fragments.fasta')}>Download fragments FASTA</button>
+          <button type="button" class={BUTTON} onClick={() => downloadText(exportNebuilderProject('Bio-Bench assembly', fragments, {
+            polymeraseId: settings.polymeraseId, minOverlap: settings.minOverlap, minPrimerLength: settings.minPrimerLength, maxTmDifference: settings.maxTmDifference, circularize: settings.circularize,
+          }), 'nebuilder-project.json', 'application/json')}>Download project (unsigned)</button>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-400">NEBuilder signs its own project files, so it may refuse this one; to continue in NEBuilder, load the fragments FASTA and use the same settings.</p>
+      </Section>}
+      {design.junctions.length > 0 && design.primers.length > 0 && <Section id="nb-junctions" title="Junctions" aside="Where the homology sits, and optional spacers">
+        <div class="overflow-x-auto"><table class="w-full border-collapse text-left text-xs">
+          <caption class="sr-only">Assembly junctions</caption>
+          <thead class="text-slate-600 dark:text-slate-400"><tr><th scope="col" class="py-1 pr-3">Junction</th><th scope="col" class="py-1 pr-3">Homology</th><th scope="col" class="py-1 pr-3">Placement</th><th scope="col" class="py-1">Spacer (top strand)</th></tr></thead>
+          <tbody>{design.junctions.map((junction, index) => {
+            const entry = settings.junctions[String(index)] ?? { spacer: '', mode: 'default' as const };
+            const patch = (next: Partial<typeof entry>) => onSettings({ junctions: { ...settings.junctions, [String(index)]: { ...entry, ...next } } });
+            return <tr key={`${junction.upstream}-${junction.downstream}`} class="border-t border-slate-200 dark:border-slate-700">
+              <th scope="row" class="py-1.5 pr-3 font-medium">{junction.upstream} → {junction.downstream}</th>
+              <td class="py-1.5 pr-3 tabular-nums">{junction.overlapLength} nt{junction.intrinsicOverlap ? ' (already present)' : ''}</td>
+              <td class="py-1.5 pr-3"><select aria-label={`Placement for ${junction.upstream} to ${junction.downstream}`} class="rounded border border-slate-300 bg-transparent px-1.5 py-1 dark:border-slate-600" value={entry.mode} onChange={event => patch({ mode: event.currentTarget.value as typeof entry.mode })}>
+                <option value="default">Automatic ({junction.mode})</option><option value="upstream">On upstream fragment</option><option value="downstream">On downstream fragment</option><option value="split">Split</option>
+              </select></td>
+              <td class="py-1.5"><input aria-label={`Spacer for ${junction.upstream} to ${junction.downstream}`} class="w-40 rounded border border-slate-300 bg-transparent px-1.5 py-1 font-mono dark:border-slate-600" value={entry.spacer} maxLength={100} placeholder="none" onInput={event => patch({ spacer: event.currentTarget.value.toUpperCase().replace(/[^ACGT]/g, '') })} /></td>
+            </tr>;
+          })}</tbody>
+        </table></div>
+      </Section>}
+      {amounts && <Section id="nb-protocol" title="Reaction" aside="NEBuilder Protocol Calculator amounts">
+        <div class="flex flex-wrap gap-3 text-xs">
+          {sources.map(source => <Labeled key={source.id} label={`${source.document.name} (ng/µL)`}>
+            <DecimalInput aria-label={`${source.document.name} concentration (ng/µL)`} class={`${FIELD} w-28`} value={settings.concentrations[source.id] ?? 50} min={0.1} step={5} onChange={value => onSettings({ concentrations: { ...settings.concentrations, [source.id]: Math.max(0.1, value) } })} />
+          </Labeled>)}
+        </div>
+        <ProtocolCard protocol={nebuilderProtocol(amounts)} />
+      </Section>}
+      {product && <Section id="nb-product" title="Assembled product"><ProductCard product={product} fileName="nebuilder-assembly" /></Section>}
+    </>}
+  </div>;
+}
+

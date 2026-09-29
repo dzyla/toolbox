@@ -103,7 +103,7 @@ export interface NebuilderDesign {
   primers: NebuilderPrimer[];
   junctions: NebuilderJunction[];
   /** Templates actually used (after digestion), in assembly order. */
-  templates: Array<{ name: string; sequence: string; kind: 'pcr' | 'digest' }>;
+  templates: Array<{ name: string; sequence: string; kind: 'pcr' | 'digest'; /** 0-based start of the template in its source sequence */ start: number }>;
   product: string;
   findings: Finding[];
 }
@@ -190,13 +190,13 @@ export function selectAnnealLengths(template: string, minLength: number, maxTmDi
 }
 
 /** Template of a fragment as NEBuilder uses it (digested fragments keep 3′ but not 5′ overhangs). */
-export function fragmentTemplate(fragment: NebuilderFragment): { sequence: string; findings: Finding[] } {
+export function fragmentTemplate(fragment: NebuilderFragment): { sequence: string; /** 0-based start in the source sequence */ start: number; findings: Finding[] } {
   const sequence = fragment.sequence.toUpperCase();
-  if (fragment.kind === 'pcr') return { sequence, findings: [] };
+  if (fragment.kind === 'pcr') return { sequence, start: 0, findings: [] };
   const left = fragment.leftEnzyme ? findEnzyme(fragment.leftEnzyme) : undefined;
   const right = fragment.rightEnzyme ? findEnzyme(fragment.rightEnzyme) : undefined;
   if (!left || !right) {
-    return { sequence: '', findings: [{ code: 'UNKNOWN_ENZYME', severity: 'blocker', message: `Choose two enzymes to cut out ${fragment.name}.` }] };
+    return { sequence: '', start: 0, findings: [{ code: 'UNKNOWN_ENZYME', severity: 'blocker', message: `Choose two enzymes to cut out ${fragment.name}.` }] };
   }
   const molecule = { sequence, topology: fragment.topology };
   const leftSites = cutSites(molecule, [left]);
@@ -204,7 +204,7 @@ export function fragmentTemplate(fragment: NebuilderFragment): { sequence: strin
   if (leftSites.length !== 1 || rightSites.length !== 1) {
     const problem = leftSites.length !== 1 ? left.name : right.name;
     const count = leftSites.length !== 1 ? leftSites.length : rightSites.length;
-    return { sequence: '', findings: [{ code: 'NOT_SINGLE_CUTTER', severity: 'blocker', message: `${problem} cuts ${fragment.name} ${count === 0 ? 'nowhere' : `${count} times`}; choose an enzyme that cuts once.` }] };
+    return { sequence: '', start: 0, findings: [{ code: 'NOT_SINGLE_CUTTER', severity: 'blocker', message: `${problem} cuts ${fragment.name} ${count === 0 ? 'nowhere' : `${count} times`}; choose an enzyme that cuts once.` }] };
   }
   const n = sequence.length;
   // Kept part: from the left cut's bottom-strand position (drops a 5′ overhang, keeps a 3′ one)
@@ -212,8 +212,8 @@ export function fragmentTemplate(fragment: NebuilderFragment): { sequence: strin
   const start = leftSites[0]!.cutBottom;
   const end = rightSites[0]!.cutTop;
   if (fragment.topology === 'linear') {
-    if (end <= start) return { sequence: '', findings: [{ code: 'EMPTY_DIGEST_FRAGMENT', severity: 'blocker', message: `${left.name} must cut ${fragment.name} upstream of ${right.name}.` }] };
-    return { sequence: sequence.slice(start, end), findings: [] };
+    if (end <= start) return { sequence: '', start: 0, findings: [{ code: 'EMPTY_DIGEST_FRAGMENT', severity: 'blocker', message: `${left.name} must cut ${fragment.name} upstream of ${right.name}.` }] };
+    return { sequence: sequence.slice(start, end), start, findings: [] };
   }
   let length: number;
   if (leftSites[0]!.cutTop === rightSites[0]!.cutTop && left.name === right.name) {
@@ -225,7 +225,7 @@ export function fragmentTemplate(fragment: NebuilderFragment): { sequence: strin
   } else {
     length = ((end - start) % n + n) % n;
   }
-  return { sequence: sequence.repeat(3).slice(start, start + length), findings: [] };
+  return { sequence: sequence.repeat(3).slice(start, start + length), start: ((start % n) + n) % n, findings: [] };
 }
 
 function defaultMode(upstream: NebuilderFragment, downstream: NebuilderFragment): OverlapMode {
@@ -279,9 +279,11 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
   const conditions = { method: defaults.method, monovalentMm: polymerase.monovalentMm, primerNm: settings.primerNm ?? defaults.primerNm };
   const tm = (sequence: string) => nebTm(sequence, conditions);
 
+  const starts: number[] = [];
   const templates = fragments.map(fragment => {
     const result = fragmentTemplate(fragment);
     findings.push(...result.findings);
+    starts.push(result.start);
     return result.sequence;
   });
   if (findings.some(finding => finding.severity === 'blocker')) return empty([]);
@@ -370,7 +372,7 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
   return {
     primers,
     junctions,
-    templates: fragments.map((fragment, index) => ({ name: fragment.name, sequence: templates[index]!, kind: fragment.kind })),
+    templates: fragments.map((fragment, index) => ({ name: fragment.name, sequence: templates[index]!, kind: fragment.kind, start: starts[index]! })),
     product,
     findings,
   };

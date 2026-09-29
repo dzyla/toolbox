@@ -36,7 +36,7 @@ describe('methods and assurance navigation', () => {
     const status = screen.getByLabelText('Assurance status');
     const category = screen.getByLabelText('Category');
     fireEvent.change(status, { target: { value: 'reference-tested' } });
-    await waitFor(() => expect(screen.getAllByRole('link', { name: /^Open .* tool$/ })).toHaveLength(7));
+    await waitFor(() => expect(screen.getAllByRole('link', { name: /^Open .* tool$/ })).toHaveLength(8));
     expect(screen.queryByRole('link', { name: 'Open Molarity & Dilution tool' })).toBeNull();
     fireEvent.change(category, { target: { value: 'calculators' } });
     await waitFor(() => expect(screen.getAllByRole('link', { name: /^Open .* tool$/ })).toHaveLength(3));

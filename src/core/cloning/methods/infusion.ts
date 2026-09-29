@@ -62,6 +62,11 @@ export interface InfusionPrimer {
 
 export interface InfusionDesign {
   primers: InfusionPrimer[];
+  /** 0-based start of the linearised vector in the source vector sequence. */
+  vectorStart: number;
+  /** Restriction-site bases added left / right of the insert(s) in the product. */
+  leftSite: string;
+  rightSite: string;
   /** Circular product sequence, starting at the linearised vector start. */
   product: string;
   /** The linearised vector, blunt, as it enters the reaction. */
@@ -133,6 +138,7 @@ export function selectGeneSpecific(template: string): { forward: string; reverse
 interface Opened {
   /** Linearised vector, blunt. */
   vector: string;
+  start: number;
   /** Site bases to add on the left of the insert / right of the insert (top-strand sense). */
   leftSite: string;
   rightSite: string;
@@ -148,11 +154,11 @@ function overhangShift(cutTop: number, cutBottom: number, n: number): number {
 function openVector(vectorSequence: string, circular: boolean, how: InfusionLinearization): Opened {
   const findings: Finding[] = [];
   const n = vectorSequence.length;
-  const fail = (finding: Finding): Opened => ({ vector: '', leftSite: '', rightSite: '', findings: [finding] });
+  const fail = (finding: Finding): Opened => ({ vector: '', start: 0, leftSite: '', rightSite: '', findings: [finding] });
 
   if (how.method === 'linear') {
     if (circular) return fail(blocker('VECTOR_NOT_LINEAR', 'The vector is circular; choose restriction digest or inverse PCR to open it.'));
-    return { vector: vectorSequence, leftSite: '', rightSite: '', findings };
+    return { vector: vectorSequence, start: 0, leftSite: '', rightSite: '', findings };
   }
   if (!circular) return fail(blocker('VECTOR_NOT_CIRCULAR', 'Only circular vectors can be opened by restriction digest or inverse PCR.'));
 
@@ -163,7 +169,7 @@ function openVector(vectorSequence: string, circular: boolean, how: InfusionLine
     }
     const length = n - (end - start);
     if (length < 100) findings.push({ code: 'SHORT_BACKBONE', severity: 'warning', message: 'The vector backbone is under 100 bp; check the deleted region.' });
-    return { vector: circularSlice(vectorSequence, end, length), leftSite: '', rightSite: '', findings };
+    return { vector: circularSlice(vectorSequence, end, length), start: end % n, leftSite: '', rightSite: '', findings };
   }
 
   const molecule = { sequence: vectorSequence, topology: 'circular' as const };
@@ -207,7 +213,7 @@ function openVector(vectorSequence: string, circular: boolean, how: InfusionLine
     if (!insideSite(second, name)) findings.push({ code: 'SITE_OUTSIDE', severity: 'warning', message: `${name} cuts outside its recognition site, so the site cannot be included.` });
     else rightSite = circularSlice(vectorSequence, second.sitePosition, second.cutTop - second.sitePosition);
   }
-  return { vector, leftSite, rightSite, findings };
+  return { vector, start: mod(start, n), leftSite, rightSite, findings };
 }
 
 function primer(name: string, role: InfusionPrimer['role'], direction: InfusionPrimer['direction'], extension: string, site: string, anneal: string, target: string): InfusionPrimer {
@@ -227,7 +233,7 @@ export function designInfusion(
   settings: InfusionSettings = {},
 ): InfusionDesign {
   const findings: Finding[] = [];
-  const empty = (extra: Finding[]): InfusionDesign => ({ primers: [], product: '', vector: '', findings: [...findings, ...extra] });
+  const empty = (extra: Finding[]): InfusionDesign => ({ primers: [], vectorStart: 0, leftSite: '', rightSite: '', product: '', vector: '', findings: [...findings, ...extra] });
   const clean = (text: string) => text.replace(/\s/g, '').toUpperCase();
   const vectorSeq = clean(vectorSequence);
   if (!/^[ACGT]+$/.test(vectorSeq)) return empty([blocker('INVALID_VECTOR', 'The vector sequence is empty or contains characters other than A, C, G and T.')]);
@@ -269,5 +275,5 @@ export function designInfusion(
   }
 
   const product = opened.vector + opened.leftSite + cleaned.map(insert => insert.sequence).join('') + opened.rightSite;
-  return { primers, product, vector: opened.vector, findings };
+  return { primers, vectorStart: opened.start, leftSite: opened.leftSite, rightSite: opened.rightSite, product, vector: opened.vector, findings };
 }

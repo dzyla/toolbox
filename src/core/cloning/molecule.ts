@@ -54,12 +54,20 @@ export function moleculeFromDocument(document: PlasmidDocument): Molecule {
 }
 
 export function moleculeToDocument(molecule: Molecule, id: string, description?: string): PlasmidDocument {
+  // Features joined from several sources can share ids; documents need them unique.
+  const seen = new Set<string>();
+  const annotations = molecule.annotations.map((annotation, index) => {
+    let unique = annotation.id;
+    if (seen.has(unique)) unique = `${annotation.id}-${index}`;
+    seen.add(unique);
+    return unique === annotation.id ? annotation : { ...annotation, id: unique };
+  });
   return {
     id,
     name: molecule.name,
     sequence: molecule.sequence,
     topology: molecule.topology,
-    annotations: molecule.annotations,
+    annotations,
     description,
     provenance: { format: 'genbank', parserVersion: 'cloning-hub-1', warnings: [] },
   };

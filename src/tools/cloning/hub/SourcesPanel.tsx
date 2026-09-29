@@ -23,9 +23,12 @@ function checked(document: PlasmidDocument): PlasmidDocument {
 export function SourcesPanel({ sources, onChange }: { sources: HubSource[]; onChange: (sources: HubSource[]) => void }) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  /** FASTA carries no topology: vectors are taken as circular, inserts as linear (PCR products). GenBank and SnapGene keep their own. */
+  const withTopology = (document: PlasmidDocument, role: SourceRole): PlasmidDocument =>
+    document.provenance.format === 'fasta' ? { ...document, topology: role === 'vector' ? 'circular' : 'linear' } : document;
   const add = (document: PlasmidDocument) => {
     const role: SourceRole = sources.some(source => source.role === 'vector') ? 'insert' : 'vector';
-    onChange([...sources, { id: newSourceId(), role, document: checked(document) }]);
+    onChange([...sources, { id: newSourceId(), role, document: withTopology(checked(document), role) }]);
   };
   const update = (id: string, patch: Partial<HubSource>) => onChange(sources.map(source => source.id === id ? { ...source, ...patch } : source));
   const move = (index: number, delta: number) => {
@@ -46,7 +49,12 @@ export function SourcesPanel({ sources, onChange }: { sources: HubSource[]; onCh
       {sources.map((source, index) => <li key={source.id} class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
         <input aria-label={`Name of sequence ${index + 1}`} class="min-w-0 flex-1 rounded border border-slate-300 bg-transparent px-2 py-1 text-sm font-medium dark:border-slate-600" value={source.document.name}
           onChange={event => update(source.id, { document: { ...source.document, name: event.currentTarget.value || source.document.name } })} />
-        <span class="text-xs text-slate-600 dark:text-slate-400">{source.document.sequence.length.toLocaleString()} bp · {source.document.topology} · {source.document.annotations.length} features</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400">{source.document.sequence.length.toLocaleString()} bp · {source.document.annotations.length} features</span>
+        <select aria-label={`Topology of ${source.document.name}`} class="rounded border border-slate-300 bg-transparent px-2 py-1 text-xs dark:border-slate-600" value={source.document.topology}
+          onChange={event => update(source.id, { document: { ...source.document, topology: event.currentTarget.value as PlasmidDocument['topology'] } })}>
+          <option value="circular">Circular</option>
+          <option value="linear">Linear</option>
+        </select>
         <select aria-label={`Role of ${source.document.name}`} class="rounded border border-slate-300 bg-transparent px-2 py-1 text-xs dark:border-slate-600" value={source.role}
           onChange={event => update(source.id, { role: event.currentTarget.value as SourceRole })}>
           <option value="vector">Vector</option>
@@ -84,7 +92,7 @@ export function SourcesPanel({ sources, onChange }: { sources: HubSource[]; onCh
               }
               if (!added.length) return;
               if (!sources.some(source => source.role === 'vector')) added[0]!.role = 'vector';
-              onChange([...sources, ...added]);
+              onChange([...sources, ...added.map(item => ({ ...item, document: withTopology(item.document, item.role) }))]);
             })();
           }} />
         </label>
