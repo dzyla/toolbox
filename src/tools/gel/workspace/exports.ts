@@ -1,7 +1,7 @@
 import { downloadText, downloadBlob, toCsv } from '@/lib/export';
 import { formatSize, formatMass } from '@/core/gel/calibration';
 import { applyDisplayTransform, buildGelSvg, type BandAnnotation } from '@/core/gel/svg-export';
-import { SATURATION_WARN } from '../analysis';
+import { isSaturated } from '@/core/gel/quant';
 import type { GelCore, GelLadders, GelAnalysis } from '../workspace';
 
 /** Annotated image, SVG, print and CSV exports. */
@@ -148,7 +148,7 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
             Number(m.net.toFixed(1)),
             Number(m.share.toFixed(2)),
             Number(m.ratio.toFixed(2)),
-            m.saturation >= SATURATION_WARN ? 'YES' : 'NO',
+            m.saturation === null ? 'N/A' : isSaturated(m.saturation) ? 'YES' : 'NO',
           ];
         })
       ),

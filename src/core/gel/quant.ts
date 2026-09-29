@@ -59,6 +59,8 @@ export function normalise(net: number, referenceNet: number): number {
 
 /** Saturation warning threshold from the spec: more than 1 % of pixels at either end of the range. */
 export const SATURATION_WARN = 0.01;
+/** A band is saturated when more than SATURATION_WARN of its pixels are clipped; null (not assessable) is never saturated. */
+export const isSaturated = (fraction: number | null) => fraction !== null && fraction > SATURATION_WARN;
 
 /**
  * Detect polarity from the plane using the scanner background plate.

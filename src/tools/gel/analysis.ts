@@ -4,15 +4,13 @@ import { type BandMetrics } from '@/core/gel/quant';
 import { formatSize } from '@/core/gel/calibration';
 import { type Lane, type Band } from '@/core/gel/types';
 
-export const SATURATION_WARN = 0.05;
-
 export interface LaneAnalysisItem {
   lane: Lane;
   laneIdx: number;
   profile: Float32Array;
   baseline: Float32Array;
   netProfile: Float32Array;
-  metrics: (BandMetrics & { number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null })[];
+  metrics: (Omit<BandMetrics, 'saturation'> & { saturation: number | null; number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null })[];
   totalNet: number;
   totalBandsSignal: number;
   totalLaneSignal: number;

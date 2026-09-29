@@ -112,3 +112,13 @@ describe('synthetic gel pipeline', () => {
     expect(autoLanes(d.plane, { x: 0, y: 0, w: 640, h: 480 }, 'dark').length).toBe(8);
   });
 });
+
+import { isSaturated } from '@/core/gel/quant';
+describe('saturation threshold', () => {
+  it('is more than 1 % of pixels, and null means not assessable', () => {
+    expect(SATURATION_WARN).toBe(0.01);
+    expect(isSaturated(0.01)).toBe(false);
+    expect(isSaturated(0.0101)).toBe(true);
+    expect(isSaturated(null)).toBe(false);
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
 import { importErrorMessage } from '@/lib/file-import';
-import { decodeImageFile } from '@/lib/image';
+import { decodeImageFile, sourceInfoOf } from '@/lib/image';
 import { demoGel } from '@/core/gel/synthetic';
 import { autoLanes, equalLanes } from '@/core/gel/lanes';
 import { detectPolarity } from '@/core/gel/quant';
@@ -9,7 +9,7 @@ import type { GelCore, GelAnalysis, GelProject } from '../workspace';
 
 /** Image loading (demo, upload) and orientation/crop transforms. */
 export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: GelProject) {
-  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId } = core;
+  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
   const { cropSuggestion } = analysis;
   const { project } = projectApi;
 
@@ -26,6 +26,8 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setBasePlane(demo.plane);
     setPlane(demo.plane);
     setImageName('demo_gel.png');
+    setSourceInfo({ format: 'demo', bitDepth: 32, lossy: false, rescaled: false });
+    setAppliedTransforms([]);
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
@@ -53,6 +55,8 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
       setBasePlane(newPlane);
       setPlane(newPlane);
       setImageName(file.name);
+      setSourceInfo(sourceInfoOf(decoded));
+      setAppliedTransforms([]);
       setDeskewAngle(0);
       setIsCropping(false);
       setCropBox(null);
@@ -80,6 +84,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const rotated = transformPlane(plane, g);
     setBasePlane(rotated);
     setPlane(rotated);
+    setAppliedTransforms(t => [...t, `rotate ${deltaDeg}° (exact)`]);
     setDeskewAngle(0);
     setBandMap({});
     set({ refBandId: '' });
@@ -100,6 +105,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const flipped = transformPlane(plane, g);
     setBasePlane(flipped);
     setPlane(flipped);
+    setAppliedTransforms(t => [...t, `flip ${horizontal ? 'horizontal' : 'vertical'} (exact)`]);
     setDeskewAngle(0);
     setBandMap({});
     set({ refBandId: '' });
@@ -129,6 +135,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const cropped = transformPlane(plane, { rotation: 0, flipH: false, flipV: false, crop: cb });
     setBasePlane(cropped);
     setPlane(cropped);
+    setAppliedTransforms(t => [...t, 'crop (exact)']);
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
@@ -158,6 +165,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     if (!originalPlane) return;
     setBasePlane(originalPlane);
     setPlane(originalPlane);
+    setAppliedTransforms([]);
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
@@ -190,6 +198,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     });
     setBasePlane(cropped);
     setPlane(cropped);
+    setAppliedTransforms(t => [...t, `auto crop + deskew ${rotation.toFixed(2)}° (resampled)`]);
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);

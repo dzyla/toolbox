@@ -1,5 +1,6 @@
 import { formatSize, formatMass } from '@/core/gel/calibration';
-import { type LaneAnalysisItem, SATURATION_WARN } from './analysis';
+import { type LaneAnalysisItem } from './analysis';
+import { isSaturated } from '@/core/gel/quant';
 import { BandQuantChart } from './BandQuantChart';
 import type { GelWorkspace } from './workspace';
 
@@ -543,7 +544,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                           <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                             {item.metrics.map(m => {
                               const isBandRef = m.bandId === s.refBandId;
-                              const isSaturated = m.saturation >= SATURATION_WARN;
+                              const saturated = isSaturated(m.saturation);
                               return (
                                 <tr
                                   key={m.bandId}
@@ -577,7 +578,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                     )}
                                   </td>
                                   <td class="px-2.5 py-2 text-center">
-                                    {isSaturated ? (
+                                    {saturated ? (
                                       <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-bold">
                                         Saturated
                                       </span>
@@ -633,7 +634,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                   {(s.tableMode === 'all' ? allLanesAnalysis : ([laneAnalysis].filter(Boolean) as LaneAnalysisItem[])).flatMap(item =>
                     item.metrics.map(m => {
                       const isRef = m.bandId === s.refBandId;
-                      const isSaturated = m.saturation >= SATURATION_WARN;
+                      const saturated = isSaturated(m.saturation);
                       const customName = laneLabels[item.lane.id];
                       return (
                         <tr
@@ -665,7 +666,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                             {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
                           </td>
                           <td class="py-2.5 text-center">
-                            {isSaturated ? (
+                            {saturated ? (
                               <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-0.5 text-[10px] font-bold">
                                 Saturated
                               </span>

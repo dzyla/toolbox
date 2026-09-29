@@ -155,7 +155,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
           const nominalLadderSize = (isLadderLane && i < sortedLadderSizes.length) ? sortedLadderSizes[i]! : null;
           const sizeEst = nominalLadderSize ?? (calibration ? calibration.sizeAt(effMigrationY) : null);
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
-          return { ...m, number: i + 1, share, ratio, sizeEst, massEst };
+          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst };
         });
 
         return {
@@ -205,7 +205,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
         normFactor,
       };
     });
-  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, massCalibration, effectiveLadderLaneId, activeLadder]);
+  }, [plane, lanes, bandMap, s.polarity, s.bgMethod, s.rollingRadius, s.prominence, s.refBandId, s.loadingRefLaneId, calibration, massCalibration, effectiveLadderLaneId, activeLadder, core.sourceInfo]);
 
   const selectedLane = useMemo(() => lanes.find(l => l.id === selectedLaneId) || lanes[0] || null, [lanes, selectedLaneId]);
   const selectedLaneIdx = useMemo(() => lanes.findIndex(l => l.id === selectedLane?.id), [lanes, selectedLane]);

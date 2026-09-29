@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import type { SourceInfo } from '@/lib/image';
 import { useUrlState } from '@/lib/url-state';
 import { type Plane, type Lane, type Band } from '@/core/gel/types';
 import { DEFAULTS, type State } from '../workspace-model';
@@ -75,7 +76,15 @@ export function useGelCore() {
   // Densitometric Mass Calibration
   const [customMassMap, setCustomMassMap] = useState<Record<string, number>>({});
 
+  // Where the pixels came from and what was done to them (data-quality panel, methods text).
+  const [sourceInfo, setSourceInfo] = useState<SourceInfo | null>(null);
+  const [appliedTransforms, setAppliedTransforms] = useState<string[]>([]);
+
   return {
+    sourceInfo,
+    setSourceInfo,
+    appliedTransforms,
+    setAppliedTransforms,
     stateSig,
     shareUrl,
     s,
