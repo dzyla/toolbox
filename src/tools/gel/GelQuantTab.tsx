@@ -3,6 +3,7 @@ import { type LaneAnalysisItem } from './analysis';
 import { isSaturated } from '@/core/gel/quant';
 import { BandQuantChart } from './BandQuantChart';
 import { GelGroupsView } from './GelGroupsView';
+import { DataQualityPanel } from './DataQualityPanel';
 import type { GelWorkspace } from './workspace';
 
 /** Quantification tab: band table, lane loading and normalization across all lanes. */
@@ -23,6 +24,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
     loadingStats,
     massCalibration,
     plane,
+    qualityIssues,
     quantLayoutMode,
     removePeakFromLane,
     s,
@@ -36,6 +38,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
   } = g;
   return (
     <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
+      <DataQualityPanel issues={qualityIssues} />
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
           <h3 class="font-bold text-base text-slate-900 dark:text-slate-100">

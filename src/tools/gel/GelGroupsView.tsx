@@ -2,14 +2,13 @@ import { useState } from 'preact/hooks';
 import { assignByPattern } from './lane-meta';
 import { matchCluster } from './workspace/groups';
 import type { BandRef } from './workspace-model';
-import { DataQualityPanel } from './DataQualityPanel';
 import type { GelWorkspace } from './workspace';
 
 const fmt = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '–' : v.toPrecision(d));
 const fmtP = (p: number) => (p < 0.001 ? '<0.001' : p.toFixed(3));
 
 export function GelGroupsView({ g }: { g: GelWorkspace }) {
-  const { s, set, targetClusters, groupRows, groupSummaries, groupControlCondition, qualityIssues, laneMeta, setLaneMeta, lanes } = g;
+  const { s, set, targetClusters, groupRows, groupSummaries, groupControlCondition, laneMeta, setLaneMeta, lanes } = g;
   const [pattern, setPattern] = useState({ conditions: '', replicates: 3 });
   const conditions = groupSummaries.map(x => x.condition);
   const refOf = (id: string) => { const c = targetClusters.find(t => t.id === id); return c ? { size: c.avgSize, rf: c.avgRf } : null; };
@@ -34,8 +33,6 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
 
   return (
     <div class="space-y-4">
-      <DataQualityPanel issues={qualityIssues} />
-
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
         <label class="space-y-1"><span class="font-semibold">Target band</span>
           <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={idOf(s.groupTarget) || (s.groupTarget ? '__stored' : '')}
