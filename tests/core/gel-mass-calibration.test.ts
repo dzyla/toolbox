@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fitMassCalibration, formatMass, MASS_STANDARD_PRESETS } from '@/core/gel/calibration';
+import { fitMassCalibration, formatMass, massFlags, MASS_STANDARD_PRESETS } from '@/core/gel/calibration';
 
 describe('Densitometric Mass Calibration', () => {
   const points = [
@@ -49,5 +49,27 @@ describe('Densitometric Mass Calibration', () => {
     const lowDna = MASS_STANDARD_PRESETS.find(p => p.id === 'invitrogen-low-dna');
     expect(lowDna).toBeDefined();
     expect(lowDna!.masses).toContain(2000);
+  });
+});
+
+describe('mass calibration limits', () => {
+  const pts = [[102, 10], [198, 20], [402, 40], [798, 80]].map(([net, mass], i) => ({ bandId: `b${i}`, netIntensity: net!, knownMass: mass! }));
+  it('reports residual SD, LOD and LOQ (ICH Q2) for a linear fit', () => {
+    const cal = fitMassCalibration(pts, 'linear');
+    expect(cal.residualSD!).toBeCloseTo(0.25109, 4);
+    expect(cal.lod!).toBeCloseTo(0.82858, 4);
+    expect(cal.loq!).toBeCloseTo(2.51085, 4);
+    expect(cal.range).toEqual({ minMass: 10, maxMass: 80, minNet: 102, maxNet: 798 });
+  });
+  it('has no LOD/LOQ with fewer than 3 points', () => {
+    const cal = fitMassCalibration(pts.slice(0, 2), 'linear');
+    expect(cal.lod).toBeNull();
+    expect(cal.loq).toBeNull();
+  });
+  it('flags extrapolation and values below LOQ', () => {
+    const cal = fitMassCalibration(pts, 'linear');
+    expect(massFlags(cal, 900, cal.massAt(900))).toEqual({ extrapolated: true, belowLoq: false });
+    expect(massFlags(cal, 300, cal.massAt(300))).toEqual({ extrapolated: false, belowLoq: false });
+    expect(massFlags(cal, 20, 1.9)).toEqual({ extrapolated: true, belowLoq: true });
   });
 });

@@ -152,6 +152,17 @@ export interface MassCalibration {
   formula: string;
   massAt(netIntensity: number): number;
   residuals: MassCalibrationResidual[];
+  /** Signal and mass span of the standards; anything outside is extrapolation. */
+  range: { minMass: number; maxMass: number; minNet: number; maxNet: number };
+  /**
+   * Residual SD of the fit in mass units (df = n − parameters); null with < 3 standards or no residual df.
+   * This is σ in ICH Q2(R1) §6.3/7.3 and equals σ_net/slope for linear models.
+   */
+  residualSD: number | null;
+  /** Limit of detection, 3.3·σ (mass units). */
+  lod: number | null;
+  /** Limit of quantitation, 10·σ (mass units). */
+  loq: number | null;
   coefficients: {
     slope?: number;
     intercept?: number;
@@ -354,6 +365,12 @@ export function fitMassCalibration(
 
   const r2 = ssTot === 0 ? 1 : Math.max(0, 1 - ssRes / ssTot);
 
+  const params = model === 'linear_zero' ? 1 : model === 'quadratic' ? 3 : 2;
+  const dof = valid.length - params;
+  const residualSD = valid.length >= 3 && dof >= 1 ? Math.sqrt(ssRes / dof) : null;
+  const nets = valid.map(p => p.netIntensity), masses = valid.map(p => p.knownMass);
+  const range = { minMass: Math.min(...masses), maxMass: Math.max(...masses), minNet: Math.min(...nets), maxNet: Math.max(...nets) };
+
   return {
     model,
     points: valid,
@@ -363,6 +380,20 @@ export function fitMassCalibration(
     massAt,
     residuals,
     coefficients: coeffs,
+    range,
+    residualSD,
+    lod: residualSD === null ? null : 3.3 * residualSD,
+    loq: residualSD === null ? null : 10 * residualSD,
+  };
+}
+
+export interface MassFlags { extrapolated: boolean; belowLoq: boolean }
+
+/** Validity flags for one quantified band: outside the standards' signal range, or below the limit of quantitation. */
+export function massFlags(cal: MassCalibration, net: number, mass: number): MassFlags {
+  return {
+    extrapolated: net < cal.range.minNet || net > cal.range.maxNet,
+    belowLoq: cal.loq !== null && mass < cal.loq,
   };
 }
 
