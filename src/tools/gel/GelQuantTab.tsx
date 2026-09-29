@@ -578,7 +578,9 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                     )}
                                   </td>
                                   <td class="px-2.5 py-2 text-center">
-                                    {saturated ? (
+                                    {m.saturation === null ? (
+                                      <span title="Float image rescaled on import; saturation cannot be judged" class="text-slate-400 dark:text-slate-500 text-[10px]">Not assessable</span>
+                                    ) : saturated ? (
                                       <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-bold">
                                         Saturated
                                       </span>
@@ -666,7 +668,9 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                             {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio.toFixed(2)}
                           </td>
                           <td class="py-2.5 text-center">
-                            {saturated ? (
+                            {m.saturation === null ? (
+                              <span title="Float image rescaled on import; saturation cannot be judged" class="text-slate-400 dark:text-slate-500 text-[10px]">Not assessable</span>
+                            ) : saturated ? (
                               <span class="rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-0.5 text-[10px] font-bold">
                                 Saturated
                               </span>

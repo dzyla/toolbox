@@ -5,7 +5,7 @@ import { renderSyntheticGel, demoGel } from '@/core/gel/synthetic';
 import { autoLanes, equalLanes, laneCentreAt } from '@/core/gel/lanes';
 import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
 import { rollingBaseline, valleyBaseline } from '@/core/gel/background';
-import { quantifyBands, percentOfLane, detectPolarity, SATURATION_WARN } from '@/core/gel/quant';
+import { quantifyBands, percentOfLane, detectPolarity, SATURATION_WARN, isSaturated } from '@/core/gel/quant';
 import { rawToWorking, workingToRaw, apply, frameSize } from '@/core/gel/transform';
 import type { Lane, Polarity } from '@/core/gel/types';
 
@@ -113,7 +113,6 @@ describe('synthetic gel pipeline', () => {
   });
 });
 
-import { isSaturated } from '@/core/gel/quant';
 describe('saturation threshold', () => {
   it('is more than 1 % of pixels, and null means not assessable', () => {
     expect(SATURATION_WARN).toBe(0.01);

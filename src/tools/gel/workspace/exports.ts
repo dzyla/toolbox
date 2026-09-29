@@ -148,7 +148,7 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
             Number(m.net.toFixed(1)),
             Number(m.share.toFixed(2)),
             Number(m.ratio.toFixed(2)),
-            m.saturation === null ? 'N/A' : isSaturated(m.saturation) ? 'YES' : 'NO',
+            m.saturation === null ? '' : isSaturated(m.saturation) ? 'YES' : 'NO',
           ];
         })
       ),
