@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fitCalibration, assignLadder, formatSize } from '@/core/gel/calibration';
+import { fitCalibration, formatSize } from '@/core/gel/calibration';
 
 describe('gel molecular weight calibration', () => {
   const points = [
@@ -47,18 +47,7 @@ describe('gel molecular weight calibration', () => {
     expect(cal.yAt(cal.sizeAt(50))).toBeCloseTo(50, 3);
   });
 
-  it('assigns ladder sizes and formats sizes', () => {
-    const peaks = [
-      { y: 10, prominence: 1 },
-      { y: 30, prominence: 2 },
-      { y: 50, prominence: 0.5 },
-    ];
-    const assigned = assignLadder(peaks, [100, 50, 25]);
-    expect(assigned.length).toBe(3);
-    expect(assigned[0]!.size).toBe(100);
-    expect(assigned[1]!.size).toBe(50);
-    expect(assigned[2]!.size).toBe(25);
-
+  it('formats sizes', () => {
     expect(formatSize(150, 'protein')).toBe('150 kDa');
     expect(formatSize(1500, 'dna')).toBe('1.50 kb');
   });

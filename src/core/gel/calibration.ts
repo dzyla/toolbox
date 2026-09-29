@@ -110,18 +110,6 @@ export function fitCalibration(points: CalibrationPoint[], model: CalibrationMod
   return { model, points: p, sizeAt, yAt, r2, residuals, slope: lin.slope, intercept: lin.intercept };
 }
 
-/**
- * Pair detected ladder peaks (y ascending = top to bottom) with ladder sizes (descending). If there are more peaks than
- * sizes, the most prominent ones are kept; if fewer, the largest sizes are used top-down. The user can fix the rest.
- */
-export function assignLadder(peaks: { y: number; prominence: number }[], sizes: number[]): CalibrationPoint[] {
-  const sorted = [...sizes].sort((a, b) => b - a);
-  let chosen = peaks;
-  if (peaks.length > sorted.length) chosen = [...peaks].sort((a, b) => b.prominence - a.prominence).slice(0, sorted.length);
-  chosen = [...chosen].sort((a, b) => a.y - b.y);
-  return chosen.map((p, i) => ({ y: p.y, size: sorted[i]! }));
-}
-
 /** Human-readable size with the right unit: kDa for protein, bp/kb for DNA. */
 export function formatSize(size: number, kind: 'protein' | 'dna'): string {
   if (!Number.isFinite(size) || size <= 0) return '–';
