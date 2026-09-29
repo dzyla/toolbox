@@ -82,5 +82,18 @@ export const DEFAULTS: State = {
 };
 /** Upgrade settings from old links and projects: the former natural 'spline' model is now the monotone cubic. */
 export function migrateState(v: State): State {
-  return (v.calibMethod as string) === 'spline' ? { ...v, calibMethod: 'monotone' } : v;
+  const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+  const ref = (r: unknown): BandRef | null => {
+    if (r === null) return null;
+    const o = r as Record<string, unknown> | undefined;
+    return o && typeof o === 'object' && !Array.isArray(o) && (o.size === null || isNum(o.size)) && isNum(o.rf) ? r as BandRef : null;
+  };
+  const out = { ...v };
+  if ((out.calibMethod as string) === 'spline') out.calibMethod = 'monotone';
+  out.groupTarget = ref(v.groupTarget);
+  out.groupControl = ref(v.groupControl);
+  if (!['none', 'control-band', 'total-lane'].includes(v.groupNorm)) out.groupNorm = 'none';
+  if (!isNum(v.groupMarginPct) || v.groupMarginPct <= 0 || v.groupMarginPct > 100) out.groupMarginPct = DEFAULTS.groupMarginPct;
+  // Keep identity when nothing changed.
+  return (Object.keys(out) as (keyof State)[]).every(k => out[k] === v[k]) ? v : out;
 }

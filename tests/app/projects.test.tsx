@@ -81,6 +81,14 @@ describe('gel project schema 2', () => {
   });
 });
 
+describe('gel project source info validation', () => {
+  it('drops malformed source info', async () => {
+    const snap = gelProjectSnapshot(plane, { ...gelData, sourceInfo: { format: 'tiff', bitDepth: 12 as never, lossy: false, rescaled: false } });
+    const { data } = await restoreGelProject({ ...snap, id: 'p', toolId: 'gel', updatedAt: 0, createdAt: 0 });
+    expect(data.sourceInfo).toBeNull();
+  });
+});
+
 describe('protocol runs', () => {
   it('saves step progress and restores it, including custom protocols', async () => {
     const protocol = JSON.parse(JSON.stringify(BUNDLED_PROTOCOLS[0]!));

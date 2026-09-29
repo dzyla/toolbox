@@ -94,7 +94,7 @@ export async function restoreGelProject(project: Project): Promise<{ plane: Plan
         ? s.laneMeta as Record<string, LaneMeta> : {},
       ladderSizeMap: isRecord(s.ladderSizeMap) && Object.values(s.ladderSizeMap).every(v => v === null || isFiniteNumber(v))
         ? s.ladderSizeMap as Record<string, number | null> : {},
-      sourceInfo: isRecord(s.sourceInfo) && typeof s.sourceInfo.format === 'string' ? s.sourceInfo as unknown as SourceInfo : null,
+      sourceInfo: isRecord(s.sourceInfo) && typeof s.sourceInfo.format === 'string' && [8, 16, 32].includes(s.sourceInfo.bitDepth as number) && typeof s.sourceInfo.lossy === 'boolean' && typeof s.sourceInfo.rescaled === 'boolean' ? s.sourceInfo as unknown as SourceInfo : null,
       appliedTransforms: Array.isArray(s.appliedTransforms) && s.appliedTransforms.every(t => typeof t === 'string') ? s.appliedTransforms : [],
       settings: isRecord(s.settings) ? s.settings : {},
     },
