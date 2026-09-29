@@ -6,8 +6,8 @@ import { validateDocument, type PlasmidDocument } from '@/core/plasmid/model';
 import { importErrorMessage } from '@/lib/file-import';
 import { ImportAlert } from '@/app/components/ImportAlert';
 import type { HubSource, SourceRole } from './state';
+import { BUTTON, PRIMARY_BUTTON } from './results';
 
-const BUTTON = 'rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800';
 const MAX_SEQUENCE_FILE_BYTES = 20 * 1024 * 1024;
 
 function newSourceId(): string {
@@ -71,7 +71,7 @@ export function SourcesPanel({ sources, onChange }: { sources: HubSource[]; onCh
         <textarea class="mt-1 w-full rounded border border-slate-300 bg-transparent p-2 font-mono text-xs dark:border-slate-600" rows={3} value={text} onInput={event => setText(event.currentTarget.value)} />
       </label>
       <div class="flex flex-col gap-2 md:justify-end">
-        <button type="button" class={`${BUTTON} bg-accent-700 text-white hover:bg-accent-800`} disabled={!text.trim()} onClick={() => {
+        <button type="button" class={PRIMARY_BUTTON} disabled={!text.trim()} onClick={() => {
           setError('');
           try { add(importPlasmidText(text).document); setText(''); }
           catch (cause) { setError(cause instanceof Error ? cause.message : 'This sequence could not be read.'); }

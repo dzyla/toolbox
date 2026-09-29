@@ -19,6 +19,11 @@
   --color-accent-950: #1e1b4b;
 }
 
+/* Native controls (select popups, scrollbars, date pickers) follow the app theme, not the OS:
+ * the theme is a .dark class on <html>, which the color-scheme meta tag cannot see. */
+:root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

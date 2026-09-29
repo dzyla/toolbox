@@ -10,6 +10,7 @@ import { LinearMap } from '@/tools/plasmid/LinearMap';
 import { downloadText } from '@/lib/export';
 
 export const BUTTON = 'rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800';
+export const PRIMARY_BUTTON = 'rounded-lg border border-accent-700 bg-accent-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-accent-800 disabled:opacity-40 dark:hover:bg-accent-600';
 export const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900';
 
 export function Section({ id, title, aside, children }: { id: string; title: string; aside?: ComponentChildren; children: ComponentChildren }) {
