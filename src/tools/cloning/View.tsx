@@ -2,6 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import type { ToolProps } from '@/tools/registry';
+import { parseRoute } from '@/app/router';
 import { useToolProject } from '@/lib/use-tool-project';
 import { SCIENCE } from './science';
 import { SourcesPanel } from './hub/SourcesPanel';
@@ -14,7 +15,8 @@ import { DEFAULT_STATE, METHODS, hubProjectSnapshot, restoreHubProject, type Hub
 
 /** Old links (#gibson, #mutagenesis) open the hub on the matching method. */
 function initialMethod(): HubMethod {
-  const id = typeof location !== 'undefined' ? location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] : '';
+  const route = typeof location !== 'undefined' ? parseRoute(location.hash) : undefined;
+  const id = route?.name === 'tool' ? route.toolId : '';
   return id === 'mutagenesis' ? 'sdm' : id === 'gibson' ? 'nebuilder' : DEFAULT_STATE.method;
 }
 

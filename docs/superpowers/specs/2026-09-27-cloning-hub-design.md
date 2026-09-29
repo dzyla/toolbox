@@ -1,6 +1,6 @@
 # Cloning Hub — design
 
-Date: 2026-09-27 · Status: draft for review
+Date: 2026-09-27 · Status: implemented (see docs/cloning-hub.md for the current state)
 
 ## Goal
 
@@ -70,21 +70,17 @@ State is URL/draft-backed, and the hub saves as a project through `useToolProjec
 
 ## Method rules
 
-<!-- Filled from the vendor research report (captured tool behaviour, manuals). -->
+The rules each method implements, what was verified and where results differ are recorded in
+`docs/cloning-hub.md`, which is kept current with the code. In short:
 
-### NEBuilder HiFi / Gibson
-
-### In-Fusion
-
-### Restriction + ligation (sticky and blunt)
-
-### Amino-acid changes (NEBaseChanger-style)
-
-Input: pick an ORF (auto-detected on both strands, or from an imported CDS annotation), then type mutations in one-letter (`Y127F`) or three-letter (`p.Tyr127Phe`) notation, plus insertions and deletions.
-
-- A comma-separated list gives one design per mutation (primer pair, mutant plasmid, protocol).
-- `+` joins mutations into one multi-mutant. If the sites fit within one primer design they are made in one reaction; otherwise the design is split into consecutive rounds, each round using the previous product as its template.
-- The wild-type residue is checked against the ORF translation; a mismatch is a blocker that shows the actual residue.
+- **NEBuilder / Gibson:** NEB's primer-length loops, Wallace-Tm overlap growth, split/upstream/downstream
+  placement and Q5/Taq/Phusion Tm and Ta rules; reproduced exactly on 220 reference designs.
+- **In-Fusion:** the vector end is the blunt molecule (5′ overhangs filled in, 3′ overhangs chewed
+  back); 15 nt (single insert) or 20 nt + 10/10 (several inserts) extensions; included sites; inverse PCR.
+- **Restriction + ligation:** overhang compatibility by kind, length and letters; orientation search;
+  phosphorylation state; NEB T4 ligase protocol.
+- **Amino-acid changes:** ORF-relative `Y127F` entry, codon choice by usage or minimal change, `+` groups
+  (merged within 8 nt per mutation, otherwise consecutive rounds), back-to-back primers with 5′ tails.
 
 ## Error handling
 

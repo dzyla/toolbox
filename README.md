@@ -40,6 +40,15 @@ that require review; these labels are not experimental, assay, or clinical certi
 independent groups. Its outputs aid study planning and do not replace assay validation,
 protocol controls, or a statistical analysis plan.
 
+## Cloning hub
+
+Load a vector and inserts once, then design NEBuilder / Gibson assemblies, In-Fusion
+clonings, restriction-ligation clonings and Q5 amino-acid mutations (`Y127F, H443T`).
+You get primers, a bench protocol from your stock concentrations and the finished
+construct as a map and GenBank file. Designs follow the NEBuilder, Takara In-Fusion, NEB
+ligation and NEBaseChanger rules and are checked against reference outputs from those
+tools; `docs/cloning-hub.md` states what is verified and where results differ.
+
 ## Plasmid workspace
 
 The Plasmid Viewer & Map opens pasted raw DNA, FASTA, and GenBank records, plus

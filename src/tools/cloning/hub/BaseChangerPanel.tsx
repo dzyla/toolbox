@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { designAminoAcidChanges, sdmProtocol, translateCodon } from '@/core/cloning/methods/basechanger';
+import { designAminoAcidChanges, designSdm, isSdmDesign, sdmProtocol, translateCodon, type SdmDesign } from '@/core/cloning/methods/basechanger';
 import { sdmProduct } from '@/core/cloning/products';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { findORFs } from '@/core/plasmid';
@@ -40,6 +40,24 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
     : null, [working, start0, settings.mutations, settings.strategy, settings.host, settings.minPrimerLength]);
   const workingMolecule = molecule && reverse ? { ...molecule, sequence: working, annotations: [] } : molecule;
 
+  // Insert, replace or delete bases by position (NEBaseChanger's Indel/Substitution mode).
+  const generalResult = useMemo(() => {
+    if (settings.mode !== 'sequence' || !molecule) return null;
+    const n = molecule.sequence.length;
+    const clean = settings.sequence.replace(/[^ACGTacgt]/g, '').toUpperCase();
+    const from = Math.round(settings.from);
+    const to = Math.round(settings.to);
+    if (settings.edit === 'insert') {
+      if (!clean) return { findings: [{ code: 'EMPTY_INSERT', severity: 'blocker' as const, message: 'Enter the bases to insert.' }] };
+      if (from < 0 || from > n) return { findings: [{ code: 'INVALID_EDIT', severity: 'blocker' as const, message: `Choose a position from 0 to ${n}.` }] };
+      return designSdm(molecule.sequence, { start: from, end: from, replacement: clean, label: `ins${from}` });
+    }
+    if (from < 1 || to < from || to > n) return { findings: [{ code: 'INVALID_EDIT', severity: 'blocker' as const, message: `Choose bases from 1 to ${n}, with the last not before the first.` }] };
+    if (settings.edit === 'replace' && !clean) return { findings: [{ code: 'EMPTY_REPLACEMENT', severity: 'blocker' as const, message: 'Enter the new bases, or choose Delete.' }] };
+    return designSdm(molecule.sequence, { start: from - 1, end: to, replacement: settings.edit === 'delete' ? '' : clean, label: `${settings.edit === 'delete' ? 'del' : 'sub'}${from}-${to}` });
+  }, [molecule, settings.mode, settings.edit, settings.from, settings.to, settings.sequence]);
+  const generalDesign: SdmDesign | null = generalResult && isSdmDesign(generalResult) ? generalResult : null;
+
   const preview = useMemo(() => {
     if (!working) return '';
     let residues = '';
@@ -54,12 +72,17 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
   return <div class="space-y-4">
     {!source && <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400">Add the plasmid that carries your gene above.</p>}
     {source && molecule && <Section id="sdm-settings" title="2 · Gene and mutations" aside="Q5 site-directed mutagenesis with KLD, back-to-back primers">
+      <div role="group" aria-label="Kind of change" class="flex flex-wrap gap-2">
+        {([['aa', 'Amino-acid change'], ['sequence', 'Insert, replace or delete bases']] as const).map(([value, label]) =>
+          <button key={value} type="button" aria-pressed={settings.mode === value} class={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${settings.mode === value ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-300 dark:border-slate-600'}`} onClick={() => onSettings({ mode: value })}>{label}</button>)}
+      </div>
       <div class="grid gap-3 sm:grid-cols-2">
         <Labeled label="Plasmid">
           <select class={FIELD} value={source.id} onChange={event => onSettings({ sourceId: event.currentTarget.value, orfIndex: 0 })}>
             {sources.map(item => <option key={item.id} value={item.id}>{item.document.name} ({item.document.sequence.length.toLocaleString()} bp)</option>)}
           </select>
         </Labeled>
+        {settings.mode === 'aa' && <>
         <Labeled label="Reading frame (ORF)" hint="Detected on both strands, longest first">
           <select class={FIELD} value={manual ? -1 : settings.orfIndex} onChange={event => onSettings({ orfIndex: Number(event.currentTarget.value) })}>
             {orfs.map((item, index) => <option key={item.id} value={index}>{item.strand === 1 ? '+' : '−'} strand, bp {item.start}–{item.end}, {item.lengthAa} aa</option>)}
@@ -69,7 +92,9 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
         {manual && <Labeled label="Start codon position (1-based)" hint="First base of the ATG, on the strand shown">
           <DecimalInput aria-label="Start codon position" class={FIELD} value={settings.manualStart} min={1} step={1} onChange={value => onSettings({ manualStart: Math.max(1, Math.round(value)) })} />
         </Labeled>}
+        </>}
       </div>
+      {settings.mode === 'aa' && <>
       {reverse && <p class="text-xs text-amber-900 dark:text-amber-200">This gene is on the bottom strand, so primers are designed on the reverse complement of the plasmid.</p>}
       {preview && <p class="break-all font-mono text-xs text-slate-600 dark:text-slate-400" aria-label="Translated reading frame">{preview.slice(0, 120)}{preview.length > 120 ? '…' : ''}</p>}
       <Labeled label="Mutations" hint="One-letter (Y127F) or three-letter (p.Tyr127Phe). Commas or spaces make separate designs; + joins mutations into one multi-mutant (T39A+Y40F). Add :TTC to force a codon; * means stop.">
@@ -91,10 +116,44 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
         </Labeled>
       </div>
       <p class="text-xs text-slate-600 dark:text-slate-400">Primers place the new codon in the 5′ tail of the forward primer (NEBaseChanger’s “confine mutations to primer 5′ tails” design), with the Q5 Tm calculator. NEBaseChanger’s default design for edits of five bases or fewer, which puts the change inside the primer and needs a mismatch-aware Tm, is not implemented.</p>
+      </>}
+      {settings.mode === 'sequence' && <div class="space-y-3">
+        <div class="grid gap-3 sm:grid-cols-3">
+          <Labeled label="Change">
+            <select class={FIELD} value={settings.edit} onChange={event => onSettings({ edit: event.currentTarget.value as SdmSettings['edit'] })}>
+              <option value="insert">Insert bases after a position</option><option value="replace">Replace bases</option><option value="delete">Delete bases</option>
+            </select>
+          </Labeled>
+          <Labeled label={settings.edit === 'insert' ? 'After base (0 = before the first)' : 'From base (1-based)'}>
+            <DecimalInput aria-label={settings.edit === 'insert' ? 'Insert after base' : 'From base'} class={FIELD} value={settings.from} min={0} step={1} onChange={value => onSettings({ from: Math.max(0, Math.round(value)) })} />
+          </Labeled>
+          {settings.edit !== 'insert' && <Labeled label="To base (inclusive)">
+            <DecimalInput aria-label="To base" class={FIELD} value={settings.to} min={1} step={1} onChange={value => onSettings({ to: Math.max(1, Math.round(value)) })} />
+          </Labeled>}
+        </div>
+        {settings.edit !== 'delete' && <Labeled label={settings.edit === 'insert' ? 'Bases to insert' : 'New bases'} hint="Up to 6 bases go on one primer; longer sequences are split across both primers (tags, sites).">
+          <textarea aria-label="New bases" class={`${FIELD} font-mono`} rows={2} value={settings.sequence} placeholder="GGATCC" onInput={event => onSettings({ sequence: event.currentTarget.value.toUpperCase().replace(/[^ACGT]/g, '') })} />
+        </Labeled>}
+        <p class="text-xs text-slate-600 dark:text-slate-400">Positions count from the first base of the plasmid as given, {molecule.sequence.length.toLocaleString()} bp in all.</p>
+      </div>}
     </Section>}
 
-    {result && result.errors.length > 0 && <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"><ul>{result.errors.map(error => <li key={error}>{error}</li>)}</ul></div>}
-    {result && workingMolecule && result.results.map(item => <Section key={item.label} id={`sdm-${item.label}`} title={item.label} aside={item.design ? item.design.description : undefined}>
+    {generalResult && <Section id="sdm-general" title={generalDesign ? generalDesign.label : 'Design'} aside={generalDesign?.description}>
+      <FindingsList findings={generalResult.findings} />
+      {generalDesign && workingMolecule && <div class="space-y-3">
+        <PrimerTable primers={sdmPrimers(generalDesign)} fileName={generalDesign.label} caption={`Primers for ${generalDesign.label}`} />
+        <p class="text-xs">Annealing temperature <strong>{generalDesign.ta} °C</strong> (lower primer Tm + 1 °C, Q5).</p>
+        <LazyDetails summary={`Protocol and product for ${generalDesign.label}`}>
+          <div class="space-y-4">
+            <ProtocolCard protocol={sdmProtocol(generalDesign, workingMolecule.sequence.length)} />
+            <ProductCard product={sdmProduct(workingMolecule, generalDesign)} fileName={generalDesign.label} />
+          </div>
+        </LazyDetails>
+      </div>}
+    </Section>}
+
+    {settings.mode === 'aa' && result && result.errors.length > 0 && <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"><ul>{result.errors.map(error => <li key={error}>{error}</li>)}</ul></div>}
+    {settings.mode === 'aa' && result && workingMolecule && result.results.map(item => <Section key={item.label} id={`sdm-${item.label}`} title={item.label} aside={item.design ? item.design.description : undefined}>
       <FindingsList findings={item.findings} />
       {(item.rounds ?? (item.design ? [item.design] : [])).map((design, index, all) => <div key={design.label} class="space-y-3">
         {all.length > 1 && <h3 class="text-xs font-semibold">Round {index + 1}: {design.label}</h3>}

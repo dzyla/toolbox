@@ -82,6 +82,10 @@ function gc(sequence: string): number {
   return Math.round([...sequence].filter(base => base === 'G' || base === 'C').length / sequence.length * 100);
 }
 
+export function isSdmDesign(result: SdmDesign | { findings: Finding[] }): result is SdmDesign {
+  return 'forward' in result;
+}
+
 /** Edit-to-primer design on a circular plasmid. */
 export function designSdm(plasmid: string, edit: SdmEdit, options: SdmOptions = {}): SdmDesign | { findings: Finding[] } {
   const sequence = plasmid.replace(/\s/g, '').toUpperCase();

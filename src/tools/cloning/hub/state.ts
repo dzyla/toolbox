@@ -71,6 +71,12 @@ export interface LigationSettings {
 }
 
 export interface SdmSettings {
+  /** 'aa': amino-acid changes in an ORF; 'sequence': insert, replace or delete bases by position. */
+  mode: 'aa' | 'sequence';
+  edit: 'insert' | 'replace' | 'delete';
+  from: number;
+  to: number;
+  sequence: string;
   sourceId: string;
   orfIndex: number;
   manualStart: number;
@@ -106,7 +112,7 @@ export const DEFAULT_STATE: HubState = {
   nebuilder: { polymeraseId: 'q5-0', minOverlap: 20, minPrimerLength: 18, maxTmDifference: 5, circularize: true, fragments: {}, concentrations: {}, junctions: {} },
   infusion: { linearize: 'digest', enzymeA: '', enzymeB: 'auto', includeFirst: false, includeSecond: false, caret: 0, regionStart: 0, regionEnd: 0, vectorNg: 100, vectorConcentration: 50, insertConcentration: 50 },
   ligation: { vectorEnzymeA: '', vectorEnzymeB: 'auto', insertEnzymeA: 'auto', insertEnzymeB: 'auto', makeBlunt: false, dephosphorylateVector: false, phosphorylateInsert: false, vectorFragment: -1, insertFragment: -1, vectorNg: 50, ratio: 3, vectorConcentration: 25, insertConcentration: 25 },
-  sdm: { sourceId: '', orfIndex: 0, manualStart: 1, mutations: '', strategy: 'usage', host: 'ecoli', minPrimerLength: 15 },
+  sdm: { mode: 'aa', edit: 'insert', from: 1, to: 1, sequence: '', sourceId: '', orfIndex: 0, manualStart: 1, mutations: '', strategy: 'usage', host: 'ecoli', minPrimerLength: 15 },
   goldengate: { enzyme: 'BsaI', vectorBp: 4500, fragmentCount: 3 },
 };
 

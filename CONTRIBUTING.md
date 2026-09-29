@@ -31,6 +31,9 @@ text at `text-slate-500` or darker on white and pair light-only colours with a `
    `project.ts` next to the view (see `src/tools/gel/project.ts`), pass `onSaveProject` to `ActionBar`, and set
    `hasProjects: true` in the registry. User-made presets go through `src/lib/local-library.ts`.
 
+## Cloning hub
+The cloning designers follow published vendor rules and are checked against stored reference outputs. Read `docs/cloning-hub.md` before changing them: it lists what is verified, the known differences, and how to add a reference case.
+
 ## Adding data
 Ladders, chemicals, presets and protocols are JSON or Markdown files under `src/data/`. Include the source in the file. Data files are CC-BY-4.0.
 

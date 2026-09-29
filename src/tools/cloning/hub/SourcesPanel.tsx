@@ -87,7 +87,9 @@ export function SourcesPanel({ sources, onChange }: { sources: HubSource[]; onCh
                 try {
                   if (file.size > MAX_SEQUENCE_FILE_BYTES) throw new Error('This file is larger than 20 MB.');
                   const { document } = await importPlasmidFile(file);
-                  added.push({ id: newSourceId(), role: 'insert', document: checked({ ...document, provenance: { ...document.provenance, filename: file.name } }) });
+                  // A file that carries no name of its own is called after the file.
+                  const name = /^(untitled|imported snapgene sequence)/i.test(document.name.trim()) ? file.name.replace(/\.[^.]+$/, '') || document.name : document.name;
+                  added.push({ id: newSourceId(), role: 'insert', document: checked({ ...document, name, provenance: { ...document.provenance, filename: file.name } }) });
                 } catch (cause) { setError(importErrorMessage(cause, file.name)); }
               }
               if (!added.length) return;
