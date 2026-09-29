@@ -193,17 +193,17 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                 Loading Variation (CV%)
               </span>
               <div class="flex items-center gap-2">
-                <span class="text-base font-bold mono text-slate-900 dark:text-slate-100">{loadingStats.cvPct.toFixed(1)}%</span>
+                <span class="text-base font-bold mono text-slate-900 dark:text-slate-100">{loadingStats.cvPct === null ? '–' : `${loadingStats.cvPct.toFixed(1)}%`}</span>
                 <span
                   class={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    loadingStats.cvPct <= 10
+                    (loadingStats.cvPct ?? 0) <= 10
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                      : loadingStats.cvPct <= 20
+                      : (loadingStats.cvPct ?? 0) <= 20
                         ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
                         : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
                   }`}
                 >
-                  {loadingStats.cvPct <= 10 ? 'Equal (≤10%)' : loadingStats.cvPct <= 20 ? 'Moderate (10-20%)' : 'High Variation (>20%)'}
+                  {loadingStats.cvPct === null ? 'Needs ≥ 2 lanes' : (loadingStats.cvPct ?? 0) <= 10 ? 'Equal (≤10%)' : (loadingStats.cvPct ?? 0) <= 20 ? 'Moderate (10-20%)' : 'High Variation (>20%)'}
                 </span>
               </div>
             </div>
@@ -213,9 +213,11 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                 Loading Quality
               </span>
               <div class="text-xs font-medium text-slate-700 dark:text-slate-300 pt-0.5">
-                {loadingStats.cvPct <= 10
+                {loadingStats.cvPct === null
+                  ? 'Loading variation needs at least 2 lanes with signal.'
+                  : (loadingStats.cvPct ?? 0) <= 10
                   ? '✅ Equal loading verified. Proceed to target quantification.'
-                  : loadingStats.cvPct <= 20
+                  : (loadingStats.cvPct ?? 0) <= 20
                     ? '⚠️ Minor loading deviation. Apply TPN factor to correct bands.'
                     : '❌ Significant variation detected. Normalize target bands using TPN factor.'}
               </div>
@@ -574,6 +576,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                   <td class="px-2.5 py-2 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
                                   <td class="px-2.5 py-2 mono text-right font-bold text-slate-900 dark:text-slate-100">
                                     {m.net.toFixed(1)}
+                                    {m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band wider than the rolling-ball radius; increase the radius">⚠ radius</span>}
                                   </td>
                                   <td class="px-2.5 py-2 mono text-right font-medium">{m.share.toFixed(1)}%</td>
                                   <td class="px-2.5 py-2 mono text-right">
@@ -670,7 +673,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                           </td>
                           <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
                           <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
-                          <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}</td>
+                          <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}{m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band wider than the rolling-ball radius; increase the radius">⚠ radius</span>}</td>
                           <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
                           <td class="py-2.5 mono text-right">
                             {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio === null ? '–' : m.ratio.toFixed(2)}

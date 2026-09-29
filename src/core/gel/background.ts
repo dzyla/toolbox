@@ -1,8 +1,8 @@
 /* Baselines for lane profiles. All return a baseline array the same length as the profile, in signal units. */
 import type { Band } from './types';
-import { opening, mean } from './filters';
+import { opening, gaussianSmooth } from './filters';
 
-export type BackgroundMethod = 'none' | 'rolling' | 'valley' | 'roi' | 'shared';
+export type BackgroundMethod = 'none' | 'rolling' | 'valley' | 'shared';
 
 /**
  * Cross-lane shared baseline: computes the uniform background matrix level across all lanes,
@@ -11,12 +11,13 @@ export type BackgroundMethod = 'none' | 'rolling' | 'valley' | 'roi' | 'shared';
  */
 export function sharedCrossLaneBaseline(profiles: Float32Array[], radius = 50): Float32Array {
   if (profiles.length === 0) return new Float32Array(0);
-  const len = profiles[0]!.length;
+  const len = Math.max(...profiles.map(p => p.length));
   const baselineValues = new Float32Array(len);
   for (let y = 0; y < len; y++) {
     const col: number[] = [];
     for (let l = 0; l < profiles.length; l++) {
-      const v = profiles[l]![y] ?? 0;
+      if (y >= profiles[l]!.length) continue;
+      const v = profiles[l]![y]!;
       if (!Number.isNaN(v)) col.push(v);
     }
     if (col.length === 0) {
@@ -30,16 +31,37 @@ export function sharedCrossLaneBaseline(profiles: Float32Array[], radius = 50): 
   return opening(baselineValues, Math.max(1, Math.round(radius)));
 }
 
+/** Ball height as a fraction of the profile range. Taller balls sag into narrow bands (baseline too high); 0.1 keeps a sloping background within tolerance and synthetic-gel nets within 10 % of truth. */
+const BALL_HEIGHT_FRACTION = 0.1;
+
 /**
- * Rolling-ball style baseline along a profile: the morphological opening with a window of 2·radius+1 samples
- * (the largest signal that fits under the profile without entering features narrower than the window),
- * smoothed with a small Gaussian. Bands wider than the window are partly absorbed, as with ImageJ's rolling ball.
- * Sternberg 1983, "Biomedical image processing", Computer 16(1):22 (rolling ball); opening approximation as in ImageJ.
+ * Rolling-ball baseline along a profile (Sternberg 1983): grey-scale opening with a ball-shaped structuring element of
+ * radius r samples, whose height is a fraction of the profile's intensity range (so the ball's curvature scales with the data, as in
+ * ImageJ), then a light Gaussian (σ = r/10) and clamping to the profile. Bands wider than about r are partly absorbed —
+ * the workspace warns about those.
  */
 export function rollingBaseline(profile: ArrayLike<number>, radius: number): Float32Array {
-  const clean = Float32Array.from(profile, v => Number.isNaN(v) ? 0 : v);
-  const r = Math.max(1, Math.round(radius));
-  return opening(clean, r);
+  const x = Float32Array.from(profile, v => Number.isNaN(v) ? 0 : v);
+  const n = x.length, r = Math.max(1, Math.round(radius));
+  if (n === 0) return x;
+  let lo = Infinity, hi = -Infinity;
+  for (const v of x) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const H = (hi - lo) * BALL_HEIGHT_FRACTION;
+  const ball = Float32Array.from({ length: 2 * r + 1 }, (_, j) => { const k = (j - r) / r; return H * (Math.sqrt(Math.max(0, 1 - k * k)) - 1); });
+  const ero = new Float32Array(n), dil = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let m = Infinity;
+    for (let j = -r; j <= r; j++) { const t = i + j; if (t < 0 || t >= n) continue; const v = x[t]! - ball[j + r]!; if (v < m) m = v; }
+    ero[i] = m;
+  }
+  for (let i = 0; i < n; i++) {
+    let m = -Infinity;
+    for (let j = -r; j <= r; j++) { const t = i - j; if (t < 0 || t >= n) continue; const v = ero[t]! + ball[j + r]!; if (v > m) m = v; }
+    dil[i] = m;
+  }
+  const smooth = gaussianSmooth(dil, r / 10);
+  for (let i = 0; i < n; i++) smooth[i] = Math.min(smooth[i]!, x[i]!);
+  return smooth;
 }
 
 /**
@@ -104,26 +126,18 @@ export function valleyBaseline(profile: ArrayLike<number>, bands: Band[]): Float
   return out;
 }
 
-/** Constant baseline from a user-drawn background region: the mean signal of that region. */
-export function constantBaseline(length: number, roiSignal: ArrayLike<number>): Float32Array {
-  const m = mean(roiSignal);
-  return new Float32Array(length).fill(Number.isFinite(m) ? m : 0);
-}
-
 export function baselineFor(
   method: BackgroundMethod,
   profile: ArrayLike<number>,
-  opts: { radius?: number; bands?: Band[]; roiSignal?: ArrayLike<number>; sharedBaseline?: Float32Array } = {}
+  opts: { radius?: number; bands?: Band[]; sharedBaseline?: Float32Array } = {}
 ): Float32Array {
   switch (method) {
     case 'shared':
-      return opts.sharedBaseline ?? rollingBaseline(profile, opts.radius ?? 50);
+      return opts.sharedBaseline ? opts.sharedBaseline.slice(0, profile.length) : rollingBaseline(profile, opts.radius ?? 50);
     case 'rolling':
       return rollingBaseline(profile, opts.radius ?? 50);
     case 'valley':
       return valleyBaseline(profile, opts.bands ?? []);
-    case 'roi':
-      return constantBaseline(profile.length, opts.roiSignal ?? []);
     default:
       return new Float32Array(profile.length);
   }

@@ -172,7 +172,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
           const sizeResidualPct = ladderAssigned !== null && sizeEst !== null ? (sizeEst / ladderAssigned - 1) * 100 : null;
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
           const flags = massCalibration && massEst !== null ? massFlags(massCalibration, m.net, massEst) : null;
-          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, ladderAssigned, sizeResidualPct };
+          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, baselineWarning: s.bgMethod === 'rolling' && ((m.y1 ?? 0) - (m.y0 ?? 0)) > s.rollingRadius, ladderAssigned, sizeResidualPct };
         });
 
         return {
@@ -231,11 +231,11 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
   // Whole-lane loading comparison statistics across all lanes
   const loadingStats = useMemo(() => {
     const valid = allLanesAnalysis.filter(a => a.totalLaneSignal > 0);
-    if (valid.length === 0) return { mean: 0, stdDev: 0, cvPct: 0, min: 0, max: 0 };
+    if (valid.length === 0) return { mean: 0, stdDev: null as number | null, cvPct: null as number | null, min: 0, max: 0 };
     const mean = valid.reduce((acc, a) => acc + a.totalLaneSignal, 0) / valid.length;
-    const variance = valid.reduce((acc, a) => acc + Math.pow(a.totalLaneSignal - mean, 2), 0) / valid.length;
-    const stdDev = Math.sqrt(variance);
-    const cvPct = mean > 0 ? (stdDev / mean) * 100 : 0;
+    const variance = valid.reduce((acc, a) => acc + Math.pow(a.totalLaneSignal - mean, 2), 0) / (valid.length - 1);
+    const stdDev = valid.length < 2 ? null : Math.sqrt(variance);
+    const cvPct = stdDev === null ? null : mean > 0 ? (stdDev / mean) * 100 : 0;
     const min = Math.min(...valid.map(a => a.totalLaneSignal));
     const max = Math.max(...valid.map(a => a.totalLaneSignal));
     return { mean, stdDev, cvPct, min, max };
