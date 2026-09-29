@@ -66,7 +66,8 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
     junctions: junctionOptions,
   }), [JSON.stringify(fragments), settings.polymeraseId, settings.minOverlap, settings.minPrimerLength, settings.maxTmDifference, settings.circularize, JSON.stringify(junctionOptions)]);
 
-  const product = design && design.product ? nebuilderProduct(design, molecules, 'NEBuilder assembly', settings.circularize) : null;
+  const product = useMemo(() => design && design.product ? nebuilderProduct(design, molecules, 'NEBuilder assembly', settings.circularize) : null, [design, molecules, settings.circularize]);
+  const marks = useMemo(() => design ? nebuilderMarks(design) : [], [design]);
   const amounts = design && design.product ? nebuilderAmounts(design.templates.map((template, index) => ({
     name: template.name,
     bp: template.sequence.length,
@@ -198,7 +199,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
         </div>
         <ProtocolCard protocol={nebuilderProtocol(amounts)} />
       </Section>}
-      {product && <Section id="nb-product" title="Assembled product"><ProductPreview product={product} fileName="nebuilder-assembly" marks={nebuilderMarks(design!)} /></Section>}
+      {product && <Section id="nb-product" title="Assembled product"><ProductPreview product={product} fileName="nebuilder-assembly" marks={marks} /></Section>}
     </>}
   </div>;
 }

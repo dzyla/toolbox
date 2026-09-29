@@ -50,6 +50,7 @@ export function LigationPanel({ sources, settings, onSettings }: Props) {
     })
     : null, [vector, insert, vectorEnzymes.join('+'), insertEnzymes.join('+'), settings.vectorFragment, settings.insertFragment, settings.makeBlunt, settings.dephosphorylateVector, settings.phosphorylateInsert]);
 
+  const marks = useMemo(() => design ? ligationMarks(design.junctions, design.product?.sequence.length) : [], [design]);
   const protocol = design ? ligationProtocol(design, { vectorNg: settings.vectorNg, ratio: settings.ratio, vectorNgPerUl: settings.vectorConcentration, insertNgPerUl: settings.insertConcentration }) : null;
   const optionList = (list: string[], none?: string) => <>{none !== undefined && <option value="">{none}</option>}{list.map(name => <option key={name} value={name}>{name}</option>)}</>;
 
@@ -106,7 +107,7 @@ export function LigationPanel({ sources, settings, onSettings }: Props) {
         </div>
         <ProtocolCard protocol={protocol} />
       </Section>}
-      {design.product && <Section id="lg-product" title="Ligation product"><ProductPreview product={design.product} fileName="ligation-product" marks={ligationMarks(design.junctions)} /></Section>}
+      {design.product && <Section id="lg-product" title="Ligation product"><ProductPreview product={design.product} fileName="ligation-product" marks={marks} /></Section>}
     </>}
   </div>;
 }

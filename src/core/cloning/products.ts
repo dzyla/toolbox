@@ -149,13 +149,18 @@ export function infusionMarks(design: InfusionDesign, inserts: Molecule[]): Prod
   return marks;
 }
 
-/** One mark per ligation junction: the overhang (or 2 bp around a blunt junction). The closing junction of a circular product sits at the origin. */
-export function ligationMarks(junctions: ProductJunction[]): ProductMark[] {
-  return junctions.map(junction => {
+/**
+ * One mark per ligation junction: the overhang (or 2 bp around a blunt junction), clamped to the product `length`.
+ * The closing junction of a circular product sits at the origin (marked from base 1).
+ * Only sticky and blunt junctions (from `ligate`) are marked; homology ('overlap') junctions are skipped.
+ */
+export function ligationMarks(junctions: ProductJunction[], length = Infinity): ProductMark[] {
+  return junctions.filter(junction => junction.kind !== 'overlap').map(junction => {
     const size = junction.sequence.length;
-    const span = size === 0
+    const span: { start: number; end: number } = size === 0
       ? { start: Math.max(0, junction.position - 1), end: junction.position + 1 }
       : junction.position === 0 ? { start: 0, end: size } : { start: junction.position - size, end: junction.position };
+    span.end = Math.min(span.end, length);
     return {
       label: `Junction ${junction.index + 1}: ${junction.leftName} → ${junction.rightName}`,
       ...span, kind: 'junction' as const,

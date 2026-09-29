@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { PlasmidDocument } from '@/core/plasmid/model';
 import { complement, translate } from '@/core/nucleic/sequence';
 import type { Selection } from './selection';
@@ -42,6 +42,11 @@ export function SequenceView({ document, selection, onSelect, preferences, onPre
     return new Map(Array.from(translate(document.sequence, 1, frame), (aa, index) => [frame - 1 + index * 3, aa]));
   }, [document.sequence, translationMode]);
 
+  // A selection made elsewhere (map, table, a junction mark) is scrolled into view; one made here already is.
+  useEffect(() => {
+    if (selection && selection.source !== 'sequence' && selection.start !== selection.end) scrollToBase(Math.min(selection.start, document.sequence.length - 1) + 1);
+  }, [selection?.start, selection?.end, selection?.source]);
+
   function selectBase(index: number, anchor = index) {
     onSelect({ start: Math.min(anchor, index), end: Math.max(anchor, index) + 1, source: 'sequence' });
   }
@@ -82,6 +87,11 @@ export function SequenceView({ document, selection, onSelect, preferences, onPre
       return;
     }
     setCoordinateError('');
+    scrollToBase(value, true);
+  }
+
+  /** Bring base `value` (1-based) to the top-left of the viewport; the same jump as "Go to coordinate". */
+  function scrollToBase(value: number, focus = false) {
     const viewport = viewportRef.current;
     const target = viewport?.querySelector<HTMLButtonElement>(`[aria-label="Base ${value}"]`);
     if (!viewport || !target) return;
@@ -89,7 +99,7 @@ export function SequenceView({ document, selection, onSelect, preferences, onPre
     const viewportBounds = viewport.getBoundingClientRect();
     viewport.scrollTop += targetBounds.top - viewportBounds.top;
     viewport.scrollLeft += targetBounds.left - viewportBounds.left;
-    target.focus({ preventScroll: true });
+    if (focus) target.focus({ preventScroll: true });
   }
 
   function renderBase(index: number, reverse: boolean) {

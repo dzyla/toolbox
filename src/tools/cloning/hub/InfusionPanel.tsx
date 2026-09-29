@@ -19,7 +19,7 @@ interface Props {
 
 export function InfusionPanel({ sources, settings, onSettings }: Props) {
   const vectorSource = sources.find(source => source.role === 'vector');
-  const insertSources = sources.filter(source => source.role === 'insert');
+  const insertSources = useMemo(() => sources.filter(source => source.role === 'insert'), [sources]);
   const vector = useMemo(() => vectorSource ? moleculeFromDocument(vectorSource.document) : null, [vectorSource]);
   const cutters = useMemo(() => vector && vector.topology === 'circular' ? singleCutters(vector) : [], [vector]);
   const inserts = useMemo(() => insertSources.map(source => moleculeFromDocument(source.document)), [insertSources]);
@@ -39,7 +39,8 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
     ? designInfusion(vector.sequence, vector.topology, linearization, insertSources.map((source, index) => ({ name: source.document.name, sequence: inserts[index]!.sequence })))
     : null, [vector, JSON.stringify(linearization), inserts.map(insert => insert.sequence).join('|')]);
 
-  const product = design && design.product && vector ? infusionProduct(design, vector, inserts, 'In-Fusion construct') : null;
+  const product = useMemo(() => design && design.product && vector ? infusionProduct(design, vector, inserts, 'In-Fusion construct') : null, [design, vector, inserts]);
+  const marks = useMemo(() => design ? infusionMarks(design, inserts) : [], [design, inserts]);
   const amounts = design && design.product ? infusionAmounts(
     { bp: design.vector.length, ngPerUl: settings.vectorConcentration },
     insertSources.map((source, index) => ({ name: source.document.name, bp: inserts[index]!.sequence.length, ngPerUl: settings.insertConcentration })),
@@ -111,7 +112,7 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
         </div>
         <ProtocolCard protocol={infusionProtocol(amounts, vectorSource?.document.name ?? 'Vector')} />
       </Section>}
-      {product && <Section id="if-product" title="Assembled product"><ProductPreview product={product} fileName="in-fusion-construct" marks={infusionMarks(design!, inserts)} /></Section>}
+      {product && <Section id="if-product" title="Assembled product"><ProductPreview product={product} fileName="in-fusion-construct" marks={marks} /></Section>}
     </>}
   </div>;
 }

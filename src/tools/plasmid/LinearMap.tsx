@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useControllableFlag } from './controllable';
 import type { Annotation, PlasmidDocument } from '@/core/plasmid/model';
 import type { DocumentOrf, DocumentRestrictionSite } from '@/core/plasmid/analysis';
 import { annotationSegments, assignAnnotationLanes } from './map-layout';
@@ -10,6 +10,13 @@ export interface LinearMapProps {
   onSelect: (selection: Selection) => void;
   orfs?: DocumentOrf[];
   restrictionSites?: DocumentRestrictionSite[];
+  /** Optional controlled overlay toggles; without them the map keeps its own (both start on). */
+  showRestrictions?: boolean;
+  onShowRestrictionsChange?: (show: boolean) => void;
+  showOrfs?: boolean;
+  onShowOrfsChange?: (show: boolean) => void;
+  /** Names a selection that is not a feature (for example a junction) in the selection panel. */
+  selectionLabel?: string;
 }
 
 const COBALT = '#2563eb';
@@ -47,11 +54,11 @@ function color(annotation: Annotation) {
   return annotation.color || (annotation.type.toLowerCase().includes('cds') ? COBALT : TEAL);
 }
 
-function selectionLabel(document: PlasmidDocument, selection?: Selection) {
+function selectionLabel(document: PlasmidDocument, selection?: Selection, custom?: string) {
   if (!selection) return { name: 'No selection', range: 'Choose an annotation, ORF, or restriction site.' };
   const annotation = document.annotations.find(item => item.id === selection.annotationId);
   const wrapped = document.topology === 'circular' && selection.start > selection.end ? ' (wraps origin)' : '';
-  return { name: annotation?.name || 'Map selection', range: `${displayPosition(selection.start)}–${selection.end.toLocaleString()} bp${wrapped}` };
+  return { name: annotation?.name || custom || 'Map selection', range: `${displayPosition(selection.start)}–${selection.end.toLocaleString()} bp${wrapped}` };
 }
 
 function activate(event: KeyboardEvent, callback: () => void) {
@@ -62,12 +69,15 @@ function activate(event: KeyboardEvent, callback: () => void) {
 }
 
 /** Canonical-document linear renderer that preserves compound annotation segments. */
-export function LinearMap({ document, selection, onSelect, orfs = [], restrictionSites = [] }: LinearMapProps) {
-  const [showOrfs, setShowOrfs] = useState(true);
-  const [showRestrictions, setShowRestrictions] = useState(true);
+export function LinearMap({ document, selection, onSelect, orfs = [], restrictionSites = [], showRestrictions: restrictionsProp, onShowRestrictionsChange, showOrfs: orfsProp, onShowOrfsChange, selectionLabel: customLabel }: LinearMapProps) {
+  const [showOrfs, toggleOrfs] = useControllableFlag(orfsProp, onShowOrfsChange, true);
+  const [showRestrictions, toggleRestrictions] = useControllableFlag(restrictionsProp, onShowRestrictionsChange, true);
   const length = document.sequence.length;
   const lanes = assignAnnotationLanes(document.annotations, length, document.topology);
-  const status = selectionLabel(document, selection);
+  const status = selectionLabel(document, selection, customLabel);
+  const rangeSegments = selection && !selection.annotationId && selection.start !== selection.end
+    ? (selection.start < selection.end ? [{ start: selection.start, end: selection.end }] : [{ start: selection.start, end: length }, { start: 0, end: selection.end }].filter(part => part.end > part.start))
+    : [];
   const selectAnnotation = (annotation: Annotation) => {
     const segments = annotationSegments(annotation);
     onSelect({ start: segments[0]!.start, end: segments[segments.length - 1]!.end, source: 'map', annotationId: annotation.id });
@@ -82,8 +92,8 @@ export function LinearMap({ document, selection, onSelect, orfs = [], restrictio
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-300">
           <span class="font-semibold text-[#172554] dark:text-slate-100">Linear annotation map</span>
           <div class="flex gap-3">
-            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showRestrictions} onChange={() => setShowRestrictions(value => !value)} /> Restriction sites</label>
-            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showOrfs} onChange={() => setShowOrfs(value => !value)} /> Predicted ORFs</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showRestrictions} onChange={toggleRestrictions} /> Restriction sites</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showOrfs} onChange={toggleOrfs} /> Predicted ORFs</label>
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -91,6 +101,12 @@ export function LinearMap({ document, selection, onSelect, orfs = [], restrictio
             <line x1={LEFT} x2={LEFT + WIDTH} y1="46" y2="46" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
             <text x={LEFT} y="31" font-size="11" font-family="monospace" fill={SLATE}>1</text>
             <text x={LEFT + WIDTH} y="31" text-anchor="end" font-size="11" font-family="monospace" fill={SLATE}>{length.toLocaleString()} bp</text>
+
+            {selection && rangeSegments.length > 0 && <g role="img" aria-label={`Selected range ${displayPosition(selection.start)}–${selection.end.toLocaleString()} bp`}>
+              <title>{`Selected range ${displayPosition(selection.start)}–${selection.end.toLocaleString()} bp`}</title>
+              {rangeSegments.map(part => <rect key={part.start} x={xFor(part.start, length)} y="37" width={Math.max(3, xFor(part.end, length) - xFor(part.start, length))} height="18" rx="2" fill={AMBER} stroke={AMBER} stroke-width="1" />)}
+              <text x={xFor(selection.start < selection.end ? (selection.start + selection.end) / 2 : selection.start, length)} y="22" text-anchor="middle" font-size="11" font-weight="700" fill={SLATE}>{displayPosition(selection.start)}</text>
+            </g>}
 
             {document.annotations.flatMap(annotation => annotationSegments(annotation).map((segment, index) => {
               const lane = lanes.get(annotation.id) ?? 0;

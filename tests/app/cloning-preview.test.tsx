@@ -15,7 +15,7 @@ function setup() {
   fireEvent.click(screen.getByRole('button', { name: 'Add pasted sequence' }));
 }
 
-const preview = () => screen.getByRole('region', { name: 'Product preview' });
+const preview = () => screen.getByRole('region', { name: /^Product preview: / });
 const selection = () => within(preview()).getByTestId('plasmid-selection');
 
 describe('interactive product preview', () => {
@@ -35,8 +35,36 @@ describe('interactive product preview', () => {
     const mark = within(preview()).getByRole('button', { name: /Junction 1: pUC19 → GFP/ });
     const start = /· ([\d,]+) ·/.exec(mark.textContent!)![1]!;
     fireEvent.click(mark);
-    expect(selection().textContent).toContain('Map selection');
+    expect(selection().textContent).toContain('Junction 1: pUC19 → GFP');
     expect(selection().textContent).toContain(`${start}–`);
+  });
+
+  it('draws the selected junction range on the map and names it in the side panel', () => {
+    setup();
+    const mark = within(preview()).getByRole('button', { name: /Junction 1: pUC19 → GFP/ });
+    expect(within(preview()).queryByRole('img', { name: /^Selected range/ })).toBeNull();
+    fireEvent.click(mark);
+    const range = within(preview()).getByRole('img', { name: /^Selected range [\d,]+–[\d,]+ bp/ });
+    expect(range.querySelector('title')?.textContent).toMatch(/^Selected range/);
+    expect(selection().textContent).toContain('Junction 1: pUC19 → GFP');
+    expect(selection().textContent).toContain('bp overlap');
+    expect(mark.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('scrolls the open sequence to a selected junction, and to an existing selection when opened', () => {
+    setup();
+    const top = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      return { top: this.getAttribute('aria-label')?.startsWith('Base ') ? 700 : 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+    const mark = within(preview()).getByRole('button', { name: /Junction 1: pUC19 → GFP/ });
+    fireEvent.click(within(preview()).getByRole('button', { name: /Show sequence/ }));
+    const viewport = () => within(preview()).getByTestId('plasmid-sequence-viewport');
+    fireEvent.click(mark);
+    expect(viewport().scrollTop).toBe(700);
+    fireEvent.click(within(preview()).getByRole('button', { name: /Hide sequence/ }));
+    fireEvent.click(within(preview()).getByRole('button', { name: /Show sequence/ }));
+    expect(viewport().scrollTop).toBe(700);
+    top.mockRestore();
   });
 
   it('keeps the sequence collapsed until asked, without a mark forcing it open', () => {
@@ -65,9 +93,13 @@ describe('interactive product preview', () => {
     const orfs = () => within(preview()).queryAllByRole('button', { name: /^Predicted ORF/ });
     expect(sites()).toHaveLength(0);
     expect(orfs()).toHaveLength(0);
-    fireEvent.click(within(preview()).getByRole('checkbox', { name: /Show restriction sites/ }));
+    // The map's own boxes are the only controls, and start unticked here.
+    const box = (name: RegExp) => within(preview()).getByRole('checkbox', { name }) as HTMLInputElement;
+    expect(box(/^Restriction sites$/).checked).toBe(false);
+    expect(within(preview()).queryAllByRole('checkbox')).toHaveLength(2);
+    fireEvent.click(box(/^Restriction sites$/));
     expect(sites().length).toBeGreaterThan(0);
-    fireEvent.click(within(preview()).getByRole('checkbox', { name: /Show ORFs/ }));
+    fireEvent.click(box(/^Predicted ORFs$/));
     expect(orfs().length).toBeGreaterThan(0);
   });
 

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const GFP = 'ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAG';
+
 // Buttons that turn white/invisible on hover, and native controls that follow the OS instead of the app theme.
 
 async function open(page: Page) {
@@ -46,7 +48,8 @@ for (const theme of ['light', 'dark'] as const) {
     await page.addInitScript(t => localStorage.setItem('bb.theme', t), theme);
     await open(page);
     await page.getByLabel(/Preset vector/).selectOption('puc19');
-    await page.getByLabel(/Paste FASTA/).fill('ATGCATGC');
+    await page.getByLabel(/Paste FASTA/).fill(`>GFP\n${GFP}`);
+    await page.getByRole('button', { name: 'Add pasted sequence' }).click();
     const offenders: string[] = [];
     const methods = ['NEBuilder', 'In-Fusion', 'Restriction + ligation', 'Amino-acid change', 'Golden Gate'];
     for (const method of methods) {

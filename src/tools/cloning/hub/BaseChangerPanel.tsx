@@ -2,7 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { designAminoAcidChanges, designSdm, isSdmDesign, sdmProtocol, translateCodon, type SdmDesign } from '@/core/cloning/methods/basechanger';
 import { sdmMarks, sdmProduct } from '@/core/cloning/products';
-import { moleculeFromDocument } from '@/core/cloning/molecule';
+import { moleculeFromDocument, type Molecule } from '@/core/cloning/molecule';
 import { findORFs } from '@/core/plasmid';
 import { reverseComplement } from '@/core/nucleic/sequence';
 import { DecimalInput } from '@/app/components/DecimalInput';
@@ -25,6 +25,13 @@ function LazyDetails({ summary, children }: { summary: string; children: Compone
   </details>;
 }
 
+/** The SDM product and its edit mark, built once per design (not on every keystroke elsewhere in the hub). */
+function SdmProduct({ molecule, design, fileName }: { molecule: Molecule; design: SdmDesign; fileName: string }) {
+  const product = useMemo(() => sdmProduct(molecule, design), [molecule, design]);
+  const marks = useMemo(() => sdmMarks(design), [design]);
+  return <ProductPreview product={product} fileName={fileName} marks={marks} />;
+}
+
 export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
   const source = sources.find(item => item.id === settings.sourceId) ?? sources.find(item => item.role === 'vector') ?? sources[0];
   const molecule = useMemo(() => source ? moleculeFromDocument(source.document) : null, [source]);
@@ -39,7 +46,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
   const result = useMemo(() => molecule && settings.mutations.trim()
     ? designAminoAcidChanges(working, { start: start0 }, settings.mutations, { strategy: settings.strategy, host: settings.host, minPrimerLength: settings.minPrimerLength })
     : null, [working, start0, settings.mutations, settings.strategy, settings.host, settings.minPrimerLength]);
-  const workingMolecule = molecule && reverse ? { ...molecule, sequence: working, annotations: [] } : molecule;
+  const workingMolecule = useMemo(() => molecule && reverse ? { ...molecule, sequence: working, annotations: [] } : molecule, [molecule, reverse, working]);
 
   // Insert, replace or delete bases by position (NEBaseChanger's Indel/Substitution mode).
   const generalResult = useMemo(() => {
@@ -147,7 +154,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
         <LazyDetails summary={`Protocol and product for ${generalDesign.label}`}>
           <div class="space-y-4">
             <ProtocolCard protocol={sdmProtocol(generalDesign, workingMolecule.sequence.length)} />
-            <ProductPreview product={sdmProduct(workingMolecule, generalDesign)} fileName={generalDesign.label} marks={sdmMarks(generalDesign)} />
+            <SdmProduct molecule={workingMolecule} design={generalDesign} fileName={generalDesign.label} />
           </div>
         </LazyDetails>
       </div>}
@@ -163,7 +170,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
         <LazyDetails summary={`Protocol and product for ${design.label}`}>
           <div class="space-y-4">
             <ProtocolCard protocol={sdmProtocol(design, workingMolecule.sequence.length)} />
-            <ProductPreview product={sdmProduct(workingMolecule, design)} fileName={design.label.replace(/\W+/g, '-')} marks={sdmMarks(design)} />
+            <SdmProduct molecule={workingMolecule} design={design} fileName={design.label.replace(/\W+/g, '-')} />
           </div>
         </LazyDetails>
       </div>)}

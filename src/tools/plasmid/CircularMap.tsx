@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useControllableFlag } from './controllable';
 import type { Annotation, PlasmidDocument } from '@/core/plasmid/model';
 import type { DocumentOrf, DocumentRestrictionSite } from '@/core/plasmid/analysis';
 import { annotationSegments, assignAnnotationLanes } from './map-layout';
@@ -10,6 +10,13 @@ export interface CircularMapProps {
   onSelect: (selection: Selection) => void;
   orfs?: DocumentOrf[];
   restrictionSites?: DocumentRestrictionSite[];
+  /** Optional controlled overlay toggles; without them the map keeps its own (both start on). */
+  showRestrictions?: boolean;
+  onShowRestrictionsChange?: (show: boolean) => void;
+  showOrfs?: boolean;
+  onShowOrfsChange?: (show: boolean) => void;
+  /** Names a selection that is not a feature (for example a junction) in the selection panel. */
+  selectionLabel?: string;
 }
 
 const INK = '#172554';
@@ -91,19 +98,19 @@ function annotationColor(annotation: Annotation) {
   return annotation.color || (annotation.type.toLowerCase().includes('cds') ? COBALT : TEAL);
 }
 
-function selectionLabel(document: PlasmidDocument, selection?: Selection) {
+function selectionLabel(document: PlasmidDocument, selection?: Selection, custom?: string) {
   if (!selection) return { name: 'No selection', range: 'Choose an annotation, ORF, or restriction site.' };
   const annotation = document.annotations.find(item => item.id === selection.annotationId);
   return {
-    name: annotation?.name || 'Map selection',
+    name: annotation?.name || custom || 'Map selection',
     range: `${displayRange(selection.start, selection.end, document.topology)} bp`,
   };
 }
 
 /** Canonical-document circular plasmid renderer with a stable selection rail. */
-export function CircularMap({ document, selection, onSelect, orfs = [], restrictionSites = [] }: CircularMapProps) {
-  const [showOrfs, setShowOrfs] = useState(true);
-  const [showRestrictions, setShowRestrictions] = useState(true);
+export function CircularMap({ document, selection, onSelect, orfs = [], restrictionSites = [], showRestrictions: restrictionsProp, onShowRestrictionsChange, showOrfs: orfsProp, onShowOrfsChange, selectionLabel: customLabel }: CircularMapProps) {
+  const [showOrfs, toggleOrfs] = useControllableFlag(orfsProp, onShowOrfsChange, true);
+  const [showRestrictions, toggleRestrictions] = useControllableFlag(restrictionsProp, onShowRestrictionsChange, true);
   const length = document.sequence.length;
   const lanes = assignAnnotationLanes(document.annotations, length, document.topology);
   const laneCount = Math.max(1, ...Array.from(lanes.values()).map(lane => lane + 1));
@@ -116,7 +123,10 @@ export function CircularMap({ document, selection, onSelect, orfs = [], restrict
   const mapRadius = restrictionOuter + 30;
   const center = mapRadius + 20;
   const mapSize = center * 2;
-  const status = selectionLabel(document, selection);
+  const status = selectionLabel(document, selection, customLabel);
+  const rangeSegments = selection && !selection.annotationId && selection.start !== selection.end
+    ? (selection.start < selection.end ? [{ start: selection.start, end: selection.end }] : [{ start: selection.start, end: length }, { start: 0, end: selection.end }].filter(part => part.end > part.start))
+    : [];
   const selectAnnotation = (annotation: Annotation) => {
     const segments = annotationSegments(annotation);
     onSelect({
@@ -133,8 +143,8 @@ export function CircularMap({ document, selection, onSelect, orfs = [], restrict
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-300">
           <span class="font-semibold text-[#172554] dark:text-slate-100">Circular annotation map</span>
           <div class="flex gap-3">
-            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showRestrictions} onChange={() => setShowRestrictions(value => !value)} /> Restriction sites</label>
-            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showOrfs} onChange={() => setShowOrfs(value => !value)} /> Predicted ORFs</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showRestrictions} onChange={toggleRestrictions} /> Restriction sites</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" checked={showOrfs} onChange={toggleOrfs} /> Predicted ORFs</label>
           </div>
         </div>
         <svg viewBox={`0 0 ${mapSize} ${mapSize}`} class="mx-auto block w-full max-w-[620px] select-none" role="img" aria-label={`Circular map of ${document.name}`}>
@@ -169,6 +179,12 @@ export function CircularMap({ document, selection, onSelect, orfs = [], restrict
             const outer = point(center, restrictionOuter, angle);
             return <g key={site.id} role="button" tabIndex={0} aria-label={`${site.enzyme}, cut at ${displayPosition(site.cutPosition)} bp`} onClick={() => onSelect({ start: site.start, end: site.end, source: 'analysis' })} onKeyDown={event => activate(event, () => onSelect({ start: site.start, end: site.end, source: 'analysis' }))} class={INTERACTIVE_CLASS}><line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={SLATE} stroke-width="2" /><title>{site.enzyme} cut at {displayPosition(site.cutPosition)} bp</title></g>;
           })}
+
+          {selection && rangeSegments.length > 0 && <g role="img" aria-label={`Selected range ${displayRange(selection.start, selection.end, document.topology)} bp`}>
+            <title>{`Selected range ${displayRange(selection.start, selection.end, document.topology)} bp`}</title>
+            {rangeSegments.map(part => <path key={part.start} d={arcPath(center, part.start, part.end, length, 158, 170, 0)} fill={AMBER} stroke={AMBER} stroke-width="2" />)}
+            {(() => { const middle = selection.start < selection.end ? (selection.start + selection.end) / 2 : ((selection.start + selection.end + length) / 2) % length; const tick = point(center, 138, angleFor(middle, length)); return <text x={tick.x} y={tick.y} text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="700" fill={INK}>{displayPosition(selection.start)}</text>; })()}
+          </g>}
 
           <text x={center} y={center - 18} text-anchor="middle" font-size="18" font-weight="700" fill={INK}>{document.name}</text>
           <text x={center} y={center + 5} text-anchor="middle" font-size="12" font-family="monospace" fill={SLATE}>{length.toLocaleString()} bp</text>

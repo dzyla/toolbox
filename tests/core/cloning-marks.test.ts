@@ -41,7 +41,26 @@ describe('nebuilderMarks', () => {
     const parts = marks.filter(mark => mark.label.startsWith('Junction 2:'));
     const joined = parts.map(mark => design.product.slice(mark.start, mark.end)).join('');
     expect(joined).toBe(closing.upstreamTail + closing.spacer + reverseComplement(closing.downstreamTail));
-    if (parts.length === 2) expect(parts[1]!.start).toBe(0);
+  });
+
+  it('splits a closing junction that crosses the origin into a mark before and a mark after it', () => {
+    const a = 'ATGCGTACCGATTGCAAGGCTTACGGATCCTTAGCAGGCATCGATTAGCCGATATCGGCTAAGTCGCGATAGCTA'.repeat(2);
+    const b = 'TTGACCGGATAGCTTAGGCCATTGACGCTAGCTAGGCATCGATCGTTAGCAGCTAGGCTATAGCGATCGGATC'.repeat(2);
+    const circle = designNebuilder([
+      { name: 'a', sequence: a, topology: 'linear', kind: 'pcr' },
+      { name: 'b', sequence: b, topology: 'linear', kind: 'pcr' },
+    ], { ...NEBUILDER_DEFAULTS, circularize: true });
+    expect(circle.findings.filter(finding => finding.severity === 'blocker')).toEqual([]);
+    const closing = circle.junctions[1]!;
+    expect(closing.upstreamTail.length).toBeGreaterThan(0);
+    expect(closing.downstreamTail.length).toBeGreaterThan(0);
+    const parts = nebuilderMarks(circle).filter(mark => mark.label.startsWith('Junction 2:'));
+    expect(parts).toHaveLength(2);
+    expect(parts[0]!.end).toBe(circle.product.length);
+    expect(parts[1]!.start).toBe(0);
+    expect(parts[0]!.label).toContain('part 1 of 2');
+    expect(parts.map(mark => circle.product.slice(mark.start, mark.end)).join('')).toBe(closing.upstreamTail + closing.spacer + reverseComplement(closing.downstreamTail));
+    inRange(parts, circle.product.length);
   });
 
   it('marks overlap that already exists between the fragments', () => {
@@ -101,7 +120,7 @@ describe('ligationMarks', () => {
     });
     const product = design.product!;
     expect(design.junctions.length).toBeGreaterThan(0);
-    const marks = ligationMarks(design.junctions);
+    const marks = ligationMarks(design.junctions, product.sequence.length);
     expect(marks).toHaveLength(design.junctions.length);
     inRange(marks, product.sequence.length);
     marks.forEach((mark, index) => {
@@ -118,6 +137,8 @@ describe('ligationMarks', () => {
     ]);
     expect(marks[0]).toMatchObject({ start: 39, end: 41, kind: 'junction' });
     expect(marks[1]).toMatchObject({ start: 0, end: 4 });
+    expect(ligationMarks([{ index: 0, leftName: 'a', rightName: 'b', position: 41, kind: 'blunt', sequence: '', description: '' }], 41)[0]).toMatchObject({ start: 40, end: 41 });
+    expect(ligationMarks([{ index: 0, leftName: 'a', rightName: 'b', position: 5, kind: 'overlap', sequence: 'ACGT', description: '' }])).toEqual([]);
   });
 });
 
