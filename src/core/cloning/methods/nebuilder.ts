@@ -129,26 +129,42 @@ function terminalOverlap(a: string, b: string, max: number): number {
 
 const clamped = (sequence: string) => /[GC]$/.test(sequence);
 
-/** NEBuilder primer-pair anneal selection for one template. */
-export function selectAnnealLengths(template: string, minLength: number, maxTmDifference: number, tm: (sequence: string) => number): { forward: string; reverse: string; forwardTm: number; reverseTm: number } {
-  const n = template.length;
-  const reverseTemplate = reverseComplement(template);
-  if (minLength > n || 2 * minLength > n) throw new Error(`Fragment of ${n} bp is too short for two ${minLength}-nt primers.`);
+export interface PrimerPairLimits {
+  minTm: number;
+  maxTm: number;
+}
+
+/**
+ * NEB primer-pair selection from two anchors, each read 5′→3′ in primer sense:
+ * `forwardSource` starts at the forward primer's 3′-complementary end of the template,
+ * `reverseSource` at the reverse primer's.
+ */
+export function selectPrimerPair(
+  forwardSource: string,
+  reverseSource: string,
+  minLength: number,
+  maxTmDifference: number,
+  tm: (sequence: string) => number,
+  limits: PrimerPairLimits = { minTm: PRIMER_MIN_TM, maxTm: PRIMER_MAX_TM },
+): { forward: string; reverse: string; forwardTm: number; reverseTm: number } {
+  if (minLength > forwardSource.length || minLength > reverseSource.length) throw new Error(`The template is too short for ${minLength}-nt primers.`);
 
   const grow = (source: string) => {
+    const n = source.length;
     let length = minLength;
     let value = tm(source.slice(0, length));
     let fallback = length;
-    while (value < PRIMER_MIN_TM && length < n) { length += 1; value = tm(source.slice(0, length)); fallback = length; }
-    while (value < PRIMER_MAX_TM && !clamped(source.slice(0, length)) && length < n) { length += 1; value = tm(source.slice(0, length)); }
+    while (value < limits.minTm && length < n) { length += 1; value = tm(source.slice(0, length)); fallback = length; }
+    while (value < limits.maxTm && !clamped(source.slice(0, length)) && length < n) { length += 1; value = tm(source.slice(0, length)); }
     if (!clamped(source.slice(0, length))) { length = fallback; value = tm(source.slice(0, length)); }
     return { length, value };
   };
-  let fwd = grow(template);
-  let rev = grow(reverseTemplate);
+  let fwd = grow(forwardSource);
+  let rev = grow(reverseSource);
 
   // Balance the pair: lengthen the cooler primer, then seek a clamp without overtaking the warmer one.
   const balance = (cool: { length: number; value: number }, hotValue: number, source: string) => {
+    const n = source.length;
     while (hotValue - cool.value > maxTmDifference && cool.length < n) { cool.length += 1; cool.value = tm(source.slice(0, cool.length)); }
     let kept = cool.length;
     while (cool.value < hotValue && !clamped(source.slice(0, cool.length)) && cool.length < n) {
@@ -159,10 +175,18 @@ export function selectAnnealLengths(template: string, minLength: number, maxTmDi
     }
     return cool;
   };
-  if (fwd.value > rev.value) rev = balance(rev, fwd.value, reverseTemplate);
-  if (rev.value > fwd.value) fwd = balance(fwd, rev.value, template);
-  if (fwd.length + rev.length > n) throw new Error('The forward and reverse primers would overlap on this fragment.');
-  return { forward: template.slice(0, fwd.length), reverse: reverseTemplate.slice(0, rev.length), forwardTm: fwd.value, reverseTm: rev.value };
+  if (fwd.value > rev.value) rev = balance(rev, fwd.value, reverseSource);
+  if (rev.value > fwd.value) fwd = balance(fwd, rev.value, forwardSource);
+  return { forward: forwardSource.slice(0, fwd.length), reverse: reverseSource.slice(0, rev.length), forwardTm: fwd.value, reverseTm: rev.value };
+}
+
+/** NEBuilder primer-pair anneal selection for one template (both primers bind its two ends). */
+export function selectAnnealLengths(template: string, minLength: number, maxTmDifference: number, tm: (sequence: string) => number): { forward: string; reverse: string; forwardTm: number; reverseTm: number } {
+  const n = template.length;
+  if (minLength > n || 2 * minLength > n) throw new Error(`Fragment of ${n} bp is too short for two ${minLength}-nt primers.`);
+  const pair = selectPrimerPair(template, reverseComplement(template), minLength, maxTmDifference, tm);
+  if (pair.forward.length + pair.reverse.length > n) throw new Error('The forward and reverse primers would overlap on this fragment.');
+  return pair;
 }
 
 /** Template of a fragment as NEBuilder uses it (digested fragments keep 3′ but not 5′ overhangs). */

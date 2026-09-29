@@ -1,0 +1,146 @@
+{
+ "_source": "NEBaseChanger v2.8.4 (nebasechanger.neb.com), design engine run on these inputs on 2026-09-27; outputs only. Tm/Ta as displayed (integers, of the annealing part).",
+ "plasmid": {
+  "name": "vecGFP",
+  "sequence": "GGTACCGAGCTCGAATTCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGGCGTTACCCAACTTAATCGCCTTGCAGCACATCCCCCTTTCGCCAGCTGGCGTAATAGCGAAGAGGCCCGCACCGATCGCCCTTCCCAACAGTTGCGCAGCCTGAATGGCGAATGGCGCTTTGCCTGGTTTCCGGCACCAGAAGCGGTGCCGGAAAGCTGGCTGGAGTGCGATCTTCCTGAGGCCGATACTGTCGTCGTCCCCTCAAACTGGCAGATGCACGGTATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAG",
+  "topology": "circular"
+ },
+ "cases": [
+  {
+   "id": "y40f_tailsonly",
+   "input": {
+    "mode": "codon",
+    "orfStart": 284,
+    "codonops": "Y40F",
+    "tailsonly": true
+   },
+   "expected": {
+    "description": "Replace tac between bases 400-404 with TTT in vecGFP (Y40F)",
+    "forward": "tttGGCAAGCTGACCCTG",
+    "reverse": "GGTGGCATCGCCCTC",
+    "tmForward": 63,
+    "tmReverse": 67,
+    "ta": 64
+   }
+  },
+  {
+   "id": "ins_7nt_odd",
+   "input": {
+    "mode": "general",
+    "start": 403,
+    "end": 404,
+    "repseq": "ACGTACG"
+   },
+   "expected": {
+    "description": "Insert ACGTACG between bases 403-404 in vecGFP (primer)",
+    "forward": "tacgGGCAAGCTGACCCTG",
+    "reverse": "cgtGTAGGTGGCATCGCC",
+    "tmForward": 63,
+    "tmReverse": 63,
+    "ta": 64
+   }
+  },
+  {
+   "id": "del_codons2to10",
+   "input": {
+    "mode": "general",
+    "start": 286,
+    "end": 314,
+    "repseq": ""
+   },
+   "expected": {
+    "description": "Delete  between bases 286-314 in vecGFP (primer)",
+    "forward": "GGGGTGGTGCCCATC",
+    "reverse": "CATACCGTGCATCTGCC",
+    "tmForward": 67,
+    "tmReverse": 63,
+    "ta": 64
+   }
+  },
+  {
+   "id": "sub_6nt",
+   "input": {
+    "mode": "general",
+    "start": 400,
+    "end": 407,
+    "repseq": "TTCGGA"
+   },
+   "expected": {
+    "description": "Replace tacggc between bases 400-407 with TTCGGA in vecGFP (primer)",
+    "forward": "ttcggaAAGCTGACCCTGAAGTTCATC",
+    "reverse": "GGTGGCATCGCCCTC",
+    "tmForward": 64,
+    "tmReverse": 67,
+    "ta": 65
+   }
+  },
+  {
+   "id": "ins_AviTag_45nt",
+   "input": {
+    "mode": "general",
+    "start": 286,
+    "end": 287,
+    "repseq": "GGCCTGAACGATATTTTTGAAGCGCAGAAAATTGAATGGCATGAA"
+   },
+   "expected": {
+    "description": "Insert GGCCTGAACGATATTTTTGAAGCGCAGAAAATTGAATGGCATGAA between bases 286-287 in vecGFP (primer)",
+    "forward": "cgcagaaaattgaatggcatgaaGTGAGCAAGGGCGAG",
+    "reverse": "cttcaaaaatatcgttcaggccCATACCGTGCATCTGC",
+    "tmForward": 63,
+    "tmReverse": 60,
+    "ta": 61
+   }
+  },
+  {
+   "id": "sub_9nt",
+   "input": {
+    "mode": "general",
+    "start": 400,
+    "end": 410,
+    "repseq": "TTCGGAAAA"
+   },
+   "expected": {
+    "description": "Replace tacggcaag between bases 400-410 with TTCGGAAAA in vecGFP (primer)",
+    "forward": "gaaaaCTGACCCTGAAGTTCATCTG",
+    "reverse": "cgaaGGTGGCATCGCCCTC",
+    "tmForward": 62,
+    "tmReverse": 67,
+    "ta": 63
+   }
+  },
+  {
+   "id": "ins_6xHis_after_ATG",
+   "input": {
+    "mode": "general",
+    "start": 286,
+    "end": 287,
+    "repseq": "CATCATCATCACCACCAC"
+   },
+   "expected": {
+    "description": "Insert CATCATCATCACCACCAC between bases 286-287 in vecGFP (primer)",
+    "forward": "caccaccacGTGAGCAAGGGCGAG",
+    "reverse": "atgatgatgCATACCGTGCATCTGC",
+    "tmForward": 63,
+    "tmReverse": 60,
+    "ta": 61
+   }
+  },
+  {
+   "id": "ins_BamHI_6nt",
+   "input": {
+    "mode": "general",
+    "start": 403,
+    "end": 404,
+    "repseq": "GGATCC"
+   },
+   "expected": {
+    "description": "Insert GGATCC between bases 403-404 in vecGFP (primer)",
+    "forward": "ggatccGGCAAGCTGACCCTG",
+    "reverse": "GTAGGTGGCATCGCC",
+    "tmForward": 63,
+    "tmReverse": 63,
+    "ta": 64
+   }
+  }
+ ]
+}

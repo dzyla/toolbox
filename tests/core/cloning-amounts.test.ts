@@ -58,3 +58,30 @@ describe('cloning amounts', () => {
     expect(big.waterUl).toBe(0);
   });
 });
+
+import { infusionAmounts } from '@/core/cloning/amounts';
+
+describe('In-Fusion amounts (Takara manual rules)', () => {
+  it('uses a 2:1 insert:vector molar ratio in a 10 µL reaction with 2 µL master mix', () => {
+    const plan = infusionAmounts({ bp: 2686, ngPerUl: 50 }, [{ name: 'GFP', bp: 754, ngPerUl: 40 }], 100);
+    expect(plan.inserts[0]!.pmol / (plan.vector.pmol)).toBeCloseTo(2, 6);
+    expect(plan.inserts[0]!.ng).toBeCloseTo(56.15, 1);
+    expect(plan.totalVolumeUl).toBe(10);
+    expect(plan.premixUl).toBe(2);
+    expect(plan.vector.volumeUl + plan.inserts[0]!.volumeUl + plan.waterUl + plan.premixUl).toBeCloseTo(10, 6);
+    expect(plan.transformUl).toBe(2.5);
+  });
+
+  it('doubles the reaction above 7 µL of DNA and caps small inserts at 50 ng', () => {
+    const doubled = infusionAmounts({ bp: 4000, ngPerUl: 10 }, [{ name: 'gene', bp: 1500, ngPerUl: 20 }], 100);
+    expect(doubled.totalVolumeUl).toBe(20);
+    expect(doubled.premixUl).toBe(4);
+    const small = infusionAmounts({ bp: 3000, ngPerUl: 100 }, [{ name: 'tag', bp: 450, ngPerUl: 100 }], 200);
+    expect(small.inserts[0]!.ng).toBe(50);
+    expect(small.notes.some(note => note.includes('capped at 50 ng'))).toBe(true);
+  });
+
+  it('flags a vector amount outside 50–200 ng', () => {
+    expect(infusionAmounts({ bp: 3000, ngPerUl: 100 }, [{ name: 'x', bp: 1000, ngPerUl: 50 }], 20).notes[0]).toMatch(/50–200 ng/);
+  });
+});

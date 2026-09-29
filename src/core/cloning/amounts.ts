@@ -100,3 +100,59 @@ export function nebuilderAmounts(input: AssemblyFragmentAmountInput[]): Assembly
     notes,
   };
 }
+
+export interface InfusionAmounts {
+  vector: { ng: number; volumeUl: number; pmol: number };
+  inserts: Array<{ name: string; bp: number; ng: number; pmol: number; volumeUl: number }>;
+  premixUl: number;
+  waterUl: number;
+  totalVolumeUl: number;
+  incubation: string;
+  transformUl: number;
+  notes: string[];
+}
+
+/**
+ * In-Fusion Snap Assembly reaction (Takara manual): 50–200 ng linearised vector and a
+ * 2:1 insert:vector molar ratio (2:2:1 for two inserts), 2 µL 5X master mix in 10 µL
+ * (doubled to 20 µL when vector + insert exceed 7 µL), 15 min at 50 °C, then 2.5 µL
+ * into 50 µL competent cells (never more than 5 µL). Inserts under 0.5 kb: at most 50 ng.
+ */
+export function infusionAmounts(
+  vector: { bp: number; ngPerUl: number },
+  inserts: Array<{ name: string; bp: number; ngPerUl: number }>,
+  vectorNg = 100,
+): InfusionAmounts {
+  const notes: string[] = [];
+  if (vectorNg < 50 || vectorNg > 200) notes.push('Takara recommends 50–200 ng of linearised vector.');
+  const vectorVolume = vectorNg / vector.ngPerUl;
+  const vectorPmol = vectorNg * 1000 / dsDnaMolecularWeight(vector.bp);
+  const rows = inserts.map(insert => {
+    let ng = pmolToNg(2 * vectorPmol, insert.bp);
+    if (insert.bp < 500 && ng > 50) {
+      ng = 50;
+      notes.push(`${insert.name} is under 0.5 kb; its amount was capped at 50 ng (the molar ratio is above 2:1).`);
+    }
+    if (ng < 10) notes.push(`${insert.name} needs only ${ng.toFixed(1)} ng; Takara recommends at least 10 ng, so raise the vector amount or accept a higher molar ratio.`);
+    if (ng > 200) notes.push(`${insert.name} needs ${Math.round(ng)} ng, above the 200 ng recommended maximum.`);
+    return { name: insert.name, bp: insert.bp, ng, pmol: ng * 1000 / dsDnaMolecularWeight(insert.bp), volumeUl: ng / insert.ngPerUl };
+  });
+  const dnaVolume = vectorVolume + rows.reduce((sum, row) => sum + row.volumeUl, 0);
+  const large = dnaVolume > 7;
+  const totalVolumeUl = large ? 20 : 10;
+  const premixUl = large ? 4 : 2;
+  const waterUl = totalVolumeUl - premixUl - dnaVolume;
+  if (waterUl < 0) notes.push('The DNA volume is too large even for a 20 µL reaction; concentrate the vector or inserts.');
+  if (large) notes.push('Vector plus inserts exceed 7 µL, so the reaction is doubled to 20 µL.');
+  if (inserts.length > 2) notes.push('Takara suggests 20 bp homology and validated ratios for up to four fragments; check the manual for more than two inserts.');
+  return {
+    vector: { ng: vectorNg, volumeUl: vectorVolume, pmol: vectorPmol },
+    inserts: rows,
+    premixUl,
+    waterUl: Math.max(0, waterUl),
+    totalVolumeUl,
+    incubation: '50 °C for 15 min, then place on ice',
+    transformUl: Math.min(5, totalVolumeUl / 4),
+    notes,
+  };
+}
