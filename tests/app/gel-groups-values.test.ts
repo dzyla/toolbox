@@ -44,3 +44,22 @@ describe('resolveLaneValues', () => {
     expect(r[0]!.reason).toMatch(/target/);
   });
 });
+
+import { matchCluster } from '@/tools/gel/workspace/groups';
+import type { TargetBandCluster } from '@/tools/gel/analysis';
+
+describe('matchCluster', () => {
+  const cl = (id: string, avgSize: number | null, avgRf: number): TargetBandCluster => ({ id, avgSize, avgRf, medianPeakY: 0, matchingLanesCount: 2, label: id });
+  const clusters = [cl('x', 50, 0.3), cl('y', 100, 0.6)];
+  it('matches exactly and within the margin, else null', () => {
+    expect(matchCluster({ size: 50, rf: 0.3 }, clusters, 10)?.id).toBe('x');
+    expect(matchCluster({ size: 52, rf: 0.31 }, clusters, 10)?.id).toBe('x');
+    expect(matchCluster({ size: 60, rf: 0.3 }, clusters, 10)).toBeNull();
+    expect(matchCluster(null, clusters, 10)).toBeNull();
+  });
+  it('uses Rf when a size is missing', () => {
+    const unc = [cl('u', null, 0.3)];
+    expect(matchCluster({ size: null, rf: 0.32 }, unc, 10)?.id).toBe('u');
+    expect(matchCluster({ size: null, rf: 0.5 }, unc, 10)).toBeNull();
+  });
+});

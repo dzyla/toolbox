@@ -1,5 +1,7 @@
 import { useState } from 'preact/hooks';
 import { assignByPattern } from './lane-meta';
+import { matchCluster } from './workspace/groups';
+import type { BandRef } from './workspace-model';
 import { DataQualityPanel } from './DataQualityPanel';
 import type { GelWorkspace } from './workspace';
 
@@ -11,11 +13,24 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
   const [pattern, setPattern] = useState({ conditions: '', replicates: 3 });
   const conditions = groupSummaries.map(x => x.condition);
   const refOf = (id: string) => { const c = targetClusters.find(t => t.id === id); return c ? { size: c.avgSize, rf: c.avgRf } : null; };
-  const idOf = (r: typeof s.groupTarget) => targetClusters.find(t => r && t.avgSize === r.size && Math.abs(t.avgRf - r.rf) < 1e-9)?.id ?? '';
+  const usable = targetClusters.filter(c => c.matchingLanesCount > 0);
+  const idOf = (r: BandRef | null) => matchCluster(r, usable, s.groupMarginPct)?.id ?? '';
+  const bandOptions = (r: BandRef | null) => (
+    <>
+      <option value="">Choose…</option>
+      {usable.length === 0 && <option value="" disabled>No bands detected</option>}
+      {r && !idOf(r) && <option value="__stored" selected>{`Stored target ${r.size !== null ? `~${r.size.toPrecision(3)}` : ''} Rf ${r.rf.toFixed(2)} — no matching band`}</option>}
+      {usable.map(c => <option value={c.id}>{c.label}</option>)}
+    </>
+  );
+  const pick = (id: string) => (id === '__stored' ? undefined : refOf(id));
+  const unknownControl = s.groupControlCondition !== '' && !conditions.includes(s.groupControlCondition);
   const editMeta = (laneId: string, patch: Partial<{ condition: string; replicate: number | null; excluded: boolean }>) =>
     setLaneMeta(prev => ({ ...prev, [laneId]: { condition: prev[laneId]?.condition ?? '', replicate: prev[laneId]?.replicate ?? null, excluded: prev[laneId]?.excluded ?? false, ...patch } }));
   const sampleLaneIds = lanes.map(l => l.id).filter(id => groupRows.some(r => r.laneId === id));
-  const maxVal = Math.max(1e-12, ...groupSummaries.flatMap(x => x.values));
+  const spread = groupSummaries.flatMap(x => [...x.values, ...(x.mean !== null && x.sd !== null ? [x.mean - x.sd, x.mean + x.sd] : [])]);
+  const yMin = Math.min(0, ...spread), yMax = Math.max(1e-12, ...spread), yRange = Math.max(1e-12, yMax - yMin);
+  const yOf = (v: number) => 160 - ((v - yMin) / yRange) * 140;
 
   return (
     <div class="space-y-4">
@@ -23,9 +38,9 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
 
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
         <label class="space-y-1"><span class="font-semibold">Target band</span>
-          <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={idOf(s.groupTarget)}
-            onChange={e => set({ groupTarget: refOf((e.target as HTMLSelectElement).value) })}>
-            <option value="">Choose…</option>{targetClusters.map(c => <option value={c.id}>{c.label}</option>)}
+          <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={idOf(s.groupTarget) || (s.groupTarget ? '__stored' : '')}
+            onChange={e => { const p = pick((e.target as HTMLSelectElement).value); if (p !== undefined) set({ groupTarget: p }); }}>
+            {bandOptions(s.groupTarget)}
           </select></label>
         <label class="space-y-1"><span class="font-semibold">Normalization</span>
           <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={s.groupNorm}
@@ -34,16 +49,17 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
           </select></label>
         {s.groupNorm === 'control-band' && (
           <label class="space-y-1"><span class="font-semibold">Loading-control band</span>
-            <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={idOf(s.groupControl)}
-              onChange={e => set({ groupControl: refOf((e.target as HTMLSelectElement).value) })}>
-              <option value="">Choose…</option>{targetClusters.map(c => <option value={c.id}>{c.label}</option>)}
+            <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={idOf(s.groupControl) || (s.groupControl ? '__stored' : '')}
+              onChange={e => { const p = pick((e.target as HTMLSelectElement).value); if (p !== undefined) set({ groupControl: p }); }}>
+              {bandOptions(s.groupControl)}
             </select></label>
         )}
         <label class="space-y-1"><span class="font-semibold">Control condition</span>
           <select class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1" value={groupControlCondition}
             onChange={e => set({ groupControlCondition: (e.target as HTMLSelectElement).value })}>
             {conditions.map(c => <option value={c}>{c}</option>)}
-          </select></label>
+          </select>
+          {unknownControl && <span class="block text-amber-700 dark:text-amber-400">Control condition '{s.groupControlCondition}' no longer exists — pick one</span>}</label>
         <label class="flex items-center gap-2"><input type="checkbox" checked={s.groupWelch} onChange={e => set({ groupWelch: (e.target as HTMLInputElement).checked })} />
           Welch t-test vs control (Holm-adjusted)</label>
       </div>
@@ -116,8 +132,9 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
       </p>
 
       <svg role="img" aria-label="Normalized value per condition, each replicate shown with mean ± SD" viewBox={`0 0 ${Math.max(200, 90 * groupSummaries.length)} 180`} class="w-full max-w-2xl">
+        <line x1={0} x2={Math.max(200, 90 * groupSummaries.length)} y1={yOf(0)} y2={yOf(0)} class="stroke-slate-300 dark:stroke-slate-700" />
         {groupSummaries.map((x, i) => {
-          const cx = 45 + i * 90, y = (v: number) => 160 - (v / maxVal) * 140;
+          const cx = 45 + i * 90, y = yOf;
           return (
             <g key={x.condition}>
               {x.values.map((v, k) => <circle cx={cx - 12 + (k % 5) * 6} cy={y(v)} r={3} class="fill-accent-600" />)}

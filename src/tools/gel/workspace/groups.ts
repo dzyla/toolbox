@@ -10,6 +10,24 @@ import type { GelCore, GelAnalysis, GelLadders } from '../workspace';
 export interface LaneGroupRow { laneId: string; laneIdx: number; label: string; role: LaneRole; condition: string; replicate: number | null;
   targetNet: number | null; controlNet: number | null; value: number | null; reason: string | null; flags: string[] }
 
+/** Nearest cluster to a stored band reference, using the same tolerances as findTargetBandInLane; null when none is close enough. */
+export function matchCluster(ref: BandRef | null, clusters: TargetBandCluster[], marginPct: number): TargetBandCluster | null {
+  if (!ref) return null;
+  let best: TargetBandCluster | null = null, bestDiff = Infinity;
+  for (const c of clusters) {
+    let diff: number;
+    if (ref.size !== null && c.avgSize !== null && ref.size > 0) {
+      diff = Math.abs(c.avgSize - ref.size) / ref.size;
+      if (diff > marginPct / 100) continue;
+    } else {
+      diff = Math.abs(c.avgRf - ref.rf);
+      if (diff > Math.max(0.03, (marginPct / 100) * 0.45)) continue;
+    }
+    if (diff < bestDiff) { bestDiff = diff; best = c; }
+  }
+  return best;
+}
+
 export function resolveLaneValues(analysis: LaneAnalysisItem[], o: {
   ladderLaneId: string; massLaneId: string; laneMeta: Record<string, LaneMeta>; labels: Record<string, string>;
   target: BandRef | null; control: BandRef | null; mode: NormMode; marginPct: number;
