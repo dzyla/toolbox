@@ -1,4 +1,4 @@
-import { formatSize, MASS_STANDARD_PRESETS, type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
+import { formatSize, formatMass, MASS_STANDARD_PRESETS, type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
 import { LADDERS } from './workspace';
 import type { GelWorkspace } from './workspace';
 
@@ -13,6 +13,7 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
     laneLabels,
     lanes,
     massCalibration,
+    unassignedStandardBands,
     s,
     selectedLane,
     set,
@@ -72,6 +73,14 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
               <span class="font-medium text-slate-500 dark:text-slate-400">
                 R²: <strong class="text-emerald-700 dark:text-emerald-400">{massCalibration.r2.toFixed(4)}</strong>
               </span>
+              <span class="text-xs text-slate-600 dark:text-slate-400">
+                Standard range {formatMass(massCalibration.range.minMass, massCalibration.unit)}–{formatMass(massCalibration.range.maxMass, massCalibration.unit)}
+                {' · '}LOD {massCalibration.lod === null ? '–' : formatMass(massCalibration.lod, massCalibration.unit)}
+                {' · '}LOQ {massCalibration.loq === null ? '– (needs ≥ 3 standards)' : formatMass(massCalibration.loq, massCalibration.unit)}
+              </span>
+              {unassignedStandardBands > 0 && (
+                <span class="text-xs text-amber-700 dark:text-amber-400">{unassignedStandardBands} band(s) have no known mass and are excluded; enter masses in the table.</span>
+              )}
             </div>
           )}
         </div>

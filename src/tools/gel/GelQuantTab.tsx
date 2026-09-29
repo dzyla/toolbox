@@ -563,6 +563,8 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                   </td>
                                   <td class="px-2.5 py-2 mono text-right font-bold text-emerald-700 dark:text-emerald-400">
                                     {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
+                                    {m.massFlags?.extrapolated && <span class="ml-1 text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400" title="Outside the standard curve's signal range">extrap.</span>}
+                                    {m.massFlags?.belowLoq && <span class="ml-1 text-[9px] font-bold uppercase text-rose-700 dark:text-rose-400" title="Below the limit of quantitation">&lt;LOQ</span>}
                                   </td>
                                   <td class="px-2.5 py-2 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
                                   <td class="px-2.5 py-2 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
@@ -659,6 +661,8 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                           </td>
                           <td class="py-2.5 mono text-right font-bold text-emerald-700 dark:text-emerald-400">
                             {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
+                            {m.massFlags?.extrapolated && <span class="ml-1 text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400" title="Outside the standard curve's signal range">extrap.</span>}
+                            {m.massFlags?.belowLoq && <span class="ml-1 text-[9px] font-bold uppercase text-rose-700 dark:text-rose-400" title="Below the limit of quantitation">&lt;LOQ</span>}
                           </td>
                           <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
                           <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>

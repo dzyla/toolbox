@@ -1,7 +1,7 @@
 /* Gel lane analysis view model and cross-lane target-band matching (pure, DOM-free). */
 import { detectBands } from '@/core/gel/profile';
 import { type BandMetrics } from '@/core/gel/quant';
-import { formatSize } from '@/core/gel/calibration';
+import { formatSize, type MassFlags } from '@/core/gel/calibration';
 import { type Lane, type Band } from '@/core/gel/types';
 
 export interface LaneAnalysisItem {
@@ -10,7 +10,7 @@ export interface LaneAnalysisItem {
   profile: Float32Array;
   baseline: Float32Array;
   netProfile: Float32Array;
-  metrics: (Omit<BandMetrics, 'saturation'> & { saturation: number | null; number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null; ladderAssigned: number | null; sizeResidualPct: number | null })[];
+  metrics: (Omit<BandMetrics, 'saturation'> & { saturation: number | null; number: number; share: number; ratio: number; sizeEst: number | null; massEst: number | null; massFlags: MassFlags | null; ladderAssigned: number | null; sizeResidualPct: number | null })[];
   totalNet: number;
   totalBandsSignal: number;
   totalLaneSignal: number;

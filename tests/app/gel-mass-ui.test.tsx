@@ -36,4 +36,15 @@ describe('Gel Mass Densitometry UI', () => {
     const massLabel = screen.queryByText(/Known Mass/i);
     expect(massLabel).toBeTruthy();
   });
+
+  it('shows LOD/LOQ and the standard range in the mass calibration summary', () => {
+    render(<GelView />);
+    fireEvent.click(screen.getByRole('button', { name: /MW Calibration /i }));
+    fireEvent.click(screen.getByRole('button', { name: /Mass \/ Densitometry \(ng\)/i }));
+    // Demo lane ids are generated (laneN-xxxx), so pick the second real lane option.
+    const laneSelect = screen.getAllByRole('combobox', { name: 'Standard Lane / Well' })[0] as HTMLSelectElement;
+    fireEvent.change(laneSelect, { target: { value: laneSelect.options[2]!.value } });
+    expect(screen.getByText(/LOQ/)).toBeTruthy();
+    expect(screen.getByText(/Standard range/i)).toBeTruthy();
+  });
 });

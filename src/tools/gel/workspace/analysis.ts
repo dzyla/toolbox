@@ -3,7 +3,7 @@ import { sampleLane, laneProfile, detectBands } from '@/core/gel/profile';
 import { sharedCrossLaneBaseline, baselineFor, integrateLaneSignal } from '@/core/gel/background';
 import { quantifyBands } from '@/core/gel/quant';
 import { matchLadder, type LadderPeak } from '@/core/gel/ladder-match';
-import { fitCalibration, fitMassCalibration, MASS_STANDARD_PRESETS, type Calibration, type CalibrationPoint, type MassCalibration, type MassCalibrationPoint } from '@/core/gel/calibration';
+import { fitCalibration, fitMassCalibration, MASS_STANDARD_PRESETS, type Calibration, type CalibrationPoint, type MassCalibration, type MassCalibrationPoint, massFlags } from '@/core/gel/calibration';
 import { suggestGelCropAndTilt } from '@/core/gel/transform';
 import { type Lane } from '@/core/gel/types';
 import { type LaneAnalysisItem, toBands } from '../analysis';
@@ -61,7 +61,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
   const calibration: Calibration | null = ladderFit?.fit ?? null;
   const ladderMatch = ladderFit?.match ?? null;
 
-  const massCalibration: MassCalibration | null = useMemo(() => {
+  const massFit: { cal: MassCalibration; unassigned: number } | null = useMemo(() => {
     if (!plane || !s.massLaneId) return null;
     const massLane = lanes.find(l => l.id === s.massLaneId);
     if (!massLane) return null;
@@ -92,10 +92,12 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
 
       const preset = MASS_STANDARD_PRESETS.find(p => p.id === s.massPresetId) || MASS_STANDARD_PRESETS[0]!;
       const pts: MassCalibrationPoint[] = [];
+      let unassigned = 0;
 
       for (let i = 0; i < sortedMetrics.length; i++) {
         const m = sortedMetrics[i]!;
-        const known = customMassMap[m.bandId] ?? preset.masses[i] ?? Math.round(1000 / Math.pow(2, i));
+        const known = customMassMap[m.bandId] ?? preset.masses[i];
+        if (known === undefined) { unassigned++; continue; }
         if (known > 0 && m.net > 0) {
           pts.push({
             bandId: m.bandId,
@@ -111,11 +113,14 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
       const minPts = s.massCalibMethod === 'quadratic' ? 3 : s.massCalibMethod === 'linear_zero' ? 1 : 2;
       if (pts.length < minPts) return null;
 
-      return fitMassCalibration(pts, s.massCalibMethod, preset.unit);
+      return { cal: fitMassCalibration(pts, s.massCalibMethod, preset.unit), unassigned };
     } catch {
       return null;
     }
   }, [plane, lanes, s.massLaneId, bandMap, s.prominence, s.polarity, s.bgMethod, s.rollingRadius, s.massCalibMethod, s.massPresetId, customMassMap]);
+
+  const massCalibration: MassCalibration | null = massFit?.cal ?? null;
+  const unassignedStandardBands = massFit?.unassigned ?? 0;
 
   // Comprehensive analysis across ALL lanes with uniform baseline and loading comparison
   const allLanesAnalysis: LaneAnalysisItem[] = useMemo(() => {
@@ -166,7 +171,8 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
           const ladderAssigned = isLadderLane ? (ladderFit?.assigned[m.bandId] ?? null) : null;
           const sizeResidualPct = ladderAssigned !== null && sizeEst !== null ? (sizeEst / ladderAssigned - 1) * 100 : null;
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
-          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, ladderAssigned, sizeResidualPct };
+          const flags = massCalibration && massEst !== null ? massFlags(massCalibration, m.net, massEst) : null;
+          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, ladderAssigned, sizeResidualPct };
         });
 
         return {
@@ -307,6 +313,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
     calibration,
     ladderMatch,
     massCalibration,
+    unassignedStandardBands,
     allLanesAnalysis,
     selectedLane,
     selectedLaneIdx,
