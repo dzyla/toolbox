@@ -4,7 +4,7 @@ import { NEB_POLYMERASES, findPolymerase } from '@/core/cloning/methods/neb-poly
 import { designedPrimers, designToIdt, exportNebuilderProject, fragmentsToFasta, parseNebuilderProject } from '@/core/cloning/interchange';
 import { nebuilderAmounts } from '@/core/cloning/amounts';
 import { nebuilderProtocol } from '@/core/cloning/protocols';
-import { nebuilderProduct } from '@/core/cloning/products';
+import { nebuilderMarks, nebuilderProduct } from '@/core/cloning/products';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { importPlasmidText } from '@/core/plasmid/import';
 import { downloadText } from '@/lib/export';
@@ -13,7 +13,8 @@ import { ImportAlert } from '@/app/components/ImportAlert';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import type { FragmentOption, HubSource, NebuilderSettings } from './state';
 import { orderEnzymes, singleCutters, suggestPair } from './enzymes';
-import { BUTTON, FIELD, FindingsList, Labeled, PrimerTable, ProductCard, ProtocolCard, Section } from './results';
+import { BUTTON, FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
+import { ProductPreview } from './ProductPreview';
 
 interface Props {
   sources: HubSource[];
@@ -197,7 +198,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
         </div>
         <ProtocolCard protocol={nebuilderProtocol(amounts)} />
       </Section>}
-      {product && <Section id="nb-product" title="Assembled product"><ProductCard product={product} fileName="nebuilder-assembly" /></Section>}
+      {product && <Section id="nb-product" title="Assembled product"><ProductPreview product={product} fileName="nebuilder-assembly" marks={nebuilderMarks(design!)} /></Section>}
     </>}
   </div>;
 }

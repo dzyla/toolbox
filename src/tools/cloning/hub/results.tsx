@@ -2,11 +2,7 @@ import { useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { primersToCsv, primersToIdtBulk, type DesignedPrimer } from '@/core/cloning/oligo';
 import { protocolText, waterVolume, type CloningProtocol } from '@/core/cloning/protocol';
-import { moleculeToDocument, type Molecule } from '@/core/cloning/molecule';
 import type { Finding } from '@/core/cloning/types';
-import { exportFasta, exportGenBank } from '@/core/plasmid/export';
-import { CircularMap } from '@/tools/plasmid/CircularMap';
-import { LinearMap } from '@/tools/plasmid/LinearMap';
 import { downloadText } from '@/lib/export';
 
 export const BUTTON = 'rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800';
@@ -122,25 +118,6 @@ export function ProtocolCard({ protocol }: { protocol: CloningProtocol }) {
       <button type="button" class={BUTTON} onClick={() => void copyText(protocolText(protocol), flash, 'Protocol copied')}>Copy protocol</button>
       <button type="button" class={BUTTON} onClick={() => downloadText(protocolText(protocol), `${protocol.title.replace(/\W+/g, '-').toLowerCase()}.txt`)}>Download text</button>
       <span role="status" class="text-xs text-slate-600 dark:text-slate-400">{message}</span>
-    </div>
-  </div>;
-}
-
-export function ProductCard({ product, fileName }: { product: Molecule; fileName: string }) {
-  const document = moleculeToDocument(product, 'cloning-product', 'Designed with the Bio-Bench cloning hub');
-  const noop = () => undefined;
-  return <div class="space-y-2">
-    <p class="text-xs">
-      <strong>{product.name}</strong> · {product.sequence.length.toLocaleString()} bp · {product.topology} · {product.annotations.length} features carried from the inputs
-    </p>
-    <div class="mx-auto max-w-md">
-      {product.topology === 'circular'
-        ? <CircularMap document={document} onSelect={noop} />
-        : <LinearMap document={document} onSelect={noop} />}
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <button type="button" class={BUTTON} onClick={() => downloadText(exportGenBank(document), `${fileName}.gb`)}>Download GenBank</button>
-      <button type="button" class={BUTTON} onClick={() => downloadText(exportFasta(document), `${fileName}.fasta`)}>Download FASTA</button>
     </div>
   </div>;
 }

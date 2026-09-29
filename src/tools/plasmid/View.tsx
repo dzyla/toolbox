@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { PRESET_PLASMIDS, calculateGC } from '@/core/plasmid';
 import { legacyPlasmidToDocument } from '@/core/plasmid/legacy';
 import { findDocumentOrfs, findDocumentRestrictionSites } from '@/core/plasmid/analysis';
-import { validateDocument, type PlasmidDocument } from '@/core/plasmid/model';
+import type { PlasmidDocument } from '@/core/plasmid/model';
 import { getProject, saveProject } from '@/lib/projects';
 import { downloadSvg } from '@/lib/export';
 import { newId } from '@/lib/id';
@@ -17,25 +17,10 @@ import { AnnotationTable } from './AnnotationTable';
 import { AnnotationInspector } from './AnnotationInspector';
 import { AnalysisPanel } from './AnalysisPanel';
 import { SCIENCE } from './science';
+import { restoreDocument } from './restore';
 
 const TABS = ['Circular map', 'Linear map', 'Sequence', 'Annotations', 'Analysis'] as const;
 type Tab = typeof TABS[number];
-
-/** Accept the previous raw-document schema as well as the versioned workspace envelope. */
-function restoreDocument(state: unknown): PlasmidDocument {
-  try {
-    if (!state || typeof state !== 'object') throw new Error();
-    const envelope = state as { schemaVersion?: unknown; document?: unknown };
-    if (envelope.schemaVersion !== undefined && envelope.schemaVersion !== 2) throw new Error();
-    const document = (envelope.schemaVersion === 2 ? envelope.document : state) as PlasmidDocument;
-    if (!document || !['circular', 'linear'].includes(document.topology)
-      || !Array.isArray(document.annotations) || !Array.isArray(document.provenance?.warnings)
-      || !['fasta', 'genbank', 'snapgene'].includes(document.provenance.format)
-      || document.provenance.warnings.some(warning => typeof warning.code !== 'string' || typeof warning.message !== 'string')
-      || !validateDocument(document).valid) throw new Error();
-    return document;
-  } catch { throw new Error('This saved project does not contain a supported, valid plasmid document.'); }
-}
 
 export default function PlasmidView({ projectId }: ToolProps) {
   const [workspace, setWorkspace] = useState(() => initialWorkspace(legacyPlasmidToDocument(PRESET_PLASMIDS[0]!)));

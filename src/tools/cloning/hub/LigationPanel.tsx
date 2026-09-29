@@ -5,7 +5,9 @@ import { describeEnd, moleculeFromDocument } from '@/core/cloning/molecule';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import type { HubSource, LigationSettings } from './state';
 import { singleCutters, suggestPair } from './enzymes';
-import { FIELD, FindingsList, Labeled, ProductCard, ProtocolCard, Section } from './results';
+import { FIELD, FindingsList, Labeled, ProtocolCard, Section } from './results';
+import { ProductPreview } from './ProductPreview';
+import { ligationMarks } from '@/core/cloning/products';
 
 interface Props {
   sources: HubSource[];
@@ -104,7 +106,7 @@ export function LigationPanel({ sources, settings, onSettings }: Props) {
         </div>
         <ProtocolCard protocol={protocol} />
       </Section>}
-      {design.product && <Section id="lg-product" title="Ligation product"><ProductCard product={design.product} fileName="ligation-product" /></Section>}
+      {design.product && <Section id="lg-product" title="Ligation product"><ProductPreview product={design.product} fileName="ligation-product" marks={ligationMarks(design.junctions)} /></Section>}
     </>}
   </div>;
 }

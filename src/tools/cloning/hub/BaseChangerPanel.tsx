@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { designAminoAcidChanges, designSdm, isSdmDesign, sdmProtocol, translateCodon, type SdmDesign } from '@/core/cloning/methods/basechanger';
-import { sdmProduct } from '@/core/cloning/products';
+import { sdmMarks, sdmProduct } from '@/core/cloning/products';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { findORFs } from '@/core/plasmid';
 import { reverseComplement } from '@/core/nucleic/sequence';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import type { HubSource, SdmSettings } from './state';
 import { sdmPrimers } from './adapters';
-import { FIELD, FindingsList, Labeled, PrimerTable, ProductCard, ProtocolCard, Section } from './results';
+import { FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
+import { ProductPreview } from './ProductPreview';
 
 interface Props {
   sources: HubSource[];
@@ -146,7 +147,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
         <LazyDetails summary={`Protocol and product for ${generalDesign.label}`}>
           <div class="space-y-4">
             <ProtocolCard protocol={sdmProtocol(generalDesign, workingMolecule.sequence.length)} />
-            <ProductCard product={sdmProduct(workingMolecule, generalDesign)} fileName={generalDesign.label} />
+            <ProductPreview product={sdmProduct(workingMolecule, generalDesign)} fileName={generalDesign.label} marks={sdmMarks(generalDesign)} />
           </div>
         </LazyDetails>
       </div>}
@@ -162,7 +163,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
         <LazyDetails summary={`Protocol and product for ${design.label}`}>
           <div class="space-y-4">
             <ProtocolCard protocol={sdmProtocol(design, workingMolecule.sequence.length)} />
-            <ProductCard product={sdmProduct(workingMolecule, design)} fileName={design.label.replace(/\W+/g, '-')} />
+            <ProductPreview product={sdmProduct(workingMolecule, design)} fileName={design.label.replace(/\W+/g, '-')} marks={sdmMarks(design)} />
           </div>
         </LazyDetails>
       </div>)}

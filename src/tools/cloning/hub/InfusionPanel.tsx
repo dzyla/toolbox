@@ -2,13 +2,14 @@ import { useMemo } from 'preact/hooks';
 import { designInfusion, type InfusionLinearization } from '@/core/cloning/methods/infusion';
 import { infusionAmounts } from '@/core/cloning/amounts';
 import { infusionProtocol } from '@/core/cloning/protocols';
-import { infusionProduct } from '@/core/cloning/products';
+import { infusionMarks, infusionProduct } from '@/core/cloning/products';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import type { HubSource, InfusionSettings } from './state';
 import { singleCutters, suggestPair } from './enzymes';
 import { infusionPrimers } from './adapters';
-import { FIELD, FindingsList, Labeled, PrimerTable, ProductCard, ProtocolCard, Section } from './results';
+import { FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
+import { ProductPreview } from './ProductPreview';
 
 interface Props {
   sources: HubSource[];
@@ -110,7 +111,7 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
         </div>
         <ProtocolCard protocol={infusionProtocol(amounts, vectorSource?.document.name ?? 'Vector')} />
       </Section>}
-      {product && <Section id="if-product" title="Assembled product"><ProductCard product={product} fileName="in-fusion-construct" /></Section>}
+      {product && <Section id="if-product" title="Assembled product"><ProductPreview product={product} fileName="in-fusion-construct" marks={infusionMarks(design!, inserts)} /></Section>}
     </>}
   </div>;
 }
