@@ -7,10 +7,11 @@ import { useGelImage, type GelImage } from './workspace/image';
 import { useGelLanes, type GelLanes } from './workspace/lanes';
 import { useGelBands, type GelBands } from './workspace/bands';
 import { useGelCanvas, type GelCanvas } from './workspace/canvas';
+import { useGelGroups, type GelGroups } from './workspace/groups';
 import { useGelExports, type GelExports } from './workspace/exports';
 
 export { LADDERS, DEFAULTS, type State } from './workspace-model';
-export type { GelCore, GelLadders, GelAnalysis, GelProject, GelImage, GelLanes, GelBands, GelCanvas, GelExports };
+export type { GelCore, GelLadders, GelAnalysis, GelProject, GelImage, GelLanes, GelBands, GelCanvas, GelExports, GelGroups };
 
 /**
  * All gel-tool state, derived analysis and handlers, composed from focused hooks in ./workspace/.
@@ -26,7 +27,8 @@ export function useGelWorkspace({ projectId }: ToolProps) {
   const bands = useGelBands(core, analysis);
   const canvas = useGelCanvas(core, ladders, analysis, bands);
   const exports = useGelExports(core, ladders, analysis);
-  return { ...core, ...ladders, ...analysis, ...project, ...image, ...lanes, ...bands, ...canvas, ...exports };
+  const groups = useGelGroups(core, ladders, analysis, core.deskewAngle);
+  return { ...core, ...ladders, ...analysis, ...project, ...image, ...lanes, ...bands, ...canvas, ...exports, ...groups };
 }
 
 export type GelWorkspace = ReturnType<typeof useGelWorkspace>;

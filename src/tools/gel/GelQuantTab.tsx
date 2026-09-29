@@ -2,6 +2,7 @@ import { formatSize, formatMass } from '@/core/gel/calibration';
 import { type LaneAnalysisItem } from './analysis';
 import { isSaturated } from '@/core/gel/quant';
 import { BandQuantChart } from './BandQuantChart';
+import { GelGroupsView } from './GelGroupsView';
 import type { GelWorkspace } from './workspace';
 
 /** Quantification tab: band table, lane loading and normalization across all lanes. */
@@ -35,12 +36,16 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
           <h3 class="font-bold text-base text-slate-900 dark:text-slate-100">
-            {s.quantSubView === 'loading'
+            {s.quantSubView === 'groups'
+              ? 'Conditions & Replicates'
+              : s.quantSubView === 'loading'
               ? 'Whole-Lane Loading Comparison & Ponceau S / TPN Normalization'
               : 'Band Quantification & Relative Amounts'}
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            {s.quantSubView === 'loading'
+            {s.quantSubView === 'groups'
+              ? 'Normalized target signal per lane, grouped by condition, with replicate statistics'
+              : s.quantSubView === 'loading'
               ? 'Total integrated optical density across all lines to verify equal sample loading, CV%, and compute TPN correction factors'
               : 'Background-subtracted optical densities, relative percentage shares, and calibrated molecular weights'}
           </p>
@@ -66,6 +71,15 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
               }`}
             >
               🧪 Line Loading (Ponceau S)
+            </button>
+            <button
+              type="button"
+              onClick={() => set({ quantSubView: 'groups' })}
+              class={`px-3 py-1.5 font-semibold rounded-md transition ${
+                s.quantSubView === 'groups' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              📊 Conditions & Replicates
             </button>
           </div>
 
@@ -155,7 +169,9 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
         </div>
       </div>
 
-      {s.quantSubView === 'loading' ? (
+      {s.quantSubView === 'groups' && <GelGroupsView g={g} />}
+
+      {s.quantSubView === 'groups' ? null : s.quantSubView === 'loading' ? (
         /* LINE LOADING COMPARISON (PONCEAU S / TPN MODE) */
         <div class="space-y-4">
           {/* KPI Summary Dashboard */}
