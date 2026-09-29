@@ -74,9 +74,12 @@ export function useGelGroups(core: GelCore, ladders: GelLadders, analysis: GelAn
     [groupRows, controlCondition, s.groupWelch]);
   const qualityIssues: QualityIssue[] = useMemo(() => dataQualityIssues({
     sourceInfo, appliedTransforms, deskewAngle,
-    saturatedBands: allLanesAnalysis.reduce((n, a) => n + a.metrics.filter(m => isSaturated(m.saturation)).length, 0),
+    saturatedBands: allLanesAnalysis.reduce((n, a) => {
+      const role = laneRole(a.lane.id, laneMeta[a.lane.id], effectiveLadderLaneId, s.massLaneId);
+      return role === 'ladder' || role === 'standard' ? n : n + a.metrics.filter(m => isSaturated(m.saturation)).length;
+    }, 0),
     baselineWarnings: allLanesAnalysis.reduce((n, a) => n + a.metrics.filter(m => m.baselineWarning).length, 0),
-  }), [sourceInfo, appliedTransforms, deskewAngle, allLanesAnalysis]);
+  }), [sourceInfo, appliedTransforms, deskewAngle, allLanesAnalysis, laneMeta, effectiveLadderLaneId, s.massLaneId]);
   return { targetClusters, groupRows, groupSummaries, groupControlCondition: controlCondition, qualityIssues };
 }
 export type GelGroups = ReturnType<typeof useGelGroups>;

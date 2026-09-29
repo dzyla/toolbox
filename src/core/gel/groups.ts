@@ -65,8 +65,8 @@ export function summarizeGroups(rows: GroupInput[], controlCondition: string, op
       condition: c, n, nExcluded: inC.length - n, values: vals, mean, sd, sem,
       ci95: half === null ? null : [mean! - half, mean! + half],
       cvPct: sd !== null && mean ? (sd / Math.abs(mean)) * 100 : null,
-      foldChange: mean !== null && ctrlMean ? mean / ctrlMean : null,
-      flags: [...new Set(inC.flatMap(r => r.flags))],
+      foldChange: mean !== null && ctrlMean !== null && ctrlMean > 0 ? mean / ctrlMean : null,
+      flags: [...new Set(inC.filter(r => r.value !== null && Number.isFinite(r.value)).flatMap(r => r.flags))],
       test: null,
     };
   });

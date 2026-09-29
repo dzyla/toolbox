@@ -40,6 +40,14 @@ describe('export tables', () => {
       expect(r[h.indexOf('TPN_Factor')]).toBe(0.8);
     }
   });
+  it('tidy rows: mass cell is empty when the estimate is not positive, flags kept', () => {
+    const metric = { number: 1, raw: 1, background: 0, net: 1, share: 100, ratio: null, sizeEst: null, massEst: -0.2, massFlags: { extrapolated: true, belowLoq: true }, saturation: null,
+      ladderAssigned: null, sizeResidualPct: null, baselineWarning: false };
+    const analysis = [{ laneIdx: 0, lane: { id: 'a' }, totalLaneSignal: 1, loadingRatio: 1, normFactor: 1, metrics: [metric] }] as never;
+    const rows = tidyRows({ analysis, labels: {}, roles: {}, meta: {}, valueByLane: {}, sizeUnit: 'kDa', massUnit: 'ng' });
+    expect(rows[1]![rows[0]!.indexOf('Mass_ng')]).toBe('');
+    expect(rows[1]![rows[0]!.indexOf('Mass_Extrapolated')]).toBe('YES');
+  });
   it('methods text uses readable model names', () => {
     const t = methodsText({ source: null, transforms: [], deskewAngle: 0, laneWidths: [], bgMethod: 'none', radius: 40, prominence: 0.05,
       calibModel: 'monotone', calibR2: null, calibrated: true, hasTarget: true, massModel: 'linear_zero', massR2: null, norm: 'none', welch: false, version: 'x' });

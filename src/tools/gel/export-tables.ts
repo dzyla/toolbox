@@ -19,7 +19,7 @@ export function tidyRows(i: { analysis: LaneAnalysisItem[]; labels: Record<strin
     for (const m of a.metrics) rows.push([
       a.laneIdx + 1, i.labels[id] || `Lane ${a.laneIdx + 1}`, i.roles[id] ?? 'sample', meta?.condition ?? '', meta?.replicate ?? '', m.number, num(m.peakY, 5),
       num(m.sizeEst), num(m.ladderAssigned), num(m.sizeResidualPct, 3), num(m.raw, 6), num(m.background, 6), num(m.net, 6), num(m.share, 4), num(m.ratio),
-      num(m.massEst), m.massFlags ? (m.massFlags.extrapolated ? 'YES' : 'NO') : '', m.massFlags ? (m.massFlags.belowLoq ? 'YES' : 'NO') : '',
+      m.massEst !== null && m.massEst > 0 ? num(m.massEst) : '', m.massFlags ? (m.massFlags.extrapolated ? 'YES' : 'NO') : '', m.massFlags ? (m.massFlags.belowLoq ? 'YES' : 'NO') : '',
       num(m.saturation, 3), m.saturation === null ? '' : isSaturated(m.saturation) ? 'YES' : 'NO', m.baselineWarning ? 'YES' : 'NO',
       num(lv?.value ?? null, 6), lv?.reason ?? '', num(a.totalLaneSignal, 6), num(a.loadingRatio, 4), num(a.normFactor, 4),
     ]);

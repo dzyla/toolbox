@@ -65,3 +65,19 @@ describe('summarizeGroups', () => {
     expect(summarizeGroups([...rows('c', [0, 0]), ...rows('x', [1, 2])], 'c')[1]!.foldChange).toBeNull();
   });
 });
+
+describe('summarizeGroups minors', () => {
+  it('does not leak flags from lanes without a value', () => {
+    const r: GroupInput[] = [
+      { laneId: 'a', condition: 'x', replicate: 1, value: 1, flags: ['ok-flag'] },
+      { laneId: 'b', condition: 'x', replicate: 2, value: null, flags: ['saturated'] },
+    ];
+    expect(summarizeGroups(r, 'x')[0]!.flags).toEqual(['ok-flag']);
+  });
+  it('fold change is null when the control mean is not positive', () => {
+    const s = summarizeGroups([...rows('c', [-1, -3]), ...rows('t', [2, 4])], 'c');
+    expect(s.find(g => g.condition === 't')!.foldChange).toBeNull();
+    const ok = summarizeGroups([...rows('c', [1, 3]), ...rows('t', [2, 4])], 'c');
+    expect(ok.find(g => g.condition === 't')!.foldChange).toBeCloseTo(1.5);
+  });
+});
