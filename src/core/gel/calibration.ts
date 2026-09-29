@@ -1,11 +1,11 @@
 /* Molecular-weight calibration: log10(size) as a function of migration (y, px along the lane).
- * Models: linear (log-linear, the classic semi-log plot), piecewise linear between ladder bands, natural cubic spline
- * (ImageJ "Analyze > Calibrate" style interpolation). Size at any y is 10^f(y).
+ * Models: linear (log-linear, the classic semi-log plot), piecewise linear between ladder bands, monotone piecewise cubic Hermite
+ * (Fritsch & Carlson 1980, SIAM J Numer Anal 17:238). Size at any y is 10^f(y).
  * Reference for the log-linear relation: Weber & Osborn 1969, J Biol Chem 244:4406 (SDS-PAGE); Helling, Goodman &
  * Boyer 1974, J Virol 14:1235 (DNA fragments in agarose). */
 import { GelInputError } from './types';
 
-export type CalibrationModel = 'linear' | 'piecewise' | 'spline';
+export type CalibrationModel = 'linear' | 'piecewise' | 'monotone';
 export interface CalibrationPoint { y: number; size: number }
 export interface Calibration {
   model: CalibrationModel;
@@ -53,46 +53,37 @@ function piecewise(p: CalibrationPoint[]): (y: number) => number {
   };
 }
 
-/** Natural cubic spline through the points (second derivative zero at the ends); linear extrapolation outside. */
-function naturalSpline(p: CalibrationPoint[]): (y: number) => number {
+/** Monotone piecewise cubic Hermite interpolant (Fritsch–Carlson); linear extrapolation with the end slopes. */
+function monotoneCubic(p: CalibrationPoint[]): (y: number) => number {
   const n = p.length;
   if (n < 3) return piecewise(p);
   const x = p.map(q => q.y), a = p.map(q => Math.log10(q.size));
   const h = Array.from({ length: n - 1 }, (_, i) => x[i + 1]! - x[i]!);
-  // Tridiagonal system for the second derivatives (Burden & Faires, Numerical Analysis, natural cubic spline algorithm).
-  const alpha = new Array<number>(n).fill(0);
-  for (let i = 1; i < n - 1; i++) alpha[i] = 3 / h[i]! * (a[i + 1]! - a[i]!) - 3 / h[i - 1]! * (a[i]! - a[i - 1]!);
-  const l = new Array<number>(n).fill(1), mu = new Array<number>(n).fill(0), z = new Array<number>(n).fill(0);
-  for (let i = 1; i < n - 1; i++) {
-    l[i] = 2 * (x[i + 1]! - x[i - 1]!) - h[i - 1]! * mu[i - 1]!;
-    mu[i] = h[i]! / l[i]!;
-    z[i] = (alpha[i]! - h[i - 1]! * z[i - 1]!) / l[i]!;
-  }
-  const c = new Array<number>(n).fill(0), b = new Array<number>(n - 1).fill(0), d = new Array<number>(n - 1).fill(0);
-  for (let j = n - 2; j >= 0; j--) {
-    c[j] = z[j]! - mu[j]! * c[j + 1]!;
-    b[j] = (a[j + 1]! - a[j]!) / h[j]! - h[j]! * (c[j + 1]! + 2 * c[j]!) / 3;
-    d[j] = (c[j + 1]! - c[j]!) / (3 * h[j]!);
+  const dlt = Array.from({ length: n - 1 }, (_, i) => (a[i + 1]! - a[i]!) / h[i]!);
+  const m = new Array<number>(n);
+  m[0] = dlt[0]!; m[n - 1] = dlt[n - 2]!;
+  for (let i = 1; i < n - 1; i++) m[i] = dlt[i - 1]! * dlt[i]! <= 0 ? 0 : (dlt[i - 1]! + dlt[i]!) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (dlt[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
+    const al = m[i]! / dlt[i]!, be = m[i + 1]! / dlt[i]!;
+    const s = al * al + be * be;
+    if (s > 9) { const t = 3 / Math.sqrt(s); m[i] = t * al * dlt[i]!; m[i + 1] = t * be * dlt[i]!; }
   }
   return (y: number) => {
-    if (y <= x[0]!) return a[0]! + b[0]! * (y - x[0]!);
-    if (y >= x[n - 1]!) {
-      const j = n - 2, dx = x[n - 1]! - x[j]!;
-      const slopeEnd = b[j]! + 2 * c[j]! * dx + 3 * d[j]! * dx * dx;
-      return a[n - 1]! + slopeEnd * (y - x[n - 1]!);
-    }
-    let j = 0;
-    while (j < n - 2 && y > x[j + 1]!) j++;
-    const dx = y - x[j]!;
-    return a[j]! + b[j]! * dx + c[j]! * dx * dx + d[j]! * dx * dx * dx;
+    if (y <= x[0]!) return a[0]! + m[0]! * (y - x[0]!);
+    if (y >= x[n - 1]!) return a[n - 1]! + m[n - 1]! * (y - x[n - 1]!);
+    let i = 0;
+    while (i < n - 2 && y > x[i + 1]!) i++;
+    const t = (y - x[i]!) / h[i]!, t2 = t * t, t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * a[i]! + (t3 - 2 * t2 + t) * h[i]! * m[i]! + (-2 * t3 + 3 * t2) * a[i + 1]! + (t3 - t2) * h[i]! * m[i + 1]!;
   };
 }
 
 export function fitCalibration(points: CalibrationPoint[], model: CalibrationModel = 'linear'): Calibration {
   const p = sorted(points);
-  const need = model === 'spline' ? 3 : 2;
+  const need = model === 'monotone' ? 3 : 2;
   if (p.length < need) throw new GelInputError(`The ${model} model needs at least ${need} ladder bands (have ${p.length})`);
-  const f = model === 'linear' ? linearFit(p) : model === 'piecewise' ? piecewise(p) : naturalSpline(p);
+  const f = model === 'linear' ? linearFit(p) : model === 'piecewise' ? piecewise(p) : monotoneCubic(p);
   const logs = p.map(q => Math.log10(q.size));
   const meanLog = logs.reduce((s, v) => s + v, 0) / logs.length;
   let ssRes = 0, ssTot = 0;

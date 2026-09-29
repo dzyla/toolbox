@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { SourceInfo } from '@/lib/image';
 import { useUrlState } from '@/lib/url-state';
 import { type Plane, type Lane, type Band } from '@/core/gel/types';
-import { DEFAULTS, type State } from '../workspace-model';
+import { DEFAULTS, migrateState, type State } from '../workspace-model';
 
 /** Link settings, image planes, lanes, bands, annotations, layout and canvas refs. */
 export function useGelCore() {
 
   const [stateSig, shareUrl] = useUrlState<State>('gel', DEFAULTS);
-  const s = stateSig.value;
-  const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
+  const s = migrateState(stateSig.value);
+  const set = (patch: Partial<State>) => { stateSig.value = { ...migrateState(stateSig.value), ...patch }; };
 
   // Base raw plane untouched by user crop/rotation
   const [originalPlane, setOriginalPlane] = useState<Plane | null>(null);

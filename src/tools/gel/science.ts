@@ -8,7 +8,7 @@ export const SCIENCE: Science = {
     'Percent of lane: % = 100 × max(0, Inet) / Σ max(0, Inet,j) over all bands in the lane',
     'Normalised ratio: R = Inet / Iref (relative to reference band or loading control)',
     'Log-linear calibration: log10(MW) = intercept + slope · y (Weber & Osborn 1969)',
-    'Natural cubic spline: piecewise cubic S_i(y) with continuous 1st and 2nd derivatives, S\'\'(y0) = S\'\'(yn) = 0',
+    'Monotone cubic spline: piecewise cubic Hermite interpolant of log10(MW) with Fritsch-Carlson slope limiting (1980), no overshoot between ladder bands',
     'Rolling-ball baseline: B = opening(profile, radius) = maxFilter(minFilter(profile, r), r) (Sternberg 1983)',
     'Valley-to-valley baseline: linear interpolation of profile between band boundary minima',
   ],

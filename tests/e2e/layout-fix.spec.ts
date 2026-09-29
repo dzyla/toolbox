@@ -20,7 +20,7 @@ test('gel: changing a MW-calibration setting does not move the canvas', async ({
   const yOf = () => page.$eval('canvas', c => c.getBoundingClientRect().y);
   // change the Fitting Model in the MW Calibration card (the only select with a "piecewise" option)
   const model = page.locator('select:has(option[value="piecewise"])');
-  await model.selectOption({ value: 'spline' });
+  await model.selectOption({ value: 'monotone' });
   await page.waitForTimeout(300);
   const y1 = await yOf();
   await model.selectOption({ value: 'linear' });

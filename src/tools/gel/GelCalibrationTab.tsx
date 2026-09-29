@@ -1,4 +1,4 @@
-import { formatSize, MASS_STANDARD_PRESETS, type MassCalibrationModel } from '@/core/gel/calibration';
+import { formatSize, MASS_STANDARD_PRESETS, type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
 import { LADDERS } from './workspace';
 import type { GelWorkspace } from './workspace';
 
@@ -131,12 +131,12 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
                 <select
                   aria-label="Regression Model"
                   value={s.calibMethod}
-                  onChange={e => set({ calibMethod: (e.target as HTMLSelectElement).value as 'linear' | 'piecewise' | 'spline' })}
+                  onChange={e => set({ calibMethod: (e.target as HTMLSelectElement).value as CalibrationModel })}
                   class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
                 >
                   <option value="piecewise">Piecewise Log-Linear</option>
                   <option value="linear">Global Log-Linear (y = mx + b)</option>
-                  <option value="spline">Monotonic Cubic Spline</option>
+                  <option value="monotone">Monotone cubic spline</option>
                 </select>
               </div>
             </div>

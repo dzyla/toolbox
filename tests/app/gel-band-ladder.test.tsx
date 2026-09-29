@@ -216,9 +216,9 @@ describe('gel ladder calibration + band interaction', () => {
     expect(modelSel, 'model select should exist in MW sub-tab').toBeTruthy();
 
     // Changing calibration model
-    fireEvent.change(modelSel!, { target: { value: 'spline' } });
+    fireEvent.change(modelSel!, { target: { value: 'monotone' } });
     await new Promise((r) => setTimeout(r, 30));
-    expect(modelSel!.value).toBe('spline');
+    expect(modelSel!.value).toBe('monotone');
   });
 
   it('exposes Re-detect All Bands button', () => {

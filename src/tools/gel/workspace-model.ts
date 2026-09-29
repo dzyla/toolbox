@@ -1,5 +1,5 @@
 import { type StandardLadder } from './ladder-library';
-import { type MassCalibrationModel } from '@/core/gel/calibration';
+import { type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
 import { type Polarity } from '@/core/gel/types';
 import laddersData from '@/data/ladders.json';
 
@@ -21,7 +21,7 @@ export interface State {
   prominence: number;
   ladderLaneId: string;
   ladderId: string;
-  calibMethod: 'linear' | 'piecewise' | 'spline';
+  calibMethod: CalibrationModel;
   massLaneId: string;
   massCalibMethod: MassCalibrationModel;
   massPresetId: string;
@@ -64,3 +64,7 @@ export const DEFAULTS: State = {
   quantSubView: 'bands',
   tableMode: 'all',
 };
+/** Upgrade settings from old links and projects: the former natural 'spline' model is now the monotone cubic. */
+export function migrateState(v: State): State {
+  return (v.calibMethod as string) === 'spline' ? { ...v, calibMethod: 'monotone' } : v;
+}

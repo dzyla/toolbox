@@ -1,5 +1,5 @@
 import { ImportAlert } from '@/app/components/ImportAlert';
-import { MASS_STANDARD_PRESETS, type MassCalibrationModel } from '@/core/gel/calibration';
+import { MASS_STANDARD_PRESETS, type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
 import { type Polarity } from '@/core/gel/types';
 import { LADDERS } from './workspace';
 import type { GelWorkspace } from './workspace';
@@ -415,12 +415,12 @@ export function GelControls({ g }: { g: GelWorkspace }) {
           <select
             aria-label="Fitting Model"
             value={s.calibMethod}
-            onChange={e => set({ calibMethod: (e.target as HTMLSelectElement).value as 'linear' | 'piecewise' | 'spline' })}
+            onChange={e => set({ calibMethod: (e.target as HTMLSelectElement).value as CalibrationModel })}
             class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
           >
             <option value="piecewise">Piecewise Linear (Recommended)</option>
             <option value="linear">Global Linear Semi-Log</option>
-            <option value="spline">Monotone Cubic Spline</option>
+            <option value="monotone">Monotone cubic spline</option>
           </select>
         </div>
 
