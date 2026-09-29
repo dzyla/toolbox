@@ -7,7 +7,7 @@ import { DEFAULTS } from '../workspace-model';
 
 /** Save/restore of gel projects (/p/:id). */
 export function useGelProject(projectId: string | undefined, core: GelCore) {
-  const { bandMap, canvasRef, customMassMap, gelLayout, gelTitle, imageName, laneLabels, lanes, plane, selectedLaneId, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setGelLayout, setGelTitle, setImageError, setImageName, setIsCropping, setLaneLabels, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setShowLaneHeaders, setShowMwLabels, setStripLanePrefix, setSourceInfo, setAppliedTransforms, showLaneHeaders, showMwLabels, stateSig, stripLanePrefix } = core;
+  const { bandMap, canvasRef, customMassMap, gelLayout, gelTitle, imageName, laneLabels, lanes, plane, selectedLaneId, setBandMap, setLadderSizeMap, setBasePlane, setCropBox, setCustomMassMap, setDeskewAngle, setGelLayout, setGelTitle, setImageError, setImageName, setIsCropping, setLaneLabels, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setShowLaneHeaders, setShowMwLabels, setStripLanePrefix, setSourceInfo, setAppliedTransforms, showLaneHeaders, showMwLabels, stateSig, stripLanePrefix } = core;
 
   // Saved projects: restore from /p/:id and save the working image + annotations on this device.
   const project = useToolProject('gel', projectId, async stored => {
@@ -23,6 +23,7 @@ export function useGelProject(projectId: string | undefined, core: GelCore) {
     setLanes(data.lanes);
     setSelectedLaneId(data.selectedLaneId);
     setBandMap(data.bandMap);
+    setLadderSizeMap({});
     setLaneLabels(data.laneLabels);
     setCustomMassMap(data.customMassMap);
     setSourceInfo(null);

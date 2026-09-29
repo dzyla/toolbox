@@ -38,7 +38,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const initialLanes = autoLanes(demo.plane, { x: 0, y: 0, w: demo.plane.width, h: demo.plane.height }, detectedPolarity);
     setLanes(initialLanes);
     // Clean slate: drop any band annotations / reference from a previous gel.
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
     if (initialLanes.length > 0) {
       setSelectedLaneId(initialLanes[0]!.id);
@@ -67,7 +67,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
 
       const detected = autoLanes(newPlane, { x: 0, y: 0, w: newPlane.width, h: newPlane.height }, pol);
       setLanes(detected);
-      setBandMap({});
+      setBandMap({}); setLadderSizeMap({});
       // Clean slate: a newly loaded gel starts with no band annotations or reference.
       set({ refBandId: '' });
       if (detected.length > 0) {
@@ -88,7 +88,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setPlane(rotated);
     setAppliedTransforms(t => [...t, `rotate ${deltaDeg}° (exact)`]);
     setDeskewAngle(0);
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
     setCustomMassMap({});
     // Disabled automatic lane detection after modification: use clean equal lanes
@@ -109,7 +109,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setPlane(flipped);
     setAppliedTransforms(t => [...t, `flip ${horizontal ? 'horizontal' : 'vertical'} (exact)`]);
     setDeskewAngle(0);
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
     setCustomMassMap({});
     // Disabled automatic lane detection after modification: use clean equal lanes
@@ -141,7 +141,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
     setCustomMassMap({});
     // Transform existing lanes by offsetting to the new crop boundaries
@@ -171,7 +171,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
     setCustomMassMap({});
     // Reset to clean equal lanes without autoLanes
@@ -204,7 +204,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     setDeskewAngle(0);
     setIsCropping(false);
     setCropBox(null);
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ refBandId: '' });
     setCustomMassMap({});
     const resolvedLanes = equalLanes(Math.max(1, lanes.length || 5), { x: 0, y: 0, w: cropped.width, h: cropped.height });

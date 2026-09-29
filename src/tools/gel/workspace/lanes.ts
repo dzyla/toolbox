@@ -4,7 +4,7 @@ import type { GelCore, GelAnalysis } from '../workspace';
 
 /** Lane creation, detection and editing. */
 export function useGelLanes(core: GelCore, analysis: GelAnalysis) {
-  const { lanes, numLanesInput, plane, s, selectedLaneId, set, setBandMap, setLanes, setSelectedLaneId } = core;
+  const { lanes, numLanesInput, plane, s, selectedLaneId, set, setBandMap, setLadderSizeMap, setLanes, setSelectedLaneId } = core;
   const { selectedLane } = analysis;
 
   function handleGridFromPlaced() {
@@ -57,7 +57,7 @@ export function useGelLanes(core: GelCore, analysis: GelAnalysis) {
     const detected = autoLanes(plane, { x: 0, y: 0, w: plane.width, h: plane.height }, s.polarity);
     setLanes(detected);
     // Lanes get new ids, so drop stale per-lane band annotations (they re-detect on the fly).
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     if (detected.length > 0) {
       const keepIdx = currentIdx >= 0 && currentIdx < detected.length ? currentIdx : 0;
       setSelectedLaneId(detected[keepIdx]!.id);
@@ -99,7 +99,7 @@ export function useGelLanes(core: GelCore, analysis: GelAnalysis) {
       if (s.ladderLaneId === selectedLane.id) set({ ladderLaneId: updated[0]!.id });
     } else {
       setSelectedLaneId('');
-      setBandMap({});
+      setBandMap({}); setLadderSizeMap({});
       set({ ladderLaneId: '', refBandId: '', loadingRefLaneId: '', massLaneId: '' });
     }
   }
@@ -107,7 +107,7 @@ export function useGelLanes(core: GelCore, analysis: GelAnalysis) {
   function handleClearAllLanes() {
     setLanes([]);
     setSelectedLaneId('');
-    setBandMap({});
+    setBandMap({}); setLadderSizeMap({});
     set({ ladderLaneId: '', refBandId: '' });
   }
 

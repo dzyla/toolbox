@@ -41,6 +41,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
     selectedLaneIdx,
     set,
     setBandMap,
+    setLadderSizeMap,
     setLaneLabels,
     setNumLanesInput,
     setSelectedLaneId,
@@ -119,7 +120,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBandMap({})}
+                    onClick={() => { setBandMap({}); setLadderSizeMap({}); }}
                     class="px-2.5 py-1 text-xs font-medium bg-amber-100/60 hover:bg-amber-200/60 text-amber-800 dark:bg-amber-900/40 dark:hover:bg-amber-800/50 dark:text-amber-200 rounded-lg transition"
                     title="Reset manually edited bands and re-detect across all lanes using current prominence"
                   >

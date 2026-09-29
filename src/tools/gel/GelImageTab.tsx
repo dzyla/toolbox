@@ -7,6 +7,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
     activeLadder,
     canvasCursor,
     canvasRef,
+    calibration,
     canvasZoom,
     effectiveLadderLaneId,
     gelLayout,
@@ -419,7 +420,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                     <select
                                       id={`ladder-size-${m.bandId}`}
                                       class="rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] px-1 py-0.5"
-                                      value={ladderSizeMap[m.bandId] === null ? 'exclude' : String(m.ladderAssigned ?? '')}
+                                      value={ladderSizeMap[m.bandId] === null ? 'exclude' : typeof ladderSizeMap[m.bandId] === 'number' ? String(ladderSizeMap[m.bandId]) : ''}
                                       onChange={e => {
                                         const v = (e.target as HTMLSelectElement).value;
                                         setLadderSizeMap(prev => { const n = { ...prev }; if (v === '') delete n[m.bandId]; else n[m.bandId] = v === 'exclude' ? null : Number(v); return n; });
@@ -429,7 +430,10 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                       {[...activeLadder.sizes].sort((a, b) => b - a).map(sz => <option value={String(sz)}>{formatSize(sz, activeLadder.kind)}</option>)}
                                       <option value="exclude">Exclude</option>
                                     </select>
-                                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Assigned</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400">
+                                      {m.ladderAssigned !== null ? `Assigned ${formatSize(m.ladderAssigned, activeLadder.kind)}` : 'Assigned –'}
+                                    </span>
+                                    {!calibration && <span class="text-[10px] text-slate-500 dark:text-slate-400">– (needs ≥ 3 ladder bands or pinned sizes)</span>}
                                     {m.sizeEst !== null && <span class="mono text-[11px]">fit {formatSize(m.sizeEst, activeLadder.kind)}</span>}
                                     {m.sizeResidualPct !== null && (
                                       <span class={`mono text-[10px] ${Math.abs(m.sizeResidualPct) > 5 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>

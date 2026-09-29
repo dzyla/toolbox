@@ -253,7 +253,25 @@ describe('gel ladder calibration + band interaction', () => {
     render(<GelView />);
     // demo gel: lane 1 is the ladder lane and the Gel tab band table shows the selected (ladder) lane
     expect(screen.queryByText('Std Ladder')).toBeNull();
-    expect(screen.getAllByText(/Assigned/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Assigned\b/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Δ\s*-?\d+(\.\d)?%/).length).toBeGreaterThan(0);
+  });
+
+  it('pinning a ladder band keeps the pinned value and changes the fit; Auto restores', async () => {
+    route.value = { name: 'tool', toolId: 'gel' };
+    render(<GelView />);
+    const sel = () => screen.getAllByLabelText('Assigned ladder size')[3] as HTMLSelectElement;
+    const resid = () => screen.getAllByText(/Δ\s*-?\d+(\.\d)?%/).map((e) => e.textContent).join('|');
+    expect(sel().value).toBe('');
+    const before = resid();
+    const pin = Array.from(sel().options).find((o) => o.value !== '' && o.value !== 'exclude' && o.value !== sel().value)!;
+    fireEvent.change(sel(), { target: { value: pin.value } });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(sel().value).toBe(pin.value);
+    expect(resid()).not.toBe(before);
+    fireEvent.change(sel(), { target: { value: '' } });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(sel().value).toBe('');
+    expect(resid()).toBe(before);
   });
 });

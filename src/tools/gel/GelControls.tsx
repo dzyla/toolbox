@@ -41,6 +41,7 @@ export function GelControls({ g }: { g: GelWorkspace }) {
     s,
     set,
     setBandMap,
+    setLadderSizeMap,
     setCropBox,
     setCustomLadderKind,
     setCustomLadderName,
@@ -572,7 +573,7 @@ export function GelControls({ g }: { g: GelWorkspace }) {
             onInput={e => {
               const val = parseFloat((e.target as HTMLInputElement).value);
               set({ prominence: val });
-              setBandMap({});
+              setBandMap({}); setLadderSizeMap({});
             }}
             class="w-full accent-accent-600 cursor-pointer"
             title="Slide left for high sensitivity (faint bands), right for strict (strong bands only)"
