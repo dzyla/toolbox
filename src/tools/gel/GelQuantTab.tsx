@@ -56,7 +56,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
 
         <div class="flex flex-wrap items-center gap-2">
           {/* Sub-view toggle: Bands vs Loading */}
-          <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-950 text-xs">
+          <div class="flex flex-wrap max-w-full rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-950 text-xs">
             <button
               type="button"
               onClick={() => set({ quantSubView: 'bands' })}
