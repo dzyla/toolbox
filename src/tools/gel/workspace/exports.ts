@@ -148,7 +148,7 @@ export function useGelExports(core: GelCore, ladders: GelLadders, analysis: GelA
   }
   function currentMethodsText() {
     return methodsText({ source: core.sourceInfo, transforms: core.appliedTransforms, deskewAngle: core.deskewAngle, laneWidths: lanes.filter(l => laneRole(l.id, core.laneMeta[l.id], analysis.effectiveLadderLaneId, s.massLaneId) === 'sample').map(l => l.width),
-      bgMethod: s.bgMethod, radius: s.rollingRadius, prominence: s.prominence, calibModel: s.calibMethod, calibR2: calibration?.r2 ?? null,
+      bgMethod: s.bgMethod, radius: s.rollingRadius, prominence: s.prominence, calibModel: s.calibMethod, calibR2: calibration?.r2 ?? null, calibrated: !!calibration, hasTarget: !!s.groupTarget,
       massModel: massCalibration?.model ?? null, massR2: massCalibration?.r2 ?? null, norm: s.groupNorm, welch: s.groupWelch, version: __APP_VERSION__ });
   }
   function handleExportMethods() { downloadText(currentMethodsText(), `${base()}_methods.txt`); }

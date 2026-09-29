@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { tidyRows, groupSummaryRows, methodsText, calibrationRows } from '@/tools/gel/export-tables';
 import { summarizeGroups } from '@/core/gel/groups';
+import type { SourceInfo } from '@/lib/image';
 import { fitCalibration } from '@/core/gel/calibration';
 
 describe('export tables', () => {
@@ -19,7 +20,7 @@ describe('export tables', () => {
   });
   it('methods text states every setting that affects the numbers', () => {
     const t = methodsText({ source: { format: 'tiff', bitDepth: 16, lossy: false, rescaled: false }, transforms: ['crop (exact)'], deskewAngle: 0,
-      laneWidths: [20, 22], bgMethod: 'rolling', radius: 40, prominence: 0.05, calibModel: 'monotone', calibR2: 0.998, massModel: null, massR2: null,
+      laneWidths: [20, 22], bgMethod: 'rolling', radius: 40, prominence: 0.05, calibModel: 'monotone', calibR2: 0.998, calibrated: true, hasTarget: true, massModel: null, massR2: null,
       norm: 'control-band', welch: true, version: '0.1.0' });
     for (const k of ['16-bit TIFF', 'rolling', '40', 'monotone', '0.998', 'control', 'Welch', 'Holm', '0.1.0', 'crop']) expect(t).toContain(k);
   });
@@ -41,8 +42,30 @@ describe('export tables', () => {
   });
   it('methods text uses readable model names', () => {
     const t = methodsText({ source: null, transforms: [], deskewAngle: 0, laneWidths: [], bgMethod: 'none', radius: 40, prominence: 0.05,
-      calibModel: 'monotone', calibR2: null, massModel: 'linear_zero', massR2: null, norm: 'none', welch: false, version: 'x' });
+      calibModel: 'monotone', calibR2: null, calibrated: true, hasTarget: true, massModel: 'linear_zero', massR2: null, norm: 'none', welch: false, version: 'x' });
     expect(t).toContain('Fritsch–Carlson');
     expect(t).toContain('linear through the origin');
+  });
+  const base = { source: { format: 'tiff', bitDepth: 16, lossy: false, rescaled: false } as SourceInfo, transforms: [] as string[], deskewAngle: 0, laneWidths: [20], bgMethod: 'none', radius: 40,
+    prominence: 0.05, calibModel: 'linear', calibR2: 0.99, calibrated: true, hasTarget: true, massModel: null, massR2: null, norm: 'none', welch: false, version: 'x' };
+  it('methods text: no sizing sentence without a calibration', () => {
+    const t = methodsText({ ...base, calibrated: false, calibR2: null });
+    expect(t).toContain('No molecular-weight calibration was applied.');
+    expect(t).not.toContain('Apparent sizes');
+  });
+  it('methods text: saturation not assessed for rescaled float images', () => {
+    const t = methodsText({ ...base, source: { format: 'tiff', bitDepth: 32, lossy: false, rescaled: true } as SourceInfo });
+    expect(t).toContain('Saturation could not be assessed');
+    expect(t).not.toContain('flagged as saturated');
+  });
+  it('methods text: normalization/statistics sentence omitted with no target', () => {
+    const t = methodsText({ ...base, hasTarget: false });
+    expect(t).not.toContain('Target signal');
+    expect(t).not.toContain('Welch');
+  });
+  it('methods text: demo source is described as synthetic', () => {
+    const t = methodsText({ ...base, source: { format: 'demo', bitDepth: 32, lossy: false, rescaled: false } as SourceInfo });
+    expect(t).toContain('the built-in synthetic demo gel');
+    expect(t).not.toContain('DEMO');
   });
 });

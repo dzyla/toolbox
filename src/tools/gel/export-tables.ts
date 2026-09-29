@@ -52,10 +52,10 @@ export function calibrationRows(i: { calibration: Calibration | null; ladderRows
 }
 
 export function methodsText(i: { source: SourceInfo | null; transforms: string[]; deskewAngle: number; laneWidths: number[]; bgMethod: string; radius: number; prominence: number;
-  calibModel: string; calibR2: number | null; massModel: string | null; massR2: number | null; norm: string; welch: boolean; version: string }): string {
+  calibModel: string; calibR2: number | null; calibrated: boolean; hasTarget: boolean; massModel: string | null; massR2: number | null; norm: string; welch: boolean; version: string }): string {
   const CAL: Record<string, string> = { linear: 'log-linear fit', piecewise: 'piecewise-linear interpolation', monotone: 'monotone cubic (Fritsch–Carlson) interpolation' };
   const MASS: Record<string, string> = { linear: 'linear', linear_zero: 'linear through the origin', quadratic: 'quadratic', power: 'power-law' };
-  const src = i.source ? `${i.source.bitDepth}-bit ${i.source.format.toUpperCase()}${i.source.lossy ? ' (lossy compression)' : ''}${i.source.rescaled ? ' (float, min–max rescaled)' : ''}` : 'an image of unrecorded format';
+  const src = i.source?.format === 'demo' ? 'the built-in synthetic demo gel' : i.source ? `${i.source.bitDepth}-bit ${i.source.format.toUpperCase()}${i.source.lossy ? ' (lossy compression)' : ''}${i.source.rescaled ? ' (float, min–max rescaled)' : ''}` : 'an image of unrecorded format';
   const geo = [...i.transforms, ...(Math.abs(i.deskewAngle) > 1e-6 ? [`deskew ${i.deskewAngle.toFixed(2)}° (bilinear)`] : [])];
   const widths = i.laneWidths.length ? `${Math.min(...i.laneWidths).toFixed(0)}–${Math.max(...i.laneWidths).toFixed(0)} px` : 'n/a';
   const bg = i.bgMethod === 'rolling' ? `a rolling-ball baseline (radius ${i.radius} px)` : i.bgMethod === 'shared' ? `a shared cross-lane baseline (radius ${i.radius} px)` : i.bgMethod === 'valley' ? 'a valley-to-valley baseline' : 'no baseline subtraction';
@@ -63,9 +63,9 @@ export function methodsText(i: { source: SourceInfo | null; transforms: string[]
   return [
     `Band densitometry was performed in Bio-Bench v${i.version} on ${src}${geo.length ? `; geometric corrections: ${geo.join(', ')}` : ''}.`,
     `Lane profiles were the mean signal across each lane (width ${widths}); bands were detected at ≥ ${(i.prominence * 100).toFixed(0)} % relative prominence and integrated after ${bg}.`,
-    `Bands with more than 1 % of pixels at the detector limits were flagged as saturated.`,
-    `Apparent sizes were estimated from the ladder by ${CAL[i.calibModel] ?? i.calibModel} of log10(size) vs migration${i.calibR2 !== null ? ` (R² = ${i.calibR2.toFixed(3)})` : ''}.`,
+    i.source?.rescaled ? 'Saturation could not be assessed (floating-point image rescaled on import).' : `Bands with more than 1 % of pixels at the detector limits were flagged as saturated.`,
+    i.calibrated ? `Apparent sizes were estimated from the ladder by ${CAL[i.calibModel] ?? i.calibModel} of log10(size) vs migration${i.calibR2 !== null ? ` (R² = ${i.calibR2.toFixed(3)})` : ''}.` : 'No molecular-weight calibration was applied.',
     i.massModel ? `Amounts were read from a ${MASS[i.massModel] ?? i.massModel} standard curve${i.massR2 !== null ? ` (R² = ${i.massR2.toFixed(3)})` : ''}; LOD and LOQ were 3.3σ and 10σ of the fit residuals (ICH Q2).` : '',
-    `Target signal was ${norm}. Conditions are summarized as mean ± SD with t-based 95 % confidence intervals${i.welch ? '; each condition was compared with the control by Welch\'s t-test with Holm adjustment' : ''}.`,
+    !i.hasTarget ? '' : `Target signal was ${norm}. Conditions are summarized as mean ± SD with t-based 95 % confidence intervals${i.welch ? '; each condition was compared with the control by Welch\'s t-test with Holm adjustment' : ''}.`,
   ].filter(Boolean).join(' ');
 }
