@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/preact';
 import GelView from '@/tools/gel/View';
 import { GelGroupsView } from '@/tools/gel/GelGroupsView';
+import { summarizeGroups } from '@/core/gel/groups';
 import type { GelWorkspace } from '@/tools/gel/workspace';
 
 describe('Groups view', () => {
@@ -26,5 +27,22 @@ describe('Groups view without bands', () => {
     const sel = screen.getByLabelText(/Target band/i) as HTMLSelectElement;
     expect(Array.from(sel.options).filter(o => o.value && !o.disabled)).toEqual([]);
     expect(screen.getByRole('option', { name: /No bands detected/i })).toBeTruthy();
+  });
+});
+
+describe('Groups dot plot axis', () => {
+  const g = {
+    s: { groupTarget: null, groupControl: null, groupNorm: 'control-band', groupWelch: false, groupControlCondition: '', groupMarginPct: 10 },
+    set: () => {}, setLaneMeta: () => {}, lanes: [], laneMeta: {}, groupRows: [], groupControlCondition: '', qualityIssues: [], targetClusters: [],
+    groupSummaries: summarizeGroups([...[1, 1.2, 0.8].map((value, i) => ({ laneId: `c${i}`, condition: 'ctrl', replicate: i + 1, value, flags: [] })), ...[2, 2.4, 2.2].map((value, i) => ({ laneId: `d${i}`, condition: 'drug', replicate: i + 1, value, flags: [] }))], 'ctrl'),
+  } as unknown as GelWorkspace;
+  it('draws a labelled y-axis with tick labels and gridlines', () => {
+    render(<GelGroupsView g={g} />);
+    const svg = screen.getByRole('img', { name: /per condition/i });
+    const labels = Array.from(svg.querySelectorAll('text.y-tick')).map(t => t.textContent);
+    expect(labels.length).toBeGreaterThanOrEqual(4);
+    expect(labels).toContain('0.00');
+    expect(svg.querySelectorAll('line.y-grid').length).toBe(labels.length);
+    expect(svg.textContent).toMatch(/Normalized value/);
   });
 });

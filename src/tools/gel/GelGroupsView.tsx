@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { niceTicks } from '@/app/components/LineChart';
 import { assignByPattern } from './lane-meta';
 import { matchCluster } from './workspace/groups';
 import type { BandRef } from './workspace-model';
@@ -28,8 +29,11 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
     setLaneMeta(prev => ({ ...prev, [laneId]: { condition: prev[laneId]?.condition ?? '', replicate: prev[laneId]?.replicate ?? null, excluded: prev[laneId]?.excluded ?? false, ...patch } }));
   const sampleLaneIds = lanes.map(l => l.id).filter(id => groupRows.some(r => r.laneId === id));
   const spread = groupSummaries.flatMap(x => [...x.values, ...(x.mean !== null && x.sd !== null ? [x.mean - x.sd, x.mean + x.sd] : [])]);
-  const yMin = Math.min(0, ...spread), yMax = Math.max(1e-12, ...spread), yRange = Math.max(1e-12, yMax - yMin);
+  const yMin = Math.min(0, ...spread), yMax = spread.length ? Math.max(1e-12, ...spread) : 1, yRange = Math.max(1e-12, yMax - yMin);
   const yOf = (v: number) => 160 - ((v - yMin) / yRange) * 140;
+  const yTicks = niceTicks(yMin, yMax, 4);
+  const yLabel = s.groupNorm === 'none' ? 'Target net' : 'Normalized value';
+  const AX = 52, plotW = Math.max(200, 90 * groupSummaries.length);
 
   return (
     <div class="space-y-4">
@@ -128,10 +132,18 @@ export function GelGroupsView({ g }: { g: GelWorkspace }) {
         replicates (separate blots) as the unit of inference.
       </p>
 
-      <svg role="img" aria-label="Normalized value per condition, each replicate shown with mean ± SD" viewBox={`0 0 ${Math.max(200, 90 * groupSummaries.length)} 180`} class="w-full max-w-2xl">
-        <line x1={0} x2={Math.max(200, 90 * groupSummaries.length)} y1={yOf(0)} y2={yOf(0)} class="stroke-slate-300 dark:stroke-slate-700" />
+      <svg role="img" aria-label="Normalized value per condition, each replicate shown with mean ± SD" viewBox={`0 0 ${AX + plotW} 180`} class="w-full max-w-2xl">
+        {yTicks.map(t => (
+          <g key={t}>
+            <line class="y-grid stroke-slate-200 dark:stroke-slate-800" x1={AX} x2={AX + plotW} y1={yOf(t)} y2={yOf(t)} />
+            <text class="y-tick fill-slate-600 dark:fill-slate-400 text-[10px]" x={AX - 5} y={yOf(t) + 3} text-anchor="end">{t.toPrecision(3)}</text>
+          </g>
+        ))}
+        <text x={10} y={90} text-anchor="middle" transform="rotate(-90 10 90)" class="fill-slate-600 dark:fill-slate-400 text-[10px]">{yLabel}</text>
+        <line x1={AX} x2={AX} y1={yOf(yMax)} y2={yOf(yMin)} class="stroke-slate-400 dark:stroke-slate-600" />
+        <line x1={AX} x2={AX + plotW} y1={yOf(0)} y2={yOf(0)} class="stroke-slate-400 dark:stroke-slate-600" />
         {groupSummaries.map((x, i) => {
-          const cx = 45 + i * 90, y = yOf;
+          const cx = AX + 45 + i * 90, y = yOf;
           return (
             <g key={x.condition}>
               {x.values.map((v, k) => <circle cx={cx - 12 + (k % 5) * 6} cy={y(v)} r={3} class="fill-accent-600" />)}

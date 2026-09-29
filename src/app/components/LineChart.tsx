@@ -10,7 +10,7 @@ export interface LineChartProps {
 }
 const COLORS = ['#4f46e5', '#0891b2', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#db2777', '#475569'];
 
-function niceTicks(lo: number, hi: number, n = 5): number[] {
+export function niceTicks(lo: number, hi: number, n = 5): number[] {
   if (!(hi > lo)) return [lo];
   const span = hi - lo, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
   const step = [1, 2, 5, 10].map(m => m * mag).find(s => span / s <= n * 1.5) ?? mag * 10;
