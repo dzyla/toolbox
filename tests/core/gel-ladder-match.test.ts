@@ -35,4 +35,23 @@ describe('matchLadder', () => {
   it('returns null with fewer than 3 possible pairs', () => {
     expect(matchLadder(peaksFor([250, 150]), SIZES)).toBeNull();
   });
+  const yCurved = (s: number) => 400 - 150 * Math.log10(s) + 25 * (Math.log10(s) - 1.6) ** 2;
+  it('keeps every band of a complete but curved ladder', () => {
+    const m = matchLadder(SIZES.map(s => ({ y: yCurved(s), prominence: 1 })), SIZES)!;
+    expect(m.pairs.map(p => p.size)).toEqual(SIZES);
+    expect(m.skippedPeaks).toEqual([]);
+    expect(m.skippedSizes).toEqual([]);
+  });
+  it('keeps every band of a strongly curved complete ladder', () => {
+    const yStrong = (s: number) => 400 - 150 * Math.log10(s) + 60 * (Math.log10(s) - 1.6) ** 2;
+    const m = matchLadder(SIZES.map(s => ({ y: yStrong(s), prominence: 1 })), SIZES)!;
+    expect(m.pairs.map(p => p.size)).toEqual(SIZES);
+    expect(m.skippedPeaks).toEqual([]);
+    expect(m.skippedSizes).toEqual([]);
+  });
+  it('recovers a missing middle band on a curved ladder', () => {
+    const detected = SIZES.filter(s => s !== 50);
+    const m = matchLadder(detected.map(s => ({ y: yCurved(s), prominence: 1 })), SIZES)!;
+    expect(m.skippedSizes.map(i => SIZES[i])).toEqual([50]);
+  });
 });
