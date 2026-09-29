@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { SourceInfo } from '@/lib/image';
+import type { LaneMeta } from '../lane-meta';
 import { useUrlState } from '@/lib/url-state';
 import { type Plane, type Lane, type Band } from '@/core/gel/types';
 import { DEFAULTS, migrateState, type State } from '../workspace-model';
@@ -78,11 +79,16 @@ export function useGelCore() {
   // Manual ladder overrides: a number pins that band's size, null excludes the band from calibration.
   const [ladderSizeMap, setLadderSizeMap] = useState<Record<string, number | null>>({});
 
+  // Per-lane condition/replicate/exclusion for group statistics.
+  const [laneMeta, setLaneMeta] = useState<Record<string, LaneMeta>>({});
+
   // Where the pixels came from and what was done to them (data-quality panel, methods text).
   const [sourceInfo, setSourceInfo] = useState<SourceInfo | null>(null);
   const [appliedTransforms, setAppliedTransforms] = useState<string[]>([]);
 
   return {
+    laneMeta,
+    setLaneMeta,
     sourceInfo,
     setSourceInfo,
     appliedTransforms,

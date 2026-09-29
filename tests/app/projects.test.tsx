@@ -20,6 +20,10 @@ const gelData = {
   customMassMap: { b1: 250 },
   display: { showMwLabels: false, showLaneHeaders: true, stripLanePrefix: true, gelLayout: 'stacked' as const },
   settings: { polarity: 'light', prominence: 0.1 },
+  laneMeta: {},
+  ladderSizeMap: {},
+  sourceInfo: null,
+  appliedTransforms: [] as string[],
 };
 
 describe('gel projects', () => {
@@ -53,6 +57,27 @@ describe('gel projects', () => {
     expect(await screen.findByText(/Saved "Anti-His blot" on this device/)).toBeTruthy();
     expect((await listRecent()).filter(p => p.toolId === 'gel' && p.id === 'gel-open')).toHaveLength(1);
     await deleteProject('gel-open');
+  });
+});
+
+describe('gel project schema 2', () => {
+  const stored = (snap: ReturnType<typeof gelProjectSnapshot>) => ({ ...snap, id: 'p', toolId: 'gel', updatedAt: 0, createdAt: 0 });
+  it('round-trips lane metadata, ladder overrides and source info', async () => {
+    const snap = gelProjectSnapshot(plane, { ...gelData, laneMeta: { l1: { condition: 'ctrl', replicate: 1, excluded: false } },
+      ladderSizeMap: { b1: 250, b2: null }, sourceInfo: { format: 'tiff', bitDepth: 16, lossy: false, rescaled: false }, appliedTransforms: ['crop (exact)'] });
+    const { data } = await restoreGelProject(stored(snap));
+    expect(data.laneMeta.l1!.condition).toBe('ctrl');
+    expect(data.ladderSizeMap).toEqual({ b1: 250, b2: null });
+    expect(data.sourceInfo!.bitDepth).toBe(16);
+    expect(data.appliedTransforms).toEqual(['crop (exact)']);
+  });
+  it('opens a schema 1 project with empty metadata', async () => {
+    const snap = gelProjectSnapshot(plane, gelData);
+    (snap.state as { schemaVersion: number }).schemaVersion = 1;
+    for (const k of ['laneMeta', 'ladderSizeMap', 'sourceInfo', 'appliedTransforms']) delete (snap.state as unknown as Record<string, unknown>)[k];
+    const { data } = await restoreGelProject(stored(snap));
+    expect(data.laneMeta).toEqual({});
+    expect(data.sourceInfo).toBeNull();
   });
 });
 

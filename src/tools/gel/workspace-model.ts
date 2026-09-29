@@ -1,12 +1,16 @@
 import { type StandardLadder } from './ladder-library';
 import { type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
 import { type Polarity } from '@/core/gel/types';
+import type { NormMode } from '@/core/gel/groups';
 import laddersData from '@/data/ladders.json';
 
 
 
 
 export const LADDERS = laddersData.ladders as unknown as StandardLadder[];
+
+/** A band picked by its size (kDa, or null when uncalibrated) and relative position. */
+export interface BandRef { size: number | null; rf: number }
 
 export interface State {
   polarity: Polarity;
@@ -30,7 +34,13 @@ export interface State {
   refBandId: string;
   loadingRefLaneId: string;
   viewTab: 'gel' | 'calib' | 'quant';
-  quantSubView: 'bands' | 'loading';
+  groupNorm: NormMode;
+  groupTarget: BandRef | null;
+  groupControl: BandRef | null;
+  groupControlCondition: string;
+  groupMarginPct: number;
+  groupWelch: boolean;
+  quantSubView: 'bands' | 'loading' | 'groups';
   tableMode: 'all' | 'selected';
 }
 
@@ -61,6 +71,12 @@ export const DEFAULTS: State = {
   refBandId: '',
   loadingRefLaneId: '',
   viewTab: 'gel',
+  groupNorm: 'none',
+  groupTarget: null,
+  groupControl: null,
+  groupControlCondition: '',
+  groupMarginPct: 10,
+  groupWelch: false,
   quantSubView: 'bands',
   tableMode: 'all',
 };

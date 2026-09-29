@@ -9,7 +9,7 @@ import type { GelCore, GelAnalysis, GelProject } from '../workspace';
 
 /** Image loading (demo, upload) and orientation/crop transforms. */
 export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: GelProject) {
-  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setLadderSizeMap, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
+  const { basePlane, cropBox, lanes, originalPlane, plane, set, setBandMap, setBasePlane, setCropBox, setCustomMassMap, setLadderSizeMap, setLaneMeta, setDeskewAngle, setImageError, setImageName, setIsCropping, setLanes, setOriginalPlane, setPlane, setSelectedLaneId, setSourceInfo, setAppliedTransforms } = core;
   const { cropSuggestion } = analysis;
   const { project } = projectApi;
 
@@ -38,7 +38,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
     const initialLanes = autoLanes(demo.plane, { x: 0, y: 0, w: demo.plane.width, h: demo.plane.height }, detectedPolarity);
     setLanes(initialLanes);
     // Clean slate: drop any band annotations / reference from a previous gel.
-    setBandMap({}); setLadderSizeMap({});
+    setBandMap({}); setLadderSizeMap({}); setLaneMeta({});
     set({ refBandId: '' });
     if (initialLanes.length > 0) {
       setSelectedLaneId(initialLanes[0]!.id);
@@ -67,7 +67,7 @@ export function useGelImage(core: GelCore, analysis: GelAnalysis, projectApi: Ge
 
       const detected = autoLanes(newPlane, { x: 0, y: 0, w: newPlane.width, h: newPlane.height }, pol);
       setLanes(detected);
-      setBandMap({}); setLadderSizeMap({});
+      setBandMap({}); setLadderSizeMap({}); setLaneMeta({});
       // Clean slate: a newly loaded gel starts with no band annotations or reference.
       set({ refBandId: '' });
       if (detected.length > 0) {

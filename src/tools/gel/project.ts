@@ -2,8 +2,10 @@
    bands, labels and analysis settings. Schema-versioned and validated on restore. */
 import type { Band, Lane, Plane } from '@/core/gel/types';
 import type { Project } from '@/lib/projects';
+import type { SourceInfo } from '@/lib/image';
+import type { LaneMeta } from './lane-meta';
 
-export const GEL_PROJECT_VERSION = 1;
+export const GEL_PROJECT_VERSION = 2;
 const PLANE_ASSET = 'plane.f32';
 /** Keep saved images within a size IndexedDB handles comfortably on phones (~64 MB of Float32). */
 export const MAX_SAVED_PIXELS = 16_000_000;
@@ -17,6 +19,10 @@ export interface GelProjectData {
   laneLabels: Record<string, string>;
   customMassMap: Record<string, number>;
   display: { showMwLabels: boolean; showLaneHeaders: boolean; stripLanePrefix: boolean; gelLayout: 'split' | 'stacked' };
+  laneMeta: Record<string, LaneMeta>;
+  ladderSizeMap: Record<string, number | null>;
+  sourceInfo: SourceInfo | null;
+  appliedTransforms: string[];
   /** The tool's link/analysis settings (validated against its defaults by the caller). */
   settings: Record<string, unknown>;
 }
@@ -55,7 +61,7 @@ function validBand(b: unknown): b is Band {
 export async function restoreGelProject(project: Project): Promise<{ plane: Plane; data: GelProjectData }> {
   const fail = (why: string) => new Error(`This gel project cannot be opened: ${why}.`);
   const s = project.state as Partial<StoredState> | undefined;
-  if (!isRecord(s) || s.schemaVersion !== GEL_PROJECT_VERSION) throw fail('it was saved in an unsupported format');
+  if (!isRecord(s) || s.schemaVersion !== 1 && s.schemaVersion !== 2) throw fail('it was saved in an unsupported format');
   const size = s.plane;
   if (!isRecord(size) || !Number.isInteger(size.width) || !Number.isInteger(size.height) || (size.width as number) < 1 || (size.height as number) < 1) throw fail('the image size is missing');
   const width = size.width as number, height = size.height as number;
@@ -84,6 +90,12 @@ export async function restoreGelProject(project: Project): Promise<{ plane: Plan
         stripLanePrefix: display.stripLanePrefix === true,
         gelLayout: display.gelLayout === 'stacked' ? 'stacked' : 'split',
       },
+      laneMeta: isRecord(s.laneMeta) && Object.values(s.laneMeta).every(m => isRecord(m) && typeof m.condition === 'string' && typeof m.excluded === 'boolean' && (m.replicate === null || isFiniteNumber(m.replicate)))
+        ? s.laneMeta as Record<string, LaneMeta> : {},
+      ladderSizeMap: isRecord(s.ladderSizeMap) && Object.values(s.ladderSizeMap).every(v => v === null || isFiniteNumber(v))
+        ? s.ladderSizeMap as Record<string, number | null> : {},
+      sourceInfo: isRecord(s.sourceInfo) && typeof s.sourceInfo.format === 'string' ? s.sourceInfo as unknown as SourceInfo : null,
+      appliedTransforms: Array.isArray(s.appliedTransforms) && s.appliedTransforms.every(t => typeof t === 'string') ? s.appliedTransforms : [],
       settings: isRecord(s.settings) ? s.settings : {},
     },
   };
