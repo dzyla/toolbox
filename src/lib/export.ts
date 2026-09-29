@@ -9,8 +9,9 @@ export function downloadBlob(blob: Blob, filename: string) {
 export function downloadText(text: string, filename: string, type = 'text/plain;charset=utf-8') {
   downloadBlob(new Blob([text], { type }), filename);
 }
+const isNumericString = (s: string) => /^[+-]?[\d.]/.test(s) && s.trim() !== '' && Number.isFinite(Number(s));
 export function toCsv(rows: (string | number)[][]): string {
-  return rows.map(r => r.map(x => { const s = typeof x === 'string' && /^[=+\-@\t\r]/.test(x) ? `'${x}` : String(x); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',')).join('\n');
+  return rows.map(r => r.map(x => { const s = typeof x === 'string' && /^[=+\-@\t\r]/.test(x) && !isNumericString(x) ? `'${x}` : String(x); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',')).join('\n');
 }
 /** Serialise an inline <svg> (with computed styles for fill/stroke/font) to a standalone SVG string. */
 export function svgToString(svg: SVGSVGElement): string {

@@ -12,6 +12,10 @@ describe('toCsv', () => {
     expect(toCsv([['=1+1', '+A1', '-B2', '@SUM(A1)', '\tx', -3, 'ok']])).toBe("'=1+1,'+A1,'-B2,'@SUM(A1),'\tx,-3,ok");
   });
 
+  it('leaves numeric strings intact but still guards formulas', () => {
+    expect(toCsv([['-0.5', '+1.2', '-1e-3', '=SUM(A1)', '-DOX', '@x']])).toBe("-0.5,+1.2,-1e-3,'=SUM(A1),'-DOX,'@x");
+  });
+
   it('leaves plain fields unquoted and keeps empty rows', () => {
     expect(toCsv([['a', 1], [], ['b', '']])).toBe('a,1\n\nb,');
   });
