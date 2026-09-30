@@ -14,7 +14,8 @@
      their Wallace Tm (4·GC + 2·AT) reaches 48 °C. A junction whose ends already overlap
      with Wallace Tm ≥ 48 °C gets no tails.
    - A restriction-digested fragment contributes its double-stranded part plus any
-     3′ overhangs; 5′ overhangs are removed by the exonuclease and not used as homology. */
+     3′ overhangs; 5′ overhangs are removed by the exonuclease and not used as homology.
+   - An explicit junction share (fwdTailShare) splits the overlap between the two primers by fraction instead of NEBuilder's GC-biased half; it is a Bio-Bench extension and is not part of the reference tests. */
 
 import { reverseComplement } from '@/core/nucleic/sequence';
 import { findEnzyme, cutSites } from '../digest';
@@ -44,6 +45,11 @@ export interface JunctionOptions {
   spacer?: string;
   /** Force where the homology is placed; defaults follow the fragment types. */
   mode?: OverlapMode;
+  /**
+   * Fraction (0–1) of the overlap carried as the tail of the downstream fragment's forward primer; the rest is
+   * carried on the upstream fragment's reverse primer. Overrides `mode`. Unset follows NEBuilder's own placement.
+   */
+  fwdTailShare?: number;
 }
 
 export interface NebuilderSettings {
@@ -268,11 +274,27 @@ function defaultMode(upstream: NebuilderFragment, downstream: NebuilderFragment)
   return mode;
 }
 
-function buildOverlap(upstream: string, downstream: string, mode: OverlapMode, minLength: number, hasSpacer: boolean): { upstreamTail: string; downstreamPart: string; intrinsic: number } {
+/** Overlap with an explicit split: `share` of its bases come from the upstream sequence (forward-primer tail), the rest from the downstream sequence. */
+function sharedOverlap(upstream: string, downstream: string, minLength: number, share: number, intrinsic: number): { upstreamTail: string; downstreamPart: string; intrinsic: number } {
+  const at = (total: number) => {
+    const fromUpstream = Math.min(Math.round(total * share), upstream.length);
+    const fromDownstream = Math.min(total - fromUpstream, downstream.length);
+    return { tail: fromUpstream ? upstream.slice(upstream.length - fromUpstream) : '', part: downstream.slice(0, fromDownstream) };
+  };
+  let chosen = at(minLength);
+  for (let total = minLength; total <= minLength + MAX_OVERLAP_SEARCH; total++) {
+    chosen = at(total);
+    if (wallaceTm(chosen.tail + chosen.part) >= MIN_OVERLAP_WALLACE_TM) break;
+  }
+  return { upstreamTail: chosen.tail, downstreamPart: chosen.part, intrinsic };
+}
+
+function buildOverlap(upstream: string, downstream: string, mode: OverlapMode, minLength: number, hasSpacer: boolean, share?: number): { upstreamTail: string; downstreamPart: string; intrinsic: number } {
   const intrinsic = terminalOverlap(upstream, downstream, Math.min(upstream.length, downstream.length, MAX_OVERLAP_SEARCH));
   // Ends that already overlap need no tails, unless a spacer must be inserted between them.
   if (!hasSpacer && wallaceTm(downstream.slice(0, intrinsic)) >= MIN_OVERLAP_WALLACE_TM) return { upstreamTail: '', downstreamPart: '', intrinsic };
   if (mode === 'none') return { upstreamTail: '', downstreamPart: '', intrinsic };
+  if (mode === 'split' && share !== undefined) return sharedOverlap(upstream, downstream, minLength, share, intrinsic);
   if (mode === 'split') {
     const boundary = Math.ceil(minLength / 2) * (gcFraction(upstream) > gcFraction(downstream) ? 1 : -1);
     if (boundary < 0) {
@@ -336,7 +358,20 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
     const up = fragments[index]!;
     const down = fragments[next]!;
     const options = settings.junctions?.[index];
-    const mode = options?.mode ?? defaultMode(up, down);
+    let mode = options?.mode ?? defaultMode(up, down);
+    let share: number | undefined;
+    if (options?.fwdTailShare !== undefined && Number.isFinite(options.fwdTailShare)) {
+      let wanted = Math.min(1, Math.max(0, options.fwdTailShare));
+      const forwardCarrier = down.kind === 'pcr'; // the downstream forward primer holds the upstream tail
+      const reverseCarrier = up.kind === 'pcr';   // the upstream reverse primer holds the downstream part
+      const adjusted = !forwardCarrier && wanted > 0 ? 0 : !reverseCarrier && wanted < 1 ? 1 : wanted;
+      if (adjusted !== wanted) {
+        wanted = adjusted;
+        findings.push({ code: 'SHARE_ADJUSTED', severity: 'info', message: `Junction ${up.name} → ${down.name}: ${forwardCarrier || reverseCarrier ? 'one side is a restriction-digested fragment and cannot carry a tail, so the whole overlap goes on the PCR side' : 'neither side can carry a tail'}.`, junctionIndex: index });
+      }
+      mode = !forwardCarrier && !reverseCarrier ? 'none' : wanted === 0 ? 'downstream' : wanted === 1 ? 'upstream' : 'split';
+      share = mode === 'split' ? wanted : undefined;
+    }
     const spacer = (options?.spacer ?? '').replace(/\s/g, '').toUpperCase();
     const label = `Junction ${up.name} → ${down.name}`;
     if (spacer && !/^[ACGT]+$/.test(spacer)) findings.push({ code: 'INVALID_SPACER', severity: 'blocker', message: `${label}: the spacer may contain only A, C, G and T.`, junctionIndex: index });
@@ -347,7 +382,7 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
     if (spacer && ((mode === 'upstream' && down.kind !== 'pcr') || (mode === 'downstream' && up.kind !== 'pcr') || mode === 'none')) {
       findings.push({ code: 'SPACER_NEEDS_PRIMER', severity: 'blocker', message: `${label}: a spacer must be added through a PCR primer, but that side cannot carry a tail.`, junctionIndex: index });
     }
-    const overlap = buildOverlap(templates[index]!, templates[next]!, mode, settings.minOverlap, spacer.length > 0);
+    const overlap = buildOverlap(templates[index]!, templates[next]!, mode, settings.minOverlap, spacer.length > 0, share);
     if (down.kind === 'pcr') { forwardTails[next] = overlap.upstreamTail; if (mode === 'upstream') forwardSpacers[next] = spacer; }
     if (up.kind === 'pcr') { reverseTails[index] = reverseComplement(overlap.downstreamPart); if (mode === 'downstream') reverseSpacers[index] = reverseComplement(spacer); }
     const added = overlap.upstreamTail.length + overlap.downstreamPart.length;
@@ -385,6 +420,13 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
     primers.push(make('fwd', forwardTails[index]!, forwardSpacers[index]!, pair.forward, pair.forwardTm));
     primers.push(make('rev', reverseTails[index]!, reverseSpacers[index]!, pair.reverse, pair.reverseTm));
   });
+
+  if (settings.junctions?.some(options => options?.fwdTailShare !== undefined)) {
+    for (const item of primers) {
+      const length = item.overlap.length + item.spacer.length + item.anneal.length;
+      if (length > 60) findings.push({ code: 'LONG_PRIMER', severity: 'warning', message: `${item.name} is ${length} nt long; primers over 60 nt are costly and error-prone. Move part of the overlap to the neighbouring primer.` });
+    }
+  }
 
   // Product: templates in order, minus homology that was already present at the junctions.
   let product = templates[0]!;
