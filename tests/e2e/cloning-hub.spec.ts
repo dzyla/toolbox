@@ -95,3 +95,95 @@ test('a saved cloning project reopens from Recent projects', async ({ page }) =>
   await expect(page.getByLabel('Role of GFP')).toHaveValue('insert');
   await expect(page.getByRole('button', { name: 'In-Fusion' })).toHaveAttribute('aria-pressed', 'true');
 });
+
+/** Deterministic pseudo-random DNA so an insert has no repeats that would confuse primer design. */
+function dna(length: number, seed: number) {
+  let state = seed;
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    out += 'ACGT'[(state >> 16) & 3];
+  }
+  return out;
+}
+
+test('a placed PCR vector with a custom split shows the sources and keeps them out of the GenBank file', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await open(page);
+  await page.getByLabel(/Preset vector/).selectOption('puc19');
+  await page.getByLabel(/Paste FASTA/).fill(`>gene\n${dna(600, 11)}`);
+  await page.getByRole('button', { name: 'Add pasted sequence' }).click();
+  await page.getByLabel('How pUC19 is made', { exact: true }).selectOption('pcr');
+  await page.getByLabel('Where to open pUC19', { exact: true }).selectOption('caret');
+  await page.getByLabel('Open pUC19 before base', { exact: true }).fill('800');
+  await page.getByLabel('Placement for pUC19 to gene', { exact: true }).selectOption('custom');
+  await page.getByRole('button', { name: 'Half and half' }).first().click();
+
+  await expect(page.getByTestId('share-summary').first()).toContainText('nt on');
+  const legend = page.getByRole('list', { name: 'Sources in the construct' });
+  await expect(legend.getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByRole('group', { name: /pUC19/ }).first()).toBeVisible();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download GenBank' }).click(),
+  ]);
+  const text = readFileSync((await download.path())!, 'utf8');
+  expect(text.startsWith('LOCUS')).toBe(true);
+  expect(text).not.toContain('1 · pUC19');
+  expect(text).not.toContain('2 · gene');
+  expect(errors).toEqual([]);
+});
+
+test('clicking the In-Fusion vector primer map moves the insertion point', async ({ page }) => {
+  await open(page);
+  await addVectorAndInsert(page);
+  await page.getByRole('button', { name: 'In-Fusion' }).click();
+  await page.getByLabel('Linearize the vector by', { exact: true }).selectOption('pcr-caret');
+  const input = page.getByLabel('Insert before base', { exact: true });
+  const before = await input.inputValue();
+  const surface = page.getByTestId('diagram-surface').first();
+  await surface.scrollIntoViewIfNeeded();
+  const box = (await surface.boundingBox())!;
+  // A click places the opening at one base; a drag would select a region (and switch to "Replace a region").
+  await page.mouse.click(box.x + box.width * 0.7, box.y + box.height / 2);
+  await expect(input).not.toHaveValue(before);
+  // Dragging selects a region to replace instead.
+  const again = (await surface.boundingBox())!;
+  await page.mouse.move(again.x + again.width * 0.3, again.y + again.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(again.x + again.width * 0.4, again.y + again.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByLabel('Replace from base', { exact: true })).toBeVisible();
+});
+
+test('an amino-acid change shows the numbered protein and a wild type vs mutant alignment', async ({ page }) => {
+  await open(page);
+  await page.getByLabel(/Paste FASTA/).fill(`>GFP\n${GFP}`);
+  await page.getByRole('button', { name: 'Add pasted sequence' }).click();
+  await page.getByRole('button', { name: 'Amino-acid change' }).click();
+  await page.getByLabel('Mutations', { exact: true }).fill('Y67F');
+  const protein = page.getByRole('region', { name: 'Protein sequence with residue numbers' });
+  await expect(protein).toContainText('MVSKGEELFT');
+  await expect(protein.locator('mark')).toHaveCount(1);
+  const card = page.getByRole('group', { name: /Y67F: wild type vs mutant/ });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('Residue 67');
+  await expect(card.getByLabel('Protein alignment')).toBeVisible();
+});
+
+test('deleting bases shows the removed range struck out before and after', async ({ page }) => {
+  await open(page);
+  await page.getByLabel(/Paste FASTA/).fill(`>plas\n${dna(600, 7)}`);
+  await page.getByRole('button', { name: 'Add pasted sequence' }).click();
+  await page.getByRole('button', { name: 'Amino-acid change' }).click();
+  await page.getByRole('button', { name: 'Insert, replace or delete bases' }).click();
+  // The label wraps the select and its options, so the exact accessible name is not just "Change".
+  await page.locator('label').filter({ hasText: /^Change/ }).locator('select').selectOption('delete');
+  await page.getByLabel('From base', { exact: true }).fill('100');
+  await page.getByLabel('To base', { exact: true }).fill('111');
+  const view = page.getByRole('region', { name: /Edit preview: del100-111/ });
+  await expect(view.locator('del')).toHaveText(/^[ACGT]{12}$/);
+  await expect(view).toContainText('12 bases removed');
+});
