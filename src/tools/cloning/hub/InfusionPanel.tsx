@@ -1,9 +1,10 @@
-import { useMemo } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { designInfusion, type InfusionLinearization } from '@/core/cloning/methods/infusion';
 import { infusionAmounts } from '@/core/cloning/amounts';
 import { infusionProtocol } from '@/core/cloning/protocols';
 import { infusionMarks, infusionProduct } from '@/core/cloning/products';
 import { infusionSegments } from '@/core/cloning/segments';
+import { infusionGeometry } from '@/core/cloning/geometry';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import type { HubSource, InfusionSettings } from './state';
@@ -11,6 +12,7 @@ import { singleCutters, suggestPair } from './enzymes';
 import { infusionPrimers } from './adapters';
 import { FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
 import { ProductPreview } from './ProductPreview';
+import { PrimerMap } from './PrimerMap';
 
 interface Props {
   sources: HubSource[];
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export function InfusionPanel({ sources, settings, onSettings }: Props) {
+  const [activeName, setActiveName] = useState<string | undefined>();
   const vectorSource = sources.find(source => source.role === 'vector');
   const insertSources = useMemo(() => sources.filter(source => source.role === 'insert'), [sources]);
   const vector = useMemo(() => vectorSource ? moleculeFromDocument(vectorSource.document) : null, [vectorSource]);
@@ -36,9 +39,18 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
           : settings.linearize === 'pcr-region' ? { method: 'pcr', region: { start: Math.max(0, settings.regionStart - 1), end: Math.max(0, settings.regionEnd) } }
             : { method: 'digest', enzymes: enzymeB && enzymeB !== enzymeA ? [enzymeA, enzymeB] : [enzymeA], includeSites: { first: settings.includeFirst, second: settings.includeSecond } };
 
+  const vectorShare = linearization && 'method' in linearization && linearization.method === 'pcr' ? settings.vectorShare : 0;
   const design = useMemo(() => vector && linearization && inserts.length
-    ? designInfusion(vector.sequence, vector.topology, linearization, insertSources.map((source, index) => ({ name: source.document.name, sequence: inserts[index]!.sequence })))
-    : null, [vector, JSON.stringify(linearization), inserts.map(insert => insert.sequence).join('|')]);
+    ? designInfusion(vector.sequence, vector.topology, linearization, insertSources.map((source, index) => ({ name: source.document.name, sequence: inserts[index]!.sequence })), { vectorShare: vectorShare / 100 })
+    : null, [vector, JSON.stringify(linearization), vectorShare, inserts.map(insert => insert.sequence).join('|')]);
+  const pieces = useMemo(() => {
+    if (!design || !vectorSource || !vector) return [];
+    const hubIndex = (id: string) => sources.findIndex(source => source.id === id);
+    return infusionGeometry(design, { sourceIndex: hubIndex(vectorSource.id), name: vectorSource.document.name, length: vector.sequence.length },
+      insertSources.map((source, index) => ({ sourceIndex: hubIndex(source.id), name: source.document.name, length: inserts[index]!.sequence.length })));
+  }, [design, vectorSource, vector, insertSources, inserts, sources]);
+  const vectorRevTail = design?.primers.find(primer => primer.name === 'vector_rev')?.extension.length ?? 0;
+  const insertFwdTail = design?.primers.find(primer => primer.role === 'insert' && primer.direction === 'forward')?.extension.length ?? 0;
 
   const product = useMemo(() => design && design.product && vector ? infusionProduct(design, vector, inserts, 'In-Fusion construct') : null, [design, vector, inserts]);
   const marks = useMemo(() => design ? infusionMarks(design, inserts) : [], [design, inserts]);
@@ -59,7 +71,7 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
     {vectorSource && vector && <Section id="if-settings" title="2 · Open the vector" aside="Takara In-Fusion rules: 15 bp extensions (20 bp for two or more inserts)">
       <div class="grid gap-3 sm:grid-cols-2">
         <Labeled label="Linearize the vector by">
-          <select class={FIELD} value={vector.topology === 'linear' ? 'linear' : settings.linearize} disabled={vector.topology === 'linear'} onChange={event => onSettings({ linearize: event.currentTarget.value as InfusionSettings['linearize'] })}>
+          <select aria-label="Linearize the vector by" class={FIELD} value={vector.topology === 'linear' ? 'linear' : settings.linearize} disabled={vector.topology === 'linear'} onChange={event => onSettings({ linearize: event.currentTarget.value as InfusionSettings['linearize'] })}>
             <option value="digest">Restriction digest</option>
             <option value="pcr-caret">Inverse PCR: insert at a position</option>
             <option value="pcr-region">Inverse PCR: replace a region</option>
@@ -95,12 +107,30 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
         <Labeled label="Replace from base (1-based)"><DecimalInput aria-label="Replace from base" class={`${FIELD} w-32`} value={settings.regionStart} min={1} step={1} onChange={value => onSettings({ regionStart: Math.max(1, Math.round(value)) })} /></Labeled>
         <Labeled label="to base (inclusive)"><DecimalInput aria-label="Replace to base" class={`${FIELD} w-32`} value={settings.regionEnd} min={1} step={1} onChange={value => onSettings({ regionEnd: Math.max(1, Math.round(value)) })} /></Labeled>
       </div>}
+      {vector.topology === 'circular' && (settings.linearize === 'pcr-caret' || settings.linearize === 'pcr-region') && <div class="space-y-1">
+        <Labeled label="Share of the vector homology carried by the vector primers" hint="0% = Takara’s rule: all on the insert primers. Higher values put part of the overlap on the vector primers (a Bio-Bench option, not in the Takara tool).">
+          <input type="range" min={0} max={100} step={1} value={settings.vectorShare} aria-label="Share of the vector homology carried by the vector primers" onInput={event => onSettings({ vectorShare: Number(event.currentTarget.value) })} />
+        </Labeled>
+        {insertSources[0] && <p data-testid="share-summary" class="text-xs">{vectorRevTail} nt on vector_rev · {insertFwdTail} nt on {insertSources[0].document.name}_fwd</p>}
+      </div>}
     </Section>}
 
     {design && <>
       <FindingsList findings={design.findings} />
-      {design.primers.length > 0 && <Section id="if-primers" title="Primers" aside="Extensions match Takara exactly; the gene-specific part may differ by a base or two">
-        <PrimerTable primers={infusionPrimers(design)} fileName="in-fusion" caption="In-Fusion primers" />
+      {pieces.length > 0 && <Section id="if-maps" title="Primer maps" aside="Where each primer binds; click the vector map to move the opening">
+        <div class="grid gap-4 lg:grid-cols-2">
+          {pieces.map((piece, index) => {
+            const isVector = index === 0 && piece.topology === 'circular';
+            const circularPcr = isVector && piece.kind === 'pcr';
+            return <PrimerMap key={piece.sourceIndex} piece={piece} activeId={activeName} onActive={setActiveName}
+              onPick={isVector ? position => onSettings({ linearize: 'pcr-caret', caret: position + 1 }) : undefined}
+              onRegion={isVector ? (start, end) => onSettings({ linearize: 'pcr-region', regionStart: start + 1, regionEnd: end }) : undefined}
+              marker={circularPcr && settings.linearize === 'pcr-caret' ? { position: settings.caret - 1, label: `Insert before ${settings.caret}` } : undefined} />;
+          })}
+        </div>
+      </Section>}
+      {design.primers.length > 0 && <Section id="if-primers" title="Primers" aside="Extensions match Takara exactly at 0% sharing; the gene-specific part may differ by a base or two">
+        <PrimerTable primers={infusionPrimers(design)} fileName="in-fusion" caption="In-Fusion primers" activeName={activeName} onActiveName={setActiveName} />
         <div>
           <h3 class="text-xs font-semibold">PCR reactions to run</h3>
           <ol class="mt-1 list-decimal space-y-0.5 pl-5 text-xs">

@@ -25,6 +25,8 @@ export interface FragmentOption {
   kind: 'pcr' | 'digest';
   enzymeA: string;
   enzymeB: string;
+  /** Where a circular PCR source is opened (1-based in the UI). */
+  open?: { mode: 'whole' | 'caret' | 'region'; caret: number; start: number; end: number };
 }
 
 export interface NebuilderSettings {
@@ -37,7 +39,7 @@ export interface NebuilderSettings {
   /** ng/µL of each source, for the reaction calculator. */
   concentrations: Record<string, number>;
   /** Spacer and placement per junction index. */
-  junctions: Record<string, { spacer: string; mode: 'default' | 'upstream' | 'downstream' | 'split' }>;
+  junctions: Record<string, { spacer: string; mode: 'default' | 'upstream' | 'downstream' | 'split' | 'custom'; share?: number }>;
 }
 
 export interface InfusionSettings {
@@ -52,6 +54,8 @@ export interface InfusionSettings {
   vectorNg: number;
   vectorConcentration: number;
   insertConcentration: number;
+  /** Percent (0-100) of the vector homology carried by the vector primers. */
+  vectorShare: number;
 }
 
 export interface LigationSettings {
@@ -110,7 +114,7 @@ export const DEFAULT_STATE: HubState = {
   method: 'nebuilder',
   sources: [],
   nebuilder: { polymeraseId: 'q5-0', minOverlap: 20, minPrimerLength: 18, maxTmDifference: 5, circularize: true, fragments: {}, concentrations: {}, junctions: {} },
-  infusion: { linearize: 'digest', enzymeA: '', enzymeB: 'auto', includeFirst: false, includeSecond: false, caret: 0, regionStart: 0, regionEnd: 0, vectorNg: 100, vectorConcentration: 50, insertConcentration: 50 },
+  infusion: { linearize: 'digest', enzymeA: '', enzymeB: 'auto', includeFirst: false, includeSecond: false, caret: 0, regionStart: 0, regionEnd: 0, vectorNg: 100, vectorConcentration: 50, insertConcentration: 50, vectorShare: 0 },
   ligation: { vectorEnzymeA: '', vectorEnzymeB: 'auto', insertEnzymeA: 'auto', insertEnzymeB: 'auto', makeBlunt: false, dephosphorylateVector: false, phosphorylateInsert: false, vectorFragment: -1, insertFragment: -1, vectorNg: 50, ratio: 3, vectorConcentration: 25, insertConcentration: 25 },
   sdm: { mode: 'aa', edit: 'insert', from: 1, to: 1, sequence: '', sourceId: '', orfIndex: 0, manualStart: 1, mutations: '', strategy: 'usage', host: 'ecoli', minPrimerLength: 15 },
   goldengate: { enzyme: 'BsaI', vectorBp: 4500, fragmentCount: 3 },

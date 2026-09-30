@@ -4,6 +4,7 @@ import { primersToCsv, primersToIdtBulk, type DesignedPrimer } from '@/core/clon
 import { protocolText, waterVolume, type CloningProtocol } from '@/core/cloning/protocol';
 import type { Finding } from '@/core/cloning/types';
 import { downloadText } from '@/lib/export';
+import { primerRowId } from './PrimerMap';
 
 export const BUTTON = 'rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800';
 export const PRIMARY_BUTTON = 'rounded-lg border border-accent-700 bg-accent-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-accent-800 disabled:opacity-40 dark:hover:bg-accent-600';
@@ -51,7 +52,7 @@ async function copyText(text: string, flash: (message: string) => void, done: st
   try { await navigator.clipboard.writeText(text); flash(done); } catch { flash('Copy failed: select the text manually'); }
 }
 
-export function PrimerTable({ primers, fileName, caption }: { primers: DesignedPrimer[]; fileName: string; caption: string }) {
+export function PrimerTable({ primers, fileName, caption, activeName, onActiveName }: { primers: DesignedPrimer[]; fileName: string; caption: string; activeName?: string; onActiveName?: (name: string | undefined) => void }) {
   const { message, flash } = useFlash();
   if (!primers.length) return null;
   return <div class="space-y-2">
@@ -66,8 +67,8 @@ export function PrimerTable({ primers, fileName, caption }: { primers: DesignedP
           <th scope="col" class="py-1 pr-3 text-right">GC %</th>
           <th scope="col" class="py-1">Notes</th>
         </tr></thead>
-        <tbody>{primers.map(primer => <tr key={primer.name} class="border-t border-slate-200 align-top dark:border-slate-700">
-          <th scope="row" class="py-1.5 pr-3 font-semibold">{primer.name}</th>
+        <tbody>{primers.map(primer => <tr key={primer.name} id={primerRowId(primer.name)} class={`border-t border-slate-200 align-top dark:border-slate-700 ${onActiveName ? 'cursor-pointer' : ''} ${activeName === primer.name ? 'bg-accent-50 dark:bg-slate-800' : ''}`} aria-current={activeName === primer.name ? 'true' : undefined} onClick={onActiveName ? () => onActiveName(primer.name === activeName ? undefined : primer.name) : undefined}>
+          <th scope="row" class="py-1.5 pr-3 font-semibold">{activeName === primer.name ? '▸ ' : ''}{primer.name}</th>
           <td class="py-1.5 pr-3 font-mono break-all">
             {primer.tail && <span class="text-slate-500 dark:text-slate-400" title="5′ tail (homology, site or edit)">{primer.tail.toLowerCase()}</span>}
             <span class="font-semibold">{primer.anneal.toUpperCase()}</span>
