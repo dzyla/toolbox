@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { designAminoAcidChanges, designSdm, isSdmDesign, sdmProtocol, translateCodon, type SdmDesign } from '@/core/cloning/methods/basechanger';
+import { designAminoAcidChanges, designSdm, isSdmDesign, sdmProtocol, type SdmDesign } from '@/core/cloning/methods/basechanger';
 import { sdmMarks, sdmProduct } from '@/core/cloning/products';
 import { moleculeFromDocument, type Molecule } from '@/core/cloning/molecule';
 import { findORFs } from '@/core/plasmid';
@@ -10,6 +10,8 @@ import type { HubSource, SdmSettings } from './state';
 import { sdmPrimers } from './adapters';
 import { FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
 import { ProductPreview } from './ProductPreview';
+import { MutationCards, NumberedProtein } from './ProteinView';
+import { translateFrom } from '@/core/cloning/mutation-view';
 
 interface Props {
   sources: HubSource[];
@@ -66,16 +68,8 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
   }, [molecule, settings.mode, settings.edit, settings.from, settings.to, settings.sequence]);
   const generalDesign: SdmDesign | null = generalResult && isSdmDesign(generalResult) ? generalResult : null;
 
-  const preview = useMemo(() => {
-    if (!working) return '';
-    let residues = '';
-    for (let index = start0; index + 3 <= working.length && residues.length < 400; index += 3) {
-      const aa = translateCodon(working.slice(index, index + 3));
-      residues += aa;
-      if (aa === '*') break;
-    }
-    return residues;
-  }, [working, start0]);
+  const protein = useMemo(() => translateFrom(working, start0, 1200), [working, start0]);
+  const marks = useMemo(() => new Map<number, string>(result?.results.flatMap(item => item.mutations.map(m => [m.position, m.raw] as [number, string])) ?? []), [result]);
 
   return <div class="space-y-4">
     {!source && <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400">Add the plasmid that carries your gene above.</p>}
@@ -104,7 +98,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
       </div>
       {settings.mode === 'aa' && <>
       {reverse && <p class="text-xs text-amber-900 dark:text-amber-200">This gene is on the bottom strand, so primers are designed on the reverse complement of the plasmid.</p>}
-      {preview && <p class="break-all font-mono text-xs text-slate-600 dark:text-slate-400" aria-label="Translated reading frame">{preview.slice(0, 120)}{preview.length > 120 ? '…' : ''}</p>}
+      {protein && <NumberedProtein protein={protein} marks={marks} />}
       <Labeled label="Mutations" hint="One-letter (Y127F) or three-letter (p.Tyr127Phe). Commas or spaces make separate designs; + joins mutations into one multi-mutant (T39A+Y40F). Add :TTC to force a codon; * means stop.">
         <textarea aria-label="Mutations" class={`${FIELD} font-mono`} rows={3} value={settings.mutations} placeholder="Y127F, H443T" onInput={event => onSettings({ mutations: event.currentTarget.value })} />
       </Labeled>
@@ -163,6 +157,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
     {settings.mode === 'aa' && result && result.errors.length > 0 && <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"><ul>{result.errors.map(error => <li key={error}>{error}</li>)}</ul></div>}
     {settings.mode === 'aa' && result && workingMolecule && result.results.map(item => <Section key={item.label} id={`sdm-${item.label}`} title={item.label} aside={item.design ? item.design.description : undefined}>
       <FindingsList findings={item.findings} />
+      <MutationCards result={item} wildDna={working} orfStart={start0} />
       {(item.rounds ?? (item.design ? [item.design] : [])).map((design, index, all) => <div key={design.label} class="space-y-3">
         {all.length > 1 && <h3 class="text-xs font-semibold">Round {index + 1}: {design.label}</h3>}
         <PrimerTable primers={sdmPrimers(design)} fileName={design.label.replace(/\W+/g, '-')} caption={`Primers for ${design.label}`} />
