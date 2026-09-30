@@ -138,6 +138,9 @@ function terminalOverlap(a: string, b: string, max: number): number {
   return 0;
 }
 
+/** A share counts as chosen unless it is missing or NaN; ±Infinity clamp to 1 and 0. */
+const shareChosen = (share: number | undefined): share is number => typeof share === 'number' && !Number.isNaN(share);
+
 const clamped = (sequence: string) => /[GC]$/.test(sequence);
 
 export interface PrimerPairLimits {
@@ -206,6 +209,7 @@ function openedTemplate(fragment: NebuilderFragment, sequence: string, open: Ope
     sequence: '', start: 0,
     findings: [{ code: 'INVALID_OPEN_SITE', severity: 'blocker' as const, message: `${fragment.name}: ${message}`, fragmentId: fragment.name }],
   });
+  if (n === 0) return invalid('the sequence is empty, so there is nowhere to open it.');
   if ('caret' in open) {
     if (!Number.isInteger(open.caret) || open.caret < 0 || open.caret > n) return invalid(`choose an opening position from 0 to ${n}.`);
     const start = open.caret % n;
@@ -217,6 +221,7 @@ function openedTemplate(fragment: NebuilderFragment, sequence: string, open: Ope
   }
   const first = end % n;
   const removed = (((first - start) % n) + n) % n;
+  if (start === 0 && end === n) return invalid('the replaced region covers the whole sequence; open at a position instead.');
   if (removed === 0) return invalid('the replaced region is empty; open at a position instead.');
   return { sequence: (sequence.slice(first) + sequence.slice(0, first)).slice(0, n - removed), start: first, findings: [] };
 }
@@ -360,8 +365,9 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
     const options = settings.junctions?.[index];
     let mode = options?.mode ?? defaultMode(up, down);
     let share: number | undefined;
-    if (options?.fwdTailShare !== undefined && Number.isFinite(options.fwdTailShare)) {
-      let wanted = Math.min(1, Math.max(0, options.fwdTailShare));
+    let sharedByUser = false;
+    if (shareChosen(options?.fwdTailShare)) {
+      let wanted = Math.min(1, Math.max(0, options!.fwdTailShare!));
       const forwardCarrier = down.kind === 'pcr'; // the downstream forward primer holds the upstream tail
       const reverseCarrier = up.kind === 'pcr';   // the upstream reverse primer holds the downstream part
       const adjusted = !forwardCarrier && wanted > 0 ? 0 : !reverseCarrier && wanted < 1 ? 1 : wanted;
@@ -371,6 +377,7 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
       }
       mode = !forwardCarrier && !reverseCarrier ? 'none' : wanted === 0 ? 'downstream' : wanted === 1 ? 'upstream' : 'split';
       share = mode === 'split' ? wanted : undefined;
+      sharedByUser = mode !== 'none';
     }
     const spacer = (options?.spacer ?? '').replace(/\s/g, '').toUpperCase();
     const label = `Junction ${up.name} → ${down.name}`;
@@ -386,6 +393,9 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
     if (down.kind === 'pcr') { forwardTails[next] = overlap.upstreamTail; if (mode === 'upstream') forwardSpacers[next] = spacer; }
     if (up.kind === 'pcr') { reverseTails[index] = reverseComplement(overlap.downstreamPart); if (mode === 'downstream') reverseSpacers[index] = reverseComplement(spacer); }
     const added = overlap.upstreamTail.length + overlap.downstreamPart.length;
+    if (sharedByUser && added > 0 && added < settings.minOverlap) {
+      findings.push({ code: 'OVERLAP_SHORTER_THAN_REQUESTED', severity: 'warning', message: `${label}: the overlap is only ${added} nt, less than the ${settings.minOverlap} nt asked for, because a fragment is too short to carry its share. Move part of it to the other primer.`, junctionIndex: index });
+    }
     junctions.push({
       upstream: up.name,
       downstream: down.name,
@@ -421,7 +431,7 @@ export function designNebuilder(fragments: NebuilderFragment[], settings: Nebuil
     primers.push(make('rev', reverseTails[index]!, reverseSpacers[index]!, pair.reverse, pair.reverseTm));
   });
 
-  if (settings.junctions?.some(options => options?.fwdTailShare !== undefined)) {
+  if (settings.junctions?.some(options => shareChosen(options?.fwdTailShare))) {
     for (const item of primers) {
       const length = item.overlap.length + item.spacer.length + item.anneal.length;
       if (length > 60) findings.push({ code: 'LONG_PRIMER', severity: 'warning', message: `${item.name} is ${length} nt long; primers over 60 nt are costly and error-prone. Move part of the overlap to the neighbouring primer.` });

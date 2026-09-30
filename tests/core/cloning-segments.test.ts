@@ -3,6 +3,7 @@ import { designNebuilder, NEBUILDER_DEFAULTS, type NebuilderFragment } from '@/c
 import { designInfusion } from '@/core/cloning/methods/infusion';
 import { infusionSegments, nebuilderSegments, segmentAnnotations } from '@/core/cloning/segments';
 import { readableOn, sourceColor, SOURCE_COLORS } from '@/core/cloning/source-colors';
+import { PRESET_PLASMIDS } from '@/core/plasmid';
 import { randomDna } from './helpers';
 
 const pcr = (name: string, seed: number, length = 300, topology: 'linear' | 'circular' = 'linear'): NebuilderFragment =>
@@ -54,6 +55,7 @@ describe('nebuilderSegments', () => {
       { name: 'A', sequence: tailOfB + a, topology: 'linear', kind: 'pcr' },
       { name: 'B', sequence: b, topology: 'linear', kind: 'pcr' },
     ], { ...NEBUILDER_DEFAULTS, circularize: true });
+    expect(design.junctions[design.junctions.length - 1]!.intrinsicOverlap).toBeGreaterThan(0);
     const segments = nebuilderSegments(design);
     expect(Math.max(...segments.map(s => s.end))).toBeLessThanOrEqual(design.product.length);
   });
@@ -75,6 +77,24 @@ describe('infusionSegments', () => {
     expect(segments[0]).toMatchObject({ start: 0, end: 2000 });
     expect(segments[1]).toMatchObject({ start: 2000, end: 2300 });
     expect(segments[2]!.end).toBe(design.product.length);
+  });
+});
+
+describe('infusionSegments with restriction sites', () => {
+  it('accounts for the added left and right site bases, so the segments add up to the product', () => {
+    const puc19 = PRESET_PLASMIDS.find(plasmid => plasmid.id === 'puc19')!.seq;
+    const inserts = [{ name: 'X', sequence: randomDna(300, 10) }, { name: 'Y', sequence: randomDna(200, 11) }];
+    const design = designInfusion(puc19, 'circular', { method: 'digest', enzymes: ['HindIII', 'EcoRI'], includeSites: { first: true, second: true } }, inserts);
+    expect(design.findings.filter(f => f.severity === 'blocker')).toEqual([]);
+    expect(design.leftSite.length).toBeGreaterThan(0);
+    expect(design.rightSite.length).toBeGreaterThan(0);
+    const segments = infusionSegments(design, { sourceIndex: 2, name: 'pUC19' }, [
+      { sourceIndex: 0, name: 'X', length: 300 }, { sourceIndex: 1, name: 'Y', length: 200 },
+    ]);
+    expect(segments.map(s => s.sourceIndex)).toEqual([2, -1, 0, 1, -1]);
+    expect(segments.reduce((sum, s) => sum + s.end - s.start, 0)).toBe(design.product.length);
+    for (let i = 1; i < segments.length; i++) expect(segments[i]!.start).toBe(segments[i - 1]!.end);
+    expect(segments[segments.length - 1]!.end).toBe(design.product.length);
   });
 });
 

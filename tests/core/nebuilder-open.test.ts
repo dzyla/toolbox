@@ -46,6 +46,27 @@ describe('fragmentTemplate with an opening', () => {
     expect(result.findings[0]!.message).toContain('v');
   });
 
+  it('says a whole-circle region covers the whole sequence, not that it is empty', () => {
+    const whole = fragmentTemplate(circle({ start: 0, end: 10 }));
+    expect(whole.sequence).toBe('');
+    expect(whole.findings[0]).toMatchObject({ code: 'INVALID_OPEN_SITE', severity: 'blocker' });
+    expect(whole.findings[0]!.message).toContain('covers the whole sequence');
+    expect(whole.findings[0]!.message).not.toContain('empty');
+    const empty = fragmentTemplate(circle({ start: 3, end: 3 }));
+    expect(empty.findings[0]!.message).toContain('region is empty');
+    expect(empty.findings[0]!.message).not.toContain('whole');
+  });
+
+  it('never produces NaN for an empty sequence', () => {
+    for (const open of [{ caret: 0 }, { start: 0, end: 0 }] as const) {
+      const result = fragmentTemplate(circle(open, ''));
+      expect(result.sequence).toBe('');
+      expect(result.start).toBe(0);
+      expect(Number.isNaN(result.start)).toBe(false);
+      expect(result.findings[0]).toMatchObject({ code: 'INVALID_OPEN_SITE', severity: 'blocker' });
+    }
+  });
+
   it('ignores an opening on a linear or digested fragment', () => {
     expect(fragmentTemplate({ ...circle({ caret: 4 }), topology: 'linear' }).sequence).toBe('AAAACCCCGG');
   });

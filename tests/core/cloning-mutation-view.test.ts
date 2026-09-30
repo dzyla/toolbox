@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mutationAlignment, proteinLines, translateFrom } from '@/core/cloning/mutation-view';
+import { mutationAlignment, mutationMarks, proteinLines, translateFrom } from '@/core/cloning/mutation-view';
 
 const WILD = 'MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV';
 
@@ -75,6 +75,26 @@ describe('mutationAlignment', () => {
     expect(view.gapCount).toBeGreaterThan(0);
   });
 
+  it('reads a mutation that lies after a new stop as absent, not as a stop', () => {
+    const mutant = WILD.slice(0, 9) + '*'; // new stop at residue 10
+    const view = mutationAlignment(WILD, mutant, 30, 10);
+    expect(view.to).toBe('-');
+    expect(mutationAlignment(WILD, mutant, 10, 10).to).toBe('*');
+  });
+
+  it('reads a protein cut off exactly at the position as a stop', () => {
+    expect(mutationAlignment(WILD, WILD.slice(0, 29), 30, 10).to).toBe('*');
+    expect(mutationAlignment(WILD, WILD.slice(0, 20), 30, 10).to).toBe('-');
+  });
+
+  it('draws a caret under every changed DNA base', () => {
+    const view = mutationAlignment(WILD, mutate(WILD, 30, 'F'), 30, 10, { wild: 'GCTTATGTT', mutant: 'GCTTTTGTT', codonAt: 3 });
+    expect(view.dna.carets).toBe('    ^    ');
+    expect(view.dna.carets).toHaveLength(view.dna.wild.length);
+    const none = mutationAlignment('MKT', 'MKT', 2, 10, { wild: 'AAA', mutant: 'AAA', codonAt: 0 });
+    expect(none.dna.carets).toBe('   ');
+  });
+
   it('reads the codon change from the DNA windows and marks the changed bases', () => {
     const wildDna = 'GCTTATGTT'; // 3 bases of context, the codon, 3 bases of context
     const mutDna = 'GCTTTTGTT';
@@ -90,5 +110,33 @@ describe('mutationAlignment', () => {
     expect(view.wildCodon).toBe('AAA');
     expect(view.mutantCodon).toBe('AAA');
     expect(view.dna.changed).toEqual([3, 4, 5]);
+  });
+});
+
+describe('mutationMarks', () => {
+  const mutation = (position: number, raw: string) => ({ position, raw });
+  const design = {} as never;
+
+  it('labels each mutated residue', () => {
+    const marks = mutationMarks([{ design, mutations: [mutation(67, 'Y67F')] }]);
+    expect([...marks]).toEqual([[67, 'Y67F']]);
+  });
+
+  it('joins the labels when two designs hit the same residue', () => {
+    const marks = mutationMarks([
+      { design, mutations: [mutation(67, 'Y67F')] },
+      { design, mutations: [mutation(67, 'Y67W'), mutation(70, 'K70A')] },
+    ]);
+    expect(marks.get(67)).toBe('Y67F / Y67W');
+    expect(marks.get(70)).toBe('K70A');
+  });
+
+  it('does not repeat a label and skips designs that failed', () => {
+    const marks = mutationMarks([
+      { design, mutations: [mutation(5, 'A5G')] },
+      { design, mutations: [mutation(5, 'A5G')] },
+      { design: null, mutations: [mutation(9, 'K9A')] },
+    ]);
+    expect([...marks]).toEqual([[5, 'A5G']]);
   });
 });

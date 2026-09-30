@@ -42,7 +42,7 @@ export interface MutationAlignment {
   gapCount: number;
   wildCodon: string;
   mutantCodon: string;
-  dna: { wild: string; mutant: string; midline: string; changed: number[] };
+  dna: { wild: string; mutant: string; midline: string; changed: number[]; /** `^` under every changed base, spaces elsewhere: a cue that does not rely on colour. */ carets: string };
 }
 
 const BLOSUM = getMatrix('BLOSUM62');
@@ -86,11 +86,28 @@ export function mutationAlignment(wildProtein: string, mutantProtein: string, po
   return {
     position,
     from: wildProtein[position - 1] ?? '',
-    to: mutantProtein[position - 1] ?? '*',
+    to: mutantProtein[position - 1] ?? (mutantProtein.length === position - 1 && !mutantProtein.includes('*') ? '*' : '-'),
     windowStart: first,
     wild, mutant, midline, matchCount, mismatchCount, gapCount,
     wildCodon: windows.wild.slice(offset, offset + 3),
     mutantCodon: windows.mutant.slice(offset, offset + 3),
-    dna: { wild: windows.wild, mutant: windows.mutant, midline: dnaMid.join(''), changed },
+    dna: { wild: windows.wild, mutant: windows.mutant, midline: dnaMid.join(''), changed, carets: [...windows.wild].map((_, i) => (changed.includes(i) ? '^' : ' ')).join('') },
   };
+}
+
+/**
+ * Residue number -> label for the numbered protein. Designs that failed (no design) are skipped, and
+ * two designs that hit the same residue share one mark with both labels.
+ */
+export function mutationMarks(results: Array<{ design: unknown; mutations: Array<{ position: number; raw: string }> }>): Map<number, string> {
+  const labels = new Map<number, string[]>();
+  for (const result of results) {
+    if (!result.design) continue;
+    for (const { position, raw } of result.mutations) {
+      const list = labels.get(position) ?? [];
+      if (!list.includes(raw)) list.push(raw);
+      labels.set(position, list);
+    }
+  }
+  return new Map([...labels].map(([position, list]) => [position, list.join(' / ')]));
 }

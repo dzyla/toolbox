@@ -106,3 +106,38 @@ describe('infusionMarks with a shared homology', () => {
     expect(marks.find(m => m.label.startsWith('Junction 2'))).toMatchObject({ start: 0, end: 15 });
   });
 });
+
+describe('infusionMarks for several inserts and extreme shares', () => {
+  const second = randomDna(200, 43);
+  const two = [...inserts, { name: 'tag', sequence: second }];
+  const molecules = two.map(item => ({ name: item.name, sequence: item.sequence, topology: 'linear' as const, annotations: [] }));
+
+  it('marks 20 bp at each vector junction at share 0.5, half on each primer', () => {
+    const design = designInfusion(vector, 'circular', inverse, two, { vectorShare: 0.5 });
+    const marks = infusionMarks(design, molecules);
+    const left = marks.find(m => m.label.startsWith('Junction 1'))!;
+    expect(left).toMatchObject({ start: design.vector.length - 10, end: design.vector.length + 10 });
+    const middle = marks.find(m => m.label.startsWith('Junction 2'))!;
+    expect(middle.end - middle.start).toBe(10);
+    const right = marks.filter(m => m.label.startsWith('Junction 3'));
+    expect(right).toHaveLength(2);
+    expect(right.reduce((sum, m) => sum + m.end - m.start, 0)).toBe(20);
+    for (const mark of marks) { expect(mark.start).toBeGreaterThanOrEqual(0); expect(mark.end).toBeLessThanOrEqual(design.product.length); }
+  });
+
+  it('marks the whole homology beyond the vector at share 1 and a single right-hand mark', () => {
+    const design = designInfusion(vector, 'circular', inverse, two, { vectorShare: 1 });
+    const marks = infusionMarks(design, molecules);
+    const left = marks.find(m => m.label.startsWith('Junction 1'))!;
+    expect(left).toMatchObject({ start: design.vector.length, end: design.vector.length + 20 });
+    const right = marks.filter(m => m.label.startsWith('Junction 3'));
+    expect(right).toEqual([expect.objectContaining({ start: design.product.length - 20, end: design.product.length })]);
+  });
+
+  it('marks 15 bp at each end at share 1 for one insert', () => {
+    const design = designInfusion(vector, 'circular', inverse, inserts, { vectorShare: 1 });
+    const marks = infusionMarks(design, [{ name: 'gene', sequence: insert, topology: 'linear', annotations: [] }]);
+    expect(marks.find(m => m.label.startsWith('Junction 1'))).toMatchObject({ start: design.vector.length, end: design.vector.length + 15 });
+    expect(marks.filter(m => m.label.startsWith('Junction 2'))).toEqual([expect.objectContaining({ start: design.product.length - 15, end: design.product.length })]);
+  });
+});

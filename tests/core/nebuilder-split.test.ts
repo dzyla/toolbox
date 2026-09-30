@@ -77,4 +77,53 @@ describe('fwdTailShare', () => {
     const one = designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: 1 }] });
     expect(over.primers).toEqual(one.primers);
   });
+
+  it('ignores a NaN share but clamps the infinities', () => {
+    const plain = designNebuilder([A, B], linear);
+    expect(designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: Number.NaN }] })).toEqual(plain);
+    const high = designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: Infinity }] });
+    expect(high.primers).toEqual(designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: 1 }] }).primers);
+    const low = designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: -Infinity }] });
+    expect(low.primers).toEqual(designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: 0 }] }).primers);
+    expect(high.junctions[0]!.downstreamTail).toBe('');
+    expect(low.junctions[0]!.upstreamTail).toBe('');
+  });
+
+  it('runs the long-primer check for an infinite share, and not for NaN', () => {
+    expect(designNebuilder([A, B], { ...linear, minOverlap: 75, junctions: [{ fwdTailShare: Infinity }] }).findings.some(f => f.code === 'LONG_PRIMER')).toBe(true);
+    expect(designNebuilder([A, B], { ...linear, minOverlap: 75, junctions: [{ fwdTailShare: Number.NaN }] }).findings.some(f => f.code === 'LONG_PRIMER')).toBe(false);
+  });
+
+  it('says so when neither neighbour can carry a tail, whatever the share', () => {
+    const puc19 = PRESET_PLASMIDS.find(plasmid => plasmid.id === 'puc19')!.seq;
+    const one: NebuilderFragment = { name: 'one', sequence: puc19, topology: 'circular', kind: 'digest', leftEnzyme: 'HindIII', rightEnzyme: 'EcoRI' };
+    const two: NebuilderFragment = { name: 'two', sequence: puc19, topology: 'circular', kind: 'digest', leftEnzyme: 'EcoRI', rightEnzyme: 'HindIII' };
+    for (const share of [0, 0.5, 1]) {
+      const design = designNebuilder([one, two], { ...linear, junctions: [{ fwdTailShare: share }] });
+      const note = design.findings.find(f => f.code === 'SHARE_ADJUSTED');
+      expect(note, `share ${share}`).toMatchObject({ severity: 'info' });
+      expect(note!.message).toContain('neither side can carry a tail');
+      expect(design.junctions[0]!.mode).toBe('none');
+    }
+  });
+
+  it('puts the whole overlap on the other side when the downstream neighbour is a digest', () => {
+    const puc19 = PRESET_PLASMIDS.find(plasmid => plasmid.id === 'puc19')!.seq;
+    const backbone: NebuilderFragment = { name: 'bb', sequence: puc19, topology: 'circular', kind: 'digest', leftEnzyme: 'HindIII', rightEnzyme: 'EcoRI', isVectorBackbone: true };
+    const design = designNebuilder([A, backbone], { ...linear, junctions: [{ fwdTailShare: 0.5 }] });
+    expect(design.findings.some(f => f.code === 'SHARE_ADJUSTED' && f.severity === 'info')).toBe(true);
+    const junction = design.junctions[0]!;
+    expect(junction.upstreamTail).toBe('');
+    expect(junction.downstreamTail.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('warns when a fragment is too short to carry its share of the overlap', () => {
+    const tiny: NebuilderFragment = { name: 'tiny', sequence: randomDna(70, 33), topology: 'linear', kind: 'pcr' };
+    const design = designNebuilder([tiny, B], { ...linear, minOverlap: 75, junctions: [{ fwdTailShare: 1 }] });
+    const note = design.findings.find(f => f.code === 'OVERLAP_SHORTER_THAN_REQUESTED');
+    expect(note).toMatchObject({ severity: 'warning' });
+    expect(design.junctions[0]!.overlapLength).toBeLessThan(75);
+    // No warning for a normal split.
+    expect(designNebuilder([A, B], { ...linear, junctions: [{ fwdTailShare: 0.5 }] }).findings.some(f => f.code === 'OVERLAP_SHORTER_THAN_REQUESTED')).toBe(false);
+  });
 });
