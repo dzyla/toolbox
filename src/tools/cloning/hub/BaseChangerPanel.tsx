@@ -10,6 +10,7 @@ import type { HubSource, SdmSettings } from './state';
 import { sdmPrimers } from './adapters';
 import { FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
 import { ProductPreview } from './ProductPreview';
+import { EditView } from './EditView';
 import { MutationCards, NumberedProtein } from './ProteinView';
 import { translateFrom } from '@/core/cloning/mutation-view';
 
@@ -143,6 +144,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
     {generalResult && <Section id="sdm-general" title={generalDesign ? generalDesign.label : 'Design'} aside={generalDesign?.description}>
       <FindingsList findings={generalResult.findings} />
       {generalDesign && workingMolecule && <div class="space-y-3">
+        <EditView plasmid={workingMolecule.sequence} design={generalDesign} plasmidName={workingMolecule.name} />
         <PrimerTable primers={sdmPrimers(generalDesign)} fileName={generalDesign.label} caption={`Primers for ${generalDesign.label}`} />
         <p class="text-xs">Annealing temperature <strong>{generalDesign.ta} °C</strong> (lower primer Tm + 1 °C, Q5).</p>
         <LazyDetails summary={`Protocol and product for ${generalDesign.label}`}>
