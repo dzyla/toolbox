@@ -1,0 +1,39 @@
+import type { PieceGeometry } from '@/core/cloning/geometry';
+import { sourceColor } from '@/core/cloning/source-colors';
+import { ConstructDiagram } from './ConstructDiagram';
+
+interface Props {
+  piece: PieceGeometry;
+  activeId?: string;
+  onActive?: (id: string | undefined) => void;
+  onPick?: (position: number) => void;
+  onRegion?: (start: number, end: number) => void;
+  marker?: { position: number; label: string };
+}
+
+/** Ids tie a drawn primer to its row in the primer table (`primer-<name>`). */
+export const primerRowId = (name: string) => `primer-${name}`;
+
+export function PrimerMap({ piece, activeId, onActive, onPick, onRegion, marker }: Props) {
+  const what = piece.kind === 'pcr' ? 'amplified region and primers' : 'piece cut out by digestion';
+  return <div class="space-y-1">
+    <h3 class="text-xs font-semibold">{piece.sourceIndex + 1} · {piece.name}: {what}</h3>
+    <ConstructDiagram
+      title={`${piece.name}: ${what}`}
+      length={piece.length}
+      circular={piece.topology === 'circular'}
+      color={sourceColor(piece.sourceIndex)}
+      region={piece.region}
+      removed={piece.removed}
+      primers={piece.primers.map(primer => ({
+        id: primer.name, label: primer.name, strand: primer.strand, start: primer.start, length: primer.length,
+        tailLength: primer.tailLength, tailColor: sourceColor(primer.tailNeighborIndex ?? -1),
+      }))}
+      marker={marker}
+      activeId={activeId}
+      onActive={onActive}
+      onPick={onPick}
+      onRegion={onRegion}
+    />
+  </div>;
+}
