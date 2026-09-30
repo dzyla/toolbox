@@ -83,6 +83,13 @@ It draws a line or a ring, the segments as colored bands, each primer as an arro
 - **E2E:** a NEBuilder design with a PCR-opened vector and a 50/50 split, an In-Fusion design with click-to-place, and a Y127F design showing its alignment.
 - **Docs:** `docs/cloning-hub.md` is updated with the new options and states that In-Fusion split and NEBuilder free split are additions beyond the vendor tools.
 
+## Deviations recorded at implementation
+
+- **Primer maps are lines, not rings.** A circular source is drawn unrolled as a line with its origin (base 1 / base n) marked, so primer arrows, tails and the opening point sit on one axis and can be clicked or dragged. The "line or a ring" wording in the Construct diagram section is superseded. The final product still has its circular annotation map.
+- **The pair Tm-difference warning was dropped.** A homology tail does not change the annealing Tm, so a split can never change the difference between a primer pair. It is replaced by a warning for any primer longer than 60 nt (the case a lopsided split can actually cause).
+- **Hover shows the source name and range, not source-relative bases.** The legend and the view-only source annotation carry the name and the range in the product (for example "2 · gene, 2,687-3,286"). A per-base "base a of the source" readout was not built.
+- **Click places the opening at one base; drag selects a region.** On a circular PCR source a plain click sets "open before base"; a drag switches to "replace a region". The numeric inputs are the keyboard path.
+
 ## Open decisions
 
 None. The scope (NEBuilder and In-Fusion) was confirmed with the user.

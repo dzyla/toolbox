@@ -27,7 +27,7 @@ const WIDTH = 1000;
 const LEFT = 24;
 const RIGHT = WIDTH - 24;
 const AXIS = 70;
-const HEIGHT = 130;
+const HEIGHT = 146;
 
 /** Splits a stretch that may wrap the origin into one or two [start, end) spans. */
 export function spansOf(start: number, length: number, total: number): Array<[number, number]> {
@@ -84,8 +84,9 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
     return <polygon points={points} fill="#111827" stroke="#ffffff" stroke-width="1" />;
   };
 
-  return <div class="w-full">
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full touch-none select-none" style={{ maxHeight: '11rem' }}>
+  return <div class="w-full min-w-0">
+    {/* Labels are drawn in viewBox units, so the map keeps a minimum width (about 10 px text) and scrolls sideways inside its own box on a phone. */}
+    <div class="max-w-3xl overflow-x-auto"><svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full min-w-[36rem] touch-none select-none">
       <defs>
         <pattern id={`${uid}-removed`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="8" height="8" fill="#fee2e2" />
@@ -118,16 +119,18 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
             ? <rect data-part="tail" x={x(first[0]) - tailWidth} y={y} width={tailWidth} height="16" fill={primer.tailColor} stroke="#111827" />
             : <rect data-part="tail" x={x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={primer.tailColor} stroke="#111827" />)}
           {primer.tailLength > 0 && first && <rect x={forward ? x(first[0]) - tailWidth : x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={`url(#${uid}-tail)`} fill-opacity="0.35" />}
-          {first && <text x={x(first[0])} y={forward ? y - 4 : y + 30} font-size="13" font-weight="600" fill="currentColor">{primer.label}</text>}
+          {first && (x(first[0]) > RIGHT - 170
+            ? <text x={x(spans[spans.length - 1]![1])} y={forward ? y - 6 : y + 34} text-anchor="end" font-size="18" font-weight="600" fill="currentColor">{primer.label}</text>
+            : <text x={x(first[0])} y={forward ? y - 6 : y + 34} font-size="18" font-weight="600" fill="currentColor">{primer.label}</text>)}
         </g>;
       })}
       {marker && <g>
-        <line x1={x(marker.position)} x2={x(marker.position)} y1={AXIS - 46} y2={AXIS + 30} stroke="#dc2626" stroke-width="2.5" stroke-dasharray="5 3" />
-        <text x={Math.min(x(marker.position) + 6, RIGHT - 160)} y={AXIS + 46} font-size="13" font-weight="600" fill="#b91c1c">{marker.label}</text>
+        <line x1={x(marker.position)} x2={x(marker.position)} y1={AXIS - 44} y2={AXIS + 30} stroke="#dc2626" stroke-width="2.5" stroke-dasharray="5 3" />
+        <text x={Math.min(x(marker.position) + 6, RIGHT - 230)} y={AXIS - 52} font-size="18" font-weight="600" fill="#b91c1c">{marker.label}</text>
       </g>}
       {drag && <rect x={x(Math.min(drag.from, drag.to))} y={AXIS - 40} width={Math.abs(x(drag.to) - x(drag.from))} height="80" fill="#2563eb" fill-opacity="0.15" stroke="#2563eb" />}
-      <text x={LEFT} y={AXIS + 62} font-size="12" fill="currentColor">1</text>
-      <text x={RIGHT} y={AXIS + 62} font-size="12" text-anchor="end" fill="currentColor">{fmt(length)}{circular ? ' (origin)' : ''}</text>
+      <text x={LEFT} y={AXIS + 70} font-size="16" fill="currentColor">1</text>
+      <text x={RIGHT} y={AXIS + 70} font-size="16" text-anchor="end" fill="currentColor">{fmt(length)}{circular ? ' (origin)' : ''}</text>
       {interactive && <rect ref={surface} data-testid="diagram-surface" x={LEFT} y={AXIS - 12} width={RIGHT - LEFT} height="24" fill="transparent" class="cursor-crosshair"
         onPointerDown={event => { (event.currentTarget as Element).setPointerCapture?.(event.pointerId); const at = positionAt(event.clientX, event.clientY); setDrag({ from: at, to: at }); }}
         onPointerMove={event => setDrag(current => current ? { ...current, to: positionAt(event.clientX, event.clientY) } : current)}
@@ -139,7 +142,7 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
           else onRegion?.(Math.min(from, end), Math.max(from, end));
         }}
         onPointerCancel={() => setDrag(null)} />}
-    </svg>
-    {interactive && <p class="text-xs text-slate-600 dark:text-slate-400">{onRegion ? 'Click the line to choose a position, or drag to choose a region. ' : 'Click the line to choose a position. '}You can also type the numbers.</p>}
+    </svg></div>
+    {interactive && <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{onRegion ? 'Click the line to choose a position, or drag to choose a region. ' : 'Click the line to choose a position. '}You can also type the numbers.</p>}
   </div>;
 }

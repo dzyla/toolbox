@@ -41,15 +41,15 @@ export function MutationCards({ result, wildDna, orfStart }: { result: AminoAcid
       return <div key={mutation.raw} role="group" aria-label={`${mutation.raw}: wild type vs mutant`} class="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
         <p class="text-xs"><strong>{mutation.raw}</strong> · Residue {view.position}: {view.from} → {view.to} · codon <span class="font-mono">{view.wildCodon}</span> → <span class="font-mono font-bold">{view.mutantCodon}</span></p>
         <div aria-label="Protein alignment" role="img" class={`${MONO} whitespace-pre overflow-x-auto`}>
-          <div><span class="inline-block w-16 text-slate-600 dark:text-slate-400">Wild type</span>{ruler(view.wild)}</div>
-          <div><span class="inline-block w-16" />{ruler(view.midline)}</div>
-          <div><span class="inline-block w-16 text-slate-600 dark:text-slate-400">Mutant</span>{ruler(view.mutant)}</div>
-          <div class="text-slate-600 dark:text-slate-400"><span class="inline-block w-16" />residues {view.windowStart}–{view.windowStart + view.wild.replace(/-/g, '').length - 1} · {view.matchCount} identical, {view.mismatchCount} changed{view.gapCount ? `, ${view.gapCount} gap` : ''}</div>
+          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">Wild type</span>{ruler(view.wild)}</div>
+          <div><span class="inline-block w-20" />{ruler(view.midline)}</div>
+          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">Mutant</span>{ruler(view.mutant)}</div>
+          <div class="text-slate-600 dark:text-slate-400"><span class="inline-block w-20" />residues {view.windowStart}–{view.windowStart + view.wild.replace(/-/g, '').length - 1} · {view.matchCount} identical, {view.mismatchCount} changed{view.gapCount ? `, ${view.gapCount} gap` : ''}</div>
         </div>
         <div aria-label="DNA alignment" role="img" class={`${MONO} whitespace-pre overflow-x-auto`}>
-          <div><span class="inline-block w-16 text-slate-600 dark:text-slate-400">DNA wild</span>{view.dna.wild}</div>
-          <div><span class="inline-block w-16" />{view.dna.midline}</div>
-          <div><span class="inline-block w-16 text-slate-600 dark:text-slate-400">DNA new</span>{view.dna.mutant}</div>
+          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">DNA wild</span>{view.dna.wild}</div>
+          <div><span class="inline-block w-20" />{view.dna.midline}</div>
+          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">DNA new</span>{view.dna.mutant}</div>
         </div>
         <p class="text-xs text-slate-600 dark:text-slate-400">| identical · . changed · gap for a missing residue (for example after a new stop).</p>
       </div>;

@@ -16,7 +16,7 @@ export const primerRowId = (name: string) => `primer-${name}`;
 
 export function PrimerMap({ piece, activeId, onActive, onPick, onRegion, marker }: Props) {
   const what = piece.kind === 'pcr' ? 'amplified region and primers' : 'piece cut out by digestion';
-  return <div class="space-y-1">
+  return <div class="min-w-0 space-y-1">
     <h3 class="text-xs font-semibold">{piece.sourceIndex + 1} · {piece.name}: {what}</h3>
     <ConstructDiagram
       title={`${piece.name}: ${what}`}
