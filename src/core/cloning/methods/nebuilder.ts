@@ -22,6 +22,9 @@ import { nebTm, roundTenth, wallaceTm } from '../neb-tm';
 import { annealingTemperature, findPolymerase, primerDefaults, type NebPolymerase } from './neb-polymerases';
 import type { Finding } from '../types';
 
+/** Where a circular PCR source is opened: before a base (`caret`, 0-based) or by removing bases [start, end) (start > end wraps the origin). */
+export type OpenSite = { caret: number } | { start: number; end: number };
+
 export interface NebuilderFragment {
   name: string;
   /** Source sequence 5′→3′ (top strand). */
@@ -32,6 +35,8 @@ export interface NebuilderFragment {
   isVectorBackbone?: boolean;
   leftEnzyme?: string;
   rightEnzyme?: string;
+  /** Only for a circular `pcr` source: where to open the circle. Unset amplifies the circle as given. */
+  open?: OpenSite;
 }
 
 export interface JunctionOptions {
@@ -189,10 +194,34 @@ export function selectAnnealLengths(template: string, minLength: number, maxTmDi
   return pair;
 }
 
+function openedTemplate(fragment: NebuilderFragment, sequence: string, open: OpenSite): { sequence: string; start: number; findings: Finding[] } {
+  const n = sequence.length;
+  const invalid = (message: string) => ({
+    sequence: '', start: 0,
+    findings: [{ code: 'INVALID_OPEN_SITE', severity: 'blocker' as const, message: `${fragment.name}: ${message}`, fragmentId: fragment.name }],
+  });
+  if ('caret' in open) {
+    if (!Number.isInteger(open.caret) || open.caret < 0 || open.caret > n) return invalid(`choose an opening position from 0 to ${n}.`);
+    const start = open.caret % n;
+    return { sequence: sequence.slice(start) + sequence.slice(0, start), start, findings: [] };
+  }
+  const { start, end } = open;
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || start >= n || end < 0 || end > n) {
+    return invalid(`the replaced region must lie within the ${n} bp sequence.`);
+  }
+  const first = end % n;
+  const removed = (((first - start) % n) + n) % n;
+  if (removed === 0) return invalid('the replaced region is empty; open at a position instead.');
+  return { sequence: (sequence.slice(first) + sequence.slice(0, first)).slice(0, n - removed), start: first, findings: [] };
+}
+
 /** Template of a fragment as NEBuilder uses it (digested fragments keep 3′ but not 5′ overhangs). */
 export function fragmentTemplate(fragment: NebuilderFragment): { sequence: string; /** 0-based start in the source sequence */ start: number; findings: Finding[] } {
   const sequence = fragment.sequence.toUpperCase();
-  if (fragment.kind === 'pcr') return { sequence, start: 0, findings: [] };
+  if (fragment.kind === 'pcr') {
+    if (!fragment.open || fragment.topology !== 'circular') return { sequence, start: 0, findings: [] };
+    return openedTemplate(fragment, sequence, fragment.open);
+  }
   const left = fragment.leftEnzyme ? findEnzyme(fragment.leftEnzyme) : undefined;
   const right = fragment.rightEnzyme ? findEnzyme(fragment.rightEnzyme) : undefined;
   if (!left || !right) {
