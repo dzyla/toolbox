@@ -48,7 +48,7 @@ describe('sdmEditView', () => {
     expect(fwd.tailLength).toBe(d.forward.tail.length);
   });
 
-  it('wraps the context at the plasmid ends', () => {
+  it('clamps the context at the plasmid ends', () => {
     const view = sdmEditView(plasmid, design(5, 8, 'TTT'), 30);
     expect(view.beforeStart).toBe(1);
     expect(view.before.left).toBe(plasmid.slice(0, 5));
@@ -61,5 +61,20 @@ describe('sdmEditView', () => {
     const rev = view.primers.find(p => p.strand === 'rev')!;
     expect((rev.start + rev.length) % 3000).toBe(3);
     expect(rev.start).toBeGreaterThan(2900);
+  });
+
+  it('places insert and delete primers flush against the edit', () => {
+    for (const [start, end, rep] of [[700, 700, 'ATGCATGC'], [500, 512, '']] as const) {
+      const view = sdmEditView(plasmid, design(start, end, rep));
+      const fwd = view.primers.find(p => p.strand === 'fwd')!;
+      const rev = view.primers.find(p => p.strand === 'rev')!;
+      expect(fwd.start).toBe(end);
+      expect(rev.start + rev.length).toBe(start);
+    }
+  });
+
+  it('wraps the forward primer to 0 when the edit ends at the plasmid end', () => {
+    const view = sdmEditView(plasmid, design(2990, 3000, ''));
+    expect(view.primers.find(p => p.strand === 'fwd')!.start).toBe(0);
   });
 });

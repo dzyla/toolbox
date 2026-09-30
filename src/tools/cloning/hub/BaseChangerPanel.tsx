@@ -143,14 +143,14 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
 
     {generalResult && <Section id="sdm-general" title={generalDesign ? generalDesign.label : 'Design'} aside={generalDesign?.description}>
       <FindingsList findings={generalResult.findings} />
-      {generalDesign && workingMolecule && <div class="space-y-3">
-        <EditView plasmid={workingMolecule.sequence} design={generalDesign} plasmidName={workingMolecule.name} />
+      {generalDesign && molecule && <div class="space-y-3">
+        <EditView plasmid={molecule.sequence} design={generalDesign} plasmidName={molecule.name} />
         <PrimerTable primers={sdmPrimers(generalDesign)} fileName={generalDesign.label} caption={`Primers for ${generalDesign.label}`} />
         <p class="text-xs">Annealing temperature <strong>{generalDesign.ta} °C</strong> (lower primer Tm + 1 °C, Q5).</p>
         <LazyDetails summary={`Protocol and product for ${generalDesign.label}`}>
           <div class="space-y-4">
-            <ProtocolCard protocol={sdmProtocol(generalDesign, workingMolecule.sequence.length)} />
-            <SdmProduct molecule={workingMolecule} design={generalDesign} fileName={generalDesign.label} />
+            <ProtocolCard protocol={sdmProtocol(generalDesign, molecule.sequence.length)} />
+            <SdmProduct molecule={molecule} design={generalDesign} fileName={generalDesign.label} />
           </div>
         </LazyDetails>
       </div>}
