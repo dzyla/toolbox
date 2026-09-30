@@ -1,5 +1,5 @@
 {
-  "_source": "Band sizes transcribed from the supplier product pages / certificates listed per ladder (accessed 2026-09-03). Protein sizes are apparent molecular weights in kDa and vary slightly between lots and gel systems; DNA sizes in bp. Data licensed CC-BY-4.0.",
+  "_source": "Band sizes transcribed from the supplier product pages / certificates listed per ladder (accessed 2026-09-03). Protein sizes are apparent molecular weights in kDa and vary slightly between lots and gel systems; DNA sizes in bp. Data licensed CC-BY-SA-4.0.",
   "ladders": [
     { "id": "biorad-precision-plus", "name": "Precision Plus Protein (Dual Color / All Blue / Unstained)", "supplier": "Bio-Rad", "catalog": "1610374", "kind": "protein", "unit": "kDa",
       "sizes": [250, 150, 100, 75, 50, 37, 25, 20, 15, 10],

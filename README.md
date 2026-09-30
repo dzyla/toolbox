@@ -68,4 +68,4 @@ available.
 See `CITATION.cff`; GitHub shows a "Cite this repository" button.
 
 ## License
-Code: AGPL-3.0-only (`LICENSE`). Data files under `src/data/`: CC-BY-4.0 (`LICENSE-DATA`).
+Code: AGPL-3.0-only (`LICENSE`). Data files under `src/data/`: CC-BY-SA-4.0 (`LICENSE-DATA`). Derivatives of both code and data must stay open source under the same terms.
