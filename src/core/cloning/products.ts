@@ -131,11 +131,14 @@ export function infusionMarks(design: InfusionDesign, inserts: Molecule[]): Prod
   if (!design.product || !inserts.length) return [];
   const forward = design.primers.filter(primer => primer.role === 'insert' && primer.direction === 'forward');
   const vectorArm = forward[0]?.extension.length ?? 0;
+  const P = design.product.length;
+  const sharedLeft = design.primers.find(primer => primer.role === 'vector' && primer.direction === 'reverse')?.extension.length ?? 0;
+  const sharedRight = design.primers.find(primer => primer.role === 'vector' && primer.direction === 'forward')?.extension.length ?? 0;
   const marks: ProductMark[] = [];
   const homology = (label: string, start: number, end: number) =>
     marks.push({ label, start, end, kind: 'junction', detail: `${at(start)} · ${end - start}-bp homology` });
   let cursor = design.vector.length + design.leftSite.length;
-  if (vectorArm) homology(`Junction 1: vector → ${inserts[0]!.name}`, design.vector.length - vectorArm, design.vector.length);
+  if (vectorArm || sharedLeft) homology(`Junction 1: vector → ${inserts[0]!.name}`, design.vector.length - vectorArm, design.vector.length + sharedLeft);
   inserts.forEach((insert, index) => {
     cursor += insert.sequence.length;
     const next = inserts[index + 1];
@@ -145,7 +148,9 @@ export function infusionMarks(design: InfusionDesign, inserts: Molecule[]): Prod
     }
   });
   const rightArm = design.primers.find(primer => primer.role === 'insert' && primer.direction === 'reverse' && primer.target === inserts[inserts.length - 1]!.name)?.extension.length ?? 0;
-  if (rightArm) homology(`Junction ${inserts.length + 1}: ${inserts[inserts.length - 1]!.name} → vector`, 0, rightArm);
+  const label = `Junction ${inserts.length + 1}: ${inserts[inserts.length - 1]!.name} → vector`;
+  const parts = [{ start: P - sharedRight, end: P }, { start: 0, end: rightArm }].filter(part => part.end > part.start);
+  parts.forEach((part, index) => homology(parts.length > 1 ? `${label} (part ${index + 1} of 2, across the origin)` : label, part.start, part.end));
   return marks;
 }
 

@@ -10,7 +10,8 @@
      the vector junctions and 10 + 10 nt split across each insert–insert junction.
    - "Include restriction site" adds the part of the recognition site missing from the
      vector end between the extension and the gene-specific part.
-   - Inverse-PCR vectors are amplified with plain primers; all homology is on the inserts.
+   - Inverse-PCR vectors are amplified with plain primers; all homology is on the inserts,
+     unless `vectorShare` moves part of it onto the vector primers (a Bio-Bench extension).
 
    Gene-specific part: 18–25 nt, Tm 58–65 °C, pair ΔTm ≤ 4 °C, ≤ 2 G/C in the last five
    3′ bases (Takara guidelines). Takara's own Tm formula is not public, so we use
@@ -42,6 +43,8 @@ export interface InfusionSettings {
   singleInsertOverlap?: number;
   /** Extension length at vector junctions for two or more inserts (default 20). */
   multiInsertOverlap?: number;
+  /** Fraction (0–1) of the vector-junction homology carried on the vector's inverse-PCR primers instead of the insert primers. 0 = Takara's rule. */
+  vectorShare?: number;
 }
 
 export interface InfusionPrimer {
@@ -252,8 +255,15 @@ export function designInfusion(
   const vectorOverlap = multi ? settings.multiInsertOverlap ?? 20 : settings.singleInsertOverlap ?? 15;
   const insertOverlap = 10;
   if (opened.vector.length < vectorOverlap + 2) return empty([blocker('VECTOR_TOO_SHORT', 'The linearised vector is too short to carry the homology arms.')]);
-  const leftArm = opened.vector.slice(-vectorOverlap);
-  const rightArm = opened.vector.slice(0, vectorOverlap);
+  const byPcr = 'method' in linearization && linearization.method === 'pcr';
+  const share = settings.vectorShare;
+  const requested = typeof share === 'number' && Number.isFinite(share) ? Math.min(1, Math.max(0, share)) : 0;
+  if (requested > 0 && !byPcr) findings.push({ code: 'SHARE_IGNORED', severity: 'info', message: 'Sharing the homology needs a vector opened by inverse PCR; with a cut or linear vector the insert primers carry all of it (Takara’s rule).' });
+  // onVector bases of the insert ends ride on the vector primers; the other onInsert bases of the vector ends ride on the insert primers.
+  const onVector = byPcr ? Math.round(vectorOverlap * requested) : 0;
+  const onInsert = vectorOverlap - onVector;
+  const leftArm = onInsert ? opened.vector.slice(-onInsert) : '';
+  const rightArm = onInsert ? opened.vector.slice(0, onInsert) : '';
 
   const primers: InfusionPrimer[] = [];
   cleaned.forEach((insert, index) => {
@@ -267,11 +277,13 @@ export function designInfusion(
     primers.push(primer(`${insert.name}_rev`, 'insert', 'reverse', reverseExtension, last ? reverseComplement(opened.rightSite) : '', specific.reverse, insert.name));
   });
 
-  if ('method' in linearization && linearization.method === 'pcr') {
+  if (byPcr) {
     const specific = selectGeneSpecific(opened.vector);
     findings.push(...specific.findings.map(finding => ({ ...finding, message: `Vector: ${finding.message}` })));
-    primers.push(primer('vector_fwd', 'vector', 'forward', '', '', specific.forward, 'vector'));
-    primers.push(primer('vector_rev', 'vector', 'reverse', '', '', specific.reverse, 'vector'));
+    const firstInsert = cleaned[0]!.sequence;
+    const lastInsert = cleaned[cleaned.length - 1]!.sequence;
+    primers.push(primer('vector_fwd', 'vector', 'forward', onVector ? lastInsert.slice(-onVector) : '', '', specific.forward, 'vector'));
+    primers.push(primer('vector_rev', 'vector', 'reverse', onVector ? reverseComplement(firstInsert.slice(0, onVector)) : '', '', specific.reverse, 'vector'));
   }
 
   const product = opened.vector + opened.leftSite + cleaned.map(insert => insert.sequence).join('') + opened.rightSite;
