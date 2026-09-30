@@ -12,7 +12,7 @@ import { FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from
 import { ProductPreview } from './ProductPreview';
 import { EditView } from './EditView';
 import { MutationCards, NumberedProtein } from './ProteinView';
-import { translateFrom } from '@/core/cloning/mutation-view';
+import { mutationMarks, translateFrom } from '@/core/cloning/mutation-view';
 
 /** The numbered protein shows at most this many residues. */
 const PROTEIN_CAP = 1200;
@@ -74,7 +74,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
 
   const protein = useMemo(() => translateFrom(working, start0, PROTEIN_CAP), [working, start0]);
   const totalResidues = useMemo(() => translateFrom(working, start0).replace(/\*/g, '').length, [working, start0]);
-  const marks = useMemo(() => new Map<number, string>(result?.results.flatMap(item => item.mutations.map(m => [m.position, m.raw] as [number, string])) ?? []), [result]);
+  const marks = useMemo(() => mutationMarks(result?.results ?? []), [result]);
 
   return <div class="space-y-4">
     {!source && <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400">Add the plasmid that carries your gene above.</p>}
