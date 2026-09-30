@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
 import { ConstructDiagram, spansOf } from '@/tools/cloning/hub/ConstructDiagram';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('spansOf', () => {
   it('returns one span inside the sequence and two when it wraps', () => {
@@ -25,7 +28,7 @@ function stubWidth(width = 1000) {
 describe('ConstructDiagram', () => {
   it('has an accessible summary and a labelled button per primer', () => {
     render(<ConstructDiagram title="vec: amplified region and primers" length={1000} color="#0072B2" region={{ start: 100, length: 900 }} primers={primers} />);
-    expect(screen.getByRole('img', { name: /vec: amplified region and primers/ })).toBeTruthy();
+    expect(screen.getByRole('group', { name: /vec: amplified region and primers/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /vec_fwd, forward, 101–125, 20 nt tail/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /vec_rev, reverse, 76–100, no tail/ })).toBeTruthy();
   });
@@ -38,6 +41,16 @@ describe('ConstructDiagram', () => {
     expect(onActive).toHaveBeenLastCalledWith('a');
     fireEvent.keyDown(screen.getByRole('button', { name: /vec_rev/ }), { key: 'Enter' });
     expect(onActive).toHaveBeenLastCalledWith('b');
+  });
+
+  it('shows a focus ring on the focused primer and removes it on blur', () => {
+    const { container } = render(<ConstructDiagram title="t" length={1000} color="#0072B2" primers={primers} />);
+    const first = screen.getByRole('button', { name: /vec_fwd/ });
+    expect(container.querySelector('[data-part="focus"]')).toBeNull();
+    fireEvent.focus(first);
+    expect(container.querySelectorAll('[data-part="focus"]')).toHaveLength(1);
+    fireEvent.blur(first);
+    expect(container.querySelector('[data-part="focus"]')).toBeNull();
   });
 
   it('picks a position (0-based) from a click on the axis', () => {

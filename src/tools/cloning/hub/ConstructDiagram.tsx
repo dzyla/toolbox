@@ -1,5 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 
+let instances = 0;
+
 export interface DiagramPrimer { id: string; label: string; strand: 'fwd' | 'rev'; start: number; length: number; tailLength: number; tailColor: string }
 
 export interface DiagramProps {
@@ -39,14 +41,27 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 export function ConstructDiagram({ title, length, circular, color, region, removed, primers = [], marker, activeId, onActive, onPick, onRegion }: DiagramProps) {
   const surface = useRef<SVGRectElement>(null);
+  const uid = useRef(`d${++instances}`).current;
+  const [focused, setFocused] = useState<string | undefined>();
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   const x = (position: number) => LEFT + (position / length) * (RIGHT - LEFT);
   const interactive = !!(onPick || onRegion);
 
-  const positionAt = (clientX: number): number => {
-    const box = (surface.current?.ownerSVGElement ?? surface.current)?.getBoundingClientRect();
-    if (!box || !box.width) return 0;
-    const unit = ((clientX - box.left) / box.width) * WIDTH;
+  const positionAt = (clientX: number, clientY: number): number => {
+    const svg = surface.current?.ownerSVGElement ?? null;
+    let unit: number | undefined;
+    const matrix = svg?.getScreenCTM?.();
+    if (svg && matrix && typeof svg.createSVGPoint === 'function') {
+      const point = svg.createSVGPoint();
+      point.x = clientX;
+      point.y = clientY;
+      if (typeof point.matrixTransform === 'function' && typeof matrix.inverse === 'function') unit = point.matrixTransform(matrix.inverse()).x;
+    }
+    if (unit === undefined) {
+      const box = (svg ?? surface.current)?.getBoundingClientRect();
+      if (!box || !box.width) return 0;
+      unit = ((clientX - box.left) / box.width) * WIDTH;
+    }
     return Math.max(0, Math.min(length, Math.round(((unit - LEFT) / (RIGHT - LEFT)) * length)));
   };
 
@@ -70,36 +85,39 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
   };
 
   return <div class="w-full">
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={summary} class="h-auto w-full touch-none select-none" style={{ maxHeight: '11rem' }}>
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full touch-none select-none" style={{ maxHeight: '11rem' }}>
       <defs>
-        <pattern id="removed-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <pattern id={`${uid}-removed`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="8" height="8" fill="#fee2e2" />
           <line x1="0" y1="0" x2="0" y2="8" stroke="#b91c1c" stroke-width="2" />
         </pattern>
-        <pattern id="tail-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <pattern id={`${uid}-tail`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="5" stroke="#111827" stroke-width="2" />
         </pattern>
       </defs>
       <rect x={LEFT} y={AXIS - 4} width={RIGHT - LEFT} height="8" rx="2" fill="#d1d5db" />
-      {removed && spansOf(removed.start, removed.length, length).map(([a, b]) => <rect key={`r${a}`} data-part="removed" x={x(a)} y={AXIS - 8} width={Math.max(x(b) - x(a), 2)} height="16" fill="url(#removed-hatch)" stroke="#b91c1c" />)}
+      {removed && spansOf(removed.start, removed.length, length).map(([a, b]) => <rect key={`r${a}`} data-part="removed" x={x(a)} y={AXIS - 8} width={Math.max(x(b) - x(a), 2)} height="16" fill={`url(#${uid}-removed)`} stroke="#b91c1c" />)}
       {region && spansOf(region.start, region.length, length).map(([a, b]) => <rect key={`g${a}`} data-part="region" x={x(a)} y={AXIS - 7} width={Math.max(x(b) - x(a), 2)} height="14" rx="2" fill={color} stroke="#111827" stroke-opacity="0.5" />)}
       {primers.map(primer => {
         const spans = spansOf(primer.start, primer.length, length);
         const forward = primer.strand === 'fwd';
         const active = activeId === primer.id;
         const first = spans[0];
-        const tailWidth = Math.max(primer.tailLength ? 8 : 0, Math.min(90, (primer.tailLength / length) * (RIGHT - LEFT)));
+        const room = first ? (forward ? x(first[0]) : WIDTH - x(spans[spans.length - 1]![1])) - 2 : 0;
+        const tailWidth = Math.max(0, Math.min(room, Math.max(primer.tailLength ? 8 : 0, Math.min(90, (primer.tailLength / length) * (RIGHT - LEFT)))));
         const y = forward ? AXIS - 30 : AXIS + 14;
         const description = `${primer.label}, ${forward ? 'forward' : 'reverse'}, ${fmt(primer.start + 1)}–${fmt(primer.start + primer.length)}, ${primer.tailLength ? `${primer.tailLength} nt tail` : 'no tail'}`;
-        return <g key={primer.id} role="button" tabIndex={0} aria-pressed={active} aria-label={description} class="cursor-pointer focus:outline-none" style={{ outline: 'none' }}
+        return <g key={primer.id} role="button" tabIndex={0} aria-pressed={active} aria-label={description} class="cursor-pointer focus:outline-none"
+          onFocus={() => setFocused(primer.id)} onBlur={() => setFocused(current => (current === primer.id ? undefined : current))}
           onClick={() => onActive?.(active ? undefined : primer.id)}
           onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onActive?.(active ? undefined : primer.id); } }}>
+          {focused === primer.id && first && <rect data-part="focus" x={x(first[0]) - 6} y={y - 6} width={Math.max(x(first[1]) - x(first[0]), 3) + 12 + (forward ? 0 : tailWidth)} height="28" rx="5" fill="none" stroke="#d97706" stroke-width="2.5" />}
           {active && first && <rect x={x(first[0]) - 4} y={y - 4} width={Math.max(x(first[1]) - x(first[0]), 3) + 8 + (forward ? 0 : tailWidth)} height="24" rx="4" fill="none" stroke="#2563eb" stroke-width="2.5" />}
           {spans.map(([a, b], i) => <g key={a}>{arrow(primer, a, b, forward ? i === spans.length - 1 : i === 0)}</g>)}
           {primer.tailLength > 0 && first && (forward
             ? <rect data-part="tail" x={x(first[0]) - tailWidth} y={y} width={tailWidth} height="16" fill={primer.tailColor} stroke="#111827" />
             : <rect data-part="tail" x={x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={primer.tailColor} stroke="#111827" />)}
-          {primer.tailLength > 0 && first && <rect x={forward ? x(first[0]) - tailWidth : x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill="url(#tail-hatch)" fill-opacity="0.35" />}
+          {primer.tailLength > 0 && first && <rect x={forward ? x(first[0]) - tailWidth : x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={`url(#${uid}-tail)`} fill-opacity="0.35" />}
           {first && <text x={x(first[0])} y={forward ? y - 4 : y + 30} font-size="13" font-weight="600" fill="currentColor">{primer.label}</text>}
         </g>;
       })}
@@ -111,10 +129,10 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
       <text x={LEFT} y={AXIS + 62} font-size="12" fill="currentColor">1</text>
       <text x={RIGHT} y={AXIS + 62} font-size="12" text-anchor="end" fill="currentColor">{fmt(length)}{circular ? ' (origin)' : ''}</text>
       {interactive && <rect ref={surface} data-testid="diagram-surface" x={LEFT} y={AXIS - 12} width={RIGHT - LEFT} height="24" fill="transparent" class="cursor-crosshair"
-        onPointerDown={event => { (event.currentTarget as Element).setPointerCapture?.(event.pointerId); const at = positionAt(event.clientX); setDrag({ from: at, to: at }); }}
-        onPointerMove={event => setDrag(current => current ? { ...current, to: positionAt(event.clientX) } : current)}
+        onPointerDown={event => { (event.currentTarget as Element).setPointerCapture?.(event.pointerId); const at = positionAt(event.clientX, event.clientY); setDrag({ from: at, to: at }); }}
+        onPointerMove={event => setDrag(current => current ? { ...current, to: positionAt(event.clientX, event.clientY) } : current)}
         onPointerUp={event => {
-          const end = positionAt(event.clientX);
+          const end = positionAt(event.clientX, event.clientY);
           const from = drag?.from ?? end;
           setDrag(null);
           if (Math.abs(end - from) * ((RIGHT - LEFT) / length) < 4) onPick?.(end);
