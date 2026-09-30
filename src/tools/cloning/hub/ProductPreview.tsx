@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { moleculeToDocument, type Molecule } from '@/core/cloning/molecule';
 import type { ProductMark } from '@/core/cloning/products';
+import { segmentAnnotations, type SourceSegment } from '@/core/cloning/segments';
 import { findDocumentOrfs, findDocumentRestrictionSites } from '@/core/plasmid/analysis';
 import { exportFasta, exportGenBank } from '@/core/plasmid/export';
 import { navigate } from '@/app/router';
@@ -12,6 +13,7 @@ import { LinearMap } from '@/tools/plasmid/LinearMap';
 import { SequenceView } from '@/tools/plasmid/SequenceView';
 import type { Selection } from '@/tools/plasmid/selection';
 import { BUTTON } from './results';
+import { SourceStrip } from './SourceStrip';
 
 const MARK = 'rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800';
 
@@ -19,10 +21,15 @@ const MARK = 'rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium hove
  * The finished construct: an interactive map (click a feature for its details), the junctions or edit as
  * selectable marks, an optional sequence view, overlays, and hand-off to the plasmid workspace.
  */
-export function ProductPreview({ product, fileName, marks }: { product: Molecule; fileName: string; marks: ProductMark[] }) {
+export function ProductPreview({ product, fileName, marks, segments }: { product: Molecule; fileName: string; marks: ProductMark[]; segments?: SourceSegment[] }) {
   const document = useMemo(() => moleculeToDocument(product, 'cloning-product', 'Designed with the Bio-Bench cloning hub'), [product.sequence, product.annotations, product.name, product.topology]);
   const [selection, setSelection] = useState<Selection | undefined>();
   const [showSequence, setShowSequence] = useState(false);
+  const [showSources, setShowSources] = useState(true);
+  const viewDocument = useMemo(
+    () => segments && segments.length && showSources ? { ...document, annotations: [...document.annotations, ...segmentAnnotations(segments)] } : document,
+    [document, segments, showSources],
+  );
   const [showSites, setShowSites] = useState(false);
   const [showOrfs, setShowOrfs] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,7 +57,7 @@ export function ProductPreview({ product, fileName, marks }: { product: Molecule
   const activeMark = selection && !selection.annotationId ? marks.find(mark => mark.start === selection.start && mark.end === selection.end) : undefined;
   // The map's own overlay checkboxes are the only controls; sites are unique cutters, ORFs 50 aa or longer.
   const mapProps = {
-    document, selection, onSelect: setSelection, orfs, restrictionSites: sites,
+    document: viewDocument, selection, onSelect: setSelection, orfs, restrictionSites: sites,
     showRestrictions: showSites, onShowRestrictionsChange: setShowSites, showOrfs, onShowOrfsChange: setShowOrfs,
     selectionLabel: activeMark ? `${activeMark.label} · ${activeMark.detail}` : undefined,
   };
@@ -58,6 +65,11 @@ export function ProductPreview({ product, fileName, marks }: { product: Molecule
     <p class="text-xs">
       <strong>{product.name}</strong> · {length.toLocaleString()} bp · {product.topology} · {product.annotations.length} features carried from the inputs
     </p>
+
+    {segments && segments.length > 0 && <div class="space-y-1">
+      <SourceStrip length={length} segments={segments} marks={marks} selection={selection} onSelect={setSelection} />
+      <label class="flex items-center gap-2 text-xs"><input type="checkbox" checked={showSources} onChange={event => setShowSources(event.currentTarget.checked)} /> Colour the map and sequence by source</label>
+    </div>}
 
     {product.topology === 'circular'
       ? <CircularMap {...mapProps} />
@@ -80,7 +92,7 @@ export function ProductPreview({ product, fileName, marks }: { product: Molecule
       <button type="button" class={BUTTON} aria-expanded={showSequence} aria-controls={sequenceId} onClick={() => setShowSequence(open => !open)}>
         {showSequence ? 'Hide sequence' : `Show sequence (${length.toLocaleString()} bp)`}
       </button>
-      {showSequence && <div id={sequenceId} class="mt-2"><SequenceView document={document} selection={selection} onSelect={setSelection} /></div>}
+      {showSequence && <div id={sequenceId} class="mt-2"><SequenceView document={viewDocument} selection={selection} onSelect={setSelection} /></div>}
     </div>
 
     <div class="flex flex-wrap items-center gap-2">

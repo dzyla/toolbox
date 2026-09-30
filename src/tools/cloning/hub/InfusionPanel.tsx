@@ -3,6 +3,7 @@ import { designInfusion, type InfusionLinearization } from '@/core/cloning/metho
 import { infusionAmounts } from '@/core/cloning/amounts';
 import { infusionProtocol } from '@/core/cloning/protocols';
 import { infusionMarks, infusionProduct } from '@/core/cloning/products';
+import { infusionSegments } from '@/core/cloning/segments';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { DecimalInput } from '@/app/components/DecimalInput';
 import type { HubSource, InfusionSettings } from './state';
@@ -41,6 +42,12 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
 
   const product = useMemo(() => design && design.product && vector ? infusionProduct(design, vector, inserts, 'In-Fusion construct') : null, [design, vector, inserts]);
   const marks = useMemo(() => design ? infusionMarks(design, inserts) : [], [design, inserts]);
+  const segments = useMemo(() => {
+    if (!design || !vectorSource) return [];
+    const hubIndex = (id: string) => sources.findIndex(source => source.id === id);
+    return infusionSegments(design, { sourceIndex: hubIndex(vectorSource.id), name: vectorSource.document.name },
+      insertSources.map((source, index) => ({ sourceIndex: hubIndex(source.id), name: source.document.name, length: inserts[index]!.sequence.length })));
+  }, [design, vectorSource, insertSources, inserts, sources]);
   const amounts = design && design.product ? infusionAmounts(
     { bp: design.vector.length, ngPerUl: settings.vectorConcentration },
     insertSources.map((source, index) => ({ name: source.document.name, bp: inserts[index]!.sequence.length, ngPerUl: settings.insertConcentration })),
@@ -112,7 +119,7 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
         </div>
         <ProtocolCard protocol={infusionProtocol(amounts, vectorSource?.document.name ?? 'Vector')} />
       </Section>}
-      {product && <Section id="if-product" title="Assembled product"><ProductPreview product={product} fileName="in-fusion-construct" marks={marks} /></Section>}
+      {product && <Section id="if-product" title="Assembled product"><ProductPreview product={product} fileName="in-fusion-construct" marks={marks} segments={segments} /></Section>}
     </>}
   </div>;
 }

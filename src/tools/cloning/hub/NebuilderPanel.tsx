@@ -5,6 +5,7 @@ import { designedPrimers, designToIdt, exportNebuilderProject, fragmentsToFasta,
 import { nebuilderAmounts } from '@/core/cloning/amounts';
 import { nebuilderProtocol } from '@/core/cloning/protocols';
 import { nebuilderMarks, nebuilderProduct } from '@/core/cloning/products';
+import { nebuilderSegments } from '@/core/cloning/segments';
 import { moleculeFromDocument } from '@/core/cloning/molecule';
 import { importPlasmidText } from '@/core/plasmid/import';
 import { downloadText } from '@/lib/export';
@@ -68,6 +69,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
 
   const product = useMemo(() => design && design.product ? nebuilderProduct(design, molecules, 'NEBuilder assembly', settings.circularize) : null, [design, molecules, settings.circularize]);
   const marks = useMemo(() => design ? nebuilderMarks(design) : [], [design]);
+  const segments = useMemo(() => design ? nebuilderSegments(design) : [], [design]);
   const amounts = design && design.product ? nebuilderAmounts(design.templates.map((template, index) => ({
     name: template.name,
     bp: template.sequence.length,
@@ -199,7 +201,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
         </div>
         <ProtocolCard protocol={nebuilderProtocol(amounts)} />
       </Section>}
-      {product && <Section id="nb-product" title="Assembled product"><ProductPreview product={product} fileName="nebuilder-assembly" marks={marks} /></Section>}
+      {product && <Section id="nb-product" title="Assembled product"><ProductPreview product={product} fileName="nebuilder-assembly" marks={marks} segments={segments} /></Section>}
     </>}
   </div>;
 }

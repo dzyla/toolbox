@@ -96,7 +96,8 @@ describe('interactive product preview', () => {
     // The map's own boxes are the only controls, and start unticked here.
     const box = (name: RegExp) => within(preview()).getByRole('checkbox', { name }) as HTMLInputElement;
     expect(box(/^Restriction sites$/).checked).toBe(false);
-    expect(within(preview()).queryAllByRole('checkbox')).toHaveLength(2);
+    // Plus the source-colour toggle, which is not an overlay.
+    expect(within(preview()).queryAllByRole('checkbox').filter(input => !/by source/.test(input.parentElement?.textContent ?? ''))).toHaveLength(2);
     fireEvent.click(box(/^Restriction sites$/));
     expect(sites().length).toBeGreaterThan(0);
     fireEvent.click(box(/^Predicted ORFs$/));
