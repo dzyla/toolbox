@@ -47,4 +47,17 @@ describe('SourceStrip', () => {
     const { container } = render(<SourceStrip length={0} segments={[]} marks={[]} onSelect={() => {}} />);
     expect(container.textContent).toBe('');
   });
+
+  it('gives each strip its own hatch pattern, and every reference points at it', () => {
+    const { container, rerender } = render(<div><SourceStrip length={1000} segments={segments} marks={marks} onSelect={() => {}} /><SourceStrip length={1000} segments={segments} marks={marks} onSelect={() => {}} /></div>);
+    const patterns = [...container.querySelectorAll('pattern')].map(node => node.id);
+    expect(patterns).toHaveLength(2);
+    expect(new Set(patterns).size).toBe(2);
+    expect(patterns).not.toContain('overlap-hatch');
+    const refs = [...container.querySelectorAll('[fill^="url(#"]')].map(node => /url\(#(.+)\)/.exec(node.getAttribute('fill')!)![1]);
+    expect(refs).toHaveLength(4);
+    expect(new Set(refs)).toEqual(new Set(patterns));
+    rerender(<div><SourceStrip length={1000} segments={segments} marks={marks} onSelect={() => {}} /><SourceStrip length={1000} segments={segments} marks={marks} onSelect={() => {}} /></div>);
+    expect([...container.querySelectorAll('pattern')].map(node => node.id)).toEqual(patterns);
+  });
 });

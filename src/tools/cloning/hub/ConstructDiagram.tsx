@@ -1,6 +1,8 @@
 import { useRef, useState } from 'preact/hooks';
 
+/** Advances once per mounted diagram (a lazy state initialiser), never on a re-render. */
 let instances = 0;
+export const nextInstanceId = (prefix: string) => `${prefix}${++instances}`;
 
 export interface DiagramPrimer { id: string; label: string; strand: 'fwd' | 'rev'; start: number; length: number; tailLength: number; tailColor: string }
 
@@ -43,7 +45,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 export function ConstructDiagram({ title, length, circular, color, region, removed, primers = [], marker, activeId, onActive, onPick, onRegion }: DiagramProps) {
   const surface = useRef<SVGRectElement>(null);
-  const uid = useRef(`d${++instances}`).current;
+  const [uid] = useState(() => nextInstanceId('d'));
   const [focused, setFocused] = useState<string | undefined>();
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   const down = useRef<{ clientX: number; touch: boolean } | null>(null);
@@ -53,14 +55,16 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
   const positionAt = (clientX: number, clientY: number): number => {
     const svg = surface.current?.ownerSVGElement ?? null;
     let unit: number | undefined;
-    const matrix = svg?.getScreenCTM?.();
-    if (svg && matrix && typeof svg.createSVGPoint === 'function') {
-      const point = svg.createSVGPoint();
-      point.x = clientX;
-      point.y = clientY;
-      if (typeof point.matrixTransform === 'function' && typeof matrix.inverse === 'function') unit = point.matrixTransform(matrix.inverse()).x;
-    }
-    if (unit === undefined) {
+    try {
+      const matrix = svg?.getScreenCTM?.();
+      if (svg && matrix && typeof svg.createSVGPoint === 'function') {
+        const point = svg.createSVGPoint();
+        point.x = clientX;
+        point.y = clientY;
+        if (typeof point.matrixTransform === 'function' && typeof matrix.inverse === 'function') unit = point.matrixTransform(matrix.inverse()).x; // inverse() throws for a singular matrix
+      }
+    } catch { unit = undefined; }
+    if (unit === undefined || !Number.isFinite(unit)) {
       const box = (svg ?? surface.current)?.getBoundingClientRect();
       if (!box || !box.width) return 0;
       unit = ((clientX - box.left) / box.width) * WIDTH;
@@ -84,19 +88,30 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
     const points = forward
       ? `${a},${y} ${b - (head ? tip : 0)},${y} ${b},${y + 8} ${b - (head ? tip : 0)},${y + 16} ${a},${y + 16}`
       : `${b},${y} ${a + (head ? tip : 0)},${y} ${a},${y + 8} ${a + (head ? tip : 0)},${y + 16} ${b},${y + 16}`;
-    return <polygon points={points} fill="#111827" stroke="#ffffff" stroke-width="1" />;
+    return <polygon points={points} fill="currentColor" class="stroke-white dark:stroke-slate-900" stroke-width="1.5" />;
+  };
+
+  /** A ring round every stretch of the primer, with the tail joined to the stretch it hangs from (left of the first for a forward primer, right of the last for a reverse one). */
+  const ring = (primer: DiagramPrimer, spans: Array<[number, number]>, tailWidth: number, pad: number, part: string, height: number, stroke: string) => {
+    const forward = primer.strand === 'fwd';
+    const top = (forward ? AXIS - 30 : AXIS + 14) - pad;
+    return spans.map(([a, b], i) => {
+      const left = x(a) - pad - (forward && i === 0 ? tailWidth : 0);
+      const right = Math.max(x(b), x(a) + 3) + pad + (!forward && i === spans.length - 1 ? tailWidth : 0);
+      return <rect key={`${part}${a}`} data-part={part} x={left} y={top} width={right - left} height={height} rx="5" fill="none" stroke={stroke} stroke-width="2.5" />;
+    });
   };
 
   return <div class="w-full min-w-0">
     {/* Labels are drawn in viewBox units, so the map keeps a minimum width (about 10 px text) and scrolls sideways inside its own box on a phone. */}
-    <div class="max-w-3xl overflow-x-auto"><svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full min-w-[36rem] select-none">
+    <div class="max-w-3xl overflow-x-auto"><svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full min-w-[36rem] select-none text-slate-900 dark:text-slate-100">
       <defs>
         <pattern id={`${uid}-removed`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="8" height="8" fill="#fee2e2" />
           <line x1="0" y1="0" x2="0" y2="8" stroke="#b91c1c" stroke-width="2" />
         </pattern>
         <pattern id={`${uid}-tail`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="5" stroke="#111827" stroke-width="2" />
+          <line x1="0" y1="0" x2="0" y2="5" stroke="currentColor" stroke-width="2" />
         </pattern>
       </defs>
       <rect x={LEFT} y={AXIS - 4} width={RIGHT - LEFT} height="8" rx="2" fill="#d1d5db" />
@@ -115,12 +130,12 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
           onFocus={() => setFocused(primer.id)} onBlur={() => setFocused(current => (current === primer.id ? undefined : current))}
           onClick={() => onActive?.(active ? undefined : primer.id)}
           onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onActive?.(active ? undefined : primer.id); } }}>
-          {focused === primer.id && first && <rect data-part="focus" x={x(first[0]) - 6} y={y - 6} width={Math.max(x(first[1]) - x(first[0]), 3) + 12 + (forward ? 0 : tailWidth)} height="28" rx="5" fill="none" stroke="#d97706" stroke-width="2.5" />}
-          {active && first && <rect x={x(first[0]) - 4} y={y - 4} width={Math.max(x(first[1]) - x(first[0]), 3) + 8 + (forward ? 0 : tailWidth)} height="24" rx="4" fill="none" stroke="#2563eb" stroke-width="2.5" />}
+          {focused === primer.id && ring(primer, spans, tailWidth, 6, 'focus', 28, '#d97706')}
+          {active && ring(primer, spans, tailWidth, 4, 'active', 24, '#2563eb')}
           {spans.map(([a, b], i) => <g key={a}>{arrow(primer, a, b, forward ? i === spans.length - 1 : i === 0)}</g>)}
           {primer.tailLength > 0 && first && (forward
-            ? <rect data-part="tail" x={x(first[0]) - tailWidth} y={y} width={tailWidth} height="16" fill={primer.tailColor} stroke="#111827" />
-            : <rect data-part="tail" x={x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={primer.tailColor} stroke="#111827" />)}
+            ? <rect data-part="tail" x={x(first[0]) - tailWidth} y={y} width={tailWidth} height="16" fill={primer.tailColor} class="stroke-slate-900 dark:stroke-slate-100" />
+            : <rect data-part="tail" x={x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={primer.tailColor} class="stroke-slate-900 dark:stroke-slate-100" />)}
           {primer.tailLength > 0 && first && <rect x={forward ? x(first[0]) - tailWidth : x(spans[spans.length - 1]![1])} y={y} width={tailWidth} height="16" fill={`url(#${uid}-tail)`} fill-opacity="0.35" />}
           {first && (x(first[0]) > RIGHT - 170
             ? <text x={x(spans[spans.length - 1]![1])} y={forward ? y - 6 : y + 34} text-anchor="end" font-size="18" font-weight="600" fill="currentColor">{primer.label}</text>

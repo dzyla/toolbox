@@ -52,7 +52,11 @@ async function copyText(text: string, flash: (message: string) => void, done: st
   try { await navigator.clipboard.writeText(text); flash(done); } catch { flash('Copy failed: select the text manually'); }
 }
 
-export function PrimerTable({ primers, fileName, caption, activeName, onActiveName }: { primers: DesignedPrimer[]; fileName: string; caption: string; activeName?: string; onActiveName?: (name: string | undefined) => void }) {
+/**
+ * `rowKeys` (one per primer, from `primerRowKeys`) ties each row to its drawn primer; the row whose key is `activeKey` is highlighted.
+ * Without a selection handler the table is plain; with one, the name is a button that toggles the row.
+ */
+export function PrimerTable({ primers, fileName, caption, rowKeys, activeKey, onActiveKey }: { primers: DesignedPrimer[]; fileName: string; caption: string; rowKeys?: string[]; activeKey?: string; onActiveKey?: (key: string | undefined) => void }) {
   const { message, flash } = useFlash();
   if (!primers.length) return null;
   return <div class="space-y-2">
@@ -67,8 +71,13 @@ export function PrimerTable({ primers, fileName, caption, activeName, onActiveNa
           <th scope="col" class="py-1 pr-3 text-right">GC %</th>
           <th scope="col" class="py-1">Notes</th>
         </tr></thead>
-        <tbody>{primers.map(primer => <tr key={primer.name} id={primerRowId(primer.name)} class={`border-t border-slate-200 align-top dark:border-slate-700 ${onActiveName ? 'cursor-pointer' : ''} ${activeName === primer.name ? 'bg-accent-50 dark:bg-slate-800' : ''}`} aria-current={activeName === primer.name ? 'true' : undefined} onClick={onActiveName ? () => onActiveName(primer.name === activeName ? undefined : primer.name) : undefined}>
-          <th scope="row" class="py-1.5 pr-3 font-semibold">{activeName === primer.name ? '▸ ' : ''}{primer.name}</th>
+        <tbody>{primers.map((primer, row) => {
+          const key = rowKeys?.[row] ?? `row${row}:${primer.name}`;
+          const active = activeKey === key;
+          return <tr key={key} id={primerRowId(key)} class={`border-t border-slate-200 align-top dark:border-slate-700 ${onActiveKey ? 'cursor-pointer' : ''} ${active ? 'bg-accent-50 dark:bg-slate-800' : ''}`} aria-current={active ? 'true' : undefined} onClick={onActiveKey ? () => onActiveKey(active ? undefined : key) : undefined}>
+          <th scope="row" class="py-1.5 pr-3 font-semibold">{onActiveKey
+            ? <button type="button" aria-pressed={active} class="rounded text-left font-semibold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600" onClick={event => { event.stopPropagation(); onActiveKey(active ? undefined : key); }}>{active ? '▸ ' : ''}{primer.name}</button>
+            : <>{active ? '▸ ' : ''}{primer.name}</>}</th>
           <td class="py-1.5 pr-3 font-mono break-all">
             {primer.tail && <span class="text-slate-500 dark:text-slate-400" title="5′ tail (homology, site or edit)">{primer.tail.toLowerCase()}</span>}
             <span class="font-semibold">{primer.anneal.toUpperCase()}</span>
@@ -77,7 +86,8 @@ export function PrimerTable({ primers, fileName, caption, activeName, onActiveNa
           <td class="py-1.5 pr-3 text-right tabular-nums" title="Tm of the annealing part">{primer.annealTmC.toFixed(1)}</td>
           <td class="py-1.5 pr-3 text-right tabular-nums">{primer.gcPercent.toFixed(0)}</td>
           <td class="py-1.5 text-slate-600 dark:text-slate-400">{primer.notes.join('; ')}</td>
-        </tr>)}</tbody>
+        </tr>;
+        })}</tbody>
       </table>
     </div>
     <p class="text-xs text-slate-600 dark:text-slate-400">Lower case is the 5′ tail; upper case anneals to the template. Tm is for the annealing part.</p>

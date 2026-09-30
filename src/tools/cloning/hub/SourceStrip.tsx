@@ -1,6 +1,8 @@
+import { useState } from 'preact/hooks';
 import type { ProductMark } from '@/core/cloning/products';
 import type { SourceSegment } from '@/core/cloning/segments';
 import { readableOn, sourceColor } from '@/core/cloning/source-colors';
+import { nextInstanceId } from './ConstructDiagram';
 import type { Selection } from '@/tools/plasmid/selection';
 
 const WIDTH = 1000;
@@ -18,6 +20,7 @@ const range = (segment: { start: number; end: number }) => `${(segment.start + 1
 
 /** A proportional bar of the product, one coloured block per source, with a numbered legend underneath. */
 export function SourceStrip({ length, segments, marks, selection, onSelect }: Props) {
+  const [hatch] = useState(() => `${nextInstanceId('hatch')}-overlap`);
   if (!length || !segments.length) return null;
   const x = (position: number) => (position / length) * WIDTH;
   const sources = segments.filter(segment => segment.sourceIndex >= 0);
@@ -26,7 +29,7 @@ export function SourceStrip({ length, segments, marks, selection, onSelect }: Pr
   return <div class="space-y-2">
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={summary} class="h-10 w-full">
       <defs>
-        <pattern id="overlap-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <pattern id={hatch} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="6" height="6" fill="#ffffff" fill-opacity="0.35" />
           <line x1="0" y1="0" x2="0" y2="6" stroke="#111827" stroke-width="2" />
         </pattern>
@@ -39,7 +42,7 @@ export function SourceStrip({ length, segments, marks, selection, onSelect }: Pr
           {segment.sourceIndex >= 0 && width > 34 && <text x={x(segment.start) + width / 2} y={24} text-anchor="middle" font-size="14" font-weight="600" fill={readableOn(color)}>{segment.sourceIndex + 1}</text>}
         </g>;
       })}
-      {marks.filter(mark => mark.kind === 'junction').map(mark => <rect key={`${mark.label}-${mark.start}`} data-kind="overlap" x={x(mark.start)} y={2} width={Math.max(x(mark.end) - x(mark.start), 2)} height={36} fill="url(#overlap-hatch)" stroke="#111827" stroke-width="1.5"><title>{`${mark.label} · ${mark.detail}`}</title></rect>)}
+      {marks.filter(mark => mark.kind === 'junction').map(mark => <rect key={`${mark.label}-${mark.start}`} data-kind="overlap" x={x(mark.start)} y={2} width={Math.max(x(mark.end) - x(mark.start), 2)} height={36} fill={`url(#${hatch})`} stroke="#111827" stroke-width="1.5"><title>{`${mark.label} · ${mark.detail}`}</title></rect>)}
     </svg>
     <ul aria-label="Sources in the construct" class="flex flex-wrap gap-2">
       {sources.map(segment => {
@@ -54,6 +57,6 @@ export function SourceStrip({ length, segments, marks, selection, onSelect }: Pr
         </li>;
       })}
     </ul>
-    <p class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"><svg aria-hidden="true" width="16" height="12"><rect width="16" height="12" fill="url(#overlap-hatch)" stroke="#111827" /></svg> shared homology at a junction</p>
+    <p class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"><svg aria-hidden="true" width="16" height="12"><rect width="16" height="12" fill={`url(#${hatch})`} stroke="#111827" /></svg> shared homology at a junction</p>
   </div>;
 }

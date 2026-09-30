@@ -17,7 +17,7 @@ import type { FragmentOption, HubSource, NebuilderSettings } from './state';
 import { orderEnzymes, singleCutters, suggestPair } from './enzymes';
 import { BUTTON, FIELD, FindingsList, Labeled, PrimerTable, ProtocolCard, Section } from './results';
 import { ProductPreview } from './ProductPreview';
-import { PrimerMap } from './PrimerMap';
+import { PrimerMap, primerRowKeys } from './PrimerMap';
 
 interface Props {
   sources: HubSource[];
@@ -35,16 +35,20 @@ function defaultOption(source: HubSource): FragmentOption {
 
 const OPEN_DEFAULTS = { caret: 1, start: 1, end: 2 };
 
-function toOpenSite(chosen: FragmentOption): OpenSite | undefined {
+function toOpenSite(chosen: FragmentOption, length: number): OpenSite | undefined {
   const open = chosen.open;
   if (!open || open.mode === 'whole') return undefined;
   if (open.mode === 'caret') return { caret: Math.round(open.caret) - 1 };
-  return { start: Math.round(open.start) - 1, end: Math.round(open.end) };
+  const start = Math.round(open.start) - 1;
+  const end = Math.round(open.end);
+  // "from base 5 to base 4" wraps all the way round: the whole circle, which the design reports as such (start = end would read as empty).
+  if (start === end) return { start: 0, end: length };
+  return { start, end };
 }
 
 export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources }: Props) {
   const [importError, setImportError] = useState('');
-  const [activeName, setActiveName] = useState<string | undefined>();
+  const [activeKey, setActiveKey] = useState<string | undefined>();
   const molecules = useMemo(() => sources.map(source => moleculeFromDocument(source.document)), [sources]);
   const cutters = useMemo(() => molecules.map(molecule => molecule.topology === 'circular' ? singleCutters(molecule) : []), [molecules]);
   const option = (source: HubSource): FragmentOption => settings.fragments[source.id] ?? defaultOption(source);
@@ -63,7 +67,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
       isVectorBackbone: source.role === 'vector',
       leftEnzyme: digest ? left : undefined,
       rightEnzyme: digest ? right : undefined,
-      open: digest ? undefined : toOpenSite(chosen),
+      open: digest ? undefined : toOpenSite(chosen, molecule.sequence.length),
     };
   });
   const junctionOptions = fragments.map((_, index) => {
@@ -199,7 +203,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
             const chosen = option(source);
             const circularPcr = piece.kind === 'pcr' && piece.topology === 'circular';
             const open = { ...OPEN_DEFAULTS, ...chosen.open };
-            return <PrimerMap key={source.id} piece={piece} activeId={activeName} onActive={setActiveName}
+            return <PrimerMap key={source.id} piece={piece} activeId={activeKey} onActive={setActiveKey}
               onPick={circularPcr ? position => setOption(source, { open: { ...open, mode: 'caret', caret: Math.min(piece.length, position + 1) } }) : undefined}
               onRegion={circularPcr ? (start, end) => setOption(source, { open: { ...open, mode: 'region', start: start + 1, end } }) : undefined}
               marker={circularPcr && chosen.open?.mode === 'caret' ? { position: chosen.open.caret - 1, label: `Open before ${chosen.open.caret}` } : undefined} />;
@@ -207,7 +211,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
         </div>
       </Section>}
       {design.primers.length > 0 && <Section id="nb-primers" title="Primers" aside={`${design.primers.length} oligos`}>
-        <PrimerTable primers={designedPrimers(design)} fileName="nebuilder" caption="NEBuilder primers" activeName={activeName} onActiveName={setActiveName} />
+        <PrimerTable primers={designedPrimers(design)} fileName="nebuilder" caption="NEBuilder primers" rowKeys={primerRowKeys(designedPrimers(design).map(primer => primer.name), pieces)} activeKey={activeKey} onActiveKey={setActiveKey} />
         <div class="flex flex-wrap gap-2">
           <button type="button" class={BUTTON} onClick={() => downloadText(designToIdt(design), 'nebuilder-idt.txt')}>Download IDT (NEBuilder-compatible)</button>
           <button type="button" class={BUTTON} onClick={() => downloadText(fragmentsToFasta(design.templates), 'nebuilder-fragments.fasta')}>Download fragments FASTA</button>
@@ -236,7 +240,8 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
                   {([['All on the left primer', 0], ['Half and half', 50], ['All on the right primer', 100]] as const).map(([label, value]) =>
                     <button key={label} type="button" class={BUTTON} onClick={() => patch({ share: value })}>{label}</button>)}
                 </div>
-                <input type="range" min={0} max={100} step={1} value={entry.share ?? 50} aria-label={`Share of the overlap on the right primer for ${junction.upstream} to ${junction.downstream}`} onInput={event => patch({ share: Number(event.currentTarget.value) })} />
+                <input type="range" min={0} max={100} step={1} value={entry.share ?? 50} aria-label={`Share of the overlap on the right primer for ${junction.upstream} to ${junction.downstream}`}
+                  aria-valuetext={`${entry.share ?? 50}% on the right primer — ${junction.downstreamTail.length} nt on ${junction.upstream}_rev, ${junction.upstreamTail.length} nt on ${junction.downstream}_fwd`} onInput={event => patch({ share: Number(event.currentTarget.value) })} />
                 <p data-testid="share-summary" class="text-xs">{junction.downstreamTail.length} nt on {junction.upstream}_rev · {junction.upstreamTail.length} nt on {junction.downstream}_fwd</p>
               </div>}
               </td>
