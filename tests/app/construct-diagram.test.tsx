@@ -79,6 +79,40 @@ describe('ConstructDiagram', () => {
     expect(end).toBeLessThan(850);
   });
 
+  it('treats a small finger-sized movement as a pick and a long one as a region, measured in screen pixels', () => {
+    stubWidth(1000);
+    const onPick = vi.fn();
+    const onRegion = vi.fn();
+    render(<ConstructDiagram title="t" length={100000} color="#0072B2" onPick={onPick} onRegion={onRegion} />);
+    const surface = screen.getByTestId('diagram-surface');
+    fireEvent.pointerDown(surface, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerUp(surface, { clientX: 503, pointerId: 1 });
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onRegion).not.toHaveBeenCalled();
+    fireEvent.pointerDown(surface, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerUp(surface, { clientX: 530, pointerId: 1 });
+    expect(onRegion).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start a drag from a touch, but a touch tap still picks', () => {
+    stubWidth(1000);
+    const onPick = vi.fn();
+    const onRegion = vi.fn();
+    render(<ConstructDiagram title="t" length={1000} color="#0072B2" onPick={onPick} onRegion={onRegion} />);
+    const surface = screen.getByTestId('diagram-surface');
+    fireEvent.pointerDown(surface, { clientX: 500, pointerId: 1, pointerType: 'touch' });
+    fireEvent.pointerUp(surface, { clientX: 700, pointerId: 1, pointerType: 'touch' });
+    expect(onRegion).not.toHaveBeenCalled();
+    fireEvent.pointerDown(surface, { clientX: 500, pointerId: 2, pointerType: 'touch' });
+    fireEvent.pointerUp(surface, { clientX: 502, pointerId: 2, pointerType: 'touch' });
+    expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves touch scrolling alone on a map that cannot be picked', () => {
+    const { container } = render(<ConstructDiagram title="t" length={1000} color="#0072B2" />);
+    expect(container.querySelector('svg')!.getAttribute('class')).not.toContain('touch-none');
+  });
+
   it('draws a wrapped region as two bands and shows the removed stretch', () => {
     const { container } = render(<ConstructDiagram title="t" length={1000} color="#0072B2" region={{ start: 900, length: 300 }} removed={{ start: 200, length: 700 }} />);
     expect(container.querySelectorAll('[data-part="region"]')).toHaveLength(2);

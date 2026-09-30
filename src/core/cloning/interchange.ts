@@ -86,6 +86,15 @@ export function parseNebuilderProject(text: string): ImportedNebuilderProject {
   return { name: typeof raw.name === 'string' && raw.name ? raw.name : 'NEBuilder project', settings, fragments, warnings };
 }
 
+/** The fragments as NEBuilder should see them: a circle we opened (PCR with an opening) becomes the opened linear piece, which is exactly equivalent there. */
+export function openedFragments(fragments: NebuilderFragment[], design: NebuilderDesign): NebuilderFragment[] {
+  return fragments.map((fragment, index) => {
+    const template = design.templates[index];
+    if (!fragment.open || fragment.kind !== 'pcr' || fragment.topology !== 'circular' || !template) return fragment;
+    return { ...fragment, sequence: template.sequence, topology: 'linear', open: undefined };
+  });
+}
+
 /** Project JSON in NEBuilder's shape, without NEBuilder's signature. */
 export function exportNebuilderProject(name: string, fragments: NebuilderFragment[], settings: NebuilderSettings): string {
   const polymerase = findPolymerase(settings.polymeraseId) ?? NEB_POLYMERASES[0]!;

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { designNebuilder, type NebuilderFragment, type OpenSite, type OverlapMode } from '@/core/cloning/methods/nebuilder';
 import { NEB_POLYMERASES, findPolymerase } from '@/core/cloning/methods/neb-polymerases';
-import { designedPrimers, designToIdt, exportNebuilderProject, fragmentsToFasta, parseNebuilderProject } from '@/core/cloning/interchange';
+import { designedPrimers, designToIdt, exportNebuilderProject, openedFragments, fragmentsToFasta, parseNebuilderProject } from '@/core/cloning/interchange';
 import { nebuilderAmounts } from '@/core/cloning/amounts';
 import { nebuilderProtocol } from '@/core/cloning/protocols';
 import { nebuilderMarks, nebuilderProduct } from '@/core/cloning/products';
@@ -200,7 +200,7 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
             const circularPcr = piece.kind === 'pcr' && piece.topology === 'circular';
             const open = { ...OPEN_DEFAULTS, ...chosen.open };
             return <PrimerMap key={source.id} piece={piece} activeId={activeName} onActive={setActiveName}
-              onPick={circularPcr ? position => setOption(source, { open: { ...open, mode: 'caret', caret: position + 1 } }) : undefined}
+              onPick={circularPcr ? position => setOption(source, { open: { ...open, mode: 'caret', caret: Math.min(piece.length, position + 1) } }) : undefined}
               onRegion={circularPcr ? (start, end) => setOption(source, { open: { ...open, mode: 'region', start: start + 1, end } }) : undefined}
               marker={circularPcr && chosen.open?.mode === 'caret' ? { position: chosen.open.caret - 1, label: `Open before ${chosen.open.caret}` } : undefined} />;
           })}
@@ -211,11 +211,11 @@ export function NebuilderPanel({ sources, settings, onSettings, onReplaceSources
         <div class="flex flex-wrap gap-2">
           <button type="button" class={BUTTON} onClick={() => downloadText(designToIdt(design), 'nebuilder-idt.txt')}>Download IDT (NEBuilder-compatible)</button>
           <button type="button" class={BUTTON} onClick={() => downloadText(fragmentsToFasta(design.templates), 'nebuilder-fragments.fasta')}>Download fragments FASTA</button>
-          <button type="button" class={BUTTON} onClick={() => downloadText(exportNebuilderProject('Bio-Bench assembly', fragments, {
+          <button type="button" class={BUTTON} onClick={() => downloadText(exportNebuilderProject('Bio-Bench assembly', openedFragments(fragments, design), {
             polymeraseId: settings.polymeraseId, minOverlap: settings.minOverlap, minPrimerLength: settings.minPrimerLength, maxTmDifference: settings.maxTmDifference, circularize: settings.circularize,
           }), 'nebuilder-project.json', 'application/json')}>Download project (unsigned)</button>
         </div>
-        <p class="text-xs text-slate-600 dark:text-slate-400">NEBuilder signs its own project files, so it may refuse this one; to continue in NEBuilder, load the fragments FASTA and use the same settings.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">NEBuilder signs its own project files, so it may refuse this one; to continue in NEBuilder, load the fragments FASTA and use the same settings. An opened circle is written as its opened linear piece; custom overlap splits are not exported (NEBuilder has no equivalent).</p>
       </Section>}
       {design.junctions.length > 0 && design.primers.length > 0 && <Section id="nb-junctions" title="Junctions" aside="Where the homology sits, and optional spacers">
         <p class="text-xs text-slate-600 dark:text-slate-400">Drag the slider to decide how much of each overlap sits on the left (upstream) or right (downstream) primer. Half and half is NEB’s usual choice.</p>

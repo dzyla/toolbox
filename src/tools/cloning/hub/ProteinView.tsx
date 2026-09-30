@@ -4,19 +4,22 @@ import { mutationAlignment, proteinLines, translateFrom } from '@/core/cloning/m
 const MONO = 'font-mono text-xs leading-6';
 
 /** The translated reading frame, ten residues to a block, numbered at both ends of every line, mutated residues marked. */
-export function NumberedProtein({ protein, marks }: { protein: string; marks: Map<number, string> }) {
+export function NumberedProtein({ protein, marks, total }: { protein: string; marks: Map<number, string>; total?: number }) {
+  const shown = protein.replace(/\*/g, '').length;
+  const truncated = total !== undefined && total > shown;
   return <section aria-label="Protein sequence with residue numbers" class="space-y-1 overflow-x-auto rounded-xl border border-slate-200 p-3 dark:border-slate-700">
     {proteinLines(protein).map(line => <div key={line.start} class={`${MONO} flex items-baseline gap-3 whitespace-nowrap`}>
       <span class="w-10 shrink-0 text-right text-slate-600 dark:text-slate-400">{line.start}</span>
       <span class="flex gap-2">{line.blocks.map((block, blockIndex) => <span key={blockIndex}>{[...block].map((residue, i) => {
         const number = line.start + blockIndex * 10 + i;
-        const change = marks.get(number);
+        const change = truncated && number > shown ? undefined : marks.get(number);
         return change
           ? <mark key={i} title={`${change} (residue ${number})`} class="rounded-sm bg-amber-200 px-px font-bold text-amber-950 dark:bg-amber-700 dark:text-amber-50">{residue}</mark>
           : <span key={i}>{residue}</span>;
       })}</span>)}</span>
       <span class="w-10 shrink-0 text-slate-600 dark:text-slate-400">{line.end}</span>
     </div>)}
+    {truncated && <p class="text-xs text-slate-600 dark:text-slate-400">Showing the first {shown.toLocaleString('en-US')} of {total!.toLocaleString('en-US')} residues. Mutations beyond that are designed but not marked here.</p>}
   </section>;
 }
 
@@ -37,16 +40,15 @@ export function MutationCards({ result, wildDna, orfStart }: { result: AminoAcid
         mutant: mutantDna.slice(codonStart - before, stop),
         codonAt: before,
       });
-      const ruler = (value: string) => value.split('').map(c => c === ' ' ? ' ' : c).join('');
       return <div key={mutation.raw} role="group" aria-label={`${mutation.raw}: wild type vs mutant`} class="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
         <p class="text-xs"><strong>{mutation.raw}</strong> · Residue {view.position}: {view.from} → {view.to} · codon <span class="font-mono">{view.wildCodon}</span> → <span class="font-mono font-bold">{view.mutantCodon}</span></p>
-        <div aria-label="Protein alignment" role="img" class={`${MONO} whitespace-pre overflow-x-auto`}>
-          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">Wild type</span>{ruler(view.wild)}</div>
-          <div><span class="inline-block w-20" />{ruler(view.midline)}</div>
-          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">Mutant</span>{ruler(view.mutant)}</div>
+        <div aria-label="Protein alignment" role="group" class={`${MONO} whitespace-pre overflow-x-auto`}>
+          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">Wild type</span>{view.wild}</div>
+          <div><span class="inline-block w-20" />{view.midline}</div>
+          <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">Mutant</span>{view.mutant}</div>
           <div class="text-slate-600 dark:text-slate-400"><span class="inline-block w-20" />residues {view.windowStart}–{view.windowStart + view.wild.replace(/-/g, '').length - 1} · {view.matchCount} identical, {view.mismatchCount} changed{view.gapCount ? `, ${view.gapCount} gap` : ''}</div>
         </div>
-        <div aria-label="DNA alignment" role="img" class={`${MONO} whitespace-pre overflow-x-auto`}>
+        <div aria-label="DNA alignment" role="group" class={`${MONO} whitespace-pre overflow-x-auto`}>
           <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">DNA wild</span>{view.dna.wild}</div>
           <div><span class="inline-block w-20" />{view.dna.midline}</div>
           <div><span class="inline-block w-20 text-slate-600 dark:text-slate-400">DNA new</span>{view.dna.mutant}</div>

@@ -19,7 +19,7 @@ and designs can be exported as IDT bulk-order files, fragment FASTA and GenBank.
 
 - **Sources in the product.** Above the product map, a strip shows which stretch of the finished construct came from which input, each numbered and coloured, with the shared homology at every junction hatched. A legend under it lists the sources with their range and length; choosing one selects that range. The circular map and the sequence view can be coloured by source with one checkbox. Colour is never the only cue: every source has a number, and the homology is hatched. The source regions are for viewing only and are not written into the GenBank file.
 - **Primer maps.** For each PCR product (and each vector piece cut out by digestion), a map shows the amplified region, both primers as arrows, and each primer's tail hatched in the colour of the neighbour it overlaps. A circular source is drawn unrolled as a line with the origin marked. Choosing a primer highlights its row in the primer table and the reverse. Primers are keyboard operable (Tab, then Enter or Space).
-- **Click to place.** On a circular vector made by PCR, click the primer map to open it at that base, or drag to replace a region. The numeric inputs beside it do the same and are the keyboard route.
+- **Click to place.** On a circular vector made by PCR, click the primer map to open it at that base, or drag to replace a region (with a finger, tap to place; drag-to-select is for a mouse). The numeric inputs beside it do the same and are the keyboard route.
 - **Numbered protein and alignment.** An amino-acid change shows the translated reading frame in blocks of ten with residue numbers at both ends of each line and the changed residues marked, then one card per mutation with the codon change and a wild-type versus mutant alignment (protein and the DNA around the codon). A new stop shows as a gap.
 - **Edit view.** For insert, replace and delete, the plasmid is shown before and after: removed bases are struck out, added bases are underlined, with the change in length and a line graphic of the edit site and both primers.
 
@@ -59,7 +59,8 @@ bench. Sequence-verify every clone.
 - **NEBuilder options not built yet:** custom primers, synthetic fragments, restriction-site
   regeneration options, and spacers on a split PCR–PCR junction (blocked with a message, not guessed).
 - **NEBuilder project files** are signed by NEBuilder, so a project we export may be refused by it.
-  Use the fragment FASTA and IDT exports to continue in NEBuilder.
+  Use the fragment FASTA and IDT exports to continue in NEBuilder. An opened circular fragment is
+  written as its opened linear piece; custom overlap splits are not exported.
 - Methylation sensitivity and star activity of enzymes are not modelled, and NEBcloner-style buffer
   advice is not included.
 

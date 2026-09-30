@@ -89,6 +89,14 @@ It draws a line or a ring, the segments as colored bands, each primer as an arro
 - **The pair Tm-difference warning was dropped.** A homology tail does not change the annealing Tm, so a split can never change the difference between a primer pair. It is replaced by a warning for any primer longer than 60 nt (the case a lopsided split can actually cause).
 - **Hover shows the source name and range, not source-relative bases.** The legend and the view-only source annotation carry the name and the range in the product (for example "2 · gene, 2,687-3,286"). A per-base "base a of the source" readout was not built.
 - **Click places the opening at one base; drag selects a region.** On a circular PCR source a plain click sets "open before base"; a drag switches to "replace a region". The numeric inputs are the keyboard path.
+- **The DNA alignment in each mutation card shows the codon plus 3 bases either side**, not the whole primer region.
+- **The before/after edit view carries a base-range caption** rather than per-row numbering.
+- **The edit graphic always draws the plasmid as a circle**, an unrolled line, even for a linear plasmid.
+- **The In-Fusion homology split has a slider but no presets** (NEBuilder junctions have presets).
+- **Invalid-position messages appear in the findings list**, not next to the input.
+- **Touch:** a finger tap on a map picks a position; drag-to-select is for mouse and pen only, so a swipe scrolls the page. A click counts as a drag after 6 screen pixels of movement.
+- **NEBuilder project export writes an opened circle as its opened linear piece**; custom overlap splits are not exported.
+- **The numbered protein shows at most 1,200 residues**, with a note when the frame is longer.
 
 ## Open decisions
 

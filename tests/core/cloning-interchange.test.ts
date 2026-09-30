@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { designNebuilder } from '@/core/cloning/methods/nebuilder';
-import { designToIdt, exportNebuilderProject, fragmentsToFasta, parseNebuilderProject } from '@/core/cloning/interchange';
+import { randomDna } from './helpers';
+import { designNebuilder, NEBUILDER_DEFAULTS, type NebuilderFragment } from '@/core/cloning/methods/nebuilder';
+import { designToIdt, exportNebuilderProject, openedFragments, fragmentsToFasta, parseNebuilderProject } from '@/core/cloning/interchange';
 import spacerProject from '../fixtures/vendor/nebuilder/projects/linear-spacer.json';
 import phusionProject from '../fixtures/vendor/nebuilder/projects/three-fragment-phusion.json';
 
@@ -34,6 +35,24 @@ describe('NEBuilder project interchange', () => {
     const again = parseNebuilderProject(text);
     expect(again.fragments.map(fragment => fragment.sequence)).toEqual(project.fragments.map(fragment => fragment.sequence));
     expect(again.settings.polymeraseId).toBe(project.settings.polymeraseId);
+  });
+
+  it('exports an opened circular fragment as the opened linear template, so it re-imports as the same assembly', () => {
+    const fragments: NebuilderFragment[] = [
+      { name: 'vec', sequence: randomDna(3000, 61), topology: 'circular', kind: 'pcr', isVectorBackbone: true, open: { start: 1000, end: 1200 } },
+      { name: 'gene', sequence: randomDna(500, 62), topology: 'linear', kind: 'pcr' },
+    ];
+    const settings = { ...NEBUILDER_DEFAULTS };
+    const design = designNebuilder(fragments, settings);
+    expect(design.product).toBeTruthy();
+    const text = exportNebuilderProject('opened', openedFragments(fragments, design), settings);
+    const again = parseNebuilderProject(text);
+    expect(again.fragments[0]).toMatchObject({ topology: 'linear', kind: 'pcr' });
+    expect(again.fragments[0]!.open).toBeUndefined();
+    expect(again.fragments[0]!.sequence).toBe(design.templates[0]!.sequence);
+    const redo = designNebuilder(again.fragments, again.settings);
+    expect(redo.product).toBe(design.product);
+    expect(redo.primers.map(primer => primer.overlap + primer.spacer + primer.anneal)).toEqual(design.primers.map(primer => primer.overlap + primer.spacer + primer.anneal));
   });
 
   it('writes IDT bulk and fragment FASTA files', () => {

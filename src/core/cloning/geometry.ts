@@ -57,7 +57,7 @@ export function nebuilderGeometry(design: NebuilderDesign, fragments: NebuilderF
 
 export function infusionGeometry(
   design: InfusionDesign,
-  vector: { sourceIndex: number; name: string; length: number },
+  vector: { sourceIndex: number; name: string; length: number; topology?: 'circular' | 'linear' },
   inserts: Array<{ sourceIndex: number; name: string; length: number }>,
 ): PieceGeometry[] {
   if (!design.product) return [];
@@ -65,10 +65,10 @@ export function infusionGeometry(
   const tail = (primer: { extension: string; site: string }) => primer.extension.length + primer.site.length;
   const vectorPrimers = design.primers.filter(primer => primer.role === 'vector');
   const vectorPiece: PieceGeometry = {
-    sourceIndex: vector.sourceIndex, name: vector.name, length: n, topology: 'circular', kind: vectorPrimers.length ? 'pcr' : 'digest',
+    sourceIndex: vector.sourceIndex, name: vector.name, length: n, topology: vector.topology ?? 'circular', kind: vectorPrimers.length ? 'pcr' : 'digest',
     region: { start: design.vectorStart, length: design.vector.length }, primers: [],
   };
-  if (design.vector.length < n) vectorPiece.removed = { start: mod(design.vectorStart + design.vector.length, n), length: n - design.vector.length };
+  if (vectorPiece.topology === 'circular' && design.vector.length < n) vectorPiece.removed = { start: mod(design.vectorStart + design.vector.length, n), length: n - design.vector.length };
   const first = inserts[0];
   const last = inserts[inserts.length - 1];
   vectorPrimers.forEach(primer => {

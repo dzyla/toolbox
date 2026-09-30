@@ -32,10 +32,11 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
   // '' for the first enzyme means automatic; 'auto' for the second means automatic, '' means a single cut.
   const enzymeA = cutters.includes(settings.enzymeA) ? settings.enzymeA : defaultA;
   const enzymeB = settings.enzymeB === 'auto' ? defaultB : settings.enzymeB === '' || cutters.includes(settings.enzymeB) ? settings.enzymeB : defaultB;
+  const caret = Math.max(1, settings.caret);
   const linearization: InfusionLinearization | null = !vector ? null
     : vector.topology === 'linear' ? { method: 'linear' }
       : settings.linearize === 'linear' ? { method: 'linear' }
-        : settings.linearize === 'pcr-caret' ? { method: 'pcr', caret: Math.max(0, settings.caret - 1) }
+        : settings.linearize === 'pcr-caret' ? { method: 'pcr', caret: Math.max(0, caret - 1) }
           : settings.linearize === 'pcr-region' ? { method: 'pcr', region: { start: Math.max(0, settings.regionStart - 1), end: Math.max(0, settings.regionEnd) } }
             : { method: 'digest', enzymes: enzymeB && enzymeB !== enzymeA ? [enzymeA, enzymeB] : [enzymeA], includeSites: { first: settings.includeFirst, second: settings.includeSecond } };
 
@@ -46,7 +47,7 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
   const pieces = useMemo(() => {
     if (!design || !vectorSource || !vector) return [];
     const hubIndex = (id: string) => sources.findIndex(source => source.id === id);
-    return infusionGeometry(design, { sourceIndex: hubIndex(vectorSource.id), name: vectorSource.document.name, length: vector.sequence.length },
+    return infusionGeometry(design, { sourceIndex: hubIndex(vectorSource.id), name: vectorSource.document.name, length: vector.sequence.length, topology: vector.topology },
       insertSources.map((source, index) => ({ sourceIndex: hubIndex(source.id), name: source.document.name, length: inserts[index]!.sequence.length })));
   }, [design, vectorSource, vector, insertSources, inserts, sources]);
   const vectorRevTail = design?.primers.find(primer => primer.name === 'vector_rev')?.extension.length ?? 0;
@@ -101,7 +102,7 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
         <p class="text-xs text-slate-600 dark:text-slate-400">The removed region runs from the first cut to the second, in the direction of the vector sequence. Bases opposite a 5′ overhang go into the homology; 3′ overhang bases do not.</p>
       </div>}
       {vector.topology === 'circular' && settings.linearize === 'pcr-caret' && <Labeled label="Insert before base (1-based)" hint={`The vector has ${vector.sequence.length.toLocaleString()} bp`}>
-        <DecimalInput aria-label="Insert before base" class={`${FIELD} w-40`} value={settings.caret} min={1} max={vector.sequence.length} step={1} onChange={value => onSettings({ caret: Math.min(vector.sequence.length, Math.max(1, Math.round(value))) })} />
+        <DecimalInput aria-label="Insert before base" class={`${FIELD} w-40`} value={caret} min={1} max={vector.sequence.length} step={1} onChange={value => onSettings({ caret: Math.min(vector.sequence.length, Math.max(1, Math.round(value))) })} />
       </Labeled>}
       {vector.topology === 'circular' && settings.linearize === 'pcr-region' && <div class="flex flex-wrap gap-3">
         <Labeled label="Replace from base (1-based)"><DecimalInput aria-label="Replace from base" class={`${FIELD} w-32`} value={settings.regionStart} min={1} step={1} onChange={value => onSettings({ regionStart: Math.max(1, Math.round(value)) })} /></Labeled>
@@ -122,10 +123,11 @@ export function InfusionPanel({ sources, settings, onSettings }: Props) {
           {pieces.map((piece, index) => {
             const isVector = index === 0 && piece.topology === 'circular';
             const circularPcr = isVector && piece.kind === 'pcr';
+            const n = piece.length;
             return <PrimerMap key={piece.sourceIndex} piece={piece} activeId={activeName} onActive={setActiveName}
-              onPick={isVector ? position => onSettings({ linearize: 'pcr-caret', caret: position + 1 }) : undefined}
+              onPick={isVector ? position => onSettings({ linearize: 'pcr-caret', caret: Math.min(n, position + 1) }) : undefined}
               onRegion={isVector ? (start, end) => onSettings({ linearize: 'pcr-region', regionStart: start + 1, regionEnd: end }) : undefined}
-              marker={circularPcr && settings.linearize === 'pcr-caret' ? { position: settings.caret - 1, label: `Insert before ${settings.caret}` } : undefined} />;
+              marker={circularPcr && settings.linearize === 'pcr-caret' ? { position: caret - 1, label: `Insert before ${caret}` } : undefined} />;
           })}
         </div>
       </Section>}

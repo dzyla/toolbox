@@ -75,6 +75,13 @@ describe('infusionGeometry', () => {
     expect(gene.primers.find(p => p.strand === 'fwd')!.tailNeighborIndex).toBe(0);
   });
 
+  it('draws an already-linear vector as linear, with nothing cut out', () => {
+    const design = designInfusion(vector, 'linear', { method: 'linear' }, [{ name: 'gene', sequence: insert }]);
+    const pieces = infusionGeometry(design, { sourceIndex: 0, name: 'vec', length: 3000, topology: 'linear' }, [{ sourceIndex: 1, name: 'gene', length: 400 }]);
+    expect(pieces[0]!.topology).toBe('linear');
+    expect(pieces[0]!.removed).toBeUndefined();
+  });
+
   it('shows a cut vector as a band with the removed stretch and no primers', () => {
     const puc19 = PRESET_PLASMIDS.find(plasmid => plasmid.id === 'puc19')!.seq;
     const design = designInfusion(puc19, 'circular', { method: 'digest', enzymes: ['HindIII', 'EcoRI'] }, [{ name: 'gene', sequence: insert }]);

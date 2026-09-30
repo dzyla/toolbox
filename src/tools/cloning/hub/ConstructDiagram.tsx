@@ -28,6 +28,8 @@ const LEFT = 24;
 const RIGHT = WIDTH - 24;
 const AXIS = 70;
 const HEIGHT = 146;
+/** Movement (screen pixels) from the press that turns a click into a drag. */
+const DRAG_PX = 6;
 
 /** Splits a stretch that may wrap the origin into one or two [start, end) spans. */
 export function spansOf(start: number, length: number, total: number): Array<[number, number]> {
@@ -44,6 +46,7 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
   const uid = useRef(`d${++instances}`).current;
   const [focused, setFocused] = useState<string | undefined>();
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  const down = useRef<{ clientX: number; touch: boolean } | null>(null);
   const x = (position: number) => LEFT + (position / length) * (RIGHT - LEFT);
   const interactive = !!(onPick || onRegion);
 
@@ -86,7 +89,7 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
 
   return <div class="w-full min-w-0">
     {/* Labels are drawn in viewBox units, so the map keeps a minimum width (about 10 px text) and scrolls sideways inside its own box on a phone. */}
-    <div class="max-w-3xl overflow-x-auto"><svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full min-w-[36rem] touch-none select-none">
+    <div class="max-w-3xl overflow-x-auto"><svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="group" aria-label={summary} class="h-auto w-full min-w-[36rem] select-none">
       <defs>
         <pattern id={`${uid}-removed`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="8" height="8" fill="#fee2e2" />
@@ -132,16 +135,28 @@ export function ConstructDiagram({ title, length, circular, color, region, remov
       <text x={LEFT} y={AXIS + 70} font-size="16" fill="currentColor">1</text>
       <text x={RIGHT} y={AXIS + 70} font-size="16" text-anchor="end" fill="currentColor">{fmt(length)}{circular ? ' (origin)' : ''}</text>
       {interactive && <rect ref={surface} data-testid="diagram-surface" x={LEFT} y={AXIS - 12} width={RIGHT - LEFT} height="24" fill="transparent" class="cursor-crosshair"
-        onPointerDown={event => { (event.currentTarget as Element).setPointerCapture?.(event.pointerId); const at = positionAt(event.clientX, event.clientY); setDrag({ from: at, to: at }); }}
+        onPointerDown={event => {
+          const touch = event.pointerType === 'touch';
+          down.current = { clientX: event.clientX, touch };
+          if (touch) return; // a finger pans the page or the map box; a tap still picks on release
+          (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+          const at = positionAt(event.clientX, event.clientY);
+          setDrag({ from: at, to: at });
+        }}
         onPointerMove={event => setDrag(current => current ? { ...current, to: positionAt(event.clientX, event.clientY) } : current)}
         onPointerUp={event => {
+          const start = down.current;
+          down.current = null;
           const end = positionAt(event.clientX, event.clientY);
           const from = drag?.from ?? end;
           setDrag(null);
-          if (Math.abs(end - from) * ((RIGHT - LEFT) / length) < 4) onPick?.(end);
+          if (!start) return;
+          const moved = Math.abs(event.clientX - start.clientX); // screen pixels, so finger jitter is a click whatever the sequence length
+          if (start.touch) { if (moved < DRAG_PX) onPick?.(end); return; }
+          if (moved < DRAG_PX) onPick?.(end);
           else onRegion?.(Math.min(from, end), Math.max(from, end));
         }}
-        onPointerCancel={() => setDrag(null)} />}
+        onPointerCancel={() => { down.current = null; setDrag(null); }} />}
     </svg></div>
     {interactive && <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{onRegion ? 'Click the line to choose a position, or drag to choose a region. ' : 'Click the line to choose a position. '}You can also type the numbers.</p>}
   </div>;

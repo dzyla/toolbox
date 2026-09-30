@@ -47,3 +47,23 @@ describe('amino-acid change: numbering and alignment', () => {
     expect(screen.getAllByRole('group', { name: /wild type vs mutant/ })).toHaveLength(2);
   });
 });
+
+describe('amino-acid change: long reading frames', () => {
+  it('says when only the first 1,200 residues are shown and marks nothing beyond them', () => {
+    location.hash = '#/t/cloning';
+    render(<CloningHubView />);
+    const codons = Array.from({ length: 1300 }, (_, i) => ['GCT', 'GAA', 'AAA', 'CTG'][i % 4]).join('');
+    fireEvent.input(screen.getByLabelText(/Paste FASTA/), { target: { value: `>long\nATG${codons}TAA` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add pasted sequence' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Amino-acid change' }));
+    fireEvent.input(screen.getByLabelText('Mutations', { exact: true }), { target: { value: 'K1252A' } });
+    const view = screen.getByRole('region', { name: 'Protein sequence with residue numbers' });
+    expect(view.textContent).toMatch(/Showing the first 1,200 of 1,301 residues/);
+    expect(view.querySelectorAll('mark')).toHaveLength(0);
+  });
+
+  it('shows no such note for a short protein', () => {
+    setup();
+    expect(screen.getByRole('region', { name: 'Protein sequence with residue numbers' }).textContent).not.toMatch(/Showing the first/);
+  });
+});

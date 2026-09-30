@@ -14,6 +14,9 @@ import { EditView } from './EditView';
 import { MutationCards, NumberedProtein } from './ProteinView';
 import { translateFrom } from '@/core/cloning/mutation-view';
 
+/** The numbered protein shows at most this many residues. */
+const PROTEIN_CAP = 1200;
+
 interface Props {
   sources: HubSource[];
   settings: SdmSettings;
@@ -69,7 +72,8 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
   }, [molecule, settings.mode, settings.edit, settings.from, settings.to, settings.sequence]);
   const generalDesign: SdmDesign | null = generalResult && isSdmDesign(generalResult) ? generalResult : null;
 
-  const protein = useMemo(() => translateFrom(working, start0, 1200), [working, start0]);
+  const protein = useMemo(() => translateFrom(working, start0, PROTEIN_CAP), [working, start0]);
+  const totalResidues = useMemo(() => translateFrom(working, start0).replace(/\*/g, '').length, [working, start0]);
   const marks = useMemo(() => new Map<number, string>(result?.results.flatMap(item => item.mutations.map(m => [m.position, m.raw] as [number, string])) ?? []), [result]);
 
   return <div class="space-y-4">
@@ -99,7 +103,7 @@ export function BaseChangerPanel({ sources, settings, onSettings }: Props) {
       </div>
       {settings.mode === 'aa' && <>
       {reverse && <p class="text-xs text-amber-900 dark:text-amber-200">This gene is on the bottom strand, so primers are designed on the reverse complement of the plasmid.</p>}
-      {protein && <NumberedProtein protein={protein} marks={marks} />}
+      {protein && <NumberedProtein protein={protein} marks={marks} total={totalResidues} />}
       <Labeled label="Mutations" hint="One-letter (Y127F) or three-letter (p.Tyr127Phe). Commas or spaces make separate designs; + joins mutations into one multi-mutant (T39A+Y40F). Add :TTC to force a codon; * means stop.">
         <textarea aria-label="Mutations" class={`${FIELD} font-mono`} rows={3} value={settings.mutations} placeholder="Y127F, H443T" onInput={event => onSettings({ mutations: event.currentTarget.value })} />
       </Labeled>

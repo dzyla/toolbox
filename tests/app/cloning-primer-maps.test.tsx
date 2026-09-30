@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
 import CloningHubView from '@/tools/cloning/View';
 import { randomDna } from '../core/helpers';
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const paste = (text: string) => {
   fireEvent.input(screen.getByLabelText(/Paste FASTA/), { target: { value: text } });
@@ -62,5 +62,34 @@ describe('In-Fusion: click-to-place and shared homology', () => {
     expect(screen.getByRole('button', { name: /vector_fwd, forward, 500–/ })).toBeTruthy();
     fireEvent.input(screen.getByLabelText('Share of the vector homology carried by the vector primers'), { target: { value: '50' } });
     expect(screen.getByTestId('share-summary').textContent).toMatch(/8 nt on vector_rev/);
+  });
+});
+
+describe('In-Fusion: carets stay inside the vector', () => {
+  const inFusionSetup = () => { setup(); fireEvent.click(screen.getByRole('button', { name: 'In-Fusion' })); };
+
+  it('never says "before 0" for the default caret', () => {
+    inFusionSetup();
+    fireEvent.change(screen.getByLabelText('Linearize the vector by'), { target: { value: 'pcr-caret' } });
+    expect(screen.getByText('Insert before 1')).toBeTruthy();
+    expect(screen.queryByText(/before 0/)).toBeNull();
+    expect((screen.getByLabelText('Insert before base') as HTMLInputElement).value).toBe('1');
+  });
+
+  it('turns a pick at the far end into the last base, not one past it', () => {
+    inFusionSetup();
+    const surface = screen.getAllByTestId('diagram-surface')[0]!;
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 120, right: 1000, bottom: 120, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.pointerDown(surface, { clientX: 1000, pointerId: 1 });
+    fireEvent.pointerUp(surface, { clientX: 1000, pointerId: 1 });
+    expect((screen.getByLabelText('Insert before base') as HTMLInputElement).value).toBe('2686');
+  });
+
+  it('draws a linear vector without a clickable map', () => {
+    inFusionSetup();
+    expect(screen.getAllByTestId('diagram-surface').length).toBeGreaterThan(0);
+    fireEvent.change(screen.getAllByLabelText(/Topology of/)[0]!, { target: { value: 'linear' } });
+    expect(screen.queryAllByTestId('diagram-surface')).toHaveLength(0);
+    expect(screen.queryByText(/circular, shown unrolled/)).toBeNull();
   });
 });
