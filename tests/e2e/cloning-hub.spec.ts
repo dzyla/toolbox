@@ -120,10 +120,15 @@ test('a placed PCR vector with a custom split shows the sources and keeps them o
   await page.getByLabel('Placement for pUC19 to gene', { exact: true }).selectOption('custom');
   await page.getByRole('button', { name: 'Half and half' }).first().click();
 
-  await expect(page.getByTestId('share-summary').first()).toContainText('nt on');
+  const summary = page.getByTestId('share-summary').first();
+  await expect(summary).toContainText('nt on');
+  // Half and half: the two primers carry the same number of bases, or differ by one when the overlap is odd.
+  const [onReverse, onForward] = ((await summary.textContent()) ?? '').match(/\d+(?= nt on)/g)!.map(Number);
+  expect(Math.abs(onReverse! - onForward!)).toBeLessThanOrEqual(1);
+  expect(onReverse! + onForward!).toBeGreaterThan(0);
   const legend = page.getByRole('list', { name: 'Sources in the construct' });
   await expect(legend.getByRole('listitem')).toHaveCount(2);
-  await expect(page.getByRole('group', { name: /pUC19/ }).first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Primer maps' }).getByRole('group', { name: /^pUC19: amplified region and primers/ })).toBeVisible();
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -186,4 +191,23 @@ test('deleting bases shows the removed range struck out before and after', async
   const view = page.getByRole('region', { name: /Edit preview: del100-111/ });
   await expect(view.locator('del')).toHaveText(/^[ACGT]{12}$/);
   await expect(view).toContainText('12 bases removed');
+});
+
+test('a primer is chosen from the table by keyboard and lights up its arrow', async ({ page }) => {
+  await open(page);
+  await page.getByLabel(/Paste FASTA/).fill(`>gene\n${dna(600, 11)}`);
+  await page.getByRole('button', { name: 'Add pasted sequence' }).click();
+  await page.getByLabel(/Paste FASTA/).fill(`>gene\n${dna(600, 12)}`);
+  await page.getByRole('button', { name: 'Add pasted sequence' }).click();
+  await page.getByLabel('Topology of gene').first().selectOption('linear');
+  await page.getByLabel('Topology of gene').last().selectOption('linear');
+  const table = page.getByRole('table', { name: 'NEBuilder primers' });
+  const first = table.getByRole('button', { name: 'gene_fwd' }).first();
+  await first.focus();
+  await page.keyboard.press('Enter');
+  await expect(table.locator('tr[aria-current="true"]')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^gene_fwd, forward/, pressed: true })).toHaveCount(1);
+  await page.keyboard.press('Space');
+  await expect(table.locator('tr[aria-current="true"]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^gene_fwd, forward/, pressed: true })).toHaveCount(0);
 });
