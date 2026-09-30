@@ -173,7 +173,7 @@ export function useGelAnalysis(core: GelCore, ladders: GelLadders) {
           const sizeResidualPct = ladderAssigned !== null && sizeEst !== null ? (sizeEst / ladderAssigned - 1) * 100 : null;
           const massEst = massCalibration && m.net > 0 ? massCalibration.massAt(m.net) : null;
           const flags = massCalibration && massEst !== null ? massFlags(massCalibration, m.net, massEst) : null;
-          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, baselineWarning: bandWiderThanBall(s.bgMethod, m.y0 ?? 0, m.y1 ?? 0, s.rollingRadius), ladderAssigned, sizeResidualPct };
+          return { ...m, saturation: core.sourceInfo?.rescaled ? null : m.saturation, number: i + 1, share, ratio, sizeEst, massEst, massFlags: flags, baselineWarning: bandWiderThanBall(s.bgMethod, prof, { y0: m.y0 ?? 0, y1: m.y1 ?? 0, peakY: m.peakY }, s.rollingRadius), ladderAssigned, sizeResidualPct };
         });
 
         return {

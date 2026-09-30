@@ -553,6 +553,7 @@ export function GelControls({ g }: { g: GelWorkspace }) {
               min="5"
               max="100"
               step="5"
+              aria-label="Rolling-ball radius (px)"
               value={s.rollingRadius}
               onInput={e => set({ rollingRadius: parseInt((e.target as HTMLInputElement).value) })}
               class="w-full accent-accent-600"

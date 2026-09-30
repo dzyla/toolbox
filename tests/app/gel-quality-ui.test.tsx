@@ -13,6 +13,18 @@ vi.mock('@/lib/image', async orig => {
   };
 });
 
+describe('rolling-ball width warning on the demo gel', () => {
+  it('stays quiet at the default radius and flags the bands once the radius is too small for them', () => {
+    render(<GelView />);
+    fireEvent.click(screen.getByRole('button', { name: /Band Quantification & Amounts/i }));
+    expect(screen.getByText(/Data quality: no issues detected/i)).toBeTruthy();
+    expect(screen.queryAllByText('⚠ radius')).toHaveLength(0);
+    fireEvent.input(screen.getByLabelText('Rolling-ball radius (px)'), { target: { value: '5' } });
+    expect(screen.getByRole('region', { name: /Data quality/i }).textContent).toMatch(/too wide for the rolling-ball radius/i);
+    expect(screen.queryAllByText('⚠ radius').length).toBeGreaterThan(0);
+  });
+});
+
 describe('data-quality panel in every quantification sub-view', () => {
   it('shows the JPEG compression warning in the band table view after loading a JPEG', async () => {
     const { container } = render(<GelView />);

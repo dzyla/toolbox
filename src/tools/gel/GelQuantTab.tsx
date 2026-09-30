@@ -616,7 +616,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                   <td class="px-2.5 py-2 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
                                   <td class="px-2.5 py-2 mono text-right font-bold text-slate-900 dark:text-slate-100">
                                     {m.net.toFixed(1)}
-                                    {m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band wider than the rolling-ball diameter; increase the radius">⚠ radius</span>}
+                                    {m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band FWHM is more than half the rolling-ball radius, so the baseline removes about 10 % or more of its signal; increase the radius">⚠ radius</span>}
                                   </td>
                                   <td class="px-2.5 py-2 mono text-right font-medium">{m.share.toFixed(1)}%</td>
                                   <td class="px-2.5 py-2 mono text-right">
@@ -713,7 +713,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                           </td>
                           <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
                           <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
-                          <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}{m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band wider than the rolling-ball diameter; increase the radius">⚠ radius</span>}</td>
+                          <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}{m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band FWHM is more than half the rolling-ball radius, so the baseline removes about 10 % or more of its signal; increase the radius">⚠ radius</span>}</td>
                           <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
                           <td class="py-2.5 mono text-right">
                             {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio === null ? '–' : m.ratio.toFixed(2)}

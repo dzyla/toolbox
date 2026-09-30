@@ -157,8 +157,46 @@ export function integrateLaneSignal(profile: ArrayLike<number>, baseline: ArrayL
   return sum * Math.max(1, laneWidth);
 }
 
-/** True when a band's valley-to-valley extent exceeds the diameter (2 × radius) of the morphological opening used by the
- * rolling-ball ('rolling') and shared cross-lane ('shared') baselines, so the opening would eat into the band itself. */
-export function bandWiderThanBall(bgMethod: string, y0: number, y1: number, radius: number): boolean {
-  return (bgMethod === 'rolling' || bgMethod === 'shared') && (y1 - y0) > 2 * radius;
+/**
+ * A band's own full width at half maximum (samples), measured on the lightly smoothed profile above the band's local
+ * floor. From the apex the profile is followed downhill on each side (within [y0, y1)) to where it stops falling; the
+ * higher of those two minima is the floor, as for peak prominence. Unlike the valley-to-valley extent y1 − y0, which for a
+ * lone band spans to the next band or the lane end, this depends only on the band's shape.
+ */
+export function bandHalfMaxWidth(profile: ArrayLike<number>, band: { y0: number; y1: number; peakY?: number }): number {
+  const y = gaussianSmooth(Float32Array.from(profile, v => Number.isNaN(v) ? 0 : v), 1);
+  const lo = Math.max(0, Math.round(band.y0)), hi = Math.min(y.length - 1, Math.round(band.y1) - 1);
+  if (hi <= lo) return 0;
+  let p = band.peakY !== undefined ? Math.min(hi, Math.max(lo, Math.round(band.peakY))) : lo;
+  for (let i = lo; i <= hi; i++) if (band.peakY === undefined && y[i]! > y[p]!) p = i;
+  // On a sloping background the apex of band + background sits off the detected peak: climb to the local maximum.
+  while (p < hi && y[p + 1]! > y[p]!) p++;
+  while (p > lo && y[p - 1]! > y[p]!) p--;
+  let l = p; while (l > lo && y[l - 1]! <= y[l]!) l--;
+  let r = p; while (r < hi && y[r + 1]! <= y[r]!) r++;
+  const floor = Math.max(y[l]!, y[r]!), top = y[p]!;
+  if (top <= floor) return 0;
+  const half = floor + (top - floor) / 2;
+  // Half-maximum crossings with linear interpolation between samples.
+  let a = p; while (a > l && y[a - 1]! > half) a--;
+  let b = p; while (b < r && y[b + 1]! > half) b++;
+  const left = a > l ? a - (y[a]! - half) / (y[a]! - y[a - 1]!) : a;
+  const right = b < r ? b + (y[b]! - half) / (y[b]! - y[b + 1]!) : b;
+  return Math.max(0, right - left);
+}
+
+/**
+ * Band FWHM, as a fraction of the ball radius, above which the rolling-ball baseline removes about 10 % of the band's own
+ * signal. Measured on Gaussian bands over a sloping background for radii 20–80 px and amplitudes 0.2–0.9 of the range:
+ * loss is ≈ 10 % at FWHM = r/2 and 25–40 % at FWHM = r (the ball's height is a fraction of the profile range, so its
+ * sides are steep and it enters a band well before the band is as wide as the ball).
+ */
+export const BALL_WIDTH_WARN_FRACTION = 0.5;
+
+/**
+ * True when the opening used by the rolling-ball ('rolling') and shared cross-lane ('shared') baselines would eat into
+ * the band itself: the band's own FWHM exceeds BALL_WIDTH_WARN_FRACTION × radius.
+ */
+export function bandWiderThanBall(bgMethod: string, profile: ArrayLike<number>, band: { y0: number; y1: number; peakY?: number }, radius: number): boolean {
+  return (bgMethod === 'rolling' || bgMethod === 'shared') && bandHalfMaxWidth(profile, band) > BALL_WIDTH_WARN_FRACTION * radius;
 }

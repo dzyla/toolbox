@@ -12,7 +12,7 @@ export function dataQualityIssues(i: { sourceInfo: SourceInfo | null; appliedTra
     if (s.rescaled) out.push({ level: 'warn', text: 'Float image rescaled to its min–max on import: saturation is not assessable.' });
   }
   if (i.saturatedBands > 0) out.push({ level: 'warn', text: `${i.saturatedBands} saturated band(s): signal is clipped, so their amounts are underestimated.` });
-  if (i.baselineWarnings > 0) out.push({ level: 'warn', text: `${i.baselineWarnings} band(s) wider than the rolling-ball diameter (2 × radius): increase the radius.` });
+  if (i.baselineWarnings > 0) out.push({ level: 'warn', text: `${i.baselineWarnings} band(s) too wide for the rolling-ball radius (band FWHM above half the radius, so the baseline removes ≳ 10 % of their signal): increase the radius.` });
   if (Math.abs(i.deskewAngle) > 1e-6) out.push({ level: 'info', text: `deskew ${i.deskewAngle.toFixed(2)}° (resampled with bilinear interpolation)` });
   for (const t of i.appliedTransforms) out.push({ level: 'info', text: t });
   return out;
