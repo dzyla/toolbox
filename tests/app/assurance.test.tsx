@@ -10,7 +10,7 @@ import { parseRoute, route, toHash } from '@/app/router';
 
 describe('scientific assurance registry', () => {
   it('assigns one honest assurance record to every registered tool', () => {
-    expect(TOOLS).toHaveLength(38);
+    expect(TOOLS).toHaveLength(39);
     expect(Object.keys(ASSURANCE).sort()).toEqual(TOOLS.map(tool => tool.id).sort());
     expect(Object.values(ASSURANCE).every(record => record.scope.length > 20 && record.verification.length > 12)).toBe(true);
     expect(assuranceSummary()['reference-tested']).toBeGreaterThan(0);

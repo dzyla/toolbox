@@ -1,9 +1,11 @@
+import type { ComponentChildren } from 'preact';
 import { useMemo, useState } from 'preact/hooks';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { cohensD, minimumDetectableEffect, requiredSampleSize, twoSamplePower, type Alternative } from '@/core/study-design';
 import { downloadText } from '@/lib/export';
 import { SCIENCE } from './science';
+import { OtherDesignPlanner } from './OtherDesigns';
 
 type Objective = 'sample-size' | 'power' | 'effect';
 type EffectInput = 'difference' | 'standardized';
@@ -40,7 +42,27 @@ function solverFailureFields(objective: Objective, effectInput: EffectInput, all
   return [...effectFields, 'alpha', 'target', 'ratio', 'dropout'];
 }
 
+export type Design = 'two-group' | 'paired' | 'anova';
+export const DESIGNS: Record<Design, string> = {
+  'two-group': 'Two independent groups',
+  paired: 'Paired (before/after or matched)',
+  anova: 'One-way ANOVA (3 or more groups)',
+};
+
 export default function StudyDesign() {
+  const [design, setDesign] = useState<Design>('two-group');
+  const designSelector = <div class="space-y-1">
+    <label for="study-design-kind" class="block text-sm font-medium">Design</label>
+    <select id="study-design-kind" class={FIELD} value={design} onChange={event => setDesign(event.currentTarget.value as Design)}>
+      {Object.entries(DESIGNS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select>
+  </div>;
+  return design === 'two-group'
+    ? <TwoGroupPlanner designSelector={designSelector} />
+    : <OtherDesignPlanner key={design} design={design} designSelector={designSelector} />;
+}
+
+function TwoGroupPlanner({ designSelector }: { designSelector: ComponentChildren }) {
   const [objective, setObjective] = useState<Objective>('sample-size');
   const [effectInput, setEffectInput] = useState<EffectInput>('difference');
   const [alternative, setAlternative] = useState<Alternative>('two-sided');
@@ -152,6 +174,7 @@ export default function StudyDesign() {
     blurb="Plan a comparison of two independent group means using a pooled-variance t test. All calculations stay in your browser."
     mobileDefaultTab="stacked"
     inputs={<div class="space-y-4">
+      {designSelector}
       <div class="space-y-1">
         <label for="study-objective" class="block text-sm font-medium">Objective</label>
         <select id="study-objective" class={FIELD} value={objective}
