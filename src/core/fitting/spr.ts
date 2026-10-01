@@ -127,7 +127,16 @@ export function fitSprGlobal(curves: Sensorgram[], options: SprOptions): SprFit 
   void cMid;
   const lower = [2, -7, ...new Array<number>(nRmax).fill(0), ...(options.fitBaseline ? new Array<number>(k).fill(-Infinity) : [])];
   const upper = [10, 1, ...new Array<number>(nRmax).fill(Infinity), ...(options.fitBaseline ? new Array<number>(k).fill(Infinity) : [])];
-  const nls = fitNlsMultiStart({ predict, y: ys, p0: starts[0]!, lower, upper, maxIterations: 400 }, starts);
+  let nls;
+  if (!globalR || options.fitBaseline) {
+    // Many parameters: solve the shared-Rmax, zero-baseline model first (cheap multi-start), then refine the
+    // extended model from that solution instead of scanning dozens of starting points in 10+ dimensions.
+    const base = fitSprGlobal(curves, { ...options, globalRmax: true, fitBaseline: false });
+    const seed = [Math.log10(base.kon), Math.log10(base.koff), ...new Array<number>(nRmax).fill(base.rmax[0]!), ...(options.fitBaseline ? new Array<number>(k).fill(0) : [])];
+    nls = fitNlsMultiStart({ predict, y: ys, p0: seed, lower, upper, maxIterations: 400 }, [seed]);
+  } else {
+    nls = fitNlsMultiStart({ predict, y: ys, p0: starts[0]!, lower, upper, maxIterations: 400 }, starts);
+  }
 
   const p = nls.params;
   const kon = 10 ** p[0]!, koff = 10 ** p[1]!;

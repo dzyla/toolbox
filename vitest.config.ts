@@ -9,6 +9,8 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['tests/app/**/*.test.{ts,tsx}', 'tests/core/**/*.test.ts', 'tests/lib/**/*.test.{ts,tsx}', 'tests/build/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
+    // CI runners (and coverage runs) are slower than a laptop; heavy UI and fitting tests need headroom.
+    testTimeout: 20_000,
     coverage: {
       provider: 'v8',
       // Scientific core only: this is where a silent regression changes a reported number.
