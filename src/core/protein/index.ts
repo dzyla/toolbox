@@ -139,6 +139,15 @@ export function perResidueCharge(seq: string, pH: number, scheme: PKaScheme = 'b
   return arr;
 }
 
+export interface TitrationCurve { scheme: PKaScheme; pH: number[]; charge: number[]; pI: number }
+
+/** Net charge at pH 0..14 (default step 0.1) from the same Henderson–Hasselbalch sums as netCharge, plus the pI. */
+export function titrationCurve(counts: Counts, scheme: PKaScheme = 'bjellqvist', seq = '', step = 0.1): TitrationCurve {
+  const n = Math.round(14 / step);
+  const pH = Array.from({ length: n + 1 }, (_, i) => Number((i * step).toFixed(6)));
+  return { scheme, pH, charge: pH.map(p => netCharge(counts, p, scheme, seq)), pI: isoelectricPoint(counts, scheme, seq) };
+}
+
 /** Guruprasad 1990: II = (10/L) Σ DIWV[i][i+1]; > 40 predicts instability. Pairs with non-standard residues are skipped. */
 export function instabilityIndex(seq: string): number {
   if (seq.length < 2) return 0;
