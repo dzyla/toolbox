@@ -16,9 +16,10 @@ import {
   DIFFRACTION_PRESETS,
 } from '@/core/cryoem';
 import { MrcViewer } from './MrcViewer';
+import { FscPanel } from './FscPanel';
 
 interface State {
-  tab: 'box' | 'dose' | 'ctf' | 'classes' | 'mag';
+  tab: 'box' | 'dose' | 'ctf' | 'classes' | 'mag' | 'fsc';
   pixelSize: number;
   box: number;
   cropBox: number;
@@ -694,6 +695,7 @@ export default function CryoEmView() {
   }, [s.multiDefocus, s.voltageKv, s.csMm, parsedDefoci, s.pixelSize, s.amplitudeContrast, s.bFactor, s.diffractionArtifact]);
 
   const copyText = () => {
+    if (s.tab === 'fsc') return `Cryo-EM FSC curve import (resolution at FSC 0.143 and 0.5; see the table in the tool)\n\n${scienceText(SCIENCE)}`;
     const lines = [
       `Cryo-EM Settings (${s.tab}):`,
       `Pixel size: ${s.pixelSize.toFixed(3)} Å/px, Box size: ${s.box} px`,
@@ -735,6 +737,7 @@ export default function CryoEmView() {
                 ['ctf', 'CTF & Thon Rings', '🌊'],
                 ['classes', '2D Classes & 3D Volume', '🔬'],
                 ['mag', 'Magnification', '🔍'],
+                ['fsc', 'FSC', '📈'],
               ] as const
             ).map(([id, label, icon]) => (
               <button
@@ -1496,6 +1499,8 @@ export default function CryoEmView() {
               </div>
             </div>
           )}
+
+          {s.tab === 'fsc' && <FscPanel />}
 
           {s.tab === 'classes' && (
             <div data-testid="cryo-classes-result">
