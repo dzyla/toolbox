@@ -6,5 +6,5 @@ export const READY_TOOLS = [
   'cloning', 'rare-codons', 'align', 'seq-matrix', 'binding', 'primers', 'tags', 'gel', 'measure', 'colonies', 'hemocytometer',
   'tally', 'plate', 'culture', 'timers', 'protocols', 'colors',
   'plate-reader',
-  'study-design', 'silent-sites', 'method-comparison',
+  'study-design', 'silent-sites', 'method-comparison', 'flow',
 ];
