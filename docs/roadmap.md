@@ -18,19 +18,19 @@ Backlog from the repo review. Tick items as they land.
 - [ ] Move `legacy/` to a tag or branch once the science-audit fixes are confirmed ported.
 - [ ] Generate a per-tool status table for the README from the assurance registry.
 
-## New scientific tools
+## New scientific tools (agreed scope, 2026-09-30)
 
-- **Enzyme kinetics** (partly present: `core/fitting` already has Michaelis-Menten, substrate inhibition and Lineweaver-Burk/Eadie-Hofstee diagnostics). Missing: competitive / uncompetitive / mixed inhibition models, Hill, global fitting across inhibitor concentrations.
-- **ITC and SPR/BLI analysis**: ITC one- and two-site isotherms; global and heterogeneous-ligand sensorgram fitting (single-curve SPR association/dissociation fits already exist in `core/fitting`).
-- **Mass spec**: mono / average mass, charge-state deconvolution, peptide mass matcher and fragment ions with ppm tolerance, crosslink and PTM tables.
-- **SDS-PAGE / Western planning**: loading calculator, gel % vs MW resolution, transfer and antibody dilution planner.
-- **Growth curves**: logistic / Gompertz fits, lag, doubling time, OD to cells (fits plate-reader tool).
-- **Flow and imaging basics**: counting statistics, fluorescence calibration / MESF helper.
-- **Sequence extras**: CRISPR gRNA design with off-target scoring (NGG and Cas12a PAMs); Golden Gate / MoClo with Type IIS overhang fidelity; silent restriction-site mutation finder; host codon optimisation with GC-window and rare-codon limits; NJ tree from the existing distance matrix with Newick export.
-- **Protein extras**: net charge vs pH across pKa sets, disorder and secondary-structure propensity, native vs denatured extinction coefficient, aggregation-prone regions, hydropathy and helical wheel plots.
-- **Structural / cryo-EM**: FSC and resolution conversions, dose and pixel-size calculators, defocus / CTF plots, grid-prep helper.
-- **Stats and QC**: sample size for ANOVA and paired designs, outlier tests (Grubbs, ROUT), Bland-Altman and method comparison, Z'-factor.
-- **Lab management**: freezer / plate inventory with barcodes, reagent expiry tracker, pipetting worklists exported for Opentrons or Tecan.
+Guiding rule: each tool stays small and easy to use (one clear flow, example data, advanced options collapsed), and every result carries its formula, assumptions and references.
+
+Dropped: mass-spec deconvolution, SDS-PAGE/Western planning, MESF calibration, gRNA design, Golden Gate fidelity, codon optimisation, aggregation scoring, helical wheel, lab inventory/expiry (needs a database), grid-prep helper. Better secondary-structure prediction would need a protein language model; out of scope.
+
+1. **Fitting** (generalise the single x/y series to multi-series data, then add): Hill; enzyme inhibition (competitive / uncompetitive / non-competitive / mixed, global fit with model comparison); Morrison tight-binding; ITC one-site isotherm; global SPR/BLI across concentrations; logistic / Gompertz growth.
+2. **Cell culture**: logistic / Gompertz growth curve fit (lag, mu_max, plateau), OD growth-curve import.
+3. **Protein Workbench**: net charge vs pH curve.
+4. **Cryo-EM**: import FSC curves from RELION STAR and cryoSPARC exports (0.143 / 0.5 crossings, resolution axis).
+5. **Study design / stats**: paired and one-way ANOVA power, Bland-Altman method comparison. (Z' and Grubbs already exist in the plate-reader.)
+6. **Sequence**: neighbour-joining tree with Newick export (from the identity matrix); silent restriction-site finder.
+7. **Flow cytometry**: FCS 3.x parser with histogram, scatter, simple gates and population statistics.
 
 ## Suggested order
 
