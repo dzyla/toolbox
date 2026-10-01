@@ -651,3 +651,4 @@ export function generateMultiDefocusThonRingsMatrix(
 
 export * from './mrc';
 
+export * from './fsc';
