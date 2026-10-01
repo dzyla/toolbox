@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { searchTools, toolsByCategory, TOOLS, type Category } from '@/tools/registry';
-import { listRecent, type Project } from '@/lib/projects';
+import { listRecent, exportBackup, importBackup, type Project } from '@/lib/projects';
+import { downloadBlob } from '@/lib/export';
 import { ToolCard } from '../components/ToolCard';
 import { ProjectCard } from '../components/ProjectCard';
 
@@ -36,9 +37,33 @@ export function Home() {
   });
   const [recent, setRecent] = useState<Project[]>([]);
 
+  const [backupNote, setBackupNote] = useState('');
+
   useEffect(() => {
     listRecent(12).then(setRecent).catch(() => setRecent([]));
   }, []);
+
+  async function handleBackup() {
+    try {
+      const { blob, count } = await exportBackup();
+      if (count === 0) { setBackupNote('No saved projects to back up yet.'); return; }
+      downloadBlob(blob, `bio-bench-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      setBackupNote(`Backed up ${count} project${count === 1 ? '' : 's'}.`);
+    } catch (e) {
+      setBackupNote(`Backup failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  async function handleRestore(file: File | undefined) {
+    if (!file) return;
+    try {
+      const r = await importBackup(file);
+      setBackupNote(`Restored ${r.added} new and ${r.updated} updated project${r.added + r.updated === 1 ? '' : 's'}; ${r.skipped} skipped (already up to date or unreadable).`);
+      setRecent(await listRecent(12));
+    } catch (e) {
+      setBackupNote(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   const toggleDensity = () => {
     setCompact(prev => {
@@ -160,12 +185,22 @@ export function Home() {
 
 
       {/* Recent Projects */}
-      {!q && recent.length > 0 && (
+      {!q && (
         <div class="mb-3 sm:mb-4 w-full">
-          <h2 class="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recent projects</h2>
-          <div class="flex flex-wrap gap-2 sm:gap-3 w-full pb-1">
-            {recent.map(p => <ProjectCard key={p.id} project={p} />)}
+          <div class="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {recent.length > 0 && <h2 class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recent projects</h2>}
+            <button type="button" onClick={handleBackup} class="text-xs font-medium text-accent-700 hover:underline dark:text-accent-400">Back up all projects</button>
+            <label class="cursor-pointer text-xs font-medium text-accent-700 hover:underline dark:text-accent-400">
+              Restore from backup
+              <input type="file" accept="application/json,.json" class="sr-only" onChange={e => { const input = e.currentTarget as HTMLInputElement; void handleRestore(input.files?.[0]); input.value = ''; }} />
+            </label>
+            {backupNote && <span role="status" class="text-xs text-slate-600 dark:text-slate-300">{backupNote}</span>}
           </div>
+          {recent.length > 0 && (
+            <div class="flex flex-wrap gap-2 sm:gap-3 w-full pb-1">
+              {recent.map(p => <ProjectCard key={p.id} project={p} />)}
+            </div>
+          )}
         </div>
       )}
 

@@ -43,20 +43,66 @@ async function b64(b: Blob): Promise<B64> {
 }
 const unb64 = (o: B64) => new Blob([Uint8Array.from(atob(o.data), c => c.charCodeAt(0))], { type: o.type });
 
+async function encodeProject(p: Project) {
+  const assets: Record<string, B64> = {};
+  for (const [k, v] of Object.entries(p.assets ?? {})) assets[k] = await b64(v);
+  return { ...p, thumbnail: p.thumbnail ? await b64(p.thumbnail) : undefined, assets };
+}
+interface EncodedProject { id: string; toolId: string; name: string; createdAt?: number; updatedAt?: number; version: number; state: unknown; thumbnail?: B64; assets?: Record<string, B64> }
+function decodeProject(src: EncodedProject) {
+  const assets: Record<string, Blob> = {};
+  for (const [k, v] of Object.entries(src.assets ?? {})) assets[k] = unb64(v);
+  return { toolId: src.toolId, name: src.name, version: src.version, state: src.state, thumbnail: src.thumbnail ? unb64(src.thumbnail) : undefined, assets };
+}
+function checkEncoded(p: unknown): asserts p is EncodedProject {
+  const o = p as Partial<EncodedProject> | null;
+  if (!o || typeof o.id !== 'string' || typeof o.toolId !== 'string' || typeof o.name !== 'string' || typeof o.version !== 'number') {
+    throw new Error('Project entry is malformed');
+  }
+}
+
 /** Single JSON file with blobs base64-encoded; readable on any device. */
 export async function exportProject(id: string): Promise<Blob> {
   const p = await getProject(id);
   if (!p) throw new Error(`No project ${id}`);
-  const assets: Record<string, B64> = {};
-  for (const [k, v] of Object.entries(p.assets ?? {})) assets[k] = await b64(v);
-  const doc = { format: 'biobench-project', formatVersion: 1, project: { ...p, thumbnail: p.thumbnail ? await b64(p.thumbnail) : undefined, assets } };
+  const doc = { format: 'biobench-project', formatVersion: 1, project: await encodeProject(p) };
   return new Blob([JSON.stringify(doc)], { type: 'application/json' });
 }
 export async function importProject(file: Blob): Promise<Project> {
   const doc = JSON.parse(await file.text());
   if (doc?.format !== 'biobench-project') throw new Error('Not a Bio-Bench project file');
-  const src = doc.project;
-  const assets: Record<string, Blob> = {};
-  for (const [k, v] of Object.entries(src.assets ?? {})) assets[k] = unb64(v as B64);
-  return saveProject({ id: newId(), toolId: src.toolId, name: src.name, version: src.version, state: src.state, thumbnail: src.thumbnail ? unb64(src.thumbnail) : undefined, assets });
+  checkEncoded(doc.project);
+  return saveProject({ id: newId(), ...decodeProject(doc.project) });
+}
+
+/** Every project on this device in one file, so work survives cleared browser data or a new machine. */
+export async function exportBackup(): Promise<{ blob: Blob; count: number }> {
+  const all = await (await db()).getAll('projects');
+  const projects = [];
+  for (const p of all) projects.push(await encodeProject(p));
+  const doc = { format: 'biobench-backup', formatVersion: 1, exportedAt: Date.now(), projects };
+  return { blob: new Blob([JSON.stringify(doc)], { type: 'application/json' }), count: projects.length };
+}
+
+export interface RestoreSummary { added: number; updated: number; skipped: number }
+
+/**
+ * Restores a backup keeping original ids and timestamps. A project already on this device is replaced
+ * only when the backup copy is newer, so restoring never discards later local work.
+ */
+export async function importBackup(file: Blob): Promise<RestoreSummary> {
+  let doc: { format?: string; projects?: unknown[] };
+  try { doc = JSON.parse(await file.text()); } catch { throw new Error('Not a Bio-Bench backup file'); }
+  if (doc?.format !== 'biobench-backup' || !Array.isArray(doc.projects)) throw new Error('Not a Bio-Bench backup file');
+  const d = await db();
+  const summary: RestoreSummary = { added: 0, updated: 0, skipped: 0 };
+  for (const entry of doc.projects) {
+    try { checkEncoded(entry); } catch { summary.skipped++; continue; }
+    const existing = await d.get('projects', entry.id);
+    const updatedAt = entry.updatedAt ?? Date.now();
+    if (existing && existing.updatedAt >= updatedAt) { summary.skipped++; continue; }
+    await d.put('projects', { id: entry.id, createdAt: entry.createdAt ?? updatedAt, updatedAt, ...decodeProject(entry) });
+    if (existing) summary.updated++; else summary.added++;
+  }
+  return summary;
 }

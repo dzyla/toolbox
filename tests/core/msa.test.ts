@@ -199,3 +199,12 @@ describe('Scientific Exponent Input & Cryo-EM Hexagonal Graphene Logic', () => {
     expect(matrix.length).toBe(128 * 128);
   });
 });
+
+describe('matrix size limit', () => {
+  it('rejects inputs that would need too many alignment cells, with a clear message', async () => {
+    const { computeSequenceMatrices, estimateMatrixCells, MAX_MATRIX_CELLS } = await import('@/core/msa');
+    const seqs = Array.from({ length: 200 }, (_, i) => ({ id: `s${i}`, name: `s${i}`, sequence: 'ACDEFGHIKLMNPQRSTVWY'.repeat(40) }));
+    expect(estimateMatrixCells(seqs.map(s => s.sequence.length))).toBeGreaterThan(MAX_MATRIX_CELLS);
+    expect(() => computeSequenceMatrices(seqs)).toThrow(/Too much to align at once/);
+  });
+});

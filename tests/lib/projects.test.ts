@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { saveProject, listRecent, getProject, deleteProject, exportProject, importProject } from '@/lib/projects';
+import { saveProject, listRecent, getProject, deleteProject, exportProject, importProject, exportBackup, importBackup } from '@/lib/projects';
 
 describe('projects', () => {
   it('saves, lists by recency, gets, deletes', async () => {
@@ -21,5 +21,28 @@ describe('projects', () => {
     expect(p.state).toEqual({ k: 'v' });
     expect(await p.assets!.img!.text()).toBe('abc');
     expect(p.version).toBe(2);
+  });
+  it('backs up every project and restores without overwriting newer local work', async () => {
+    await saveProject({ id: 'bk1', toolId: 'gel', name: 'One', version: 1, state: { n: 1 }, assets: { f: new Blob(['zz'], { type: 'text/plain' }) } });
+    await saveProject({ id: 'bk2', toolId: 'dsf', name: 'Two', version: 1, state: { n: 2 } });
+    const { blob, count } = await exportBackup();
+    expect(count).toBeGreaterThanOrEqual(2);
+
+    await deleteProject('bk1');
+    await new Promise(r => setTimeout(r, 5));
+    await saveProject({ id: 'bk2', toolId: 'dsf', name: 'Two (edited)', version: 1, state: { n: 99 } });
+
+    const summary = await importBackup(blob);
+    expect(summary.added).toBe(1);
+    const one = await getProject('bk1');
+    expect(one?.state).toEqual({ n: 1 });
+    expect(await one!.assets!.f!.text()).toBe('zz');
+    // The newer local edit wins over the older backup copy.
+    expect((await getProject('bk2'))?.name).toBe('Two (edited)');
+    expect(summary.skipped).toBeGreaterThanOrEqual(1);
+  });
+  it('rejects files that are not backups', async () => {
+    await expect(importBackup(new Blob(['{"format":"nope"}']))).rejects.toThrow(/backup/);
+    await expect(importBackup(new Blob(['not json']))).rejects.toThrow(/backup/);
   });
 });

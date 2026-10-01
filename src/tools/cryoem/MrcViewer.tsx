@@ -12,7 +12,7 @@ import {
   type ProjectionImage,
   type ProjectionOrientation,
 } from "@/core/cryoem";
-import { generateTemplateSeries as buildTemplateSeries } from './template-pool';
+import { generateTemplateSeries as buildTemplateSeries, templateSeriesLimit } from './template-pool';
 
 interface MrcViewerProps {
   expanded?: boolean;
@@ -380,6 +380,8 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
     const orientations = sampleProjectionOrientations(templateSpacingDeg);
     cancelTemplatesRef.current?.();
     templateCanvasRefs.current = [];
+    const tooHeavy = templateSeriesLimit(mrcData.header, orientations.length);
+    if (tooHeavy) { setTemplateError(tooHeavy); return; }
     setTemplateError('');
     setTemplateProgress({ done: 0, total: orientations.length });
     cancelTemplatesRef.current = buildTemplateSeries(

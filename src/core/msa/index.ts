@@ -1,5 +1,16 @@
 import { getMatrix, simpleMatrix, scoreOf, type MatrixName, type ScoringMatrix } from '../align/matrices';
 import { align, type AlignmentResult } from '../align/gotoh';
+import { InputError } from '../align/matrices';
+
+/** Upper bound on total pairwise DP cells (about 10 s of work); beyond this the page would appear hung. */
+export const MAX_MATRIX_CELLS = 750_000_000;
+
+/** Total DP cells for all pairwise global alignments of these sequences. */
+export function estimateMatrixCells(lengths: number[]): number {
+  let cells = 0;
+  for (let i = 0; i < lengths.length; i++) for (let j = i + 1; j < lengths.length; j++) cells += (lengths[i]! + 1) * (lengths[j]! + 1);
+  return cells;
+}
 
 export interface SequenceItem {
   id: string;
@@ -162,6 +173,10 @@ export function computeSequenceMatrices(
   } = {}
 ): SequenceMatrixResult {
   const n = sequences.length;
+  const cells = estimateMatrixCells(sequences.map(q => q.sequence.length));
+  if (cells > MAX_MATRIX_CELLS) {
+    throw new InputError(`Too much to align at once: ${n} sequences need about ${(cells / 1e6).toFixed(0)} million alignment cells (limit ${MAX_MATRIX_CELLS / 1e6} million). Use fewer or shorter sequences.`);
+  }
   const molType = detectMoleculeType(sequences);
   const matrixName = options.matrixName ?? (molType === 'dna' ? 'EDNAFULL' : 'BLOSUM62');
   let scoringMatrix: ScoringMatrix;

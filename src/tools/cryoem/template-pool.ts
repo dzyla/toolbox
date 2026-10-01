@@ -19,6 +19,16 @@ export { buildMrcData };
  * the views are computed in parallel. Falls back to a synchronous loop where Workers are unavailable.
  * Returns a cancel function; a cancelled run never calls `onDone`.
  */
+/** Voxel samples across the whole series that the pool will handle in reasonable time (about 30 s on 4 workers). */
+export const MAX_TEMPLATE_SAMPLES = 5e9;
+
+/** Returns an explanatory message when the series would be too heavy, otherwise null. */
+export function templateSeriesLimit(header: MrcData['header'], count: number): string | null {
+  const samples = header.nx * header.ny * header.nz * count;
+  if (samples <= MAX_TEMPLATE_SAMPLES) return null;
+  return `This map (${header.nx}×${header.ny}×${header.nz}) × ${count} views is about ${(samples / 1e9).toFixed(1)} billion samples (limit ${MAX_TEMPLATE_SAMPLES / 1e9}). Bin the map or increase the angular spacing.`;
+}
+
 export function generateTemplateSeries(
   mrc: MrcData,
   orientations: ProjectionOrientation[],

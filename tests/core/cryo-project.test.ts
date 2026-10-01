@@ -45,3 +45,12 @@ describe('projectVolume', () => {
     expect(maxErr).toBeLessThan(1e-4 * Math.max(1, maxVal));
   });
 });
+
+describe('template series limit', () => {
+  it('flags maps too large for the requested number of views', async () => {
+    const { templateSeriesLimit } = await import('@/tools/cryoem/template-pool');
+    const h = (n: number) => ({ nx: n, ny: n, nz: n }) as never;
+    expect(templateSeriesLimit(h(128), 256)).toBeNull();
+    expect(templateSeriesLimit(h(512), 256)).toMatch(/Bin the map/);
+  });
+});
