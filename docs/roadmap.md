@@ -9,7 +9,7 @@ Backlog from the repo review. Tick items as they land.
 - [x] Measured and deliberately left on the main thread: curve fitting (<15 ms at n<=300), chromatogram parse/peaks (200k points: ~170 ms parse), plate-reader group stats.
 - [ ] Parallelise MSA pairwise alignments across a worker pool (single worker today; Gotoh is already typed-array tight at ~14 ns/cell).
 - [x] Size caps with a visible message for very large MSA / cryo-EM template inputs.
-- [ ] Split oversized views: `plate-reader/View.tsx` (2366 lines), `dsf/View.tsx` (2040), `sec/View.tsx` (1813), `plate/View.tsx` (1700), `cryoem/View.tsx` + `MrcViewer.tsx`. Logic already lives in `src/core`; extract hooks and panels.
+- [x] Split oversized views into `<Tool>Model.tsx` (state, memos, handlers) plus `tabs/*Panel.tsx`: plate-reader, dsf, fitting, protein, tags, culture. Remaining: `plate/View.tsx` (early return before the main JSX), `sec/View.tsx` (many panels in one file), `cryoem/View.tsx` + `MrcViewer.tsx`; the largest panels (`dsf/tabs/ResultsPanel.tsx`, `tags/tabs/ResultsPanel.tsx`) could be split again.
 - [ ] Coverage: add `vitest --coverage` with a threshold on `src/core`; decide whether `test:legacy` runs in CI or is deleted.
 - [ ] Mobile-viewport smoke test for every tool (PWA phone use is a stated goal).
 - [ ] Confirm every calculator-style tool uses `url-state.ts` so results are linkable.
