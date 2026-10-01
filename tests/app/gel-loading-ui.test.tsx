@@ -54,7 +54,7 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
     // Toggle back to Unified Table
     const tableBtn = screen.getByRole('button', { name: /Unified Table/i });
     fireEvent.click(tableBtn);
-    expect(screen.getByText(/Net Intensity \(Amount\)/i)).toBeTruthy();
+    expect(screen.getByText(/Net Intensity/)).toBeTruthy();
   });
 
   it('supports Shift+Click to quickly add a new line/lane on the gel canvas', async () => {

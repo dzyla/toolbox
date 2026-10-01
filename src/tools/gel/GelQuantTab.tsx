@@ -29,6 +29,10 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
     setQuantLayoutMode,
     setSelectedLaneId,
   } = g;
+  // Columns that would only show dashes are left out: mass needs a mass standard curve, ratio needs a reference band.
+  const allMetrics = allLanesAnalysis.flatMap(i => i.metrics);
+  const showMass = allMetrics.some(m => m.massEst);
+  const showRatio = allMetrics.some(m => m.bandId === s.refBandId);
   return (
     <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
       <DataQualityPanel issues={qualityIssues} />
@@ -511,15 +515,15 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                               <th class="px-2.5 py-1.5 font-semibold">Band #</th>
                               <th class="px-2.5 py-1.5 font-semibold">Migration Y</th>
                               <th class="px-2.5 py-1.5 font-semibold">Est. Size</th>
-                              <th class="px-2.5 py-1.5 font-semibold text-right text-emerald-700 dark:text-emerald-400">Calibrated Mass</th>
+                              {showMass && <th class="px-2.5 py-1.5 font-semibold text-right text-emerald-700 dark:text-emerald-400">Calibrated Mass</th>}
                               <th class="px-2.5 py-1.5 font-semibold text-right">Raw Area</th>
                               <th class="px-2.5 py-1.5 font-semibold text-right">Baseline</th>
                               <th class="px-2.5 py-1.5 font-semibold text-right text-slate-900 dark:text-slate-100">
                                 Net Intensity (Amount)
                               </th>
                               <th class="px-2.5 py-1.5 font-semibold text-right">% of Lane</th>
-                              <th class="px-2.5 py-1.5 font-semibold text-right">Ratio to Ref</th>
-                              <th class="px-2.5 py-1.5 font-semibold text-center">Status</th>
+                              {showRatio && <th class="px-2.5 py-1.5 font-semibold text-right">Ratio to Ref</th>}
+                              <th class="px-2.5 py-1.5 font-semibold text-center">Quality</th>
                               <th class="px-2.5 py-1.5 font-semibold text-center">Action</th>
                             </tr>
                           </thead>
@@ -543,11 +547,11 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                   <td class="px-2.5 py-2 font-bold text-accent-600 dark:text-accent-400">
                                     {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
                                   </td>
-                                  <td class="px-2.5 py-2 mono text-right font-bold text-emerald-700 dark:text-emerald-400">
+                                  {showMass && (<td class="px-2.5 py-2 mono text-right font-bold text-emerald-700 dark:text-emerald-400">
                                     {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
                                     {m.massFlags?.extrapolated && <span class="ml-1 text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400" title="Outside the standard curve's signal range">extrap.</span>}
                                     {m.massFlags?.belowLoq && <span class="ml-1 text-[9px] font-bold uppercase text-rose-700 dark:text-rose-400" title="Below the limit of quantitation">&lt;LOQ</span>}
-                                  </td>
+                                  </td>)}
                                   <td class="px-2.5 py-2 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
                                   <td class="px-2.5 py-2 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
                                   <td class="px-2.5 py-2 mono text-right font-bold text-slate-900 dark:text-slate-100">
@@ -555,13 +559,13 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                     {m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band FWHM is more than half the rolling-ball radius, so the baseline removes about 10 % or more of its signal; increase the radius">⚠ radius</span>}
                                   </td>
                                   <td class="px-2.5 py-2 mono text-right font-medium">{m.share.toFixed(1)}%</td>
-                                  <td class="px-2.5 py-2 mono text-right">
+                                  {showRatio && (<td class="px-2.5 py-2 mono text-right">
                                     {isBandRef ? (
                                       <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span>
                                     ) : (
                                       m.ratio === null ? '–' : m.ratio.toFixed(2)
                                     )}
-                                  </td>
+                                  </td>)}
                                   <td class="px-2.5 py-2 text-center">
                                     {m.saturation === null ? (
                                       <span title="Float image rescaled on import; saturation cannot be judged" class="text-slate-400 dark:text-slate-500 text-[10px]">Not assessable</span>
@@ -570,7 +574,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                         Saturated
                                       </span>
                                     ) : (
-                                      <span class="text-slate-500 dark:text-slate-400 text-[10px]">Linear</span>
+                                      <span class="text-emerald-700 dark:text-emerald-400 text-[11px]" title="Signal is within the linear range of the image">✓ OK</span>
                                     )}
                                   </td>
                                   <td class="px-2.5 py-2 text-center">
@@ -604,17 +608,17 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
               <table class="w-full text-xs text-left">
                 <thead>
                   <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {s.tableMode === 'all' && <th class="pb-2 font-semibold">Lane</th>}
-                    <th class="pb-2 font-semibold">Band #</th>
-                    <th class="pb-2 font-semibold">Migration Y</th>
-                    <th class="pb-2 font-semibold">Est. Size</th>
-                    <th class="pb-2 font-semibold text-right text-emerald-700 dark:text-emerald-400">Calibrated Mass</th>
-                    <th class="pb-2 font-semibold text-right">Raw Area</th>
-                    <th class="pb-2 font-semibold text-right">Baseline</th>
-                    <th class="pb-2 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity (Amount)</th>
-                    <th class="pb-2 font-semibold text-right">% of Lane</th>
-                    <th class="pb-2 font-semibold text-right">Ratio to Ref</th>
-                    <th class="pb-2 font-semibold text-center">Status</th>
+                    {s.tableMode === 'all' && <th class="px-2 pb-2 font-semibold">Lane</th>}
+                    <th class="px-2 pb-2 font-semibold">Band #</th>
+                    <th class="px-2 pb-2 font-semibold">Migration Y</th>
+                    <th class="px-2 pb-2 font-semibold">Est. Size</th>
+                    {showMass && <th class="px-2 pb-2 font-semibold text-right text-emerald-700 dark:text-emerald-400">Calibrated Mass</th>}
+                    <th class="px-2 pb-2 font-semibold text-right">Raw Area</th>
+                    <th class="px-2 pb-2 font-semibold text-right">Baseline</th>
+                    <th class="px-2 pb-2 font-semibold text-right text-slate-900 dark:text-slate-100">Net Intensity</th>
+                    <th class="px-2 pb-2 font-semibold text-right">% of Lane</th>
+                    {showRatio && <th class="px-2 pb-2 font-semibold text-right">Ratio to Ref</th>}
+                    <th class="px-2 pb-2 font-semibold text-center">Quality</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -631,30 +635,30 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                           }`}
                         >
                           {s.tableMode === 'all' && (
-                            <td class="py-2.5 font-bold">
+                            <td class="px-2 py-2.5 font-bold">
                               <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">
                                 {customName ? `L${item.laneIdx + 1}: ${customName}` : `L${item.laneIdx + 1}`}
                               </span>
                             </td>
                           )}
-                          <td class="py-2.5 font-medium">Band {m.number}</td>
-                          <td class="py-2.5 mono">{m.peakY ? `${m.peakY.toFixed(1)} px` : '-'}</td>
-                          <td class="py-2.5 font-bold text-accent-600 dark:text-accent-400">
+                          <td class="px-2 py-2.5 font-medium">Band {m.number}</td>
+                          <td class="px-2 py-2.5 mono">{m.peakY ? `${m.peakY.toFixed(1)} px` : '-'}</td>
+                          <td class="px-2 py-2.5 font-bold text-accent-600 dark:text-accent-400">
                             {m.sizeEst ? formatSize(m.sizeEst, activeLadder.kind) : '-'}
                           </td>
-                          <td class="py-2.5 mono text-right font-bold text-emerald-700 dark:text-emerald-400">
+                          {showMass && (<td class="px-2 py-2.5 mono text-right font-bold text-emerald-700 dark:text-emerald-400">
                             {m.massEst ? formatMass(m.massEst, massCalibration?.unit) : '-'}
                             {m.massFlags?.extrapolated && <span class="ml-1 text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400" title="Outside the standard curve's signal range">extrap.</span>}
                             {m.massFlags?.belowLoq && <span class="ml-1 text-[9px] font-bold uppercase text-rose-700 dark:text-rose-400" title="Below the limit of quantitation">&lt;LOQ</span>}
-                          </td>
-                          <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
-                          <td class="py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
-                          <td class="py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}{m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band FWHM is more than half the rolling-ball radius, so the baseline removes about 10 % or more of its signal; increase the radius">⚠ radius</span>}</td>
-                          <td class="py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
-                          <td class="py-2.5 mono text-right">
+                          </td>)}
+                          <td class="px-2 py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.raw.toFixed(1)}</td>
+                          <td class="px-2 py-2.5 mono text-right text-slate-500 dark:text-slate-400">{m.background.toFixed(1)}</td>
+                          <td class="px-2 py-2.5 mono text-right font-bold text-slate-900 dark:text-slate-100 text-sm">{m.net.toFixed(1)}{m.baselineWarning && <span class="ml-1 text-[9px] text-amber-700 dark:text-amber-400" title="Band FWHM is more than half the rolling-ball radius, so the baseline removes about 10 % or more of its signal; increase the radius">⚠ radius</span>}</td>
+                          <td class="px-2 py-2.5 mono text-right font-medium">{m.share.toFixed(1)}%</td>
+                          {showRatio && (<td class="px-2 py-2.5 mono text-right">
                             {isRef ? <span class="text-emerald-700 dark:text-emerald-400 font-bold">1.00 (Ref)</span> : m.ratio === null ? '–' : m.ratio.toFixed(2)}
-                          </td>
-                          <td class="py-2.5 text-center">
+                          </td>)}
+                          <td class="px-2 py-2.5 text-center">
                             {m.saturation === null ? (
                               <span title="Float image rescaled on import; saturation cannot be judged" class="text-slate-400 dark:text-slate-500 text-[10px]">Not assessable</span>
                             ) : saturated ? (
@@ -662,7 +666,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                                 Saturated
                               </span>
                             ) : (
-                              <span class="text-slate-500 dark:text-slate-400 text-[10px]">Linear</span>
+                              <span class="text-emerald-700 dark:text-emerald-400 text-[11px]" title="Signal is within the linear range of the image">✓ OK</span>
                             )}
                           </td>
                         </tr>

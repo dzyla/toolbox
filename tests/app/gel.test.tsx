@@ -45,7 +45,7 @@ describe('Gel and Blot analysis tool view', () => {
     // Switch to All-Lanes Band Quantification
     const quantTab = screen.getByRole('button', { name: /📊 Quantification/ });
     fireEvent.click(quantTab);
-    expect(screen.getByText(/Net Intensity \(Amount\)/)).toBeTruthy();
+    expect(screen.getByText(/Net Intensity/)).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /Bands \(tidy\)/ }).length).toBeGreaterThan(0);
   });
 

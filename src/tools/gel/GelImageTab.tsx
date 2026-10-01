@@ -163,7 +163,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
               )}
             </div>
             <p class="text-xs text-slate-500 dark:text-slate-400">
-              Migration distance $Y$ (top → bottom) vs band optical density & physical lane strip
+              Distance migrated (top → bottom) against band density, with the lane strip below
             </p>
             <p class="text-[11px] text-slate-500 dark:text-slate-400">
               Click a band to set ref/move · <kbd class="font-mono">Shift</kbd>+Click to add · <kbd class="font-mono">Ctrl</kbd>/
@@ -385,10 +385,9 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                   <table class="w-full text-xs text-left">
                     <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">
                       <tr>
-                        <th class="px-3 py-2 font-semibold">Peak #</th>
-                        <th class="px-3 py-2 font-semibold">Position (Y)</th>
-                        <th class="px-3 py-2 font-semibold">Est. Mass / Size</th>
-                        <th class="px-3 py-2 font-semibold text-right">Peak OD</th>
+                        <th class="px-2 py-2 font-semibold">#</th>
+                        <th class="px-2 py-2 font-semibold">Position</th>
+                        <th class="px-2 py-2 font-semibold">Size</th>
                         <th class="px-3 py-2 font-semibold text-right">Net Signal</th>
                         <th class="px-3 py-2 font-semibold text-right">Lane Share</th>
                         <th class="px-3 py-2 font-semibold text-center">Ref</th>
@@ -400,8 +399,6 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                         const isLadderLane = selectedLane?.id === effectiveLadderLaneId;
                         return laneAnalysis.metrics.map(m => {
                           const isRef = m.bandId === s.refBandId;
-                          const peakIdx = Math.min(laneAnalysis.profile.length - 1, Math.round(m.peakY ?? 0));
-                          const peakVal = laneAnalysis.profile[peakIdx] ?? 0;
                           return (
                             <tr
                               key={m.bandId}
@@ -419,7 +416,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                               </td>
                               <td class="px-3 py-2">
                                 {isLadderLane ? (
-                                  <div class="flex items-center gap-1.5">
+                                  <div class="flex flex-col items-start gap-0.5">
                                     <label class="sr-only" for={`ladder-size-${m.bandId}`}>Assigned ladder size</label>
                                     <select
                                       id={`ladder-size-${m.bandId}`}
@@ -434,9 +431,8 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                       {[...activeLadder.sizes].sort((a, b) => b - a).map(sz => <option value={String(sz)}>{formatSize(sz, activeLadder.kind)}</option>)}
                                       <option value="exclude">Exclude</option>
                                     </select>
-                                    <span class="text-[10px] text-slate-500 dark:text-slate-400">
-                                      {m.ladderAssigned !== null ? `Assigned ${formatSize(m.ladderAssigned, activeLadder.kind)}` : 'Assigned –'}
-                                    </span>
+                                    <span class="flex flex-wrap items-baseline gap-x-2 text-[10px] text-slate-500 dark:text-slate-400">
+                                    <span>{m.ladderAssigned !== null ? `Assigned ${formatSize(m.ladderAssigned, activeLadder.kind)}` : 'Assigned –'}</span>
                                     {!calibration && !ladderConflict && <span class="text-[10px] text-slate-500 dark:text-slate-400">– (needs ≥ 3 ladder bands or pinned sizes)</span>}
                                     {m.sizeEst !== null && <span class="mono text-[11px]">fit {formatSize(m.sizeEst, activeLadder.kind)}</span>}
                                     {m.sizeResidualPct !== null && (
@@ -444,6 +440,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                         Δ {m.sizeResidualPct.toFixed(1)}%
                                       </span>
                                     )}
+                                    </span>
                                   </div>
                                 ) : m.sizeEst ? (
                                   <span class="font-bold text-accent-600 dark:text-accent-400">
@@ -453,7 +450,6 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                                   <span class="text-slate-500 dark:text-slate-400 font-normal">Uncalibrated</span>
                                 )}
                               </td>
-                              <td class="px-3 py-2 mono text-right text-slate-600 dark:text-slate-400">{peakVal.toFixed(3)}</td>
                               <td class="px-3 py-2 mono text-right font-semibold text-slate-900 dark:text-slate-100">{m.net.toFixed(1)}</td>
                               <td class="px-3 py-2 mono text-right font-medium text-slate-700 dark:text-slate-300">
                                 {m.share.toFixed(1)}%

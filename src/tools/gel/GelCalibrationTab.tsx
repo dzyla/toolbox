@@ -1,5 +1,4 @@
-import { formatSize, formatMass, MASS_STANDARD_PRESETS, type MassCalibrationModel, type CalibrationModel } from '@/core/gel/calibration';
-import { LADDERS } from './workspace';
+import { formatSize, formatMass, MASS_STANDARD_PRESETS } from '@/core/gel/calibration';
 import type { GelWorkspace } from './workspace';
 
 /** A limit of exactly 0 (perfect fit) is a real value, not "not computable". */
@@ -7,12 +6,14 @@ function fmtLimit(v: number, unit: string): string {
   return v === 0 ? `0 ${unit}` : formatMass(v, unit);
 }
 
-/** Calibration tab: molecular-weight and mass-densitometry standard curves. */
+const MODEL_NAMES: Record<string, string> = { piecewise: 'piecewise log-linear', linear: 'global log-linear', monotone: 'monotone cubic spline' };
+const MASS_MODEL_NAMES: Record<string, string> = { linear: 'linear', linear_zero: 'linear through origin', quadratic: 'quadratic', power: 'power law' };
+
+/** Calibration tab: molecular-weight and mass-densitometry standard curves (controls live in the left panel). */
 export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
   const {
     activeLadder,
     calibration,
-    customLadders,
     customMassMap,
     laneAnalysis,
     laneLabels,
@@ -24,6 +25,11 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
     set,
     setCustomMassMap,
   } = g;
+  const laneName = (id: string) => {
+    const i = lanes.findIndex(l => l.id === id);
+    if (i < 0) return 'no lane selected';
+    return `lane ${i + 1}${laneLabels[id] ? ` (${laneLabels[id]})` : ''}`;
+  };
   return (
     <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
       <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
@@ -57,29 +63,6 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
             </button>
           </div>
 
-          {s.calibSubTab === 'mw' && calibration && (
-            <div class="hidden sm:flex items-center gap-3 text-xs">
-              <span class="font-medium text-slate-500 dark:text-slate-400">
-                Model: <strong class="text-slate-800 dark:text-slate-200">{s.calibMethod}</strong>
-              </span>
-              {calibration.r2 !== undefined && (
-                <span class="font-medium text-slate-500 dark:text-slate-400">
-                  R²: <strong class="text-emerald-700 dark:text-emerald-400">{calibration.r2.toFixed(4)}</strong>
-                </span>
-              )}
-            </div>
-          )}
-
-          {s.calibSubTab === 'mass' && massCalibration && (
-            <div class="hidden sm:flex items-center gap-3 text-xs">
-              <span class="font-medium text-slate-500 dark:text-slate-400">
-                Model: <strong class="text-slate-800 dark:text-slate-200">{s.massCalibMethod}</strong>
-              </span>
-              <span class="font-medium text-slate-500 dark:text-slate-400">
-                R²: <strong class="text-emerald-700 dark:text-emerald-400">{massCalibration.r2.toFixed(4)}</strong>
-              </span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -99,65 +82,11 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
       {s.calibSubTab === 'mw' ? (
         <div class="space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-            <div class="flex flex-wrap items-center gap-3">
-              <div>
-                <span class="text-slate-500 dark:text-slate-400 font-medium mr-1.5">Ladder Lane:</span>
-                <select
-                  aria-label="Ladder Lane"
-                  value={s.ladderLaneId}
-                  onChange={e => set({ ladderLaneId: (e.target as HTMLSelectElement).value })}
-                  class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
-                >
-                  <option value="">Select standard ladder lane…</option>
-                  {lanes.map((l, i) => (
-                    <option key={l.id} value={l.id}>
-                      Lane {i + 1}
-                      {laneLabels[l.id] ? ` (${laneLabels[l.id]})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span class="text-slate-500 dark:text-slate-400 font-medium mr-1.5">Ladder Preset:</span>
-                <select
-                  aria-label="Ladder Preset"
-                  value={s.ladderId}
-                  onChange={e => set({ ladderId: (e.target as HTMLSelectElement).value })}
-                  class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
-                >
-                  <optgroup label="Built-in Standard Ladders">
-                    {LADDERS.map(l => (
-                      <option key={l.id} value={l.id}>
-                        {l.name} [{l.kind.toUpperCase()}]
-                      </option>
-                    ))}
-                  </optgroup>
-                  {customLadders.length > 0 && (
-                    <optgroup label="Custom Uploaded Ladders">
-                      {customLadders.map(l => (
-                        <option key={l.id} value={l.id}>
-                          ⭐ {l.name} [{l.kind.toUpperCase()}]
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <span class="text-slate-500 dark:text-slate-400 font-medium mr-1.5">Regression Model:</span>
-                <select
-                  aria-label="Regression Model"
-                  value={s.calibMethod}
-                  onChange={e => set({ calibMethod: (e.target as HTMLSelectElement).value as CalibrationModel })}
-                  class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
-                >
-                  <option value="piecewise">Piecewise Log-Linear</option>
-                  <option value="linear">Global Log-Linear (y = mx + b)</option>
-                  <option value="monotone">Monotone cubic spline</option>
-                </select>
-              </div>
+            <div class="space-y-0.5">
+              <p class="text-slate-700 dark:text-slate-200">
+                <strong>{activeLadder.name}</strong> on {laneName(s.ladderLaneId)} · {MODEL_NAMES[s.calibMethod] ?? s.calibMethod}
+              </p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Change the ladder lane, preset or model in the left panel (Molecular weight calibration).</p>
             </div>
 
             {calibration && (
@@ -286,54 +215,11 @@ export function GelCalibrationTab({ g }: { g: GelWorkspace }) {
         /* Mass / Densitometry Sub-Tab */
         <div class="space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-            <div class="flex flex-wrap items-center gap-3">
-              <div>
-                <span class="text-slate-500 dark:text-slate-400 font-medium mr-1.5">Standard Lane / Well:</span>
-                <select
-                  aria-label="Standard Lane / Well"
-                  value={s.massLaneId}
-                  onChange={e => set({ massLaneId: (e.target as HTMLSelectElement).value })}
-                  class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold"
-                >
-                  <option value="">Select Lane...</option>
-                  {lanes.map((l, i) => (
-                    <option key={l.id} value={l.id}>
-                      Lane {i + 1} {laneLabels[l.id] ? `(${laneLabels[l.id]})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span class="text-slate-500 dark:text-slate-400 font-medium mr-1.5">Preset:</span>
-                <select
-                  aria-label="Preset"
-                  value={s.massPresetId}
-                  onChange={e => set({ massPresetId: (e.target as HTMLSelectElement).value })}
-                  class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
-                >
-                  {MASS_STANDARD_PRESETS.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span class="text-slate-500 dark:text-slate-400 font-medium mr-1.5">Model:</span>
-                <select
-                  aria-label="Model"
-                  value={s.massCalibMethod}
-                  onChange={e => set({ massCalibMethod: (e.target as HTMLSelectElement).value as MassCalibrationModel })}
-                  class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-900"
-                >
-                  <option value="linear">Linear (y = mx + b)</option>
-                  <option value="linear_zero">Linear Origin (y = mx)</option>
-                  <option value="quadratic">Quadratic (Polynomial)</option>
-                  <option value="power">Power Law</option>
-                </select>
-              </div>
+            <div class="space-y-0.5">
+              <p class="text-slate-700 dark:text-slate-200">
+                <strong>{MASS_STANDARD_PRESETS.find(p => p.id === s.massPresetId)?.name ?? 'Custom standards'}</strong> on {laneName(s.massLaneId)} · {MASS_MODEL_NAMES[s.massCalibMethod] ?? s.massCalibMethod}
+              </p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Change the standard lane, preset or model in the left panel (Mass densitometry).</p>
             </div>
 
             {massCalibration && (
