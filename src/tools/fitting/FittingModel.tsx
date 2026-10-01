@@ -4,6 +4,9 @@ import { useDraftText } from '@/lib/drafts';
 import { SAMPLE_DATASETS, computeEnzymeTransforms, fitModel, parseFittingData, type FitModelType } from '@/core/fitting';
 import { importErrorMessage, readTextFile } from '@/lib/file-import';
 import { downloadSvg, downloadText, toCsv } from '@/lib/export';
+import type { Analysis } from './modes/shared';
+import type { ConcUnit } from '@/core/fitting/spr';
+import type { HeatUnit } from '@/core/fitting/itc';
 import { scienceText } from '@/app/components/SciencePanel';
 import { SCIENCE } from './science';
 
@@ -16,6 +19,12 @@ export interface State {
   analyteConc: number;
   dissociationRate: number;
   activeDiagnosticPlot: 'none' | 'lineweaver_burk' | 'eadie_hofstee' | 'hanes_woolf';
+  analysis: Analysis;
+  /** Growth models: fit ln(y/y₀) so µmax is a specific growth rate. */
+  growthLog: boolean;
+  inh: { kind: 'mechanism' | 'morrison'; enzymeConc: number; fitEnzyme: boolean; substrateConc: number; km: number };
+  itc: { cellVolumeUl: number; cellConcUm: number; syringeConcUm: number; temperatureC: number; heatUnit: HeatUnit; defaultVolumeUl: number; fixN: boolean; n: number; fitOffset: boolean; skipFirst: boolean };
+  spr: { tDissStart: number; tAssocStart: number; concUnit: ConcUnit; globalRmax: boolean; fitBaseline: boolean };
 }
 export const DEFAULTS: State = {
   modelType: '4pl',
@@ -26,12 +35,19 @@ export const DEFAULTS: State = {
   analyteConc: 100,
   dissociationRate: 0.01,
   activeDiagnosticPlot: 'none',
+  analysis: 'curve',
+  growthLog: true,
+  inh: { kind: 'mechanism', enzymeConc: 5, fitEnzyme: false, substrateConc: 0, km: 0 },
+  itc: { cellVolumeUl: 200, cellConcUm: 20, syringeConcUm: 200, temperatureC: 25, heatUnit: 'ucal', defaultVolumeUl: 2, fixN: false, n: 1, fitOffset: false, skipFirst: false },
+  spr: { tDissStart: 300, tAssocStart: 0, concUnit: 'nM', globalRmax: true, fitBaseline: false },
 };
 
 export function useFittingModel() {
   const [stateSig, shareUrl] = useUrlState<State>('fitting', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
+  /** Patch one of the nested per-analysis option groups. */
+  const setSub = <K extends 'inh' | 'itc' | 'spr'>(key: K, patch: Partial<State[K]>) => { stateSig.value = { ...stateSig.value, [key]: { ...stateSig.value[key], ...patch } }; };
 
   // Data handed over from the Plate Reader (sessionStorage) wins over a saved draft.
   const [piped] = useState<string | null>(() => {
@@ -89,11 +105,11 @@ export function useFittingModel() {
   const fitResult = useMemo(() => {
     if (parsedData.length < 2) return null;
     try {
-      return fitModel(s.modelType, parsedData);
+      return fitModel(s.modelType, parsedData, { logTransform: s.growthLog });
     } catch (err) {
       return { error: (err as Error).message };
     }
-  }, [s.modelType, parsedData]);
+  }, [s.modelType, parsedData, s.growthLog]);
 
   const enzymeDiagnostics = useMemo(() => {
     if (!fitResult || 'error' in fitResult) return null;
@@ -379,6 +395,7 @@ export function useFittingModel() {
     shareUrl,
     s,
     set,
+    setSub,
     piped,
     rawText,
     setRawText,

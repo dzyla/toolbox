@@ -196,3 +196,25 @@ export function fitItcOneSite(exp: ItcExperiment, options: ItcOptions = {}): Itc
     aicc: aicc(nls.sse, idx.length, nls.nFree),
   };
 }
+
+/**
+ * Reads injection data: one column = heats (volume taken from `defaultVolumeUl`), two columns = volume (µL) and heat,
+ * three columns = injection number, volume and heat. A header line, comments (#) and blank lines are skipped.
+ */
+export function parseItcInjections(text: string, defaultVolumeUl: number): { volumesUl: number[]; heats: number[] } {
+  const rows: number[][] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+    const parts = line.split(/[\t,;]+|\s+/).filter(Boolean);
+    const nums = parts.map(Number);
+    if (nums.some(n => !Number.isFinite(n))) { if (rows.length === 0) continue; throw new Error(`Cannot read the line "${line}" as numbers.`); }
+    rows.push(nums);
+  }
+  if (rows.length === 0) return { volumesUl: [], heats: [] };
+  const width = rows[0]!.length;
+  if (width > 3 || rows.some(r => r.length !== width)) throw new Error('Use one column (heat), two columns (volume, heat) or three columns (injection, volume, heat), with the same number of columns on every line.');
+  if (width === 1) return { volumesUl: rows.map(() => defaultVolumeUl), heats: rows.map(r => r[0]!) };
+  if (width === 2) return { volumesUl: rows.map(r => r[0]!), heats: rows.map(r => r[1]!) };
+  return { volumesUl: rows.map(r => r[1]!), heats: rows.map(r => r[2]!) };
+}

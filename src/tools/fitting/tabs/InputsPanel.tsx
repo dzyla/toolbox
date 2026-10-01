@@ -1,6 +1,7 @@
 import { SAMPLE_DATASETS, type FitModelType } from '@/core/fitting';
 import { ImportAlert } from '@/app/components/ImportAlert';
 import type { FittingModel } from '../FittingModel';
+import { ModeTabs } from '../modes/shared';
 
 export function InputsPanel({ m }: { m: FittingModel }) {
   const {
@@ -16,6 +17,7 @@ export function InputsPanel({ m }: { m: FittingModel }) {
   } = m;
   return (
     <div class="space-y-4">
+      <ModeTabs value={s.analysis} onChange={a => set({ analysis: a })} />
       {/* Model Selector */}
       <div class="space-y-2 rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
         <label for="model-select" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
@@ -34,19 +36,33 @@ export function InputsPanel({ m }: { m: FittingModel }) {
           }}
           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 font-medium"
         >
-          <option value="4pl">4-Parameter Logistic (4PL / EC50 / IC50)</option>
-          <option value="5pl">5-Parameter Logistic (5PL / Asymmetric EC50)</option>
-          <option value="linear">Linear Regression (y = m·x + b)</option>
-          <option value="linear_origin">Linear through Origin (y = m·x)</option>
-          <option value="michaelis_menten">Michaelis-Menten Kinetics (Vmax, Km)</option>
-          <option value="substrate_inhibition">Substrate Inhibition (Haldane: Vmax, Km, Ki)</option>
-          <option value="spr_association">BLI / SPR Association Phase (kobs, Req)</option>
-          <option value="spr_dissociation">BLI / SPR Dissociation Phase (koff)</option>
-          <option value="spr_sensorgram">BLI / SPR Sensorgram (Full Cycle kon, koff, KD)</option>
-          <option value="two_site_binding">Two-Site Specific Binding (Bmax1, Kd1, Bmax2, Kd2)</option>
-          <option value="exp_decay">Exponential Decay (Half-Life t1/2)</option>
-          <option value="exp_growth">Exponential Growth (y = y₀ · e^(k·x))</option>
-          <option value="gaussian">Gaussian Peak Fit (Amplitude, Center, Width)</option>
+          <optgroup label="Dose-response and binding">
+            <option value="4pl">4-Parameter Logistic (4PL / EC50 / IC50)</option>
+            <option value="5pl">5-Parameter Logistic (5PL / Asymmetric EC50)</option>
+            <option value="hill">Hill equation (Bmax, K0.5, n)</option>
+            <option value="two_site_binding">Two-Site Specific Binding (Bmax1, Kd1, Bmax2, Kd2)</option>
+          </optgroup>
+          <optgroup label="Enzyme kinetics">
+            <option value="michaelis_menten">Michaelis-Menten Kinetics (Vmax, Km)</option>
+            <option value="substrate_inhibition">Substrate Inhibition (Haldane: Vmax, Km, Ki)</option>
+          </optgroup>
+          <optgroup label="BLI / SPR (single curve)">
+            <option value="spr_association">Association Phase (kobs, Req)</option>
+            <option value="spr_dissociation">Dissociation Phase (koff)</option>
+            <option value="spr_sensorgram">Sensorgram, one concentration (kon, koff, KD)</option>
+          </optgroup>
+          <optgroup label="Growth and decay">
+            <option value="gompertz_growth">Growth curve: Gompertz (µmax, lag, plateau)</option>
+            <option value="logistic_growth">Growth curve: logistic (µmax, lag, plateau)</option>
+            <option value="baranyi_growth">Growth curve: Baranyi–Roberts (µmax, lag)</option>
+            <option value="exp_growth">Exponential Growth (y = y₀ · e^(k·x))</option>
+            <option value="exp_decay">Exponential Decay (Half-Life t1/2)</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="linear">Linear Regression (y = m·x + b)</option>
+            <option value="linear_origin">Linear through Origin (y = m·x)</option>
+            <option value="gaussian">Gaussian Peak Fit (Amplitude, Center, Width)</option>
+          </optgroup>
         </select>
       </div>
 
@@ -120,6 +136,20 @@ export function InputsPanel({ m }: { m: FittingModel }) {
           <span>Show Error Bars (SD / Replicates)</span>
         </label>
       </div>
+
+      {/* Growth-curve options */}
+      {(s.modelType === 'gompertz_growth' || s.modelType === 'logistic_growth' || s.modelType === 'baranyi_growth') && (
+        <div class="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-xs dark:border-emerald-900/50 dark:bg-emerald-950/20">
+          <label class="flex cursor-pointer select-none items-start gap-2">
+            <input type="checkbox" checked={s.growthLog} onChange={e => set({ growthLog: (e.target as HTMLInputElement).checked })} class="mt-0.5 rounded accent-accent-600" />
+            <span>
+              <span class="font-medium text-emerald-900 dark:text-emerald-200">Data are OD / cell counts (fit ln(y/y₀))</span>
+              <span class="block text-[11px] text-emerald-800 dark:text-emerald-300">On: µmax is a specific growth rate and doubling time is reported (needs blank-corrected, positive readings). Off: fit y directly with a baseline.</span>
+            </span>
+          </label>
+          <p class="text-[11px] text-emerald-800 dark:text-emerald-300">x = time (h), y = OD or counts. Replicate columns are averaged.</p>
+        </div>
+      )}
 
       {/* Contextual Parameters for Enzyme Kinetics */}
       {(s.modelType === 'michaelis_menten' || s.modelType === 'substrate_inhibition') && (

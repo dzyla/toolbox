@@ -48,6 +48,11 @@ export function ResultsPanel({ m }: { m: FittingModel }) {
                 <p class="font-serif italic text-sm text-slate-700 dark:text-slate-300 mt-0.5">
                   {fitResult.equationStr}
                 </p>
+                {fitResult.notes && fitResult.notes.length > 0 && (
+                  <ul class="mt-2 space-y-0.5 text-[11px] text-slate-600 dark:text-slate-300">
+                    {fitResult.notes.map(n => <li key={n}>• {n}</li>)}
+                  </ul>
+                )}
               </div>
               <div class="flex items-center gap-2">
                 <button

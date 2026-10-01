@@ -102,3 +102,19 @@ describe('ITC fit', () => {
     expect(() => fitItcOneSite(e, { fixedN: -1 })).toThrow(/positive/);
   });
 });
+
+describe('ITC injection table parser', () => {
+  it('reads one, two and three columns and skips headers and comments', async () => {
+    const { parseItcInjections } = await import('@/core/fitting/itc');
+    expect(parseItcInjections('heat\n-1.5\n-1.2\n# c\n-0.4\n', 2)).toEqual({ volumesUl: [2, 2, 2], heats: [-1.5, -1.2, -0.4] });
+    expect(parseItcInjections('vol,heat\n0.4,-0.5\n2,-3\n', 2)).toEqual({ volumesUl: [0.4, 2], heats: [-0.5, -3] });
+    expect(parseItcInjections('#\tvol\theat\n1\t0.4\t-0.5\n2\t2\t-3\n', 2)).toEqual({ volumesUl: [0.4, 2], heats: [-0.5, -3] });
+    expect(parseItcInjections('', 2)).toEqual({ volumesUl: [], heats: [] });
+  });
+  it('rejects ragged or non-numeric data', async () => {
+    const { parseItcInjections } = await import('@/core/fitting/itc');
+    expect(() => parseItcInjections('1,2\n3\n', 2)).toThrow(/same number of columns/);
+    expect(() => parseItcInjections('1,2\nx,3\n', 2)).toThrow(/Cannot read/);
+    expect(() => parseItcInjections('1,2,3,4\n', 2)).toThrow(/columns/);
+  });
+});
