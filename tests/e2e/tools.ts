@@ -7,4 +7,5 @@ export const READY_TOOLS = [
   'tally', 'plate', 'culture', 'timers', 'protocols', 'colors',
   'plate-reader',
   'study-design',
+  'flow',
 ];
