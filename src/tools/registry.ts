@@ -25,8 +25,11 @@ export const CATEGORIES: Record<Category, { label: string; blurb: string; order:
 
 export const TOOLS: ToolMeta[] = [
   { id: 'study-design', name: 'Experimental Design & Power Planner', category: 'calculators', icon: '📐',
-    blurb: 'Plan sample size, power, and detectable effect for two independent groups', keywords: ['study design', 'experimental design', 'sample size', 'power', 'cohen', 'effect size', 'dropout', 't-test'],
+    blurb: 'Plan sample size, power, and detectable effect for two groups, paired samples, or a one-way ANOVA', keywords: ['study design', 'experimental design', 'sample size', 'power', 'cohen', 'effect size', 'dropout', 't-test', 'paired t-test', 'anova', 'one-way anova', 'cohen f'],
     status: 'ready', load: () => import('./study-design/View') },
+  { id: 'method-comparison', name: 'Method Comparison (Bland–Altman)', category: 'calculators', icon: '📉',
+    blurb: 'Bias, 95% limits of agreement and a difference plot for two measurement methods', keywords: ['bland altman', 'bland-altman', 'method comparison', 'agreement', 'limits of agreement', 'bias', 'assay comparison', 'two methods', 'difference plot'],
+    status: 'ready', load: () => import('./method-comparison/View') },
   { id: 'molarity', name: 'Molarity & Dilution', category: 'calculators', icon: '⚖️',
     blurb: 'Mass, moles, concentration and C1V1 = C2V2', keywords: ['molarity', 'dilution', 'c1v1', 'mass', 'moles', 'mw', 'stock'],
     status: 'ready', load: () => import('./molarity/View') },
