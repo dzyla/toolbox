@@ -6,6 +6,8 @@
  */
 
 import { tCritical95 } from '@/core/stats';
+import { fitGrowth, fitHill, type GrowthOptions } from './models';
+export { gompertz, logistic, baranyi, type GrowthModel, type GrowthOptions } from './models';
 
 export type FitModelType =
   | 'linear'
@@ -20,7 +22,11 @@ export type FitModelType =
   | 'two_site_binding'
   | 'exp_decay'
   | 'exp_growth'
-  | 'gaussian';
+  | 'gaussian'
+  | 'hill'
+  | 'gompertz_growth'
+  | 'logistic_growth'
+  | 'baranyi_growth';
 
 export interface DataPoint {
   x: number;
@@ -61,6 +67,8 @@ export interface FitResult {
   df: number; // degrees of freedom
   predict: (x: number) => number;
   fittedPoints: FittedPoint[];
+  /** Plain-language caveats about how the fit was done (e.g. fitted on a ln scale). */
+  notes?: string[];
 }
 
 /**
@@ -1385,8 +1393,14 @@ export function computeEnzymeTransforms(data: DataPoint[]): EnzymeDiagnosticTran
 }
 
 /** Dispatcher to fit any supported laboratory model */
-export function fitModel(modelType: FitModelType, data: DataPoint[]): FitResult {
+export function fitModel(modelType: FitModelType, data: DataPoint[], options: GrowthOptions = {}): FitResult {
   switch (modelType) {
+    case 'hill':
+      return fitHill(data);
+    case 'gompertz_growth':
+    case 'logistic_growth':
+    case 'baranyi_growth':
+      return fitGrowth(modelType, data, options);
     case 'linear':
       return fitLinear(data);
     case 'linear_origin':
