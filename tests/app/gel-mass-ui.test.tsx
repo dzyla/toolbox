@@ -15,7 +15,7 @@ describe('Gel Mass Densitometry UI', () => {
     render(<GelView />);
 
     // Switch to calibration view
-    const calTab = screen.getByRole('button', { name: /MW Calibration /i });
+    const calTab = screen.getByRole('button', { name: /📈 Calibration/ });
     fireEvent.click(calTab);
 
     // Click Mass / Densitometry (ng) subtab
@@ -39,7 +39,7 @@ describe('Gel Mass Densitometry UI', () => {
 
   it('shows LOD/LOQ and the standard range in the mass calibration summary', () => {
     render(<GelView />);
-    fireEvent.click(screen.getByRole('button', { name: /MW Calibration /i }));
+    fireEvent.click(screen.getByRole('button', { name: /📈 Calibration/ }));
     fireEvent.click(screen.getByRole('button', { name: /Mass \/ Densitometry \(ng\)/i }));
     // Demo lane ids are generated (laneN-xxxx), so pick the second real lane option.
     const laneSelect = screen.getAllByRole('combobox', { name: 'Standard Lane / Well' })[0] as HTMLSelectElement;

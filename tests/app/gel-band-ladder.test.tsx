@@ -20,7 +20,7 @@ describe('gel ladder calibration + band interaction', () => {
   }
 
   function openCalibTab() {
-    fireEvent.click(screen.getByRole('button', { name: /MW Calibration Curve/ }));
+    fireEvent.click(screen.getByRole('button', { name: /📈 Calibration/ }));
   }
 
   it('default ladder preset is a valid ladder (dropdown not blank)', () => {
@@ -181,17 +181,17 @@ describe('gel ladder calibration + band interaction', () => {
     expect(screen.getByText(/🏷️ Standard Ladder Lane/)).toBeTruthy();
 
     // Loading ref controls on Lane 2
-    const setRefBtn = screen.getByRole('button', { name: /Set as Loading Ref/i });
+    const setRefBtn = screen.getByRole('button', { name: /Use as loading reference lane/i });
     expect(setRefBtn).toBeTruthy();
     fireEvent.click(setRefBtn);
     await new Promise((r) => setTimeout(r, 30));
-    expect(screen.getByText(/⚖️ Loading Ref/)).toBeTruthy();
+    expect(screen.getByText(/⚖️ Loading lane/)).toBeTruthy();
 
-    const unsetRefBtn = screen.getByRole('button', { name: /✕ Unset Loading Ref/i });
+    const unsetRefBtn = screen.getByRole('button', { name: /✕ Unset loading lane/i });
     expect(unsetRefBtn).toBeTruthy();
     fireEvent.click(unsetRefBtn);
     await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText(/⚖️ Loading Ref/)).toBeNull();
+    expect(screen.queryByText(/⚖️ Loading lane/)).toBeNull();
   });
 
   it('detected peaks table offers an assigned-size selector on the ladder lane', () => {

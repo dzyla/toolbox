@@ -87,11 +87,11 @@ describe('Gel Western Blot Target Band Matching & Margin of Detection', () => {
     render(<GelView />);
 
     // Switch to Tab 3 (Band Quantification)
-    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/i });
+    const quantTab = screen.getByRole('button', { name: /📊 Quantification/ });
     fireEvent.click(quantTab);
 
     // Click "Per Target Mass (WB Mode)"
-    const wbModeBtn = screen.getByRole('button', { name: /Per Target Mass \(WB Mode\)/i });
+    const wbModeBtn = screen.getByRole('button', { name: /By band size/ });
     fireEvent.click(wbModeBtn);
 
     // Ensure Target selector is present

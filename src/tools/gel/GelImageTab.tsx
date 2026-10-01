@@ -153,7 +153,7 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
               )}
               {selectedLane && selectedLane.id === s.loadingRefLaneId && (
                 <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-                  ⚖️ Loading Ref
+                  ⚖️ Loading lane
                 </span>
               )}
               {selectedLane && selectedLane.id === s.massLaneId && (
@@ -200,16 +200,16 @@ export function GelImageTab({ g }: { g: GelWorkspace }) {
                     class="px-2 py-1 text-[11px] font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
                     title="Unset loading reference designation"
                   >
-                    ✕ Unset Loading Ref
+                    ✕ Unset loading lane
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => set({ loadingRefLaneId: selectedLane.id })}
                     class="px-2 py-1 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition shadow-2xs"
-                    title="Set this lane as the Loading Reference"
+                    title="Use this lane as the reference for loading comparison (factor 1.00×)"
                   >
-                    ⚖️ Set as Loading Ref
+                    ⚖️ Use as loading reference lane
                   </button>
                 )}
               </div>

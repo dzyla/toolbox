@@ -246,3 +246,28 @@ describe('delimited text parsing and detection', () => {
     expect(() => buildFscCurves(table, detectFscColumns(table))).toThrowError(/at least 3/);
   });
 });
+
+describe('real RELION 4 postprocess.star (excerpt)', () => {
+  const text = fx('relion4-postprocess.star');
+  it('reads the final resolution and the pixel size from the file', () => {
+    const t = parseFscTable(text);
+    expect(t.meta).toEqual({ relionFinalResolution: 2.843428, pixelSize: 1.244 });
+  });
+  it('does not offer the particle-mask-fraction column as an FSC curve', () => {
+    const t = parseFscTable(text);
+    const m = detectFscColumns(t);
+    expect(m.fscCols.map(i => t.headers[i])).not.toContain('rlnFourierShellCorrelationParticleMaskFraction');
+    expect(m.fscCols.length).toBe(4);
+  });
+  it("matches RELION's own number: the last shell with corrected FSC >= 0.143 is 2.843428 Å, the interpolated crossing is slightly better", () => {
+    const t = parseFscTable(text);
+    const curves = buildFscCurves(t, detectFscColumns(t));
+    const corrected = curves.find(c => c.name === 'Corrected')!;
+    const a = analyzeFscCurve(corrected, { pixelSize: t.meta!.pixelSize });
+    const c = a.crossings.find(x => x.threshold === 0.143)!;
+    expect(c.lastShellResolution!).toBeCloseTo(2.843428, 4);
+    expect(c.resolution!).toBeLessThan(2.843428);
+    expect(c.resolution!).toBeGreaterThan(2.80);
+    expect(c.nyquist).toBe('ok');
+  });
+});

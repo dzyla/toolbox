@@ -55,6 +55,10 @@ export function MolstarViewer({
     }
     let cancelled = false;
     let viewer: MolstarViewerHandle | null = null;
+    // Mol* renders its own logo link without a text alternative; give it a name as soon as it appears.
+    const nameLogo = () => host.querySelectorAll('a.msp-logo').forEach(a => { if (!a.getAttribute('aria-label')) a.setAttribute('aria-label', 'Mol* website (molstar.org)'); });
+    const observer = new MutationObserver(nameLogo);
+    observer.observe(host, { childList: true, subtree: true });
     setIsLoading(true);
     setLoadError('');
     (async () => {
@@ -86,6 +90,7 @@ export function MolstarViewer({
     })();
     return () => {
       cancelled = true;
+      observer.disconnect();
       try { viewer?.dispose(); } catch { /* already disposed */ }
       if (host) host.replaceChildren();
     };
@@ -206,7 +211,7 @@ export function MolstarViewer({
         )}
         <div
           ref={hostRef}
-          role="img"
+          role="region"
           aria-label={`Mol* 3D Structure Viewer (3D Backbone Canvas) - ${displayId}`}
           class="relative w-full h-full"
         />

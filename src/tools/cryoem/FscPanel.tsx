@@ -129,7 +129,6 @@ export function FscPanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const pixelSize = positiveOrUndefined(pixelStr);
   const box = positiveOrUndefined(boxStr);
   const isExample = text === EXAMPLE;
 
@@ -142,6 +141,10 @@ export function FscPanel() {
       return { error: e instanceof Error ? e.message : String(e) };
     }
   }, [text]);
+
+  // The pixel size typed by the user wins; otherwise take the one RELION recorded in its command line.
+  const pixelFromFile = parsed.table?.meta?.pixelSize;
+  const pixelSize = positiveOrUndefined(pixelStr) ?? pixelFromFile;
 
   const mapping = parsed.auto && (override && override.forText === text ? override.mapping : parsed.auto);
 
@@ -332,6 +335,12 @@ export function FscPanel() {
             <button type="button" class={BTN} onClick={async () => { if (svgRef.current) downloadBlob(await svgToPngBlob(svgRef.current, 2), 'fsc-curves.png'); }}>Download plot (PNG)</button>
             <button type="button" class={BTN} onClick={exportCsv}>Download table (CSV)</button>
           </div>
+          {parsed.table?.meta?.relionFinalResolution !== undefined && (
+            <p class={`rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs dark:border-slate-700 dark:bg-slate-800/50 ${MUTED}`}>
+              RELION reported a final resolution of <strong class="font-mono">{parsed.table.meta.relionFinalResolution.toFixed(3)} Å</strong> (the last shell with corrected FSC ≥ 0.143, no interpolation). The interpolated value below is slightly better by design.
+              {pixelFromFile !== undefined && positiveOrUndefined(pixelStr) === undefined && <> Pixel size {pixelFromFile} Å was read from the file header.</>}
+            </p>
+          )}
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm" aria-label="FSC resolution at thresholds">
               <thead>
@@ -346,7 +355,16 @@ export function FscPanel() {
                 {analyses.map((a, i) => {
                   const cell = (t: number) => {
                     const c = a.crossings.find(x => x.threshold === t)!;
-                    if (c.status === 'crossed') return `${fmtRes(c.resolution)}${c.reCrosses ? ' (re-crosses)' : ''}`;
+                    if (c.status === 'crossed') {
+                      return (
+                        <>
+                          {fmtRes(c.resolution)}{c.reCrosses ? ' (re-crosses)' : ''}
+                          {c.lastShellResolution !== undefined && (
+                            <span class={`block font-sans text-[11px] ${MUTED}`}>last shell ≥ {t}: {fmtRes(c.lastShellResolution)}</span>
+                          )}
+                        </>
+                      );
+                    }
                     return c.status === 'below-start' ? 'starts below' : 'no crossing';
                   };
                   const ok = nyquistSummary(a) === 'OK';

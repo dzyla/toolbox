@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('print root is hidden on screen; single visible gel canvas', async ({ page }) => {
   await page.goto('/#/t/gel');
-  await page.getByRole('button', { name: /Export SVG/ }).waitFor({ timeout: 10000 });
+  await page.getByText('Export ▾').waitFor({ timeout: 10000 });
   const printDisplay = await page.$eval('.print-only', el => getComputedStyle(el).display);
   expect(printDisplay).toBe('none');
   const visibleCanvases = await page.$$eval('canvas', els =>
@@ -16,7 +16,7 @@ test('print root is hidden on screen; single visible gel canvas', async ({ page 
 
 test('gel: changing a MW-calibration setting does not move the canvas', async ({ page }) => {
   await page.goto('/#/t/gel');
-  await page.getByRole('button', { name: /Export SVG/ }).waitFor({ timeout: 10000 });
+  await page.getByText('Export ▾').waitFor({ timeout: 10000 });
   const yOf = () => page.$eval('canvas', c => c.getBoundingClientRect().y);
   // change the Fitting Model in the MW Calibration card (the only select with a "piecewise" option)
   const model = page.locator('select:has(option[value="piecewise"])');

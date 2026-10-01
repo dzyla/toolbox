@@ -13,11 +13,6 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
     allLanesAnalysis,
     effectiveLadderLaneId,
     getLaneStripDataUrl,
-    handleCopyMethods,
-    handleExportCalibrationCsv,
-    handleExportGroupCsv,
-    handleExportMethods,
-    handleExportTidyCsv,
     laneAnalysis,
     laneLabels,
     lanes,
@@ -33,8 +28,6 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
     set,
     setQuantLayoutMode,
     setSelectedLaneId,
-    setStripLanePrefix,
-    stripLanePrefix,
   } = g;
   return (
     <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
@@ -45,14 +38,14 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
             {s.quantSubView === 'groups'
               ? 'Conditions & Replicates'
               : s.quantSubView === 'loading'
-              ? 'Whole-Lane Loading Comparison & Ponceau S / TPN Normalization'
+              ? 'Loading control: whole-lane total signal'
               : 'Band Quantification & Relative Amounts'}
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
             {s.quantSubView === 'groups'
               ? 'Normalized target signal per lane, grouped by condition, with replicate statistics'
               : s.quantSubView === 'loading'
-              ? 'Total integrated optical density across all lines to verify equal sample loading, CV%, and compute TPN correction factors'
+              ? 'Total signal per lane to check equal loading and get a correction factor for each lane'
               : 'Background-subtracted optical densities, relative percentage shares, and calibrated molecular weights'}
           </p>
         </div>
@@ -67,7 +60,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                 s.quantSubView === 'bands' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              🎯 Band Quantification
+              🎯 Bands
             </button>
             <button
               type="button"
@@ -76,7 +69,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                 s.quantSubView === 'loading' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              🧪 Line Loading (Ponceau S)
+              🧪 Loading control
             </button>
             <button
               type="button"
@@ -85,7 +78,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                 s.quantSubView === 'groups' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              📊 Conditions & Replicates
+              📊 Conditions
             </button>
           </div>
 
@@ -143,69 +136,22 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
             </>
           )}
 
-          <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
-              <input
-                type="checkbox"
-                checked={stripLanePrefix}
-                onChange={e => setStripLanePrefix((e.target as HTMLInputElement).checked)}
-                class="rounded border-slate-300 dark:border-slate-700 text-accent-600 dark:text-accent-400 focus:ring-accent-500"
-              />
-              <span>Omit L1/L2 prefix</span>
-            </label>
-
-            <button
-              type="button"
-              onClick={handleExportTidyCsv}
-              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              Bands CSV (tidy)
-            </button>
-            <button
-              type="button"
-              onClick={handleExportGroupCsv}
-              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              Condition summary CSV
-            </button>
-            <button
-              type="button"
-              onClick={handleExportCalibrationCsv}
-              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              Calibration CSV
-            </button>
-            <button
-              type="button"
-              onClick={handleExportMethods}
-              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              Methods text
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyMethods}
-              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              Copy methods
-            </button>
-          </div>
         </div>
       </div>
 
       {s.quantSubView === 'groups' && <GelGroupsView g={g} />}
 
       {s.quantSubView === 'groups' ? null : s.quantSubView === 'loading' ? (
-        /* LINE LOADING COMPARISON (PONCEAU S / TPN MODE) */
+        /* LOADING CONTROL (TOTAL-PROTEIN NORMALISATION) */
         <div class="space-y-4">
           {/* KPI Summary Dashboard */}
           <div class="grid gap-3 sm:grid-cols-4">
             <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-3 space-y-1">
               <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                Reference Line (Lane)
+                Reference lane (factor 1.00×)
               </span>
               <select
-                aria-label="Reference Line (Lane)"
+                aria-label="Reference lane (factor 1.00×)"
                 value={s.loadingRefLaneId || allLanesAnalysis[0]?.lane.id || ''}
                 onChange={e => set({ loadingRefLaneId: (e.target as HTMLSelectElement).value })}
                 class="w-full text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 font-semibold"
@@ -276,7 +222,6 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
             ladderSizes={activeLadder.sizes}
             initialMode="loading"
             loadingRefLaneId={s.loadingRefLaneId}
-            onSetLoadingRefLane={laneId => set({ loadingRefLaneId: laneId })}
             plane={plane ?? undefined}
             display={
               plane
@@ -395,7 +340,7 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
                             onClick={() => set({ loadingRefLaneId: item.lane.id })}
                             class="px-2 py-1 rounded text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
                           >
-                            Set as Ref
+                            Use as reference
                           </button>
                         )}
                       </td>
@@ -406,19 +351,10 @@ export function GelQuantTab({ g }: { g: GelWorkspace }) {
             </table>
           </div>
 
-          {/* Ponceau S & Total Protein Normalization (TPN) Guidance */}
-          <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30 text-xs text-indigo-900 dark:text-indigo-200 space-y-1.5">
-            <div class="font-bold flex items-center gap-1.5">
-              <span>💡 Scientific Recommendation: Total Protein Normalization (Ponceau S / Coomassie)</span>
-            </div>
-            <p class="leading-relaxed">
-              Leading journal guidelines (e.g. <em>Journal of Biological Chemistry</em>, <em>Nature</em>) mandate{' '}
-              <strong>Total Protein Normalization (TPN)</strong> using reversible stains like Ponceau S or whole-lane Coomassie rather than
-              single housekeeping genes (actin, tubulin, GAPDH). Housekeeping markers frequently saturate or vary under experimental
-              treatments. Multiply your target protein band signal by the calculated <strong>TPN Factor</strong> to obtain rigorous,
-              publication-grade normalized data.
-            </p>
-          </div>
+          <p class="text-xs text-slate-600 dark:text-slate-300">
+            Multiply a band&rsquo;s signal by its lane&rsquo;s <strong>TPN factor</strong> to correct for loading. Total-protein normalisation
+            (a reversible stain such as Ponceau S, or whole-lane Coomassie) is generally preferred over a single housekeeping protein.
+          </p>
         </div>
       ) : (
         /* BAND QUANTIFICATION & AMOUNTS (WITH EXTRACTED LANE STRIPS) */

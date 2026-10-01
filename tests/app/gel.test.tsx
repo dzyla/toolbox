@@ -13,9 +13,9 @@ describe('Gel and Blot analysis tool view', () => {
     expect(screen.getByText(/Image Source/)).toBeTruthy();
     expect(screen.getByText(/Molecular Weight Calibration/)).toBeTruthy();
     expect(screen.getByText(/Densitometry Profile/)).toBeTruthy();
-    expect(screen.getByText(/Band Quantification/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /📊 Quantification/ })).toBeTruthy();
     // New spec §6 export affordances
-    expect(screen.getByRole('button', { name: /Export SVG/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /SVG \(vector\)/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Print \/ PDF/ })).toBeTruthy();
   });
 
@@ -37,16 +37,16 @@ describe('Gel and Blot analysis tool view', () => {
     render(<GelView />);
 
     // Switch to MW Calibration Curve
-    const calTab = screen.getByRole('button', { name: /MW Calibration Curve/ });
+    const calTab = screen.getByRole('button', { name: /📈 Calibration/ });
     fireEvent.click(calTab);
     expect(screen.getByText(/Molecular Weight Calibration Curve/)).toBeTruthy();
     expect(screen.getByText(/Migration Distance Y along Lane/)).toBeTruthy();
 
     // Switch to All-Lanes Band Quantification
-    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/ });
+    const quantTab = screen.getByRole('button', { name: /📊 Quantification/ });
     fireEvent.click(quantTab);
     expect(screen.getByText(/Net Intensity \(Amount\)/)).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /Bands CSV \(tidy\)/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Bands \(tidy\)/ }).length).toBeGreaterThan(0);
   });
 
   it('selects lane and adds/removes bands when canvas is clicked', async () => {
@@ -95,7 +95,7 @@ describe('Gel and Blot analysis tool view', () => {
     expect(screen.getByText(/demo_gel\.png/)).toBeTruthy();
 
     // Export annotated gel
-    const exportBtn = screen.getByRole('button', { name: /Export Annotated Gel/ });
+    const exportBtn = screen.getByRole('button', { name: /PNG image/ });
     expect(exportBtn).toBeTruthy();
     fireEvent.click(exportBtn);
   });
@@ -105,11 +105,11 @@ describe('Gel and Blot analysis tool view', () => {
     render(<GelView />);
 
     // Switch to All-Lanes Band Quantification
-    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/ });
+    const quantTab = screen.getByRole('button', { name: /📊 Quantification/ });
     fireEvent.click(quantTab);
 
     // Switch to Target Mass WB Mode
-    const wbModeBtn = screen.getByRole('button', { name: /Per Target Mass \(WB Mode\)/ });
+    const wbModeBtn = screen.getByRole('button', { name: /By band size/ });
     fireEvent.click(wbModeBtn);
     expect(wbModeBtn.classList.contains('bg-accent-600')).toBe(true);
 

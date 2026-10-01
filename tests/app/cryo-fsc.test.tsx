@@ -17,7 +17,7 @@ describe('Cryo-EM FSC tab', () => {
     const table = screen.getByRole('table', { name: /FSC resolution at thresholds/ });
     const rows = within(table).getAllByRole('row');
     expect(rows.length).toBe(1 + 3);
-    expect(within(rows[1]!).getByText(/3\.1\d Å/)).toBeTruthy();
+    expect(within(rows[1]!).getAllByText(/3\.1\d Å/)[0]).toBeTruthy();
     expect(screen.getByRole('img', { name: /FSC curves versus spatial frequency/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Download table \(CSV\)/ })).toBeTruthy();
   });

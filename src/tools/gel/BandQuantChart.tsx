@@ -70,7 +70,6 @@ export function BandQuantChart({
   ladderLaneId,
   ladderSizes = [],
   loadingRefLaneId,
-  onSetLoadingRefLane,
   initialMode = 'lane',
   plane,
   display,
@@ -83,7 +82,6 @@ export function BandQuantChart({
   ladderLaneId?: string;
   ladderSizes?: number[];
   loadingRefLaneId?: string;
-  onSetLoadingRefLane?: (laneId: string) => void;
   initialMode?: 'lane' | 'mass' | 'loading';
   /** Gel plane + display settings, used to render the whole-lane preview strips in WB (mass) mode. */
   plane?: Plane;
@@ -251,30 +249,25 @@ export function BandQuantChart({
           <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
             📊 Quantification &amp; Densitometry Chart
           </span>
-          {/* Mode toggle */}
+          {/* Mode toggle (not shown in the locked Loading-control view) */}
+          {initialMode !== 'loading' && (
           <div class="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900 text-xs">
             <button
               type="button"
               onClick={() => setChartMode('lane')}
               class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'lane' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              Per Lane (Mass Color-Coded)
+              By lane
             </button>
             <button
               type="button"
               onClick={() => setChartMode('mass')}
               class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'mass' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              Per Target Mass (WB Mode)
-            </button>
-            <button
-              type="button"
-              onClick={() => setChartMode('loading')}
-              class={`px-2.5 py-0.5 rounded font-medium transition ${chartMode === 'loading' ? 'bg-accent-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              🧪 Line Loading (Total / Ponceau)
+              By band size (Western blot)
             </button>
           </div>
+          )}
 
           {chartMode === 'mass' && (
             <div class="flex flex-wrap items-center gap-2">
@@ -358,20 +351,9 @@ export function BandQuantChart({
             </div>
           </div>
         ) : (
-          <div class="flex items-center gap-2 text-xs">
-            <span class="text-slate-500 dark:text-slate-400">Ref Loading Lane:</span>
-            <select aria-label="Ref Loading Lane"
-              value={refLaneItem?.lane.id || ''}
-              onChange={(e) => onSetLoadingRefLane?.((e.target as HTMLSelectElement).value)}
-              class="px-2 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold text-xs"
-            >
-              {analysis.map((a, i) => (
-                <option key={a.lane.id} value={a.lane.id}>
-                  L{i + 1}: {laneLabels[a.lane.id] || `Lane ${i + 1}`}
-                </option>
-              ))}
-            </select>
-          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Green: within ±15% of the reference lane · amber: moderate difference · red: large difference
+          </p>
         )}
       </div>
 
@@ -393,7 +375,7 @@ export function BandQuantChart({
         ) : (
           <div class="text-xs text-slate-500 dark:text-slate-400 italic px-1">
             {chartMode === 'loading'
-              ? 'Inspecting whole-lane total integrated protein signal to verify equal loading controls across lanes.'
+              ? 'Total signal per lane; bars far from the reference lane indicate unequal loading.'
               : 'Hover over any bar in the chart to inspect quantification details without layout shift.'}
           </div>
         )}
@@ -761,17 +743,6 @@ export function BandQuantChart({
         </div>
       )}
 
-      {/* Loading overview note */}
-      {chartMode === 'loading' && (
-        <div class="rounded-lg bg-emerald-50/70 p-2.5 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center justify-between gap-2">
-          <span>
-            💡 <strong>Line Loading Analysis:</strong> Integrated optical density across each lane profile (baseline-subtracted). Green bars indicate uniform loading (within ±15% of reference), amber indicates moderate variance, and red indicates significant loading discrepancy.
-          </span>
-          <span class="font-mono font-bold">
-            Ref: L{analysis.findIndex(a => a.lane.id === refLaneItem?.lane.id) + 1} (1.00×)
-          </span>
-        </div>
-      )}
     </div>
   );
 }

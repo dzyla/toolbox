@@ -165,6 +165,8 @@ export interface FscTable {
   source: 'star' | 'delimited';
   /** Human-readable notes (block used, lines skipped, ...). */
   notes: string[];
+  /** Values found alongside the curve in a RELION postprocess.star. */
+  meta?: { relionFinalResolution?: number; pixelSize?: number };
 }
 
 function starToTable(blocks: StarBlock[]): FscTable {
@@ -178,7 +180,12 @@ function starToTable(blocks: StarBlock[]): FscTable {
   }
   const clean = chosen.labels.map(l => l.replace(/\s+#\d+\s*$/, '').replace(/^_/, ''));
   const columns = clean.map((_, c) => chosen.rows.map(r => parseNumberToken(r[c] ?? '')));
-  return { headers: clean, columns, source: 'star', notes: [`Read block data_${chosen.name} (${chosen.rows.length} rows).`] };
+  const general = blocks.find(b => b.name.toLowerCase() === 'general');
+  const finalRes = Number(general?.pairs['_rlnFinalResolution']);
+  return {
+    headers: clean, columns, source: 'star', notes: [`Read block data_${chosen.name} (${chosen.rows.length} rows).`],
+    ...(Number.isFinite(finalRes) && finalRes > 0 ? { meta: { relionFinalResolution: finalRes } } : {}),
+  };
 }
 
 function detectDelimiter(lines: string[]): string {
@@ -232,7 +239,14 @@ export function parseDelimitedTable(text: string): FscTable {
 /** Parse STAR (auto-detected) or delimited text into a column table. Throws FscParseError with a readable message. */
 export function parseFscTable(text: string): FscTable {
   if (!text || !text.trim()) throw new FscParseError('Nothing to read: paste text or load a file.');
-  if (looksLikeStar(text)) return starToTable(parseStar(text));
+  if (looksLikeStar(text)) {
+    const table = starToTable(parseStar(text));
+    // RELION writes its command line as a comment, e.g. "# --i ... --angpix 1.244 ...".
+    const ang = /--angpix\s+([0-9.]+)/.exec(text.slice(0, 2000));
+    const pixelSize = ang ? Number(ang[1]) : NaN;
+    if (Number.isFinite(pixelSize) && pixelSize > 0) table.meta = { ...table.meta, pixelSize };
+    return table;
+  }
   return parseDelimitedTable(text);
 }
 
@@ -301,7 +315,9 @@ export function detectFscColumns(table: FscTable): FscMapping {
     freqKind = kindFromData(table.columns[freqCol]!);
     notes.push('Column headers were not recognised; the frequency column and units were guessed from the values.');
   }
-  let fscCols = roles.map((r, i) => (r === 'fsc' && i !== freqCol ? i : -1)).filter(i => i >= 0);
+  // RELION 4 writes a per-shell "particle mask fraction" next to the curves; it is not an FSC curve.
+  const notACurve = (i: number) => /particlemaskfraction/i.test(table.headers[i]!);
+  let fscCols = roles.map((r, i) => (r === 'fsc' && i !== freqCol && !notACurve(i) ? i : -1)).filter(i => i >= 0);
   if (fscCols.length === 0) {
     fscCols = table.columns.map((c, i) => (i !== freqCol && looksLikeFsc(c) ? i : -1)).filter(i => i >= 0);
     if (fscCols.length === 0) fscCols = table.columns.map((_, i) => i).filter(i => i !== freqCol);
@@ -377,6 +393,8 @@ export interface FscCrossing {
   frequency?: number;
   /** Å at the first downward crossing (when crossed). */
   resolution?: number;
+  /** Å of the last shell still at or above the threshold (RELION reports this, without interpolation). */
+  lastShellResolution?: number;
   /** True if the curve rises above the threshold again after the first crossing. */
   reCrosses: boolean;
   reCrossFrequency?: number;
@@ -407,7 +425,7 @@ export function resolutionAtThreshold(freq: number[], fsc: number[], threshold: 
       let reCross: number | undefined;
       for (let j = i; j < n; j++) if (fsc[j]! > threshold) { reCross = freq[j]!; break; }
       return {
-        threshold, status: 'crossed', frequency: f, resolution: freqToResolution(f),
+        threshold, status: 'crossed', frequency: f, resolution: freqToResolution(f), lastShellResolution: freqToResolution(f0),
         reCrosses: reCross !== undefined, ...(reCross !== undefined ? { reCrossFrequency: reCross } : {}),
       };
     }

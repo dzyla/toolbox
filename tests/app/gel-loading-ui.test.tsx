@@ -17,23 +17,23 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
     render(<GelView />);
 
     // Switch to Tab 3 (Band Quantification)
-    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/i });
+    const quantTab = screen.getByRole('button', { name: /📊 Quantification/ });
     fireEvent.click(quantTab);
 
     // Switch to Line Loading (Ponceau S) subview
-    const loadingSubTab = screen.getByRole('button', { name: /Line Loading \(Ponceau S\)/i });
+    const loadingSubTab = screen.getByRole('button', { name: /Loading control/i });
     fireEvent.click(loadingSubTab);
 
     // Check loading dashboard elements
     expect(screen.getByText(/Mean Whole-Lane Signal/i)).toBeTruthy();
     expect(screen.getByText(/Loading Variation \(CV%\)/i)).toBeTruthy();
-    expect(screen.getAllByText(/Total Protein Normalization/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/TPN factor/i).length).toBeGreaterThan(0);
 
     // Verify TPN factor column is rendered
     expect(screen.getAllByText(/TPN Factor/i).length).toBeGreaterThan(0);
 
     // Tidy bands CSV export is available from the Quant tab
-    expect(screen.getAllByRole('button', { name: /Bands CSV \(tidy\)/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Bands \(tidy\)/ }).length).toBeGreaterThan(0);
   });
 
   it('supports toggling between Unified Table and Strips & Tables cards view', async () => {
@@ -41,7 +41,7 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
     render(<GelView />);
 
     // Switch to Tab 3
-    const quantTab = screen.getByRole('button', { name: /Band Quantification & Amounts/i });
+    const quantTab = screen.getByRole('button', { name: /📊 Quantification/ });
     fireEvent.click(quantTab);
 
     // Toggle to Strips & Tables cards view
@@ -154,7 +154,7 @@ describe('Gel Analysis Advanced Features & Loading Comparison', () => {
   it('shows no ratio until a reference band is chosen', () => {
     route.value = { name: 'tool', toolId: 'gel' };
     render(<GelView />);
-    fireEvent.click(screen.getByRole('button', { name: /Band Quantification & Amounts/i }));
+    fireEvent.click(screen.getByRole('button', { name: /📊 Quantification/ }));
     expect(screen.getAllByText(/pick a reference band/i).length).toBeGreaterThan(0);
   });
 });

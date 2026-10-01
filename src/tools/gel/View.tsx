@@ -9,6 +9,7 @@ import { GelControls } from './GelControls';
 import { GelImageTab } from './GelImageTab';
 import { GelCalibrationTab } from './GelCalibrationTab';
 import { GelQuantTab } from './GelQuantTab';
+import { ExportMenu } from './ExportMenu';
 
 export default function GelView({ projectId }: ToolProps = {}) {
   const g = useGelWorkspace({ projectId });
@@ -23,11 +24,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
     handleClearAllLanes,
     handleDeleteSelectedLane,
     handleEqualLanes,
-    handleExportAnnotatedGel,
-    handleExportTidyCsv,
-    handleExportSvg,
     handleGridFromPlaced,
-    handlePrintGel,
     handleSaveProject,
     imageName,
     laneLabels,
@@ -45,9 +42,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
     setLaneLabels,
     setNumLanesInput,
     setSelectedLaneId,
-    setStripLanePrefix,
     shareUrl,
-    stripLanePrefix,
     updateSelectedLane,
   } = g;
   return (
@@ -230,7 +225,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
               )}
             </div>
 
-            {/* Workflow Tabs: Gel Image & Profile, MW Calibration Curve, Band Quantification */}
+            {/* Workflow tabs (views) on the left, the single Export menu on the right */}
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
               <div class="flex gap-2">
                 <button
@@ -242,7 +237,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
-                  🖼️ Gel Image & Lane Profile
+                  🖼️ Gel & Lanes
                 </button>
                 <button
                   type="button"
@@ -253,7 +248,7 @@ export default function GelView({ projectId }: ToolProps = {}) {
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
-                  📈 MW Calibration Curve
+                  📈 Calibration
                 </button>
                 <button
                   type="button"
@@ -264,34 +259,11 @@ export default function GelView({ projectId }: ToolProps = {}) {
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
-                  📊 Band Quantification & Amounts
+                  📊 Quantification
                 </button>
               </div>
 
-              {/* Quick Export Annotated Gel Button */}
-              <button
-                type="button"
-                onClick={handleExportAnnotatedGel}
-                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition flex items-center gap-1.5"
-              >
-                📥 Export Annotated Gel (PNG)
-              </button>
-              <button
-                type="button"
-                onClick={handleExportSvg}
-                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
-                title="Vector export: annotations stay crisp text at any zoom"
-              >
-                📐 Export SVG
-              </button>
-              <button
-                type="button"
-                onClick={handlePrintGel}
-                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
-                title="Print or save as PDF via the print stylesheet"
-              >
-                🖨️ Print / PDF
-              </button>
+              <ExportMenu g={g} />
             </div>
 
             {/* TAB 1: Gel Image & Interactive Lane Profile */}
@@ -335,24 +307,6 @@ export default function GelView({ projectId }: ToolProps = {}) {
               onSaveProject={handleSaveProject}
               projectStatus={project.status}
             />
-            <div class="flex flex-col gap-1.5">
-              <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stripLanePrefix}
-                  onChange={e => setStripLanePrefix((e.target as HTMLInputElement).checked)}
-                  class="rounded border-slate-300 dark:border-slate-700 text-accent-600 dark:text-accent-400 focus:ring-accent-500"
-                />
-                <span>Omit L1/L2 prefix</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleExportTidyCsv}
-                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 transition text-center"
-              >
-                Bands CSV (tidy)
-              </button>
-            </div>
           </div>
         }
         science={<SciencePanel science={SCIENCE} />}

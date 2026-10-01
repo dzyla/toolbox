@@ -8,8 +8,8 @@ import type { GelWorkspace } from '@/tools/gel/workspace';
 describe('Groups view', () => {
   it('shows lane metadata, summary and the data-quality panel', () => {
     render(<GelView />);
-    fireEvent.click(screen.getByRole('button', { name: /Band Quantification & Amounts/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Conditions & Replicates/i }));
+    fireEvent.click(screen.getByRole('button', { name: /📊 Quantification/ }));
+    fireEvent.click(screen.getByRole('button', { name: /📊 Conditions/ }));
     expect(screen.getByRole('table', { name: /Lane conditions/i })).toBeTruthy();
     expect(screen.getByRole('table', { name: /Condition summary/i })).toBeTruthy();
     expect(screen.getByText(/n < 3/i)).toBeTruthy();

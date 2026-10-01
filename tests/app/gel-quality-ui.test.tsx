@@ -16,7 +16,7 @@ vi.mock('@/lib/image', async orig => {
 describe('rolling-ball width warning on the demo gel', () => {
   it('stays quiet at the default radius and flags the bands once the radius is too small for them', () => {
     render(<GelView />);
-    fireEvent.click(screen.getByRole('button', { name: /Band Quantification & Amounts/i }));
+    fireEvent.click(screen.getByRole('button', { name: /📊 Quantification/ }));
     expect(screen.getByText(/Data quality: no issues detected/i)).toBeTruthy();
     expect(screen.queryAllByText('⚠ radius')).toHaveLength(0);
     fireEvent.input(screen.getByLabelText('Rolling-ball radius (px)'), { target: { value: '5' } });
@@ -30,10 +30,10 @@ describe('data-quality panel in every quantification sub-view', () => {
     const { container } = render(<GelView />);
     const input = container.querySelector('input[type="file"][accept*="image/png"]') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(['x'], 'gel.jpg', { type: 'image/jpeg' })] } });
-    fireEvent.click(screen.getByRole('button', { name: /Band Quantification & Amounts/i }));
+    fireEvent.click(screen.getByRole('button', { name: /📊 Quantification/ }));
     await waitFor(() => expect(screen.getByRole('region', { name: /Data quality/i }).textContent).toMatch(/JPEG input: compression/i));
     // and still present in the loading sub-view
-    fireEvent.click(screen.getByRole('button', { name: /Line Loading \(Ponceau S\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Loading control/i }));
     expect(screen.getByRole('region', { name: /Data quality/i }).textContent).toMatch(/compression/i);
   });
 });
