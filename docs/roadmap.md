@@ -10,8 +10,8 @@ Backlog from the repo review. Tick items as they land.
 - [ ] Parallelise MSA pairwise alignments across a worker pool (single worker today; Gotoh is already typed-array tight at ~14 ns/cell).
 - [x] Size caps with a visible message for very large MSA / cryo-EM template inputs.
 - [x] Split oversized views into `<Tool>Model.tsx` (state, memos, handlers) plus `tabs/*Panel.tsx`: plate-reader, dsf, fitting, protein, tags, culture. Remaining: `plate/View.tsx` (early return before the main JSX), `sec/View.tsx` (many panels in one file), `cryoem/View.tsx` + `MrcViewer.tsx`; the largest panels (`dsf/tabs/ResultsPanel.tsx`, `tags/tabs/ResultsPanel.tsx`) could be split again.
-- [ ] Coverage: add `vitest --coverage` with a threshold on `src/core`; decide whether `test:legacy` runs in CI or is deleted.
-- [ ] Mobile-viewport smoke test for every tool (PWA phone use is a stated goal).
+- [x] Coverage: `npm run test:coverage` (v8, `src/core`) with floors just under the 2026-09-30 baseline (lines 91, statements 89, functions 94, branches 76); runs in CI. Added parameter-recovery tests for every fit model, colony detection on a synthetic plate, PCR/primer output. `test:legacy` is still not in CI. Note: `src/core/cloning/pcr.ts` (`amplify`) has no importers.
+- [x] Mobile smoke test (`tests/e2e/mobile.spec.ts`): every ready tool at 390 px, touch enabled, no page errors, no content past the viewport outside a scroll container (html/body clip overflow, so `scrollWidth` alone can't detect it).
 - [ ] Confirm every calculator-style tool uses `url-state.ts` so results are linkable.
 - [ ] Data provenance: record source and version in `restriction-enzymes.json` and codon-usage tables; script refresh from REBASE / Kazusa / CoCoPUTs.
 - [x] Export / import all projects as one JSON backup (Home page; restore keeps newer local work).

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests",
     "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:legacy": "node --test tests/legacy/*.test.js",
     "test": "npm run test:unit",
     "e2e": "playwright test"
@@ -40,6 +41,7 @@
     "@types/d3-scale-chromatic": "^3.1.0",
     "@types/plotly.js": "^3.0.13",
     "@types/utif": "^3.0.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^10.9.1",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.13.2",
