@@ -5,6 +5,7 @@ export const SCIENCE: Science = {
   formulas: [
     'MW = sum(residue masses) + H₂O; monoisotopic MW uses the most abundant isotope masses',
     'net charge = sum Henderson–Hasselbalch fractional charges; pI is the pH where charge = 0',
+    'titration curve: q(pH) = Σ basic n/(1 + 10^(pH − pKa)) − Σ acidic n/(1 + 10^(pKa − pH)), summed over K, R, H and the N-terminus (+) and D, E, C, Y and the C-terminus (−), evaluated at pH 0–14 in 0.1 steps; pI by bisection of q = 0',
     'ε₂₈₀ = 5500 n(Trp) + 1490 n(Tyr) + 125 n(cystine), native-water values',
     'FoldIndex = 2.785 × mean[(KD + 4.5) / 9] − |mean(integer K/R/D/E charge)| − 1.151',
     'hydrophobic moment = |sum hᵢ(cos iδ, sin iδ)| / window, δ = 100°, Kyte–Doolittle hᵢ',
@@ -12,6 +13,8 @@ export const SCIENCE: Science = {
   ],
   assumptions: [
     'Unmodified, linear polypeptide unless a listed mass delta is applied separately.',
+    'Charge and titration curve use fixed, context-free pKa values (the bundled ExPASy/Bjellqvist set or the EMBOSS set; the Bjellqvist set adjusts terminal pKa by the first and last residue). The two sets differ in side-chain and terminal pKa values, so pI and charge at a given pH differ between them; the overlay shows the spread.',
+    'No neighbour, burial, salt, temperature, ligand/metal or post-translational effects are modelled; the curve is for the free denatured chain, and charge does not predict binding or ion-exchange behaviour.',
     'Native ε assumes all cysteines form cystines; reduced ε excludes cystine contribution. Denatured values use 6 M guanidine hydrochloride coefficients.',
     'Ambiguous residues are reported; their approximate average masses may contribute, but unknown atoms and extinction are omitted.',
     'FoldIndex, signal peptides, transmembrane segments, motifs, and secondary-structure propensities are screening heuristics, not structural predictions.',

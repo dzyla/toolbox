@@ -22,6 +22,18 @@ describe('protein tools', () => {
     expect(screen.getAllByText(/His-Tag \(6x\)/).length).toBeGreaterThan(0);
   });
 
+  it('offers a net charge vs pH titration curve with an optional scheme overlay', async () => {
+    route.value = { name: 'tool', toolId: 'protein' };
+    render(<ProteinView />);
+    expect(await screen.findByText('Net charge vs pH (titration curve)')).toBeTruthy();
+    expect(screen.getAllByText(/not a measure of binding behaviour/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('img', { name: /Net charge vs pH \(Bjellqvist\), pI/ }).length).toBeGreaterThan(0);
+    const box = screen.getAllByLabelText('Overlay EMBOSS pKa scheme')[0] as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    await waitFor(() => expect(screen.getAllByText('EMBOSS (overlay)').length).toBeGreaterThan(0));
+  });
+
   it('shows A280 concentration with sequence-derived values and validates path length', async () => {
     route.value = { name: 'tool', toolId: 'protein-conc' };
     render(<ProteinConcentrationView />);

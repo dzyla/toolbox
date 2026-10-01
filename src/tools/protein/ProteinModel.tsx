@@ -8,6 +8,7 @@ import { esiChargeLadder, matchPeptideMasses, type MassToleranceUnit, type Pepti
 import { downloadText, toCsv } from '@/lib/export';
 import { chargeProfile, foldIndexProfile, hydropathyProfile, hydrophobicMomentProfile, secondaryStructureProfiles } from '@/core/protein/profiles';
 import { LineChart } from '@/app/components/LineChart';
+import { TitrationPanel } from './tabs/TitrationPanel';
 
 export const EXAMPLE = '>Example protein\nMKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGE';
 export const FIELD = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900';
@@ -587,6 +588,8 @@ export function ProteinCard({
           </div>
         </details>
       )}
+
+      <TitrationPanel seq={analysis.seq} counts={analysis.summary.counts} scheme={state.scheme} />
 
       {/* Feature Map Section */}
       <details open class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
