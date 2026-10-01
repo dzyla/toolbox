@@ -6,3 +6,4 @@ declare module 'plotly.js-gl2d-dist-min' {
   const Plotly: unknown;
   export default Plotly;
 }
+declare module 'molstar/build/viewer/molstar.css';

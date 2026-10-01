@@ -414,6 +414,7 @@ export default function StructureView() {
 
             <MolstarViewer
               rcsbId={loadedPdb || '1UBQ'}
+              pdbText={rawPdb}
               onSelectPdb={id => {
                 setInputPdb(id);
                 handleFetch(id);

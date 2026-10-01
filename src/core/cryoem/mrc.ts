@@ -56,22 +56,6 @@ export interface ProjectionOrientation extends ProjectionAngles {
 
 const DEG_TO_RAD = Math.PI / 180;
 
-function trilinearSample(mrcData: MrcData, x: number, y: number, z: number): number {
-  const { nx, ny, nz } = mrcData.header;
-  if (x < 0 || x > nx - 1 || y < 0 || y > ny - 1 || z < 0 || z > nz - 1) return 0;
-
-  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
-  const x1 = Math.min(x0 + 1, nx - 1), y1 = Math.min(y0 + 1, ny - 1), z1 = Math.min(z0 + 1, nz - 1);
-  const tx = x - x0, ty = y - y0, tz = z - z0;
-  const at = (xx: number, yy: number, zz: number) => mrcData.slices[zz]![yy * nx + xx]!;
-
-  const c00 = at(x0, y0, z0) * (1 - tx) + at(x1, y0, z0) * tx;
-  const c10 = at(x0, y1, z0) * (1 - tx) + at(x1, y1, z0) * tx;
-  const c01 = at(x0, y0, z1) * (1 - tx) + at(x1, y0, z1) * tx;
-  const c11 = at(x0, y1, z1) * (1 - tx) + at(x1, y1, z1) * tx;
-  return (c00 * (1 - ty) + c10 * ty) * (1 - tz) + (c01 * (1 - ty) + c11 * ty) * tz;
-}
-
 /**
  * Rotate a density map around its centre and integrate it along its Z axis.
  * The inverse transform is sampled so that every output pixel maps back into
@@ -88,25 +72,53 @@ export function projectVolume(mrcData: MrcData, angles: ProjectionAngles): Proje
   const cosZ = Math.cos(az), sinZ = Math.sin(az);
   const cx = (nx - 1) / 2, cy = (ny - 1) / 2, cz = (nz - 1) / 2;
 
+  // R^-1 = Rx(-x) · Ry(-y) · Rz(-z), where R = Rz · Ry · Rx, folded into one 3×3 matrix (row-major).
+  const m00 = cosZ * cosY, m01 = -sinZ * cosY, m02 = sinY;
+  const m10 = cosZ * sinY * sinX + sinZ * cosX, m11 = -sinZ * sinY * sinX + cosZ * cosX, m12 = -cosY * sinX;
+  const m20 = -cosZ * sinY * cosX + sinZ * sinX, m21 = sinZ * sinY * cosX + cosZ * sinX, m22 = cosY * cosX;
+
+  const vol = flattenVolume(mrcData);
+  const plane = nx * ny;
+  const xmax = nx - 1, ymax = ny - 1, zmax = nz - 1;
+
   for (let y = 0; y < ny; y++) {
+    const dy = y - cy;
     for (let x = 0; x < nx; x++) {
+      const dx = x - cx;
+      // Source coordinate for dz = -cz; it advances by the third matrix column per z step.
+      let px = m00 * dx + m01 * dy - m02 * cz + cx;
+      let py = m10 * dx + m11 * dy - m12 * cz + cy;
+      let pz = m20 * dx + m21 * dy - m22 * cz + cz;
       let density = 0;
-      for (let z = 0; z < nz; z++) {
-        const dx = x - cx, dy = y - cy, dz = z - cz;
-        // R^-1 = Rx(-x) · Ry(-y) · Rz(-z), where R = Rz · Ry · Rx.
-        const zx = dx * cosZ - dy * sinZ;
-        const zy = dx * sinZ + dy * cosZ;
-        const yx = zx * cosY + dz * sinY;
-        const yz = -zx * sinY + dz * cosY;
-        const sx = yx;
-        const sy = zy * cosX - yz * sinX;
-        const sz = zy * sinX + yz * cosX;
-        density += trilinearSample(mrcData, sx + cx, sy + cy, sz + cz);
+      for (let z = 0; z < nz; z++, px += m02, py += m12, pz += m22) {
+        if (px < 0 || px > xmax || py < 0 || py > ymax || pz < 0 || pz > zmax) continue;
+        const x0 = px | 0, y0 = py | 0, z0 = pz | 0;
+        const tx = px - x0, ty = py - y0, tz = pz - z0;
+        const dX = x0 < xmax ? 1 : 0, dY = y0 < ymax ? nx : 0, dZ = z0 < zmax ? plane : 0;
+        const i = z0 * plane + y0 * nx + x0;
+        const c00 = vol[i]! * (1 - tx) + vol[i + dX]! * tx;
+        const c10 = vol[i + dY]! * (1 - tx) + vol[i + dY + dX]! * tx;
+        const c01 = vol[i + dZ]! * (1 - tx) + vol[i + dZ + dX]! * tx;
+        const c11 = vol[i + dZ + dY]! * (1 - tx) + vol[i + dZ + dY + dX]! * tx;
+        density += (c00 * (1 - ty) + c10 * ty) * (1 - tz) + (c01 * (1 - ty) + c11 * ty) * tz;
       }
       data[y * nx + x] = density;
     }
   }
   return { width: nx, height: ny, data };
+}
+
+/** One contiguous copy of the slices, cached per map so a series of projections flattens it once. */
+const flatVolumes = new WeakMap<MrcData, Float32Array>();
+function flattenVolume(mrcData: MrcData): Float32Array {
+  const cached = flatVolumes.get(mrcData);
+  if (cached) return cached;
+  const { nx, ny, nz } = mrcData.header;
+  const plane = nx * ny;
+  const vol = new Float32Array(plane * nz);
+  for (let z = 0; z < nz; z++) vol.set(mrcData.slices[z]!, z * plane);
+  flatVolumes.set(mrcData, vol);
+  return vol;
 }
 
 /**

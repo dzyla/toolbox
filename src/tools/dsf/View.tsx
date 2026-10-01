@@ -3,6 +3,8 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { useUrlState } from '@/lib/url-state';
+import { useWorkerCompute } from '@/lib/use-worker-compute';
+import { makeDsfWorker, runDsfJob, type DsfJob } from './job';
 import { useDraftText } from '@/lib/drafts';
 import { importErrorMessage, readTextFile } from '@/lib/file-import';
 import { ImportAlert } from '@/app/components/ImportAlert';
@@ -11,7 +13,7 @@ import {
   type DsfEffectClassification,
   type DsfChannelType,
   parseDsfCsv,
-  analyzeDsfDataset,
+  type DsfScreeningResult,
   generateLysozymeDemoDataset,
   generateNanoDsfDemoDataset,
   generatePrometheusDemoDataset,
@@ -238,15 +240,15 @@ export default function DsfView() {
   }, [parsedData, s.selectedTraceIds, allConditionsList, availableChannels]);
 
   // Execute DSF Multi-Condition Analysis on selected traces
-  const analysis = useMemo(() => {
+  const dsfJob = useMemo<DsfJob | null>(() => {
     if (!parsedData || 'error' in parsedData) return null;
-    try {
-      const tempRange: [number, number] | undefined =
-        s.tempMinCrop != null && s.tempMaxCrop != null
-          ? [s.tempMinCrop, s.tempMaxCrop]
-          : undefined;
-
-      return analyzeDsfDataset(parsedData, {
+    const tempRange: [number, number] | undefined =
+      s.tempMinCrop != null && s.tempMaxCrop != null
+        ? [s.tempMinCrop, s.tempMaxCrop]
+        : undefined;
+    return {
+      parsed: parsedData,
+      options: {
         referenceNameOrIndex: s.referenceConditionId || undefined,
         windowSize: s.windowSize,
         tmMethod: s.tmMethod,
@@ -256,11 +258,16 @@ export default function DsfView() {
         peakProminenceRatio: s.peakProminenceRatio,
         maxPeaks: s.maxPeaks,
         removedPeakKeys: s.removedPeakKeys,
-      });
-    } catch (err) {
-      return { error: (err as Error).message };
-    }
+      },
+    };
   }, [parsedData, s.referenceConditionId, s.windowSize, s.tmMethod, effectiveSelectedIds, s.tempMinCrop, s.tempMaxCrop, s.transitionDirection, s.peakProminenceRatio, s.maxPeaks, s.removedPeakKeys]);
+  // Smoothing, peak finding and sigmoid fits for a full plate can take a few hundred ms; run them in a worker.
+  // The previous analysis stays on screen while a new one computes.
+  const dsfCompute = useWorkerCompute<DsfJob, DsfScreeningResult>(makeDsfWorker, runDsfJob, dsfJob);
+  const analysis = useMemo(
+    () => (dsfCompute.error ? { error: dsfCompute.error } : dsfCompute.result),
+    [dsfCompute.error, dsfCompute.result],
+  );
 
   // Inspected / Focused Active Condition
   const activeCondition = useMemo(() => {
@@ -1095,6 +1102,9 @@ export default function DsfView() {
       }
       results={
         <div class="space-y-4">
+          {dsfCompute.busy && (
+            <p role="status" class="text-xs font-medium text-slate-600 dark:text-slate-300">Analysing melt curves…</p>
+          )}
           {!analysis ? (
             <p class="text-xs text-slate-500 dark:text-slate-400 py-8 text-center">Please paste or upload thermal shift assay data to begin analysis.</p>
           ) : 'error' in analysis ? (

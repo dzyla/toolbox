@@ -6,7 +6,6 @@ import { useUrlState } from '@/lib/url-state';
 import { downloadText } from '@/lib/export';
 import {
   parseFastaSequences,
-  computeSequenceMatrices,
   formatAsClustal,
   formatAsFasta,
   formatMatrixCsv,
@@ -18,6 +17,8 @@ import {
 } from '@/core/msa';
 import { type MatrixName } from '@/core/align/matrices';
 import { SCIENCE } from './science';
+import { useWorkerCompute } from '@/lib/use-worker-compute';
+import { makeMatrixWorker, runMatrixJob, type MatrixJob } from './job';
 
 interface State {
   fastaInput: string;
@@ -113,16 +114,22 @@ export default function SeqMatrixView() {
   }, [s.fastaInput]);
 
   // Compute matrices and MSA
-  const matrixResult: SequenceMatrixResult | null = useMemo(() => {
+  const job = useMemo<MatrixJob | null>(() => {
     if (parsedSequences.length < 2) return null;
-    return computeSequenceMatrices(parsedSequences, {
-      matrixName: s.matrixName,
-      gapOpen: s.gapOpen,
-      gapExtend: s.gapExtend,
-      metric: s.metric,
-      identityDenominator: s.idDenominator,
-    });
+    return {
+      sequences: parsedSequences,
+      options: {
+        matrixName: s.matrixName,
+        gapOpen: s.gapOpen,
+        gapExtend: s.gapExtend,
+        metric: s.metric,
+        identityDenominator: s.idDenominator,
+      },
+    };
   }, [parsedSequences, s.matrixName, s.gapOpen, s.gapExtend, s.metric, s.idDenominator]);
+  // Pairwise alignment is O(n² · L²); run it in a worker so the page stays responsive.
+  const { result: matrixResult, busy: matrixBusy, error: matrixError } =
+    useWorkerCompute<MatrixJob, SequenceMatrixResult>(makeMatrixWorker, runMatrixJob, job);
 
   const activeComparison: PairwiseComparison | null = useMemo(() => {
     if (!matrixResult) return null;
@@ -337,6 +344,17 @@ export default function SeqMatrixView() {
                 : 'Please provide at least two sequences in the FASTA input (with >Header and sequence residues) or pick a curated preset from the sidebar to calculate the identity and similarity matrix.'}
             </p>
           </div>
+        )}
+
+        {matrixBusy && (
+          <p role="status" class="text-xs font-medium text-slate-600 dark:text-slate-300">
+            Aligning {parsedSequences.length} sequences…
+          </p>
+        )}
+        {matrixError && (
+          <p role="alert" class="text-xs font-medium text-rose-700 dark:text-rose-300">
+            Could not compute the matrix: {matrixError}
+          </p>
         )}
 
         {matrixResult && (

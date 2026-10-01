@@ -1,7 +1,15 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+
+// Minimal shape of the lazily loaded Mol* viewer (the package is a large, browser-only chunk).
+interface MolstarViewerHandle {
+  loadStructureFromData(data: string, format: 'pdb', options?: { dataLabel?: string }): Promise<void>;
+  dispose(): void;
+}
 
 export interface MolstarViewerProps {
   rcsbId: string;
+  /** PDB-format text to render locally. Nothing is sent to molstar.org. */
+  pdbText?: string;
   onSelectPdb?: (id: string) => void;
   alignedPdbUrl?: string | null;
   height?: number;
@@ -18,41 +26,82 @@ const BENCHMARK_PRESETS = [
 
 export function MolstarViewer({
   rcsbId,
+  pdbText,
   onSelectPdb,
   height = 580,
 }: MolstarViewerProps) {
   const activeId = (rcsbId || '1CRN').trim().toUpperCase();
   const [currentId, setCurrentId] = useState<string>(activeId);
-  const [iframeKey, setIframeKey] = useState<number>(0);
+  const [reloadKey, setReloadKey] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string>('');
   const [showControls, setShowControls] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const hostRef = useRef<HTMLDivElement>(null);
 
-  // Sync if prop changes
   const displayId = activeId || currentId;
-  // Default to hide-controls=1 so 3D structure is front and center without sidebars covering it
-  const molstarUrl = `https://molstar.org/viewer/?pdb=${encodeURIComponent(displayId)}&hide-controls=${showControls ? '0' : '1'}`;
+  // External link only: the embedded viewer below runs locally from the app bundle.
+  const molstarUrl = `https://molstar.org/viewer/?pdb=${encodeURIComponent(displayId)}`;
   const isTestEnv = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') || (typeof navigator !== 'undefined' && /happy-dom|jsdom/i.test(navigator.userAgent));
-  const iframeSrc = isTestEnv ? 'about:blank' : molstarUrl;
 
   const currentHeight = isExpanded ? Math.max(height, 800) : height;
 
+  // (Re)create the local Mol* viewer whenever the structure, panel mode or reload key changes.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (isTestEnv || !host || !pdbText) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    let viewer: MolstarViewerHandle | null = null;
+    setIsLoading(true);
+    setLoadError('');
+    (async () => {
+      try {
+        const [{ Viewer }] = await Promise.all([
+          import('molstar/lib/apps/viewer/app'),
+          import('molstar/build/viewer/molstar.css'),
+        ]);
+        if (cancelled) return;
+        const v = await Viewer.create(host, {
+          layoutIsExpanded: false,
+          layoutShowControls: showControls,
+          layoutShowRemoteState: false,
+          layoutShowSequence: showControls,
+          layoutShowLog: false,
+          layoutShowLeftPanel: showControls,
+          collapseLeftPanel: !showControls,
+        });
+        viewer = v as unknown as MolstarViewerHandle;
+        if (cancelled) { v.dispose(); return; }
+        await v.loadStructureFromData(pdbText, 'pdb', { dataLabel: displayId });
+        if (!cancelled) setIsLoading(false);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Could not start the 3D viewer');
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      try { viewer?.dispose(); } catch { /* already disposed */ }
+      if (host) host.replaceChildren();
+    };
+  }, [pdbText, displayId, showControls, reloadKey, isTestEnv]);
+
   function handleSwitchPdb(id: string) {
     setCurrentId(id);
-    setIsLoading(true);
-    setIframeKey(k => k + 1);
     if (onSelectPdb) onSelectPdb(id);
   }
 
   function handleReload() {
-    setIsLoading(true);
-    setIframeKey(k => k + 1);
+    setReloadKey(k => k + 1);
   }
 
   function handleToggleControls() {
     setShowControls(prev => !prev);
-    setIsLoading(true);
-    setIframeKey(k => k + 1);
   }
 
   return (
@@ -147,16 +196,19 @@ export function MolstarViewer({
         {isLoading && (
           <div class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 text-slate-300 z-10 space-y-2 pointer-events-none">
             <div class="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-            <span class="text-xs font-medium">Initializing Mol* WebGL Viewer for {displayId}…</span>
+            <span class="text-xs font-medium">Starting local Mol* viewer for {displayId}…</span>
           </div>
         )}
-        <iframe
-          key={iframeKey}
-          src={iframeSrc}
-          title={`Mol* 3D Structure Viewer (3D Backbone Canvas) - ${displayId}`}
-          class="w-full h-full border-0 block"
-          onLoad={() => setIsLoading(false)}
-          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        {loadError && (
+          <div role="alert" class="absolute inset-0 flex items-center justify-center bg-slate-900/90 text-rose-300 z-10 p-4 text-xs text-center">
+            {loadError}
+          </div>
+        )}
+        <div
+          ref={hostRef}
+          role="img"
+          aria-label={`Mol* 3D Structure Viewer (3D Backbone Canvas) - ${displayId}`}
+          class="relative w-full h-full"
         />
       </div>
 
@@ -168,7 +220,7 @@ export function MolstarViewer({
           <span>📜 <strong>Scroll</strong>: Zoom</span>
           <span>✨ Secondary structure cartoons, ligands &amp; chains</span>
         </div>
-        <span class="text-slate-500 dark:text-slate-400">Powered by Mol* (molstar.org)</span>
+        <span class="text-slate-500 dark:text-slate-400">Mol* runs locally in your browser (molstar.org)</span>
       </div>
     </div>
   );

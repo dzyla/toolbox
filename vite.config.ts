@@ -45,6 +45,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The local Mol* viewer chunk (~5 MB, structure tool only) is cached on first use rather than
+        // precached, so installing the app does not download it for everyone.
+        globIgnores: ['**/assets/app-*.js'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/app-[^/]+\.js$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'molstar-viewer', expiration: { maxEntries: 2 } }
+          }
+        ],
         // Largest precached chunk is the Plotly scatter/scattergl partial bundle (~1.4 MB).
         maximumFileSizeToCacheInBytes: 2.5 * 1024 * 1024,
         // The frozen legacy pages are served from disk (copied by deploy), not from the precache —
@@ -54,6 +64,6 @@ export default defineConfig({
       }
     })
   ],
-  // The lazily loaded Plotly partial bundle (~1.4 MB, chromatography only) is the one intentionally large chunk.
-  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1500 }
+  // Intentionally large lazy chunks: Plotly partial bundle (~1.4 MB, chromatography) and Mol* (~5 MB, structure).
+  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 5200 }
 });

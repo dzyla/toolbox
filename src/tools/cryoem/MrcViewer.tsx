@@ -12,6 +12,7 @@ import {
   type ProjectionImage,
   type ProjectionOrientation,
 } from "@/core/cryoem";
+import { generateTemplateSeries as buildTemplateSeries } from './template-pool';
 
 interface MrcViewerProps {
   expanded?: boolean;
@@ -54,6 +55,10 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
   const [projectionAngles, setProjectionAngles] = useState<ProjectionAngles>({ x: 0, y: 0, z: 0 });
   const [projection, setProjection] = useState<ProjectionImage | null>(null);
   const [templateSpacingDeg, setTemplateSpacingDeg] = useState<number>(20);
+  const cancelTemplatesRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelTemplatesRef.current?.(), []);
+  const [templateProgress, setTemplateProgress] = useState<{ done: number; total: number } | null>(null);
+  const [templateError, setTemplateError] = useState('');
   const [templateProjections, setTemplateProjections] = useState<Array<{ orientation: ProjectionOrientation; image: ProjectionImage }>>([]);
 
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -84,6 +89,9 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
     setSelectedIndices(new Set(Array.from({ length: mrcData.slices.length }, (_, i) => i)));
     setProjectionAngles({ x: 0, y: 0, z: 0 });
     setProjection(mrcData.header.is3DVolume ? projectVolume(mrcData, { x: 0, y: 0, z: 0 }) : null);
+    cancelTemplatesRef.current?.();
+    cancelTemplatesRef.current = null;
+    setTemplateProgress(null);
     setTemplateProjections([]);
     if (mrcData.header.is3DVolume) {
       setViewMode("project");
@@ -370,11 +378,17 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
 
   function generateTemplateSeries() {
     const orientations = sampleProjectionOrientations(templateSpacingDeg);
+    cancelTemplatesRef.current?.();
     templateCanvasRefs.current = [];
-    setTemplateProjections(orientations.map(orientation => ({
-      orientation,
-      image: projectVolume(mrcData, orientation),
-    })));
+    setTemplateError('');
+    setTemplateProgress({ done: 0, total: orientations.length });
+    cancelTemplatesRef.current = buildTemplateSeries(
+      mrcData,
+      orientations,
+      done => setTemplateProgress({ done, total: orientations.length }),
+      result => { cancelTemplatesRef.current = null; setTemplateProgress(null); setTemplateProjections(result); },
+      message => { cancelTemplatesRef.current = null; setTemplateProgress(null); setTemplateError(message); },
+    );
   }
 
   // Export Selected as MRCS binary file
@@ -815,8 +829,9 @@ export function MrcViewer({ expanded, onToggleExpand }: MrcViewerProps = {}) {
             <label for="template-angular-spacing" class="block text-xs font-medium text-slate-700 dark:text-slate-300">Angular spacing (degrees)
               <input id="template-angular-spacing" aria-label="Angular spacing" type="number" min="1" max="90" step="1" value={templateSpacingDeg} onInput={(e) => setTemplateSpacingDeg(Math.max(1, Math.min(90, parseFloat((e.target as HTMLInputElement).value) || 20)))} class="mt-1.5 block w-36 rounded-lg border border-amber-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
             </label>
-            <button type="button" onClick={generateTemplateSeries} class="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-amber-950 transition hover:bg-amber-300">Generate templates</button>
+            <button type="button" onClick={generateTemplateSeries} disabled={templateProgress !== null} class="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-amber-950 transition hover:bg-amber-300 disabled:opacity-60">{templateProgress ? `Generating ${templateProgress.done} / ${templateProgress.total}…` : 'Generate templates'}</button>
             <p class="pb-2 text-[11px] text-slate-500 dark:text-slate-400">Sampling is capped at 256 views to keep processing in-browser.</p>
+            {templateError && <p role="alert" class="pb-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">Could not generate templates: {templateError}</p>}
           </div>
           {templateProjections.length > 0 && <div class="mt-5 border-t border-amber-200 pt-4 dark:border-slate-800">
             <div class="mb-3 flex items-center justify-between"><h4 class="text-sm font-bold text-slate-900 dark:text-slate-100">Generated templates</h4><span class="text-xs text-slate-500 dark:text-slate-400">{templateProjections.length} projections</span></div>

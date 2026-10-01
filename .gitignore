@@ -6,3 +6,5 @@ test-results
 .DS_Store
 .claude
 .worktrees/
+.superpowers/
+bioalign.html
