@@ -14,5 +14,5 @@ export default tseslint.config(
       'no-restricted-imports': ['error', { patterns: ['**/app/**', '**/tools/**', '**/lib/**', 'preact', 'preact/*', '@preact/*'] }]
     }
   },
-  { ignores: ['dist', 'legacy', 'node_modules', 'dev-dist', 'scripts'] }
+  { ignores: ['.claude', 'dist', 'legacy', 'node_modules', 'dev-dist', 'scripts'] }
 );

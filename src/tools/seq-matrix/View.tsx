@@ -19,6 +19,7 @@ import { type MatrixName } from '@/core/align/matrices';
 import { SCIENCE } from './science';
 import { useWorkerCompute } from '@/lib/use-worker-compute';
 import { makeMatrixWorker, runMatrixJob, type MatrixJob } from './job';
+import { NjTree } from './NjTree';
 
 interface State {
   fastaInput: string;
@@ -28,7 +29,7 @@ interface State {
   matrixName: MatrixName;
   gapOpen: number;
   gapExtend: number;
-  activeView: 'matrix' | 'msa' | 'tree';
+  activeView: 'matrix' | 'msa' | 'tree' | 'nj';
   selectedPairKey: string; // "i_j"
 }
 
@@ -426,6 +427,13 @@ export default function SeqMatrixView() {
                 >
                   🌳 Distance Hierarchy
                 </button>
+                <button
+                  type="button"
+                  onClick={() => set({ activeView: 'nj' })}
+                  class={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${s.activeView === 'nj' ? 'bg-accent-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
+                >
+                  Tree (NJ)
+                </button>
               </div>
 
               <div class="flex items-center gap-2">
@@ -795,6 +803,10 @@ export default function SeqMatrixView() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {s.activeView === 'nj' && (
+              <NjTree names={matrixResult.sequences.map(q => q.name)} distancePct={matrixResult.distanceMatrix} />
             )}
 
             {/* TAB 3: Distance Hierarchy */}
