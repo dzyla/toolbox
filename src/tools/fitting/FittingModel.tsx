@@ -1,5 +1,5 @@
 import { useUrlState } from '@/lib/url-state';
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDraftText } from '@/lib/drafts';
 import { SAMPLE_DATASETS, computeEnzymeTransforms, fitModel, parseFittingData, type FitModelType } from '@/core/fitting';
 import { importErrorMessage, readTextFile } from '@/lib/file-import';
@@ -53,15 +53,27 @@ export function useFittingModel() {
   const [piped] = useState<string | null>(() => {
     try {
       if (typeof sessionStorage !== 'undefined') {
+        // Read without removing: the view can mount twice while it loads; the keys are cleared shortly after mount.
         const handed = sessionStorage.getItem('biobench_fitting_input');
-        if (handed) {
-          sessionStorage.removeItem('biobench_fitting_input');
-          return handed;
-        }
+        if (handed) return handed;
       }
     } catch {}
     return null;
   });
+  // A model chosen by the tool that handed the data over (e.g. Cell Culture asking for a growth fit).
+  const [pipedModel] = useState<FitModelType | null>(() => {
+    try {
+      const wanted = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('biobench_fitting_model') : null;
+      return wanted ? (wanted as FitModelType) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (pipedModel) set({ modelType: pipedModel, analysis: 'curve', presetKey: '', xLogScale: false, activeDiagnosticPlot: 'none' });
+    const t = setTimeout(() => {
+      try { sessionStorage.removeItem('biobench_fitting_input'); sessionStorage.removeItem('biobench_fitting_model'); } catch { /* ignore */ }
+    }, 800);
+    return () => clearTimeout(t);
+  }, []);
   const [rawText, setRawText] = useDraftText(
     'fitting:raw',
     () => piped ?? SAMPLE_DATASETS.dose_response!.text,

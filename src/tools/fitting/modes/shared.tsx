@@ -193,7 +193,7 @@ export function FitPlot({ groups, xLabel, yLabel, title, xLog, ariaLabel, name, 
   const xt = xLog ? Array.from({ length: Math.ceil(Math.log10(x1)) - Math.floor(Math.log10(x0)) + 1 }, (_, i) => 10 ** (Math.floor(Math.log10(x0)) + i)).filter(v => v >= x0 * 0.999 && v <= x1 * 1.001) : niceTicks(x0, x1, 6);
   const yt = niceTicks(y0, y1, 5);
   return (
-    <figure class="m-0 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700">
+    <figure class="m-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-700 dark:border-slate-700">
       <svg ref={ref} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={ariaLabel} class="h-auto w-full select-none" style="font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; color: #334155">
         <rect width={W} height={H} fill="#ffffff" />
         {title && <text x={W / 2} y={17} text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">{title}</text>}

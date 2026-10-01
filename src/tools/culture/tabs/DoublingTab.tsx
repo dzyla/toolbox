@@ -1,6 +1,16 @@
 
 import type { CultureModel } from '../CultureModel';
 
+/** Hand the observations to Curve Fitting with a growth model (lag, plateau) selected. */
+function openInGrowthFit(observations: Array<{ timeHours: number; count: number }>) {
+  const rows = observations.filter(o => Number.isFinite(o.timeHours) && Number.isFinite(o.count) && o.count > 0).map(o => `${o.timeHours}\t${o.count}`);
+  try {
+    sessionStorage.setItem('biobench_fitting_input', `# time (h)\tcells\n${rows.join('\n')}`);
+    sessionStorage.setItem('biobench_fitting_model', 'gompertz_growth');
+  } catch { /* storage unavailable: the fitting tool opens with its own example */ }
+  location.hash = '#/t/fitting';
+}
+
 export function DoublingTab({ m }: { m: CultureModel }) {
   const {
     doublingResult,
@@ -125,6 +135,12 @@ export function DoublingTab({ m }: { m: CultureModel }) {
               </div>
             </div>
           </div>
+
+          {(s.observations?.length ?? 0) >= 6 && (
+            <button type="button" onClick={() => openInGrowthFit(s.observations)} class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+              Lag or plateau in your data? Fit a full growth curve (Gompertz) →
+            </button>
+          )}
 
           {/* Regression fit table */}
           <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">

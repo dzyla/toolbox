@@ -24,13 +24,14 @@ Guiding rule: each tool stays small and easy to use (one clear flow, example dat
 
 Dropped: mass-spec deconvolution, SDS-PAGE/Western planning, MESF calibration, gRNA design, Golden Gate fidelity, codon optimisation, aggregation scoring, helical wheel, lab inventory/expiry (needs a database), grid-prep helper. Better secondary-structure prediction would need a protein language model; out of scope.
 
-1. **Fitting** (generalise the single x/y series to multi-series data, then add): Hill; enzyme inhibition (competitive / uncompetitive / non-competitive / mixed, global fit with model comparison); Morrison tight-binding; ITC one-site isotherm; global SPR/BLI across concentrations; logistic / Gompertz growth.
-2. **Cell culture**: logistic / Gompertz growth curve fit (lag, mu_max, plateau), OD growth-curve import.
-3. **Protein Workbench**: net charge vs pH curve.
-4. **Cryo-EM**: import FSC curves from RELION STAR and cryoSPARC exports (0.143 / 0.5 crossings, resolution axis).
-5. **Study design / stats**: paired and one-way ANOVA power, Bland-Altman method comparison. (Z' and Grubbs already exist in the plate-reader.)
-6. **Sequence**: neighbour-joining tree with Newick export (from the identity matrix); silent restriction-site finder.
-7. **Flow cytometry**: FCS 3.x parser with histogram, scatter, simple gates and population statistics.
+Status (2026-09-30):
+1. **Fitting**: done. Levenberg–Marquardt solver (`core/fitting/nls.ts`); Hill, Gompertz/logistic/Baranyi growth in the curve fit; analysis modes for global enzyme inhibition with AICc comparison + Morrison, ITC one-site, global SPR/BLI 1:1. Not done: ITC two-site/competition, SPR heterogeneous ligand / mass transport, Hill-type global fits.
+2. **Cell culture**: hands 6+ observations to the growth-curve fit (Gompertz) from the doubling-time tab. OD import from the plate reader is not done (the plate reader has no kinetic read format).
+3. **Protein Workbench**: net charge vs pH curve: done.
+4. **Cryo-EM**: FSC import (RELION STAR, delimited/cryoSPARC-style): done; formats are untested on real cryoSPARC exports.
+5. **Study design / stats**: paired and one-way ANOVA power (exact noncentral t/F), Bland-Altman tool: done.
+6. **Sequence**: NJ tree + Newick in the identity-matrix tool, silent restriction-site finder: done.
+7. **Flow cytometry**: FCS parser, histogram/scatter, gates, statistics: done; arcsinh instead of logicle.
 
 ## Suggested order
 
