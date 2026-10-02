@@ -1,8 +1,8 @@
-import { Quantity } from '@/app/components/Quantity';
 import { ActionBar } from '@/app/components/ActionBar';
 import { SciencePanel } from '@/app/components/SciencePanel';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { PRESETS, useBuffersModel } from './BuffersModel';
+import { ConditionsBar } from './components/ConditionsBar';
 import { ComponentRow } from './components/ComponentRow';
 import { ContributeModal } from './components/ContributeModal';
 import { PresetBar } from './components/PresetBar';
@@ -34,7 +34,10 @@ export default function View() {
               onSaveName={m.setSaveName} onShowSave={m.setShowSaveDialog} onSave={m.saveCustomBuffer}
               onDelete={m.deleteCustomBuffer} onLoad={m.loadPreset} onContribute={() => m.setShowContributeModal(true)}
             />
-            <Quantity id="buffer-volume" label="Final Volume" value={s.volume} units={['L', 'mL']} onChange={volume => m.set({ volume })} />
+            <ConditionsBar
+              volume={s.volume} workingTemp_C={s.workingTemp_C} ionicCorrection={s.ionicCorrection}
+              onVolume={volume => m.set({ volume })} onTemp={workingTemp_C => m.set({ workingTemp_C })} onIonic={ionicCorrection => m.set({ ionicCorrection })}
+            />
             <div class="space-y-3">
               <div class="flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <span>Recipe Components ({s.components.length})</span>
@@ -44,6 +47,11 @@ export default function View() {
                   key={component.id} component={component} index={index} total={s.components.length}
                   onChange={patch => m.update(index, patch)} onKind={kind => m.setKind(index, kind)}
                   onRemove={() => m.removeComponent(index)} onLookup={() => void m.lookup(index)}
+                  workingTemp_C={s.workingTemp_C}
+                  report={calculation.result?.buffers.find(b => b.componentIndex === index)}
+                  ionicStrength={calculation.result?.ionicStrength ?? 0}
+                  onSystem={id => m.setSystem(index, id)} onBuffer={p => m.setBuffer(index, p)}
+                  onMethod={x => m.setMethod(index, x)} onMakeBuffer={() => m.makeBuffer(index)}
                 />
               ))}
             </div>

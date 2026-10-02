@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import presetsJson from '@/data/buffer-presets.json';
+import { findSystem, matchForm } from '@/core/buffers/pka';
 import { BufferRecipeError } from '@/core/buffers/recipe';
 import { solveMixture, type MixtureResult } from '@/core/buffers/mixture';
 import { toSI, UnitError } from '@/core/units';
@@ -10,8 +11,8 @@ import { isPositiveNumber, isRecord, loadLibrary, saveLibrary, type LibrarySpec 
 import { recipeCsvRows, recipeText } from './recipe-text';
 import { SCIENCE } from './science';
 import {
-  DEFAULTS, DEFAULT_COMPONENT, fromMixture, isMixtureComponent, newId, toMixture,
-  type EditorComponent, type Preset, type State,
+  DEFAULTS, DEFAULT_COMPONENT, defaultBuffer, fromMixture, isMixtureComponent, mixDefaults, newId, toMixture,
+  type BufferEditor, type EditorComponent, type Preset, type State,
 } from './state';
 
 const CUSTOM_BUFFERS: LibrarySpec<Preset> = {
@@ -113,14 +114,44 @@ export function useBuffersModel() {
 
   const addComponent = () => set({ components: [...s.components, { ...DEFAULT_COMPONENT, id: newId(), query: '', name: 'New component' }] });
   const removeComponent = (index: number) => set({ components: s.components.filter((_, i) => i !== index) });
-  const setKind = (index: number, kind: EditorComponent['kind']) => update(index, { kind });
+  const bufferOf = (index: number) => s.components[index]?.buffer ?? defaultBuffer();
+  const setBuffer = (index: number, patch: Partial<BufferEditor>) => update(index, { buffer: { ...bufferOf(index), ...patch } });
+  const setSystem = (index: number, systemId: string) => {
+    const system = findSystem(systemId);
+    if (!system) return;
+    update(index, { name: system.name, query: system.name, buffer: { ...defaultBuffer(systemId), mode: bufferOf(index).mode } });
+  };
+  const setMethod = (index: number, method: BufferEditor['method']) => {
+    const system = findSystem(bufferOf(index).systemId);
+    setBuffer(index, method === 'mix-forms' && system ? { method, ...mixDefaults(system) } : { method });
+  };
+  const makeBuffer = (index: number) => {
+    const hit = matchForm(s.components[index]?.name ?? '');
+    if (!hit) return;
+    update(index, {
+      kind: 'buffer', name: hit.system.name, query: hit.system.name,
+      buffer: { ...defaultBuffer(hit.system.id), formId: hit.form.id },
+    });
+  };
+  const setKind = (index: number, kind: EditorComponent['kind']) => {
+    const c = s.components[index];
+    if (!c) return;
+    if (kind !== 'buffer') return update(index, { kind });
+    const hit = matchForm(c.name);
+    const system = hit?.system ?? findSystem('tris')!;
+    update(index, {
+      kind: 'buffer', name: system.name, query: system.name,
+      target: { value: c.target.value, unit: c.target.unit === 'M' ? 'M' : 'mM' },
+      buffer: { ...defaultBuffer(system.id), ...(hit ? { formId: hit.form.id } : {}) },
+    });
+  };
   const toggleChecked = (key: string) => setChecked(prev => ({ ...prev, [key]: !prev[key] }));
 
   return {
     s, set, update, shareUrl, calculation, copyText, exportCsv, lookup, lookupStatus,
     customPresets, loadPreset, saveCustomBuffer, deleteCustomBuffer,
     showSaveDialog, setShowSaveDialog, saveName, setSaveName, showContributeModal, setShowContributeModal, recipeJson,
-    addComponent, removeComponent, setKind, checked, toggleChecked,
+    addComponent, removeComponent, setKind, setBuffer, setSystem, setMethod, makeBuffer, checked, toggleChecked,
   };
 }
 export type BuffersModel = ReturnType<typeof useBuffersModel>;
