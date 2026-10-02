@@ -98,6 +98,28 @@ describe('library validation and old data (review focus 5)', () => {
   });
 });
 
+describe('a missing temperature coefficient reaches the copy text', () => {
+  const caps = (pHTemp_C?: number) => solveMixture([
+    toMixture({ id: 'c', query: 'CAPS', name: 'CAPS', kind: 'buffer', target: { value: 50, unit: 'mM' }, buffer: { ...defaultBuffer('caps'), pH: 10.4, pHTemp_C } }, 4),
+  ], { ...opts, finalVolume_L: 1, workingTemp_C: 4 });
+
+  it('caveats the pasted protocol instead of claiming pH 10.4 at 4 °C outright', () => {
+    const result = caps(undefined);
+    // The pH line on its own is the bare positive claim the review objected to.
+    expect(phLines(result, 4)[0]).toMatch(/^CAPS: pH 10\.4 at 4 °C/);
+    const text = recipeText(result, '1 L', 4, 'SCIENCE');
+    expect(text).toMatch(/CAPS: no published temperature coefficient \(dpKa\/dT\)/);
+    expect(text).toMatch(/set the pH with a meter at 4 °C/);
+  });
+
+  it('says nothing extra when the whole recipe sits at 25 °C', () => {
+    const result = solveMixture([
+      toMixture({ id: 'c', query: 'CAPS', name: 'CAPS', kind: 'buffer', target: { value: 50, unit: 'mM' }, buffer: { ...defaultBuffer('caps'), pH: 10.4 } }, 25),
+    ], { ...opts, finalVolume_L: 1, workingTemp_C: 25 });
+    expect(recipeText(result, '1 L', 25, 'SCIENCE')).not.toMatch(/dpKa\/dT/);
+  });
+});
+
 describe('recipe text', () => {
   const result = solveMixture([
     toMixture({ id: 'a', query: 'Tris', name: 'Tris', kind: 'buffer', target: { value: 50, unit: 'mM' }, buffer: { ...defaultBuffer('tris'), pHTemp_C: 25 } }, 4),

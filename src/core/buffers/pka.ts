@@ -1,3 +1,10 @@
+/**
+ * Temperature the tabulated pKa values refer to. A step with `temperatureData: false` has no published
+ * dpKa/dT, so its 25 °C pKa is used unchanged at every temperature: any temperature away from this
+ * reference is a disclosure the UI owes the user, not a correction the model can make.
+ */
+export const PKA_REFERENCE_TEMP_C = 25;
+
 export interface AcidStep { pKa25: number; dpKadT: number; temperatureData: boolean }
 export interface BufferForm { id: string; label: string; protonsRemoved: number; mw: number }
 export interface BufferSystem {

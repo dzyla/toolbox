@@ -1,4 +1,5 @@
 import type { BufferReport } from '@/core/buffers/mixture';
+import { PKA_REFERENCE_TEMP_C } from '@/core/buffers/pka';
 
 const ph = (v: number) => String(Number(v.toFixed(2)));
 
@@ -9,8 +10,11 @@ export function PhCheck({ report, workingTemp_C, ionicStrength, onAdjustAtWorkin
   const sameTemp = report.setTemp_C === workingTemp_C;
   const changed = !sameTemp || Math.abs(report.drift) >= 0.005;
   const warn = Math.abs(report.drift) > 0.1;
-  // No published dpKa/dT for the governing step: the drift shown carries no temperature term at all.
-  const noTempData = !report.temperatureCorrected && !sameTemp;
+  // No published dpKa/dT for the governing step: the tabulated pKa is a 25 °C value used unchanged, so
+  // the drift carries no temperature term. The gate is about the temperatures in play being away from
+  // 25 °C — not about the set and working temperatures differing, which they do not in the default flow.
+  const offReference = [...new Set([report.setTemp_C, workingTemp_C].filter(t => t !== PKA_REFERENCE_TEMP_C))];
+  const noTempData = !report.temperatureCorrected && offReference.length > 0;
   return (
     <div
       data-testid="ph-check"
@@ -36,7 +40,8 @@ export function PhCheck({ report, workingTemp_C, ionicStrength, onAdjustAtWorkin
       )}
       {noTempData && (
         <p>
-          This buffer has no published temperature coefficient (dpKa/dT), so the pH shown at {workingTemp_C} °C is
+          This buffer has no published temperature coefficient (dpKa/dT), so its {PKA_REFERENCE_TEMP_C} °C pKa is used
+          unchanged at {offReference.map(t => `${t} °C`).join(' and ')}: the pH shown is
           <strong> not corrected for temperature</strong> — only for ionic strength. Most amine buffers move by
           0.01–0.03 pH per °C, so measure the pH at {workingTemp_C} °C rather than trusting this number.
         </p>

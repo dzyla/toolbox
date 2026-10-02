@@ -190,6 +190,13 @@ describe('Davies correction above its validity range', () => {
     expect(a.slice(0, 2)).toEqual(b.slice(0, 2));
   });
 
+  it('does not call a salt-only recipe approximate: 1 M NaCl weighs exactly 58.44 g and has no pH to predict', () => {
+    const r = solveMixture([salt(1000)], base);
+    expect(r.ionicStrength).toBeCloseTo(1, 12);
+    expect(r.rows[0]!.amount).toBeCloseTo(58.44, 2);
+    expect(r.warnings).toEqual([]);
+  });
+
   it('says the correction is held, and that the amounts and not just the pH are approximate', () => {
     const w = solveMixture([pi, salt(2000)], base).warnings.find(x => /Davies/.test(x))!;
     expect(w).toMatch(/held at its 0\.5 M value/);
@@ -205,6 +212,33 @@ describe('temperature coefficients that do not exist', () => {
     expect(Math.abs(caps.buffers[0]!.drift)).toBeLessThan(0.01);
     const tris = solveMixture([design({ name: 'Tris', systemId: 'tris', formId: 'tris-base', pH: 8 })], { ...base, workingTemp_C: 4 });
     expect(tris.buffers[0]!.temperatureCorrected).toBe(true);
+  });
+
+  it('warns that a 25 °C pKa is being used away from 25 °C, even when the pH is set at the working temperature', () => {
+    // The default flow: "pH measured at" is blank, so it resolves to the working temperature. Before the
+    // fix nothing was said here, while the sheet asked for 26.89 mL of 1 M NaOH instead of about 8.8 mL.
+    const atWorking = solveMixture([design({ name: 'CAPS', systemId: 'caps', formId: 'caps-acid', pH: 10.4, pHTemp_C: 4 })], { ...base, workingTemp_C: 4 });
+    const w = atWorking.warnings.find(x => /dpKa\/dT/.test(x))!;
+    expect(w).toMatch(/^CAPS: no published temperature coefficient \(dpKa\/dT\)/);
+    expect(w).toMatch(/25 °C pKa is used unchanged at 4 °C/);
+    expect(w).toMatch(/neither are the amounts below/);
+    expect(w).toMatch(/set the pH with a meter at 4 °C/);
+
+    // Set at 25 °C and used at 4 °C: the weigh-out is right, the predicted pH is still uncorrected.
+    const set25 = solveMixture([design({ name: 'CAPS', systemId: 'caps', formId: 'caps-acid', pH: 10.4 })], { ...base, workingTemp_C: 4 });
+    const w25 = set25.warnings.find(x => /dpKa\/dT/.test(x))!;
+    expect(w25).toMatch(/used unchanged at 4 °C/);
+    expect(w25).not.toMatch(/amounts below/);
+
+    // Nothing to disclose when every temperature in play is the reference temperature,
+    // and never for a buffer that has a published coefficient.
+    expect(solveMixture([design({ name: 'CAPS', systemId: 'caps', formId: 'caps-acid', pH: 10.4 })], base).warnings).toEqual([]);
+    expect(solveMixture([design({ name: 'Tris', systemId: 'tris', formId: 'tris-base', pH: 8, pHTemp_C: 4 })], { ...base, workingTemp_C: 4 }).warnings).toEqual([]);
+  });
+
+  it('names both temperatures when the pH was set at one non-reference temperature and used at another', () => {
+    const r = solveMixture([design({ name: 'CAPS', systemId: 'caps', formId: 'caps-acid', pH: 10.4, pHTemp_C: 20 })], { ...base, workingTemp_C: 4 });
+    expect(r.warnings.find(x => /dpKa\/dT/.test(x))).toMatch(/used unchanged at 20 °C and 4 °C/);
   });
 
   it('reads the flag from the step governing the set pH, not from the first step', () => {

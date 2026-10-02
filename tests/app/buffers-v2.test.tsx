@@ -94,6 +94,20 @@ describe('buffer rows', () => {
     expect(check()).not.toMatch(/no published temperature coefficient/);
   });
 
+  it('flags CAPS at 4 °C with "pH measured at" left blank, on the row and in the sheet', () => {
+    render(<BuffersView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Buffer' }));
+    domFire.change(screen.getByLabelText('Buffer system'), { target: { value: 'caps' } });
+    fireEvent.input(screen.getByLabelText('Working temperature (°C)'), { target: { value: '4' } });
+    fireEvent.input(screen.getByLabelText('Target pH'), { target: { value: '10.4' } });
+    // The field stays blank, so the pH is taken at 4 °C: the default flow, and also exactly the state
+    // the "Adjust at 4 °C instead" button produces. The notice must still appear.
+    expect((screen.getByLabelText('pH measured at (°C)') as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('ph-check').textContent).toMatch(/no published temperature coefficient/);
+    expect(screen.getByTestId('ph-check').textContent).toMatch(/not corrected for temperature/);
+    expect(screen.getByLabelText('Warnings').textContent).toMatch(/CAPS: no published temperature coefficient \(dpKa\/dT\)/);
+  });
+
   it('keeps unique checkbox state for the two lines a buffer row produces (review focus 5)', () => {
     render(<BuffersView />);
     fireEvent.click(screen.getByRole('button', { name: 'Buffer' }));

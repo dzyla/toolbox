@@ -1,4 +1,4 @@
-import type { BufferSystem } from './pka';
+import { PKA_REFERENCE_TEMP_C, type BufferSystem } from './pka';
 
 /** Debye–Hückel A parameter for water, 0–50 °C (polynomial fit to Bates, Robinson tables). */
 export function daviesA(temp_C: number): number {
@@ -32,7 +32,7 @@ export function pKaIonicShift(zAcid: number, I: number, temp_C: number): number 
 /** pKa' of every step at a temperature and ionic strength (linear dpKa/dT about 25 °C). */
 export function effectivePKas(system: BufferSystem, temp_C: number, I: number, correctIonic: boolean): number[] {
   return system.steps.map((s, j) => {
-    const pKa = s.pKa25 + s.dpKadT * (temp_C - 25);
+    const pKa = s.pKa25 + s.dpKadT * (temp_C - PKA_REFERENCE_TEMP_C);
     return correctIonic ? pKa + pKaIonicShift(system.z0 - j, I, temp_C) : pKa;
   });
 }

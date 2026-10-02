@@ -1,5 +1,5 @@
 import { BufferRecipeError, solveRecipe, type RecipeComponent, type RecipeRow } from './recipe';
-import { findSystem } from './pka';
+import { PKA_REFERENCE_TEMP_C, findSystem } from './pka';
 import { DAVIES_LIMIT_M, bufferIonicStrength, effectivePKas, fractions, meanCharge, meanProtonsRemoved, solvePHForCharge } from './speciation';
 
 interface BufferBase { kind: 'buffer'; name: string; systemId: string; target: { value: number; unit: 'M' | 'mM' } }
@@ -178,8 +178,19 @@ export function solveMixture(components: MixtureComponent[], opts: MixtureOption
     rows.push({ ...row!, componentIndex: i, role: 'component' });
   });
   const warnings: string[] = [];
-  if (opts.ionicCorrection && I > DAVIES_LIMIT_M) warnings.push(`Ionic strength ${I.toFixed(2)} M is above the ${DAVIES_LIMIT_M} M range of the Davies equation, so the activity correction is held at its ${DAVIES_LIMIT_M} M value instead of being extrapolated. Both the component amounts and the predicted pH are approximate here: set the pH with a meter after dissolving everything.`);
+  if (opts.ionicCorrection && buffers.length > 0 && I > DAVIES_LIMIT_M) warnings.push(`Ionic strength ${I.toFixed(2)} M is above the ${DAVIES_LIMIT_M} M range of the Davies equation, so the activity correction is held at its ${DAVIES_LIMIT_M} M value instead of being extrapolated. Both the component amounts and the predicted pH are approximate here: set the pH with a meter after dissolving everything.`);
   if (opts.ionicCorrection && buffers.length > 0 && (opts.workingTemp_C < 0 || opts.workingTemp_C > 50)) warnings.push('Temperature is outside 0–50 °C, the range of the activity-coefficient fit; the ionic-strength correction is approximate.');
+  buffers.forEach(b => {
+    if (b.temperatureCorrected) return;
+    const away = [...new Set([b.setTemp_C, opts.workingTemp_C].filter(t => t !== PKA_REFERENCE_TEMP_C))];
+    if (away.length === 0) return;
+    const temps = away.map(t => `${t} °C`).join(' and ');
+    const c = components[b.componentIndex]!;
+    // Design rows derive the weigh-out and titrant from the pKa at the set temperature, so an
+    // uncorrected pKa moves the amounts too; a premade stock is a plain dilution and does not.
+    const amounts = c.kind === 'buffer' && c.mode === 'design' && b.setTemp_C !== PKA_REFERENCE_TEMP_C;
+    warnings.push(`${c.name}: no published temperature coefficient (dpKa/dT) for the pKa governing pH ${Number(b.pHSet.toFixed(2))}, so its ${PKA_REFERENCE_TEMP_C} °C pKa is used unchanged at ${temps}. The predicted pH is not corrected for temperature${amounts ? ', and neither are the amounts below' : ''} — most amine buffers move 0.01–0.03 pH per °C, so set the pH with a meter at ${opts.workingTemp_C} °C.`);
+  });
   buffers.forEach(b => {
     if (b.outOfRange) warnings.push(`${components[b.componentIndex]!.name}: pH ${b.pHSet} is more than ${BUFFERING_RANGE} units from every pKa of this buffer, so it barely buffers and the predicted pH at the working temperature is unreliable.`);
   });
