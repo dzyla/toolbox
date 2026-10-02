@@ -19,7 +19,7 @@ export function BufferFields({ component, index, workingTemp_C, report, ionicStr
   const canMix = new Set(system.forms.map(f => f.protonsRemoved)).size > 1;
   const formOptions = system.forms.map(f => <option key={f.id} value={f.id}>{f.label}</option>);
   const select = (label: string, value: string, onChange: (v: string) => void, children: ComponentChildren) => (
-    <div>
+    <div class="min-w-0">
       <span class={labelClass}>{label}</span>
       <select aria-label={`${label}${suffix}`} value={value} onChange={e => onChange((e.target as HTMLSelectElement).value)} class={`${fieldClass} py-1.5 text-xs`}>{children}</select>
     </div>
@@ -35,7 +35,7 @@ export function BufferFields({ component, index, workingTemp_C, report, ionicStr
       />
 
       {b.mode === 'premade' ? (
-        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <NumberField label="Stock concentration" ariaLabel={`Premade stock concentration${suffix}`} value={b.stockConc} onValue={stockConc => onBuffer({ stockConc })} />
           {select('Stock unit', b.stockUnit, v => onBuffer({ stockUnit: v as 'M' | 'mM' }), <><option>M</option><option>mM</option></>)}
           <NumberField label="Stock pH" ariaLabel={`Stock pH${suffix}`} value={b.stockPH} onValue={stockPH => onBuffer({ stockPH })} />
@@ -43,7 +43,7 @@ export function BufferFields({ component, index, workingTemp_C, report, ionicStr
         </div>
       ) : (
         <div class="space-y-2.5">
-          <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <NumberField label="Target pH" ariaLabel={`Target pH${suffix}`} value={b.pH} onValue={pH => onBuffer({ pH })} />
             <div>
               <span class={labelClass}>pH measured at (°C)</span>
