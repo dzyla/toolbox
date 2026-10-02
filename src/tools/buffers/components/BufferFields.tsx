@@ -57,8 +57,8 @@ export function BufferFields({ component, index, workingTemp_C, report, ionicStr
               />
             </div>
             {select('Method', b.method, v => onMethod(v as BufferEditor['method']), <>
-              <option value="titrate">Adjust with acid / base</option>
-              <option value="mix-forms" disabled={!canMix}>Mix acid and base forms</option>
+              <option value="titrate">Acid / base</option>
+              <option value="mix-forms" disabled={!canMix}>Mix two forms</option>
             </>)}
             {b.method === 'titrate' && <NumberField label="Titrant (M)" ariaLabel={`Titrant concentration (M)${suffix}`} value={b.titrantConc_M} onValue={titrantConc_M => onBuffer({ titrantConc_M })} />}
           </div>
