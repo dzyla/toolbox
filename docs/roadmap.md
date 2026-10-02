@@ -33,6 +33,36 @@ Status (2026-09-30):
 6. **Sequence**: NJ tree + Newick in the identity-matrix tool, silent restriction-site finder: done.
 7. **Flow cytometry**: FCS parser, histogram/scatter, gates, statistics: done; arcsinh instead of logicle.
 
+## Buffer tool v2 (2026-10-01)
+
+Delivered:
+- [x] Buffer rows inside the recipe table (design to a pH by acid/base titration or by mixing two forms, or a premade pH'd stock as a plain dilution).
+- [x] Predicted pH at the working temperature, with a one-click fix.
+- [x] Davies ionic-strength correction (on by default, toggle in the header).
+- [x] 13 buffer systems with per-step pKa and dpKa/dT.
+- [x] `Set pH...` on a matching salt or stock row turns it into a buffer row.
+
+Fixed in the final branch review (2026-10-01):
+- [x] **The Davies correction now saturates at 0.5 M instead of being extrapolated.** `daviesF(I)` peaks near I = 0.4 M and crosses zero at I ≈ 1.94 M, so above that the activity term reversed sign and grew without bound. `pKaIonicShift` clamps I to `DAVIES_LIMIT_M = 0.5` (exported from `speciation.ts`; `mixture.ts` imports it rather than keeping its own copy). 50 mM sodium phosphate pH 7.4 + 2 M NaCl used to come out 58.1 % dibasic — a buffer that really reads pH 6.74 — and is now 80.1 % dibasic, above the 77.8 % no-salt split, as the ionic correction requires. The >0.5 M warning (and the premade-stock variant) now say the correction is *held* at its 0.5 M value and that the component amounts, not only the predicted pH, are approximate.
+- [x] **Unverified temperature coefficients are visible in the UI.** `BufferReport.temperatureCorrected` carries `temperatureData` from the step nearest the set pH, and `PhCheck` says that the buffer has no published dpKa/dT and that the pH is not corrected for temperature. CAPS at 10.4 used to report a drift of +0.002 at 4 °C with no flag, reading as a positive claim that it does not move; the real buffer is near pH 11. No coefficient was invented.
+- [x] **Provenance is shown, not just stored.** The selected system's `source` is rendered under the buffer-system select, so a bench scientist can see which of the 12 still-unverified constants they are relying on.
+- [x] **Ionic strength counts the starting form's spectator ions.** `bufferIonicStrength` takes the weighed form's `protonsRemoved` for design/titrate rows and computes `I = 0.5·C·(Σ f z² + |z0 − p_form| + |m − p_form|)`; premade stocks and two-form mixtures keep the minimum-counter-ion model (a stock's route is unknown; a mixture carries exactly the minimum). 50 mM Tris pH 8.5 from Tris-HCl is now I = 0.050 M instead of 0.0145 M, and no longer reports the same number as the Tris-base route; 100 mM citrate pH 5 from trisodium citrate is 0.411 M instead of 0.308 M.
+- [x] **The ionic-strength line no longer lies by omission.** It is suppressed when nothing was counted (LB Miller printed "Ionic strength about 0 M"), and any excluded component is named in the copy text and in the recipe sheet (PBS 1× prints 0.14 M and now says it excludes both phosphates; the truth is ≈ 0.164 M).
+
+Not done:
+- [ ] Buffer-capacity plot.
+- [ ] Multi-buffer pH optimisation.
+- [ ] Converting presets once they carry a pH.
+- [ ] A verified primary source for every dpKa/dT flagged `temperatureData: false`. Several table values could not be verified online and still need a primary source: dpKa/dT for Tris, MOPS, PIPES, Tricine, imidazole and phosphate step 2; pKa for CAPS, imidazole, acetate, citrate, phosphate and PIPES step 1. CAPS, CHES, acetate and citrate are the ones a user is most likely to notice, because the UI now tells them the pH is not temperature-corrected (CAPS ≈ −0.03/°C in supplier tables, still unconfirmed against a primary source).
+- [ ] An ionic-strength model for the salts outside the `SALTS` table (phosphate and other polyvalent salts entered as plain solids, % w/v salts). They are now named as excluded rather than silently dropped, but PBS 1× still reports 0.14 M where the truth is ≈ 0.164 M.
+- [ ] A Pitzer or extended Debye–Hückel treatment so high-salt buffers (≥0.5 M) get a real correction rather than the held 0.5 M value.
+- [ ] The Sambrook and Russell phosphate-table citation was dropped from the science panel because it could not be confirmed; re-add it once checked against the book.
+
+Residuals fixed in the re-review (2026-10-01):
+- [x] **The missing-coefficient notice no longer hides in the default flow.** Its gate was `setTemp_C !== workingTemp_C`, but a blank "pH measured at" resolves to the working temperature, so the two matched in the default flow — and in the state the "Adjust at N °C instead" button produces. The gate is now the real condition: a coefficient-less pKa used away from the `PKA_REFERENCE_TEMP_C = 25 °C` the table's values refer to. 50 mM CAPS at pH 10.4 and 4 °C with the field blank used to print only "pH 10.4 at 4 °C" beside a sheet asking for 26.89 mL of 1 M NaOH, where CAPS's real coefficient (≈ −0.032/°C) puts the answer near 8.8 mL.
+- [x] **That disclosure now travels with the recipe.** `solveMixture` pushes the caveat into `MixtureResult.warnings`, so it reaches the row, the weigh-out sheet and the copy text together; a pasted protocol used to read "CAPS: pH 10.4 at 25 °C → pH 10.4 at 4 °C" with no caveat at all. The warning names the temperatures in play, and says the amounts are uncorrected too only for design rows whose pH was set away from 25 °C (a premade stock is a plain dilution, so its amounts do not move).
+- [x] **The reworded Davies warning no longer fires with no buffer present.** `1 M NaCl` alone used to claim "both the component amounts and the predicted pH are approximate"; the 58.44 g is exact and there is no pH to set, so the warning is now guarded on `buffers.length > 0` like the 0–50 °C one beside it.
+
 ## Suggested order
 
 1. Web Workers for MSA and fitting.

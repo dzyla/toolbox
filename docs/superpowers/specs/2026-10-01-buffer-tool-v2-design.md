@@ -14,7 +14,7 @@ Out of scope for v1: buffer capacity plots, multi-buffer pH optimisation, activi
 ## Current state
 
 - `src/core/buffers/recipe.ts`: `solveRecipe` for `solid` and `stock` components (g / mL).
-- `src/core/buffers/henderson.ts`: 6 monoprotic buffers, linear dpKa/dT, ratio only.
+- `src/core/buffers/henderson.ts` (kept, because an existing test pins it; a parity test ties it to `pka.ts`): 6 monoprotic buffers, linear dpKa/dT, ratio only.
 - `src/tools/buffers/View.tsx`: 716 lines, one file. Presets and saved buffers via `local-library.ts`, chemical search from `chemicals.json`.
 
 ## Model
@@ -32,7 +32,7 @@ A mixture has a final volume, a working temperature and a list of components. A 
 ## Calculation core (`src/core/buffers/`)
 
 - `pka.ts` replaces the table in `henderson.ts`: each system lists its ionisation steps (pKa at 25 °C, dpKa/dT, charge of each species) with a source per value. Systems: Tris, HEPES, MES, MOPS, PIPES, Bicine, Tricine, CHES, CAPS, imidazole, acetate, citrate (3 steps), phosphate (3 steps). Values without a published dpKa/dT are flagged "no temperature data" and are not corrected.
-- `ionic.ts`: ionic strength I from all charged components (buffer species by the speciation at the target pH, plus salts from the rows with known charges) and the Davies activity correction, so pKa' = pKa + correction(I, charges). Unknown components are listed as "not counted".
+- `speciation.ts` (not a separate `ionic.ts`): holds ionic strength and speciation together. Ionic strength I from all charged components (buffer species by the speciation at the target pH, plus salts from the rows with known charges) and the Davies activity correction, so pKa' = pKa + correction(I, charges). Unknown components are listed as "not counted".
 - `speciation.ts`: fractions of each species at a given pH (polyprotic, closed form). Gives the base/acid ratio and, for `titrate`, the equivalents of titrant per mole of buffer.
 - `phAtTemperature(...)`: the pH of a mixture made to pH_a at T_a when it is used at T_b, assuming fixed composition and recomputing pKa'(T_b). Used for the check and for the "set pH at the working temperature instead" suggestion.
 - `solveRecipe` keeps its signature for `solid` and `stock` and gains `buffer` handling, returning extra fields on a row (`titrant`, `predictedPH`, `notes`) instead of changing existing ones.
@@ -61,5 +61,5 @@ Accessibility and mobile: every control labelled, no horizontal overflow at 390 
 
 ## Open points to confirm in review
 
-- pKa and dpKa/dT sources are gathered during implementation; any value without a primary source is marked in the UI.
-- Which presets (Tris-NaCl, PBS, TBS, SEC buffers) are converted to Buffer rows. Proposal: convert the ones that name a buffer with a pH, leave media recipes untouched.
+- pKa and dpKa/dT sources: values without a primary source are flagged; a verified source for several is still outstanding (see the roadmap).
+- Presets: not converted, because they carry no pH. The `Set pH...` button on a matching row is the route. Resolved.
