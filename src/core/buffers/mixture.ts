@@ -1,6 +1,6 @@
 import { BufferRecipeError, solveRecipe, type RecipeComponent, type RecipeRow } from './recipe';
 import { findSystem } from './pka';
-import { bufferIonicStrength, effectivePKas, fractions, meanCharge, meanProtonsRemoved, solvePHForCharge } from './speciation';
+import { DAVIES_LIMIT_M, bufferIonicStrength, effectivePKas, fractions, meanCharge, meanProtonsRemoved, solvePHForCharge } from './speciation';
 
 interface BufferBase { kind: 'buffer'; name: string; systemId: string; target: { value: number; unit: 'M' | 'mM' } }
 export interface PremadeBuffer extends BufferBase {
@@ -30,6 +30,12 @@ export interface BufferReport {
   titrantEquiv?: number;
   /** True when pHSet is more than 1.5 units from every pKa', so the mixture barely buffers. */
   outOfRange: boolean;
+  /**
+   * False when the step governing pHSet has no published dpKa/dT, so pHWorking carries no temperature
+   * correction at all (only the ionic-strength term moves). The UI must say so rather than let the
+   * near-zero drift read as a claim that the buffer does not move with temperature.
+   */
+  temperatureCorrected: boolean;
 }
 export interface MixtureResult {
   rows: MixtureRow[];
@@ -60,7 +66,6 @@ const positive = (v: number, label: string) => {
 };
 
 interface Resolved { rows: MixtureRow[]; report: BufferReport; ionic: number; stockIonic?: number }
-const DAVIES_LIMIT_M = 0.5;
 const BUFFERING_RANGE = 1.5;
 
 function resolveBuffer(c: BufferComponent, index: number, I: number, opts: MixtureOptions): Resolved {
@@ -73,6 +78,8 @@ function resolveBuffer(c: BufferComponent, index: number, I: number, opts: Mixtu
   const useKas = effectivePKas(system, opts.workingTemp_C, I, correct);
   const rows: MixtureRow[] = [];
   let Q: number, pHSet: number, setTemp: number, titrantEquiv: number | undefined, stockIonic: number | undefined;
+  /** Protons removed in the weighed form, so the ionic strength can keep its spectator counter-ions. */
+  let spectatorP: number | undefined;
   if (!Number.isFinite(opts.workingTemp_C)) throw new BufferRecipeError('Working temperature must be a number');
 
   if (c.mode === 'premade') {
@@ -98,6 +105,7 @@ function resolveBuffer(c: BufferComponent, index: number, I: number, opts: Mixtu
     if (!form) throw new BufferRecipeError(`${c.name}: choose a starting form`);
     if (c.method === 'titrate') {
       positive(c.titrantConc_M, 'Titrant concentration');
+      spectatorP = form.protonsRemoved;
       rows.push({ name: form.label, amount: moles * form.mw, unit: 'g', componentIndex: index, role: 'component' });
       titrantEquiv = m - form.protonsRemoved;
       if (Math.abs(titrantEquiv) > 1e-9) {
@@ -122,9 +130,19 @@ function resolveBuffer(c: BufferComponent, index: number, I: number, opts: Mixtu
     if (error instanceof RangeError) throw new BufferRecipeError(`${c.name}: the pH at the working temperature could not be solved`);
     throw error;
   }
-  const ionic = bufferIonicStrength(system, conc, fractions(pHWorking, useKas));
-  const nearest = Math.min(...effectivePKas(system, setTemp, I, correct).map(pKa => Math.abs(pHSet - pKa)));
-  return { rows, ionic, stockIonic, report: { componentIndex: index, name: c.name, pHSet, setTemp_C: setTemp, pHWorking, drift: pHWorking - pHSet, titrantEquiv, outOfRange: nearest > BUFFERING_RANGE } };
+  const ionic = bufferIonicStrength(system, conc, fractions(pHWorking, useKas), spectatorP);
+  // The step nearest the set pH governs both the buffering range and which dpKa/dT applies.
+  const setKas = effectivePKas(system, setTemp, I, correct);
+  let governing = 0;
+  setKas.forEach((pKa, j) => { if (Math.abs(pHSet - pKa) < Math.abs(pHSet - setKas[governing]!)) governing = j; });
+  const nearest = Math.abs(pHSet - setKas[governing]!);
+  return {
+    rows, ionic, stockIonic,
+    report: {
+      componentIndex: index, name: c.name, pHSet, setTemp_C: setTemp, pHWorking, drift: pHWorking - pHSet, titrantEquiv,
+      outOfRange: nearest > BUFFERING_RANGE, temperatureCorrected: system.steps[governing]!.temperatureData,
+    },
+  };
 }
 
 export function solveMixture(components: MixtureComponent[], opts: MixtureOptions): MixtureResult {
@@ -160,13 +178,13 @@ export function solveMixture(components: MixtureComponent[], opts: MixtureOption
     rows.push({ ...row!, componentIndex: i, role: 'component' });
   });
   const warnings: string[] = [];
-  if (opts.ionicCorrection && I > DAVIES_LIMIT_M) warnings.push(`Ionic strength ${I.toFixed(2)} M is above the ${DAVIES_LIMIT_M} M range of the Davies equation; the pH prediction is approximate.`);
+  if (opts.ionicCorrection && I > DAVIES_LIMIT_M) warnings.push(`Ionic strength ${I.toFixed(2)} M is above the ${DAVIES_LIMIT_M} M range of the Davies equation, so the activity correction is held at its ${DAVIES_LIMIT_M} M value instead of being extrapolated. Both the component amounts and the predicted pH are approximate here: set the pH with a meter after dissolving everything.`);
   if (opts.ionicCorrection && buffers.length > 0 && (opts.workingTemp_C < 0 || opts.workingTemp_C > 50)) warnings.push('Temperature is outside 0–50 °C, the range of the activity-coefficient fit; the ionic-strength correction is approximate.');
   buffers.forEach(b => {
     if (b.outOfRange) warnings.push(`${components[b.componentIndex]!.name}: pH ${b.pHSet} is more than ${BUFFERING_RANGE} units from every pKa of this buffer, so it barely buffers and the predicted pH at the working temperature is unreliable.`);
   });
   resolved.forEach((r, i) => {
-    if (opts.ionicCorrection && r?.stockIonic !== undefined && r.stockIonic > DAVIES_LIMIT_M) warnings.push(`${components[i]!.name}: the stock's own ionic strength (${r.stockIonic.toFixed(2)} M) is above the Davies range, so its predicted pH shift on dilution is approximate.`);
+    if (opts.ionicCorrection && r?.stockIonic !== undefined && r.stockIonic > DAVIES_LIMIT_M) warnings.push(`${components[i]!.name}: the stock's own ionic strength (${r.stockIonic.toFixed(2)} M) is above the ${DAVIES_LIMIT_M} M Davies range, so its activity correction is held at the ${DAVIES_LIMIT_M} M value and its predicted pH shift on dilution is approximate.`);
   });
   return { rows, buffers, ionicStrength: I, notCounted, warnings };
 }

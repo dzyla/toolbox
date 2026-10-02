@@ -1,7 +1,7 @@
 import type { MixtureResult } from '@/core/buffers/mixture';
 import { toSI } from '@/core/units';
 import type { QValue } from '@/app/components/Quantity';
-import { displayAmount } from '../recipe-text';
+import { displayAmount, ionicStrengthLines } from '../recipe-text';
 import type { EditorComponent } from '../state';
 
 export interface RecipeSheetProps {
@@ -27,6 +27,7 @@ export function prepSteps(result: MixtureResult, volume: QValue, volumeL: number
 
 export function RecipeSheet({ result, components, volume, workingTemp_C, checked, onToggle }: RecipeSheetProps) {
   const volumeL = toSI(volume);
+  const ionicLines = ionicStrengthLines(result);
   return (
     <div data-testid="buffer-results" class="space-y-5">
       <div class="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -84,6 +85,12 @@ export function RecipeSheet({ result, components, volume, workingTemp_C, checked
             );
           })}
         </ul>
+
+        {ionicLines.length > 0 && (
+          <div data-testid="ionic-strength" class="space-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+            {ionicLines.map(line => <p key={line}>{line}</p>)}
+          </div>
+        )}
 
         {result.warnings.length > 0 && (
           <ul role="status" aria-label="Warnings" class="space-y-1 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">

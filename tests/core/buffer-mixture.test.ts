@@ -64,6 +64,26 @@ describe('design buffers: titrate', () => {
     expect(r.rows[1]!.name).toMatch(/^NaOH 1 M/);
     expect(r.rows[1]!.amount).toBeCloseTo(23.28, 1);
   });
+
+  it('counts the spectator ions of a salt starting form: 50 mM Tris pH 8.5 is I = 0.050 M from Tris-HCl but 0.0145 M from Tris base', () => {
+    const fromSalt = solveMixture([design({ name: 'Tris', systemId: 'tris', formId: 'tris-hcl', pH: 8.5 })], base);
+    const fromBase = solveMixture([design({ name: 'Tris', systemId: 'tris', formId: 'tris-base', pH: 8.5 })], base);
+    // Tris-HCl + NaOH leaves 50 mM Cl⁻ plus the Na⁺ added: 0.5·0.05·(Σfz² + 1 + 0.73) = 0.050 M.
+    expect(fromSalt.ionicStrength).toBeCloseTo(0.05, 4);
+    // Tris base + HCl: the Cl⁻ added is the only counter-ion, so the minimum model is already exact.
+    expect(fromBase.ionicStrength).toBeCloseTo(0.0145, 4);
+    expect(fromSalt.ionicStrength).toBeGreaterThan(fromBase.ionicStrength);
+    // Two chemically different recipes must no longer report the same ionic strength.
+    expect(fromSalt.ionicStrength).not.toBeCloseTo(fromBase.ionicStrength, 3);
+  });
+
+  it('counts all three sodiums of trisodium citrate: 100 mM citrate pH 5 is I = 0.411 M, not 0.308 M', () => {
+    const fromSalt = solveMixture([design({ name: 'Citrate', systemId: 'citrate', formId: 'na3-citrate-2h2o', pH: 5, target: { value: 100, unit: 'mM' } })], base);
+    const fromAcid = solveMixture([design({ name: 'Citrate', systemId: 'citrate', formId: 'citric-acid', pH: 5, target: { value: 100, unit: 'mM' } })], base);
+    expect(fromSalt.ionicStrength).toBeCloseTo(0.411, 3);
+    expect(fromSalt.rows[1]!.name).toMatch(/^HCl 1 M/);
+    expect(fromAcid.ionicStrength).toBeCloseTo(0.308, 3);
+  });
 });
 
 describe('design buffers: mix forms', () => {
@@ -142,6 +162,56 @@ describe('premade pH-adjusted stocks', () => {
   it('accepts a stock given in mM', () => {
     const r = solveMixture([premade({ name: 'Tris', systemId: 'tris', stockConc: 500, stockUnit: 'mM', target: { value: 50, unit: 'mM' } })], base);
     expect(r.rows[0]!.amount).toBeCloseTo(100, 10);
+  });
+});
+
+describe('Davies correction above its validity range', () => {
+  const pi = design({ name: 'Pi', systemId: 'phosphate', formId: 'nah2po4', formId2: 'na2hpo4', method: 'mix-forms', pH: 7.4 });
+  const salt = (mM: number): MixtureComponent => ({ kind: 'solid', name: 'Sodium Chloride (NaCl)', mw: 58.44, target: { value: mM, unit: 'mM' } });
+  const dibasicFraction = (r: ReturnType<typeof solveMixture>) => {
+    const mono = r.rows[0]!.amount / 119.98, di = r.rows[1]!.amount / 141.96;
+    return di / (mono + di);
+  };
+
+  it('does not reverse the phosphate split at 2 M and 3 M NaCl: the dibasic fraction stays above the no-salt value', () => {
+    const none = dibasicFraction(solveMixture([pi], base));
+    const twoM = dibasicFraction(solveMixture([pi, salt(2000)], base));
+    const threeM = dibasicFraction(solveMixture([pi, salt(3000)], base));
+    expect(none).toBeCloseTo(0.778, 3);
+    // Before the clamp this dropped to 0.581 — a 58 % dibasic split that really reads pH 6.74, not 7.4.
+    expect(twoM).toBeGreaterThan(none);
+    expect(twoM).toBeCloseTo(0.801, 3);
+    expect(threeM).toBeCloseTo(twoM, 10);
+  });
+
+  it('holds every amount constant once the ionic strength is past 0.5 M', () => {
+    const a = solveMixture([pi, salt(2000)], base).rows.map(r => r.amount);
+    const b = solveMixture([pi, salt(3000)], base).rows.map(r => r.amount);
+    expect(a.slice(0, 2)).toEqual(b.slice(0, 2));
+  });
+
+  it('says the correction is held, and that the amounts and not just the pH are approximate', () => {
+    const w = solveMixture([pi, salt(2000)], base).warnings.find(x => /Davies/.test(x))!;
+    expect(w).toMatch(/held at its 0\.5 M value/);
+    expect(w).toMatch(/component amounts/);
+  });
+});
+
+describe('temperature coefficients that do not exist', () => {
+  it('marks CAPS as not temperature-corrected and Tris as corrected', () => {
+    const caps = solveMixture([design({ name: 'CAPS', systemId: 'caps', formId: 'caps-acid', pH: 10.4 })], { ...base, workingTemp_C: 4 });
+    expect(caps.buffers[0]!.temperatureCorrected).toBe(false);
+    // The near-zero drift is exactly why the flag matters: it is not evidence that CAPS does not move.
+    expect(Math.abs(caps.buffers[0]!.drift)).toBeLessThan(0.01);
+    const tris = solveMixture([design({ name: 'Tris', systemId: 'tris', formId: 'tris-base', pH: 8 })], { ...base, workingTemp_C: 4 });
+    expect(tris.buffers[0]!.temperatureCorrected).toBe(true);
+  });
+
+  it('reads the flag from the step governing the set pH, not from the first step', () => {
+    // Phosphate steps are [false, true, false]; pH 7.4 is governed by pKa2, which has a coefficient.
+    expect(solveMixture([design({ name: 'Pi', systemId: 'phosphate', formId: 'nah2po4', pH: 7.4 })], base).buffers[0]!.temperatureCorrected).toBe(true);
+    // pH 2.5 is governed by pKa1, which does not.
+    expect(solveMixture([design({ name: 'Pi', systemId: 'phosphate', formId: 'nah2po4', pH: 2.5 })], base).buffers[0]!.temperatureCorrected).toBe(false);
   });
 });
 

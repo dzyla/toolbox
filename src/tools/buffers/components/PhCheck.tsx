@@ -9,11 +9,13 @@ export function PhCheck({ report, workingTemp_C, ionicStrength, onAdjustAtWorkin
   const sameTemp = report.setTemp_C === workingTemp_C;
   const changed = !sameTemp || Math.abs(report.drift) >= 0.005;
   const warn = Math.abs(report.drift) > 0.1;
+  // No published dpKa/dT for the governing step: the drift shown carries no temperature term at all.
+  const noTempData = !report.temperatureCorrected && !sameTemp;
   return (
     <div
       data-testid="ph-check"
       role="status"
-      class={`space-y-1 rounded-lg border px-3 py-2 text-xs ${warn || report.outOfRange
+      class={`space-y-1 rounded-lg border px-3 py-2 text-xs ${warn || report.outOfRange || noTempData
         ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200'
         : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'}`}
     >
@@ -30,6 +32,13 @@ export function PhCheck({ report, workingTemp_C, ionicStrength, onAdjustAtWorkin
               Adjust at {workingTemp_C} °C instead
             </button>
           )}
+        </p>
+      )}
+      {noTempData && (
+        <p>
+          This buffer has no published temperature coefficient (dpKa/dT), so the pH shown at {workingTemp_C} °C is
+          <strong> not corrected for temperature</strong> — only for ionic strength. Most amine buffers move by
+          0.01–0.03 pH per °C, so measure the pH at {workingTemp_C} °C rather than trusting this number.
         </p>
       )}
       {report.outOfRange && <p>pH {ph(report.pHSet)} is outside this buffer's useful range (more than 1.5 pH units from every pKa): it barely buffers.</p>}

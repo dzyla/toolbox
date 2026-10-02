@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { getSystem } from '@/core/buffers/pka';
 import {
-  bufferIonicStrength, daviesA, daviesF, effectivePKas, fractions, meanCharge, meanProtonsRemoved, pKaIonicShift, solvePHForCharge,
+  DAVIES_LIMIT_M, bufferIonicStrength, daviesA, daviesF, effectivePKas, fractions, meanCharge, meanProtonsRemoved,
+  pKaIonicShift, solvePHForCharge,
 } from '@/core/buffers/speciation';
 
 const tris = getSystem('tris');
+const citrate = getSystem('citrate');
 const phosphate = getSystem('phosphate');
 
 describe('Davies activity model', () => {
@@ -22,6 +24,30 @@ describe('Davies activity model', () => {
     expect(pKaIonicShift(1, 0.15, 25)).toBeCloseTo(0.1198, 3);
     expect(pKaIonicShift(0, 0.15, 25)).toBeCloseTo(-0.1198, 3);
     expect(pKaIonicShift(-1, 0.15, 25)).toBeCloseTo(-0.3593, 3);
+  });
+
+  it('f(I) itself turns over and reverses sign, which is why the shift must be clamped', () => {
+    expect(daviesF(0.4)).toBeGreaterThan(daviesF(DAVIES_LIMIT_M));
+    expect(daviesF(2)).toBeLessThan(0);
+    expect(daviesF(5)).toBeLessThan(daviesF(2));
+  });
+
+  it('saturates the shift at the Davies limit instead of reversing it above about 1.9 M', () => {
+    const at = (I: number) => pKaIonicShift(1, I, 25);
+    expect(at(DAVIES_LIMIT_M)).toBeCloseTo(0.13513, 5);
+    expect(at(2)).toBe(at(DAVIES_LIMIT_M));
+    expect(at(5)).toBe(at(DAVIES_LIMIT_M));
+    // Signs stay as the acid charge dictates, never flipped by an out-of-range f(I).
+    for (const I of [DAVIES_LIMIT_M, 2, 5]) {
+      expect(pKaIonicShift(1, I, 25)).toBeGreaterThan(0);
+      expect(pKaIonicShift(0, I, 25)).toBeLessThan(0);
+      expect(pKaIonicShift(-1, I, 25)).toBeCloseTo(-0.40538, 5);
+    }
+    expect(() => pKaIonicShift(1, -0.1, 25)).toThrow(RangeError);
+  });
+
+  it('holds the whole effective-pKa correction at 0.5 M for a polyprotic buffer', () => {
+    expect(effectivePKas(phosphate, 25, 2, true)).toEqual(effectivePKas(phosphate, 25, DAVIES_LIMIT_M, true));
   });
 });
 
@@ -89,5 +115,22 @@ describe('buffer ionic strength', () => {
 
   it('counts divalent species: 100 mM phosphate at 60 % HPO4²⁻ / 40 % H2PO4⁻ is 0.22 M', () => {
     expect(bufferIonicStrength(phosphate, 0.1, [0, 0.4, 0.6, 0])).toBeCloseTo(0.22, 10);
+  });
+
+  it('keeps the spectator ions of the weighed form: 50 mM Tris at pH = pKa is 0.05 M from Tris-HCl, 0.025 M from Tris base', () => {
+    // Tris-HCl (0 protons removed) brings 1 Cl⁻ per molecule, and titrating up adds 0.5 Na⁺: 2 charges in all.
+    expect(bufferIonicStrength(tris, 0.05, [0.5, 0.5], 0)).toBeCloseTo(0.05, 10);
+    // Tris base is neutral and the HCl added is the only counter-ion, so it matches the minimum model.
+    expect(bufferIonicStrength(tris, 0.05, [0.5, 0.5], 1)).toBeCloseTo(0.025, 10);
+    expect(bufferIonicStrength(tris, 0.05, [0.5, 0.5], 1)).toBe(bufferIonicStrength(tris, 0.05, [0.5, 0.5]));
+  });
+
+  it('is unchanged when the weighed form lies between the neutral species and the target', () => {
+    // 100 mM citrate fully at citrate²⁻: from citric acid the 2 Na⁺ added are the only counter-ions (0.3 M),
+    // but from trisodium citrate 3 Na⁺ stay in solution and 1 Cl⁻ arrives with the HCl (0.4 M).
+    expect(bufferIonicStrength(citrate, 0.1, [0, 0, 1, 0], 0)).toBeCloseTo(0.3, 10);
+    expect(bufferIonicStrength(citrate, 0.1, [0, 0, 1, 0])).toBeCloseTo(0.3, 10);
+    expect(bufferIonicStrength(citrate, 0.1, [0, 0, 1, 0], 3)).toBeCloseTo(0.4, 10);
+    expect(bufferIonicStrength(phosphate, 0.1, [0, 0.4, 0.6, 0], 2)).toBeCloseTo(0.26, 10);
   });
 });

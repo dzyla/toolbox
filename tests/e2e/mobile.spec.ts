@@ -36,6 +36,15 @@ test('home page fits a phone screen', async ({ page }) => {
   expect(await escapingElements(page)).toEqual([]);
 });
 
+// The buffer row only appears after switching a component to "Buffer", so the tool sweep never sees it.
+test('a buffer row shows its pKa source without escaping a phone screen', async ({ page }) => {
+  await page.goto('/#/t/buffers');
+  await page.getByRole('button', { name: 'Buffer', exact: true }).click();
+  await expect(page.getByText(/pKa source/)).toBeVisible();
+  await expect(page.getByTestId('ph-check')).toBeVisible();
+  expect(await escapingElements(page)).toEqual([]);
+});
+
 for (const id of READY_TOOLS) {
   test(`${id} opens on a phone without errors or horizontal page scroll`, async ({ page }) => {
     const errors: string[] = [];

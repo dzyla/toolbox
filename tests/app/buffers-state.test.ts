@@ -5,7 +5,15 @@ import {
   DEFAULTS, defaultBuffer, fromMixture, isMixtureComponent, mixDefaults, toMixture, type EditorComponent,
 } from '@/tools/buffers/state';
 import { findSystem } from '@/core/buffers/pka';
-import { displayAmount, phLines, recipeCsvRows, recipeText } from '@/tools/buffers/recipe-text';
+import { displayAmount, ionicStrengthLines, phLines, recipeCsvRows, recipeText } from '@/tools/buffers/recipe-text';
+import presetsJson from '@/data/buffer-presets.json';
+import type { Preset } from '@/tools/buffers/state';
+
+const preset = (id: string) => (presetsJson.presets as unknown as Preset[]).find(p => p.id === id)!;
+const solvePreset = (id: string) => {
+  const p = preset(id);
+  return solveMixture(p.components, { finalVolume_L: p.finalVolume_L, workingTemp_C: 25, ionicCorrection: true });
+};
 
 const opts = { finalVolume_L: 0.5, workingTemp_C: 25, ionicCorrection: true };
 
@@ -111,5 +119,26 @@ describe('recipe text', () => {
     const rows = recipeCsvRows(result);
     expect(rows[0]).toEqual(['Component', 'Amount', 'Unit', 'Mass from density (g)']);
     expect(rows).toHaveLength(3);
+  });
+
+  it('reports the ionic strength of a buffer recipe and names nothing when everything is counted', () => {
+    expect(ionicStrengthLines(result)).toEqual(['Ionic strength about 0.0287 M.']);
+  });
+
+  it('LB (Miller) says the ionic strength is not estimated rather than printing "about 0 M"', () => {
+    const lb = solvePreset('LB_Miller');
+    expect(lb.ionicStrength).toBe(0);
+    expect(lb.notCounted).toEqual(['Tryptone', 'Yeast extract', 'Sodium Chloride (NaCl)']);
+    const text = recipeText(lb, '1 L', 25, 'SCIENCE');
+    expect(text).not.toMatch(/Ionic strength about/);
+    expect(text).toMatch(/Ionic strength is not estimated: none of these components is in the ionic-strength model \(Tryptone, Yeast extract, Sodium Chloride \(NaCl\)\)\./);
+  });
+
+  it('PBS (1×) names the two phosphates its 0.14 M estimate leaves out', () => {
+    const pbs = solvePreset('PBS_1x');
+    expect(pbs.ionicStrength).toBeCloseTo(0.1397, 4);
+    const text = recipeText(pbs, '1 L', 25, 'SCIENCE');
+    expect(text).toMatch(/Ionic strength about 0\.14 M\./);
+    expect(text).toMatch(/That excludes Sodium Phosphate Dibasic \(Na2HPO4\) anhydrous, Potassium Phosphate Monobasic \(KH2PO4\) anhydrous, whose ions are not in the ionic-strength model\./);
   });
 });

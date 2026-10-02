@@ -68,6 +68,32 @@ describe('buffer rows', () => {
     expect(screen.getByTestId('ph-check').textContent).toMatch(/barely buffers|useful range/);
   });
 
+  it('shows where the pKa came from, and follows the buffer system select', () => {
+    render(<BuffersView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Buffer' }));
+    expect(document.body.textContent).toMatch(/pKa source.*Good et al\. 1966/);
+    domFire.change(screen.getByLabelText('Buffer system'), { target: { value: 'caps' } });
+    expect(document.body.textContent).toMatch(/pKa source.*Supplier buffer reference tables/);
+    // The row's own aria-labels still resolve uniquely.
+    expect(screen.getByLabelText('Buffer system')).toBeTruthy();
+    expect(screen.getByLabelText('Target pH')).toBeTruthy();
+  });
+
+  it('says plainly that CAPS has no published temperature coefficient instead of reporting a ~0 drift', () => {
+    render(<BuffersView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Buffer' }));
+    domFire.change(screen.getByLabelText('Buffer system'), { target: { value: 'caps' } });
+    fireEvent.input(screen.getByLabelText('Working temperature (°C)'), { target: { value: '4' } });
+    fireEvent.input(screen.getByLabelText('pH measured at (°C)'), { target: { value: '25' } });
+    const check = () => screen.getByTestId('ph-check').textContent ?? '';
+    expect(check()).toMatch(/no published temperature coefficient/);
+    expect(check()).toMatch(/not corrected for temperature/);
+    // Tris has one, so the notice is specific to buffers whose coefficient is missing.
+    domFire.change(screen.getByLabelText('Buffer system'), { target: { value: 'tris' } });
+    fireEvent.input(screen.getByLabelText('pH measured at (°C)'), { target: { value: '25' } });
+    expect(check()).not.toMatch(/no published temperature coefficient/);
+  });
+
   it('keeps unique checkbox state for the two lines a buffer row produces (review focus 5)', () => {
     render(<BuffersView />);
     fireEvent.click(screen.getByRole('button', { name: 'Buffer' }));
@@ -77,6 +103,18 @@ describe('buffer rows', () => {
     fireEvent.click(list()[0]!);
     expect(list()[0]!.checked).toBe(true);
     expect(list()[1]!.checked).toBe(false);
+  });
+});
+
+describe('ionic strength in the sheet', () => {
+  it('names what is left out instead of claiming "about 0 M", and reports a number once a buffer row exists', () => {
+    render(<BuffersView />);
+    // The default row is a plain Tris-base solid, which the ionic-strength model does not cover.
+    expect(screen.getByTestId('ionic-strength').textContent)
+      .toMatch(/Ionic strength is not estimated: none of these components is in the ionic-strength model \(Tris-base\)\./);
+    fireEvent.click(screen.getByRole('button', { name: 'Buffer' }));
+    expect(screen.getByTestId('ionic-strength').textContent).toMatch(/Ionic strength about 0\.0\d+ M\./);
+    expect(screen.getByTestId('ionic-strength').textContent).not.toMatch(/excludes|not estimated/);
   });
 });
 

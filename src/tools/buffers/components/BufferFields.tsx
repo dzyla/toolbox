@@ -27,6 +27,10 @@ export function BufferFields({ component, index, workingTemp_C, report, ionicStr
 
   return (
     <div class="space-y-2.5 pt-0.5">
+      <p class="break-words text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+        <span class="font-semibold uppercase tracking-wider">pKa source</span> — {system.source}
+      </p>
+
       <Segmented<BufferEditor['mode']>
         label={`Buffer mode${suffix}`}
         value={b.mode}
