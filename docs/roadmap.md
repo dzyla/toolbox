@@ -33,6 +33,22 @@ Status (2026-09-30):
 6. **Sequence**: NJ tree + Newick in the identity-matrix tool, silent restriction-site finder: done.
 7. **Flow cytometry**: FCS parser, histogram/scatter, gates, statistics: done; arcsinh instead of logicle.
 
+## Buffer tool v2 (2026-10-01)
+
+Delivered:
+- [x] Buffer rows inside the recipe table (design to a pH by acid/base titration or by mixing two forms, or a premade pH'd stock as a plain dilution).
+- [x] Predicted pH at the working temperature, with a one-click fix.
+- [x] Davies ionic-strength correction (on by default, toggle in the header).
+- [x] 13 buffer systems with per-step pKa and dpKa/dT.
+- [x] `Set pH...` on a matching salt or stock row turns it into a buffer row.
+
+Not done:
+- [ ] Buffer-capacity plot.
+- [ ] Multi-buffer pH optimisation.
+- [ ] Converting presets once they carry a pH.
+- [ ] A verified primary source for every dpKa/dT flagged `temperatureData: false`. Several table values could not be verified online and still need a primary source: dpKa/dT for Tris, MOPS, PIPES, Tricine, imidazole and phosphate step 2; pKa for CAPS, imidazole, acetate, citrate, phosphate and PIPES step 1.
+- [ ] The Sambrook and Russell phosphate-table citation was dropped from the science panel because it could not be confirmed; re-add it once checked against the book.
+
 ## Suggested order
 
 1. Web Workers for MSA and fitting.
