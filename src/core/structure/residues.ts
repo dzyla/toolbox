@@ -92,3 +92,23 @@ export function residueFactory(
     return res;
   };
 }
+
+const MAX_LISTED_JUMPS = 5;
+
+/**
+ * For a chain with no deposited sequence (only modelled residues are known): one warning listing
+ * every place where consecutive auth numbers jump by more than 1, since such gaps cannot be shown.
+ * Insertion-code steps (27 → 27A) and decreasing numbers are not jumps. Undefined when there are none.
+ */
+export function numberingJumpWarning(authChain: string, authSeqIds: number[]): string | undefined {
+  const jumps: string[] = [];
+  for (let k = 1; k < authSeqIds.length; k++) {
+    const a = authSeqIds[k - 1]!;
+    const b = authSeqIds[k]!;
+    if (b - a > 1) jumps.push(`${a}→${b}`);
+  }
+  if (jumps.length === 0) return undefined;
+  const listed = jumps.slice(0, MAX_LISTED_JUMPS).join(', ')
+    + (jumps.length > MAX_LISTED_JUMPS ? ` and ${jumps.length - MAX_LISTED_JUMPS} more` : '');
+  return `Chain ${authChain}: residue numbering jumps ${listed}; the file has no deposited sequence, so gaps cannot be shown`;
+}

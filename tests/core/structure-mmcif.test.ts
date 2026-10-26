@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseMmcif } from '@/core/structure/mmcif';
 import { parseCifBlocks } from '@/core/structure/cif';
-import { oneLetterFor, polymerTypeFromCif, MODIFIED_PARENT } from '@/core/structure/residues';
+import { numberingJumpWarning, oneLetterFor, polymerTypeFromCif, MODIFIED_PARENT } from '@/core/structure/residues';
 import { read } from './structure-helpers';
 
 const UBQ = 'MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG';
@@ -15,6 +15,13 @@ describe('residue helpers', () => {
     expect(oneLetterFor('DT')).toBe('T');
     expect(oneLetterFor('PCA')).toBe('E');
     expect(MODIFIED_PARENT.MSE).toBe('MET');
+  });
+  it('lists numbering jumps (at most five, then a count); steps of 0 or 1 and decreases are not jumps', () => {
+    expect(numberingJumpWarning('A', [1, 2, 2, 3, 1])).toBeUndefined();
+    expect(numberingJumpWarning('A', [])).toBeUndefined();
+    expect(numberingJumpWarning('X', [1, 3, 5, 7, 9, 11, 13, 15])).toBe(
+      'Chain X: residue numbering jumps 1→3, 3→5, 5→7, 7→9, 9→11 and 2 more; the file has no deposited sequence, so gaps cannot be shown',
+    );
   });
   it('classifies polymer types', () => {
     expect(polymerTypeFromCif('polypeptide(L)')).toBe('protein');
@@ -121,6 +128,14 @@ describe('parseMmcif', () => {
     expect(m.chains.map((c) => c.entityId)).toEqual(m.entities.map((e) => e.id));
     expect(m.ligands).toEqual([]);
     expect(m.models[0]!.count).toBe(23);
+    // No deposited sequence: the 3→7 jump in chain B is reported, not shown as a gap; chain A is contiguous.
+    expect(m.warnings).toEqual(['Chain B: residue numbering jumps 3→7; the file has no deposited sequence, so gaps cannot be shown']);
+  });
+
+  it('no gap warning for entries with a deposited sequence (1UBQ, 3KZ5) or for insertion-code steps', () => {
+    for (const f of ['1UBQ.cif', '3KZ5.cif', 'insertion.cif']) {
+      expect(parseMmcif(read(f)).warnings.filter((w) => w.includes('numbering jumps'))).toEqual([]);
+    }
   });
 
   it('insertion.cif: 27, 27A, 27B stay distinct and ordered', () => {

@@ -7,7 +7,7 @@ import type {
   AtomTable, Entity, Ligand, PolymerChain, SeqResidue, StructureHeader, StructureModel,
 } from './model';
 import { newBuilder, finish, type Builder } from './mmcif';
-import { MODIFIED_PARENT, STANDARD_COMPS, guessPolymerType, residueFactory } from './residues';
+import { MODIFIED_PARENT, STANDARD_COMPS, guessPolymerType, numberingJumpWarning, residueFactory } from './residues';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -293,6 +293,8 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
       });
     } else {
       residues = insts.map((i, k) => makeResidue(k + 1, i.comp, true, { seqId: i.seq, insCode: i.ins }));
+      const jump = seq ? undefined : numberingJumpWarning(chain, insts.map((i) => i.seq));
+      if (jump) warnings.push(jump);
     }
     const sequence = residues.map((r) => r.oneLetter).join('');
     const type = guessPolymerType(residues.map((r) => r.compId));

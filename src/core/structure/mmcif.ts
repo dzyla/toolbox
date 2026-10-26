@@ -8,7 +8,7 @@ import type {
   AtomTable, Entity, Ligand, PolymerChain, SeqResidue, StructureHeader, StructureModel,
 } from './model';
 import {
-  MODIFIED_PARENT, guessPolymerType, isPolymerComp, polymerTypeFromCif, residueFactory,
+  MODIFIED_PARENT, guessPolymerType, isPolymerComp, numberingJumpWarning, polymerTypeFromCif, residueFactory,
 } from './residues';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
@@ -330,7 +330,10 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
           if (strand !== undefined) authAsym = strand;
         }
       } else {
-        residues = residuesFromInstances(instances.filter((i) => i.asym === asym && isPolymerInstance(i)), makeResidue);
+        const list = instances.filter((i) => i.asym === asym && isPolymerInstance(i));
+        residues = residuesFromInstances(list, makeResidue);
+        const jump = numberingJumpWarning(authAsym ?? asym, list.map((i) => i.authSeq));
+        if (jump) warnings.push(jump);
       }
       if (!ent.sequence) ent.sequence = canon.get(eid) ?? residues.map((x) => x.oneLetter).join('');
       chains.push({ labelAsymId: asym, authAsymId: authAsym ?? asym, entityId: eid, residues });
@@ -370,6 +373,8 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
     const asymToEntity = new Map<string, string>();
     for (const [asym, list] of byAsym) {
       const residues = residuesFromInstances(list, make);
+      const jump = numberingJumpWarning(list[0]!.authAsym, list.map((i) => i.authSeq));
+      if (jump) warnings.push(jump);
       const seq = residues.map((x) => x.oneLetter).join('');
       const type = guessPolymerType(list.map((i) => i.comp));
       const key = `${type}:${seq}`;

@@ -226,6 +226,24 @@ describe('parsePdbToModel edge cases', () => {
     }
   });
 
+  it('no SEQRES: a jump in residue numbering is reported once per chain, listing each jump', () => {
+    const m = parsePdbToModel([
+      rec('ATOM', 1, ' CA', ' ', 'ALA', 'A', 1, ' ', 1, 'C'),
+      rec('ATOM', 2, ' CA', ' ', 'GLY', 'A', 2, ' ', 2, 'C'),
+      rec('ATOM', 3, ' CA', ' ', 'SER', 'A', 10, ' ', 3, 'C'),
+      rec('ATOM', 4, ' CA', ' ', 'SER', 'A', 10, 'A', 4, 'C'),
+      rec('ATOM', 5, ' CA', ' ', 'LYS', 'A', 11, ' ', 5, 'C'),
+      rec('ATOM', 6, ' CA', ' ', 'LYS', 'A', 15, ' ', 6, 'C'),
+      rec('ATOM', 7, ' CA', ' ', 'ALA', 'B', 1, ' ', 7, 'C'),
+      rec('ATOM', 8, ' CA', ' ', 'GLY', 'B', 2, ' ', 8, 'C'),
+    ].join('\n'));
+    expect(m.warnings).toEqual(['Chain A: residue numbering jumps 2→10, 11→15; the file has no deposited sequence, so gaps cannot be shown']);
+    // With SEQRES the gap is placed, so there is nothing to warn about.
+    for (const f of ['1UBQ.pdb', '3KZ5.pdb']) {
+      expect(parsePdbToModel(read(f)).warnings.filter((w) => w.includes('numbering jumps'))).toEqual([]);
+    }
+  });
+
   it('empty or hydrogen-only input does not throw; element falls back to the atom name', () => {
     expect(parsePdbToModel('').models).toEqual([]);
     const m = parsePdbToModel(`${rec('ATOM', 1, ' HA', ' ', 'ALA', 'A', 1, ' ', 1, '').slice(0, 76)}`);

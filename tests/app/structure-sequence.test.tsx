@@ -187,6 +187,8 @@ describe('Sequence panel', () => {
     const mse = residue('Residue A 3 MSE');
     expect(mse.textContent).toBe('M');
     expect(mse.getAttribute('title')).toBe('MSE (modified, parent MET)');
+    // The header card lists the parser warning about chain B's numbering jump.
+    expect(within(header()).getByText('Chain B: residue numbering jumps 3→7; the file has no deposited sequence, so gaps cannot be shown')).toBeTruthy();
   });
 
   it('"Modelled only" with "drop gaps" downloads the 47 modelled residues of chain C', async () => {
