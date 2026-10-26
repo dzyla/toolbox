@@ -47,13 +47,17 @@ describe('toFasta', () => {
       '>3KZ5_1 | Chains A, B, C [auth E, B, A] | Protein sopB\nGSHMSSRHQFAPGATVLYKGDKMVLNLDRSRVPTECIEKIEAILKELEKPAP\n',
     );
   });
+  it('single-chain entity still says Chains', () => {
+    const u = parseMmcif(read('1UBQ.cif'), '1UBQ');
+    expect(toFasta(u, { kind: 'entity', entityId: '1' }).split('\n')[0]).toMatch(/^>1UBQ_1 \| Chains A \[auth A\] \| /);
+  });
   it('modelled mode marks unmodelled residues with gap or drops them', () => {
     const chainC = m.chains.find((c) => c.labelAsymId === 'C')!;
     const expected = chainC.residues.map((r) => (r.modelled ? r.oneLetter : '-')).join('');
     expect(expected.startsWith('----SSRHQ')).toBe(true);
     expect(expected.endsWith('KELEKPA-')).toBe(true);
     expect(toFasta(m, { kind: 'chain', labelAsymId: 'C' }, { mode: 'modelled', gap: '-' })).toBe(
-      `>3KZ5_C | Chain C [auth A] | Protein sopB\n${expected}\n`,
+      `>3KZ5_1 | Chain C [auth A] | Protein sopB\n${expected}\n`,
     );
     const noGap = toFasta(m, { kind: 'chain', labelAsymId: 'C' }, { mode: 'modelled', gap: '' }).split('\n')[1]!;
     expect(noGap).toHaveLength(47);
@@ -61,7 +65,7 @@ describe('toFasta', () => {
   });
   it('range uses label seq numbering, inclusive', () => {
     const f = toFasta(m, { kind: 'range', labelAsymId: 'C', from: 5, to: 10 });
-    expect(f.split('\n')[0]!.endsWith(' | residues 5-10')).toBe(true);
+    expect(f.split('\n')[0]).toBe('>3KZ5_1 | Chain C [auth A] | Protein sopB | residues 5-10');
     expect(f.split('\n')[1]).toBe('SSRHQF');
   });
   it('entity scope in modelled mode uses the first chain and says so', () => {
@@ -78,9 +82,9 @@ describe('toFasta', () => {
   });
   it('falls back to the model name and handles missing scopes and types', () => {
     const s = synth([{ asym: 'A', seq: 1, xyz: [0, 0, 0] }], ['A']);
-    expect(toFasta(s, { kind: 'chain', labelAsymId: 'A' }).startsWith('>synth_A | Chain A [auth A] | x')).toBe(true);
+    expect(toFasta(s, { kind: 'chain', labelAsymId: 'A' }).startsWith('>synth_1 | Chain A [auth A] | x')).toBe(true);
     s.entities[0]!.polymerType = 'dna'; s.entities[0]!.description = '';
-    expect(toFasta(s, { kind: 'chain', labelAsymId: 'A' }).split('\n')[0]).toBe('>synth_A | Chain A [auth A] | DNA');
+    expect(toFasta(s, { kind: 'chain', labelAsymId: 'A' }).split('\n')[0]).toBe('>synth_1 | Chain A [auth A] | DNA');
     expect(toFasta(s, { kind: 'chain', labelAsymId: 'Z' })).toBe('');
     expect(toFasta(s, { kind: 'entity', entityId: '9' })).toBe('');
     expect(toFasta(s, { kind: 'entity', entityId: '1' }, { mode: 'modelled', gap: '-' })).toContain('modelled residues of chain A');

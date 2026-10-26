@@ -20,9 +20,8 @@ function describe(e: Entity | undefined): string {
   return e.description || TYPE_NAME[e.polymerType ?? 'other'];
 }
 
-const chainLabel = (chains: PolymerChain[]): string => {
-  const plural = chains.length > 1 ? 'Chains' : 'Chain';
-  return `${plural} ${chains.map((c) => c.labelAsymId).join(', ')} [auth ${chains.map((c) => c.authAsymId).join(', ')}]`;
+const chainLabel = (chains: PolymerChain[], plural = true): string => {
+  return `${plural ? 'Chains' : 'Chain'} ${chains.map((c) => c.labelAsymId).join(', ')} [auth ${chains.map((c) => c.authAsymId).join(', ')}]`;
 };
 
 /** Residue letters of a chain (optionally restricted to seqId range) honouring mode and gap. */
@@ -58,7 +57,7 @@ export function toFasta(m: StructureModel, scope: FastaScope, opts: FastaOptions
   const chain = m.chains.find((c) => c.labelAsymId === scope.labelAsymId);
   if (!chain) return '';
   const e = m.entities.find((x) => x.id === chain.entityId);
-  const head = `>${entryId(m)}_${chain.labelAsymId} | ${chainLabel([chain])} | ${describe(e)}`;
+  const head = `>${entryId(m)}_${chain.entityId} | ${chainLabel([chain], false)} | ${describe(e)}`;
   if (scope.kind === 'chain') return `${head}\n${letters(chain, opts)}\n`;
   return `${head} | residues ${scope.from}-${scope.to}\n${letters(chain, opts, scope.from, scope.to)}\n`;
 }
