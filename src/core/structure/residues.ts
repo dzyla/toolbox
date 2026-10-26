@@ -3,7 +3,7 @@
  * parents and polymer-type classification.
  */
 import { AA_3TO1, NUCLEIC_TO1 } from '@/core/protein/structure';
-import type { PolymerType } from './model';
+import type { PolymerType, SeqResidue } from './model';
 
 /** Modified residue -> parent residue, used when the file does not say (fallback table). */
 export const MODIFIED_PARENT: Record<string, string> = {
@@ -49,4 +49,46 @@ export function polymerTypeFromCif(type: string): PolymerType {
   if (t.includes('polydeoxyribonucleotide')) return 'dna';
   if (t.includes('polyribonucleotide')) return 'rna';
   return 'other';
+}
+
+const DNA_COMPS = new Set(['DA', 'DC', 'DG', 'DT', 'DU', 'DI']);
+
+/** Protein unless (nearly) every residue is a nucleotide; then DNA when any deoxy residue is present. */
+export function guessPolymerType(comps: string[]): PolymerType {
+  if (comps.length === 0) return 'protein';
+  const nucleic = comps.filter((c) => isPolymerComp(c) && STANDARD_COMPS.has(c) && c.length <= 2 && c !== 'UNK').length;
+  if (nucleic < comps.length * 0.8) return 'protein';
+  return comps.some((c) => DNA_COMPS.has(c)) ? 'dna' : 'rna';
+}
+
+/**
+ * Builds SeqResidue records. `parentOf` supplies the file's own parent for a modified
+ * residue (else the fallback table applies); unknown residues add one warning per comp.
+ */
+export function residueFactory(
+  parentOf: (compId: string) => string | undefined,
+  warnings: string[],
+): (seqId: number, compId: string, modelled: boolean, auth?: { seqId: number; insCode: string }) => SeqResidue {
+  const resolved = new Map<string, { one: string; parent?: string }>();
+  const resolve = (comp: string): { one: string; parent?: string } => {
+    let hit = resolved.get(comp);
+    if (hit) return hit;
+    if (STANDARD_COMPS.has(comp)) {
+      hit = { one: oneLetterFor(comp) };
+    } else {
+      const parent = parentOf(comp);
+      const one = oneLetterFor(comp, parent);
+      if (one === 'X') warnings.push(`Unknown residue ${comp} shown as X`);
+      hit = parent && one !== 'X' ? { one, parent } : { one };
+    }
+    resolved.set(comp, hit);
+    return hit;
+  };
+  return (seqId, comp, modelled, auth) => {
+    const { one, parent } = resolve(comp);
+    const res: SeqResidue = { seqId, compId: comp, oneLetter: one, modelled };
+    if (parent) res.parentCompId = parent;
+    if (auth) res.auth = auth;
+    return res;
+  };
 }

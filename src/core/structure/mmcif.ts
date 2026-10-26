@@ -5,14 +5,13 @@
  */
 import { parseCifBlocks, type CifBlock, type CifCategory } from './cif';
 import type {
-  AtomTable, Entity, Ligand, PolymerChain, PolymerType, SeqResidue, StructureHeader, StructureModel,
+  AtomTable, Entity, Ligand, PolymerChain, SeqResidue, StructureHeader, StructureModel,
 } from './model';
 import {
-  MODIFIED_PARENT, STANDARD_COMPS, isPolymerComp, oneLetterFor, polymerTypeFromCif,
+  MODIFIED_PARENT, guessPolymerType, isPolymerComp, polymerTypeFromCif, residueFactory,
 } from './residues';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
-const DNA_COMPS = new Set(['DA', 'DC', 'DG', 'DT', 'DU', 'DI']);
 
 /** One residue (or ligand) instance in the first model, in file order. */
 interface Instance {
@@ -20,7 +19,7 @@ interface Instance {
   labelSeq: number; authSeq: number; ins: string; comp: string; atomCount: number;
 }
 
-interface Builder {
+export interface Builder {
   modelNumber: number;
   xyz: number[]; b: number[]; occ: number[]; het: number[]; hyd: number[];
   atomName: string[]; element: string[]; compId: string[];
@@ -29,14 +28,14 @@ interface Builder {
   altOf: Map<string, string>;
 }
 
-function newBuilder(modelNumber: number): Builder {
+export function newBuilder(modelNumber: number): Builder {
   return {
     modelNumber, xyz: [], b: [], occ: [], het: [], hyd: [], atomName: [], element: [], compId: [],
     labelAsym: [], labelSeq: [], authAsym: [], authSeq: [], ins: [], entityId: [], altOf: new Map(),
   };
 }
 
-function finish(b: Builder): AtomTable {
+export function finish(b: Builder): AtomTable {
   return {
     modelNumber: b.modelNumber, count: b.atomName.length,
     xyz: Float32Array.from(b.xyz), bFactor: Float32Array.from(b.b), occupancy: Float32Array.from(b.occ),
@@ -172,13 +171,6 @@ function readHeader(block: CifBlock): StructureHeader {
   return header;
 }
 
-function guessPolymerType(comps: string[]): PolymerType {
-  if (comps.length === 0) return 'protein';
-  const nucleic = comps.filter((c) => isPolymerComp(c) && STANDARD_COMPS.has(c) && c.length <= 2 && c !== 'UNK').length;
-  if (nucleic < comps.length * 0.8) return 'protein';
-  return comps.some((c) => DNA_COMPS.has(c)) ? 'dna' : 'rna';
-}
-
 export function parseMmcif(text: string, name = 'structure'): StructureModel {
   const block = parseCifBlocks(text)[0];
   if (!block) throw new Error('No data block found in the mmCIF file');
@@ -212,28 +204,7 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
     }
   }
 
-  const resolved = new Map<string, { one: string; parent?: string }>();
-  const resolve = (comp: string): { one: string; parent?: string } => {
-    let hit = resolved.get(comp);
-    if (hit) return hit;
-    if (STANDARD_COMPS.has(comp)) {
-      hit = { one: oneLetterFor(comp) };
-    } else {
-      const parent = modParent.get(comp) ?? chemParent.get(comp) ?? MODIFIED_PARENT[comp];
-      const one = oneLetterFor(comp, parent);
-      if (one === 'X') warnings.push(`Unknown residue ${comp} shown as X`);
-      hit = parent && one !== 'X' ? { one, parent } : { one };
-    }
-    resolved.set(comp, hit);
-    return hit;
-  };
-  const makeResidue = (seqId: number, comp: string, modelled: boolean, auth?: { seqId: number; insCode: string }): SeqResidue => {
-    const { one, parent } = resolve(comp);
-    const res: SeqResidue = { seqId, compId: comp, oneLetter: one, modelled };
-    if (parent) res.parentCompId = parent;
-    if (auth) res.auth = auth;
-    return res;
-  };
+  const makeResidue = residueFactory((comp) => modParent.get(comp) ?? chemParent.get(comp) ?? MODIFIED_PARENT[comp], warnings);
 
   // Atom-derived lookups (first model).
   const authOfAsym = new Map<string, string>();
