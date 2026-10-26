@@ -107,7 +107,8 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
   const terChains = new Set<string>();
 
   for (const line of text.split(/\r?\n/)) {
-    switch (line.slice(0, 6)) {
+    // padEnd: a bare `TER` (tleap, GROMACS) or `END` line is shorter than the 6-column record name.
+    switch (line.slice(0, 6).padEnd(6)) {
       case 'ATOM  ':
       case 'HETATM': {
         if (!cur) {
@@ -160,8 +161,9 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
         builders.push(cur);
         break;
       case 'TER   ':
-        // Residues after a chain's TER are never polymer; only the first model's TERs matter.
-        if (builders.length <= 1) terChains.add(line.length > 21 ? line.charAt(21).trim() : (last?.chain ?? ''));
+        // HETATM residues after a chain's TER are never polymer (ATOM records always are); only the
+        // first model's TERs matter. A bare TER (no chain column) ends the last atom's chain.
+        if (builders.length <= 1) terChains.add(line.charAt(21).trim() || (last?.chain ?? ''));
         break;
       case 'ENDMDL':
         cur = undefined;
@@ -245,7 +247,7 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
   // Last polymer instance per chain, to judge whether a standard-named HETATM continues the chain.
   const lastPoly = new Map<string, Instance>();
   const isPolymer = (i: Instance): boolean => {
-    if (WATER.has(i.comp) || i.afterTer) return false;
+    if (WATER.has(i.comp) || (i.het && i.afterTer)) return false;
     if (!i.het) return true;
     if (!STANDARD_COMPS.has(i.comp)) return modParent.has(i.comp) || i.comp in MODIFIED_PARENT;
     // A standard residue written as HETATM is polymer only when SEQRES has it and it is contiguous.

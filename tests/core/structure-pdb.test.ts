@@ -190,6 +190,42 @@ describe('parsePdbToModel edge cases', () => {
     }
   });
 
+  it('ATOM records after a TER stay polymer; only HETATM records after TER are demoted', () => {
+    // Full TER record: serial, residue name, chain and number in their columns.
+    const fullTer = `TER   ${'3'.padStart(5)}      GLY A${'2'.padStart(4)}`;
+    for (const ter of [fullTer, 'TER']) {
+      const m = parsePdbToModel([
+        rec('ATOM', 1, ' CA', ' ', 'ALA', 'A', 1, ' ', 1, 'C'),
+        rec('ATOM', 2, ' CA', ' ', 'GLY', 'A', 2, ' ', 2, 'C'),
+        ter,
+        rec('ATOM', 4, ' CA', ' ', 'SER', 'A', 10, ' ', 3, 'C'),
+        rec('ATOM', 5, ' CA', ' ', 'LYS', 'A', 11, ' ', 4, 'C'),
+      ].join('\n'));
+      expect(m.chains[0]!.residues.map((r) => [r.compId, r.auth?.seqId])).toEqual([['ALA', 1], ['GLY', 2], ['SER', 10], ['LYS', 11]]);
+      expect(m.entities[0]!.sequence).toBe('AGSK');
+      expect(m.ligands).toEqual([]);
+      expect(Array.from(m.models[0]!.labelSeqId)).toEqual([1, 2, 3, 4]);
+    }
+  });
+
+  it('a bare TER line (tleap/GROMACS) ends the chain like a full TER record', () => {
+    const lines = (ter: string | null) => [
+      seqres(1, 'A', 4, 'GLY ALA SER LYS'),
+      rec('ATOM', 1, ' CA', ' ', 'GLY', 'A', 1, ' ', 1, 'C'),
+      rec('ATOM', 2, ' CA', ' ', 'ALA', 'A', 2, ' ', 2, 'C'),
+      rec('ATOM', 3, ' CA', ' ', 'SER', 'A', 3, ' ', 3, 'C'),
+      ...(ter === null ? [] : [ter]),
+      rec('HETATM', 4, ' CA', ' ', 'LYS', 'A', 4, ' ', 4, 'C'),
+    ].join('\n');
+    // Without TER a contiguous standard-named HETATM that SEQRES lists continues the chain.
+    expect(parsePdbToModel(lines(null)).ligands).toEqual([]);
+    for (const ter of ['TER', 'TER   ', `TER   ${'4'.padStart(5)}      SER A${'3'.padStart(4)}`]) {
+      const m = parsePdbToModel(lines(ter));
+      expect(m.ligands.map((l) => [l.compId, l.authSeqId])).toEqual([['LYS', 4]]);
+      expect(m.chains[0]!.residues.map((r) => r.modelled)).toEqual([true, true, true, false]);
+    }
+  });
+
   it('empty or hydrogen-only input does not throw; element falls back to the atom name', () => {
     expect(parsePdbToModel('').models).toEqual([]);
     const m = parsePdbToModel(`${rec('ATOM', 1, ' HA', ' ', 'ALA', 'A', 1, ' ', 1, '').slice(0, 76)}`);
