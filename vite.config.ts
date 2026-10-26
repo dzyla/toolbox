@@ -74,9 +74,17 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: true,
     chunkSizeWarningLimit: 5200,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: (id: string) => (id.includes('node_modules/molstar') ? 'molstar' : undefined)
+        // The UI runtime shared with the app shell gets its own higher-priority group; otherwise
+        // preact (reached through Mol*'s react alias) rides inside the Mol* chunk and forces every
+        // page to load it.
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-ui', test: /node_modules[\\/](preact|@preact|react|react-dom)[\\/]/, priority: 2 },
+            { name: 'molstar', test: /node_modules[\\/]molstar[\\/]/, priority: 1 }
+          ]
+        }
       }
     }
   }

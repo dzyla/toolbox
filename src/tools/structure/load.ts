@@ -12,7 +12,7 @@ const BAD_ID = 'Enter a 4-character PDB ID (e.g. 1UBQ) or an extended ID (pdb_00
 /** Classic IDs upper-cased ('1UBQ'); extended IDs lower-cased ('pdb_00001ubq'); null when neither. */
 export function normaliseRcsbId(input: string): string | null {
   const s = input.trim();
-  if (/^[1-9][A-Za-z0-9]{3}$/.test(s)) return s.toUpperCase();
+  if (/^[0-9][A-Za-z0-9]{3}$/.test(s)) return s.toUpperCase();
   if (/^pdb_[0-9a-z]{8}$/i.test(s)) return s.toLowerCase();
   return null;
 }
@@ -32,12 +32,33 @@ export async function fetchRcsbEntry(input: string, fetchImpl: typeof fetch = fe
 }
 
 async function gunzip(bytes: Uint8Array, fileName: string): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
   try {
-    const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
+    const reader = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > MAX_TEXT_IMPORT_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        break;
+      }
+      chunks.push(value);
+    }
   } catch {
     throw new FileImportError(`${fileName} could not be decompressed (the gzip data is damaged).`);
   }
+  if (total > MAX_TEXT_IMPORT_BYTES) {
+    throw new FileImportError(`${fileName} expands to more than ${MAX_TEXT_IMPORT_BYTES / (1024 * 1024)} MB when decompressed; this import accepts up to ${MAX_TEXT_IMPORT_BYTES / (1024 * 1024)} MB.`);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.length;
+  }
+  return out;
 }
 
 export async function readStructureFile(file: File): Promise<StructureSource> {

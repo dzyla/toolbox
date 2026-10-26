@@ -5,7 +5,7 @@ import { DecompressionStream as NodeDecompressionStream } from 'node:stream/web'
 import { gzipSync } from 'node:zlib';
 import { normaliseRcsbId, fetchRcsbEntry, readStructureFile, loadDemo } from '@/tools/structure/load';
 import { runParseJob, runInterfaceJob } from '@/tools/structure/job';
-import { importErrorMessage } from '@/lib/file-import';
+import { importErrorMessage, MAX_TEXT_IMPORT_BYTES } from '@/lib/file-import';
 import { read } from './structure-helpers';
 
 beforeAll(() => {
@@ -21,6 +21,7 @@ describe('normaliseRcsbId', () => {
     expect(normaliseRcsbId('1ubq')).toBe('1UBQ');
     expect(normaliseRcsbId('PDB_00001UBQ')).toBe('pdb_00001ubq');
     expect(normaliseRcsbId(' 4hhb ')).toBe('4HHB');
+    expect(normaliseRcsbId('0abc')).toBe('0ABC');
     expect(normaliseRcsbId('12345')).toBeNull();
     expect(normaliseRcsbId('abcd')).toBeNull();
     expect(normaliseRcsbId('')).toBeNull();
@@ -74,6 +75,11 @@ describe('readStructureFile', () => {
     await expect(readStructureFile(new File([new Uint8Array([0x1f, 0x8b, 1, 2, 3])], 'bad.cif.gz'))).rejects.toThrow(/could not be decompressed/);
     const err = await readStructureFile(new File([png], 'a.png')).catch((e) => e);
     expect(importErrorMessage(err, 'a.png')).toMatch(/a\.png/);
+  });
+  it('rejects a gzip bomb that expands past the import limit', async () => {
+    const bomb = gzipSync(Buffer.alloc(MAX_TEXT_IMPORT_BYTES + 1024 * 1024, 65));
+    expect(bomb.length).toBeLessThan(1024 * 1024);
+    await expect(readStructureFile(new File([bomb], 'bomb.cif.gz'))).rejects.toThrow(/bomb\.cif\.gz expands to more than 50 MB/);
   });
   it('rejects NUL-containing binary', async () => {
     await expect(readStructureFile(new File([new Uint8Array([65, 0, 66, 0, 1, 2])], 'x.dat'))).rejects.toThrow(/not a structure file/);
