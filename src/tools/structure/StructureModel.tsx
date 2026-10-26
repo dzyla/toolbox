@@ -4,7 +4,7 @@ import { downloadBlob } from '@/lib/export';
 import { importErrorMessage } from '@/lib/file-import';
 import { useUrlState } from '@/lib/url-state';
 import { useWorkerCompute } from '@/lib/use-worker-compute';
-import { makeInterfaceWorker, makeParseWorker, runInterfaceJob, runParseJob, type InterfaceJob, type ParseJob } from './job';
+import { makeInterfaceWorker, makeParseWorker, runInterfaceJob, runTaggedParseJob, type InterfaceJob, type TaggedParseJob } from './job';
 import { fetchRcsbEntry, loadDemo, normaliseRcsbId, readStructureFile, type StructureSource } from './load';
 import type { Coloring, MolstarHandle, Representation } from './MolstarViewer';
 
@@ -35,8 +35,8 @@ export function useStructureModel() {
   const [url, shareUrl] = useUrlState<UrlState>('structure-viewer', DEFAULTS);
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  /** Read or fetched, waiting for the parser; becomes `loaded` only if it parses. */
-  const [candidate, setCandidate] = useState<StructureSource | null>(null);
+  /** Read or fetched, waiting for the parser; becomes `loaded` only if it parses and is still the newest request. */
+  const [candidate, setCandidate] = useState<{ source: StructureSource; requestId: number } | null>(null);
   const [fetching, setFetching] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [modelIndex, setModelIndex] = useState(0);
@@ -49,15 +49,18 @@ export function useStructureModel() {
   const [panels, setPanels] = useState(false);
   const [largeCanvas, setLargeCanvas] = useState(false);
 
-  // Only the newest request may land: a slow fetch that settles after a later one is dropped.
+  // Only the newest request may set `loaded` or clear `error`. Each request gets a token; a new one
+  // drops any in-flight parse (which also terminates its worker), and fetch/read results and parse
+  // replies carrying an older token are ignored.
   const token = useRef(0);
   const begin = async (what: string, get: () => Promise<StructureSource>, label: string) => {
     const t = ++token.current;
+    setCandidate(null);
     setFetching(what);
     try {
       const source = await get();
       if (t !== token.current) return;
-      setCandidate(source);
+      setCandidate({ source, requestId: t });
     } catch (e) {
       if (t !== token.current) return;
       setError(importErrorMessage(e, label));
@@ -81,24 +84,35 @@ export function useStructureModel() {
   }, []);
 
   // Parsing (worker; synchronous where Workers are missing). The job object changes only with the candidate.
-  const parseJob = useMemo<ParseJob | null>(() => (candidate ? { text: candidate.text, name: candidate.name } : null), [candidate]);
-  const parsed = useWorkerCompute(makeParseWorker, runParseJob, parseJob);
+  const parseJob = useMemo<TaggedParseJob | null>(
+    () => (candidate ? { text: candidate.source.text, name: candidate.source.name, requestId: candidate.requestId } : null),
+    [candidate],
+  );
+  const parsed = useWorkerCompute(makeParseWorker, runTaggedParseJob, parseJob);
   const candidateRef = useRef(candidate);
   candidateRef.current = candidate;
   useEffect(() => {
-    const source = candidateRef.current;
-    if (!source || !parsed.result) return;
-    setLoaded({ source, model: parsed.result.model, format: parsed.result.format });
+    const reply = parsed.result;
+    const c = candidateRef.current;
+    // A reply for anything but the newest request's candidate is stale (it may arrive between a
+    // newer request starting and the old worker being terminated).
+    if (!reply || !c || reply.requestId !== c.requestId || reply.requestId !== token.current) return;
+    setCandidate(null);
+    if (!reply.ok) {
+      setError(`Could not read ${c.source.name}: ${reply.error}`);
+      return;
+    }
+    setLoaded({ source: c.source, model: reply.model, format: reply.format });
     setModelIndex(0);
     setSelection(null);
     setHovered(null);
-    setCandidate(null);
     setError('');
   }, [parsed.result]);
   useEffect(() => {
-    const source = candidateRef.current;
-    if (!source || !parsed.error) return;
-    setError(`Could not read ${source.name}: ${parsed.error}`);
+    // The worker itself failed (not a parse error, which comes back tagged in the result).
+    const c = candidateRef.current;
+    if (!parsed.error || !c || c.requestId !== token.current) return;
+    setError(`Could not read ${c.source.name}: ${parsed.error}`);
     setCandidate(null);
   }, [parsed.error]);
 

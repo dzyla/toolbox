@@ -189,3 +189,74 @@ describe('Structure viewer', () => {
     expect(handle.snapshot).toHaveBeenCalled();
   });
 });
+
+// Parsing off the main thread: a fake Worker whose parse replies are released by hand, so a
+// superseded parse can be made to finish after a newer request.
+describe('Structure viewer with an asynchronous parse worker', () => {
+  interface Held { input: unknown; reply(opts?: { evenIfTerminated?: boolean }): Promise<void> }
+  let held: Held[] = [];
+  let hold = false;
+
+  /** Runs the same functions as parse.worker.ts / interface.worker.ts; parse replies wait in `held` while `hold` is set. */
+  class FakeWorker {
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    onerror: ((ev: ErrorEvent) => void) | null = null;
+    terminated = false;
+    private readonly parse: boolean;
+    constructor(url: URL | string) { this.parse = String(url).includes('parse.worker'); }
+    postMessage(input: unknown) {
+      // evenIfTerminated: the reply was already queued when the worker was terminated.
+      const reply = async ({ evenIfTerminated = false } = {}) => {
+        if (this.terminated && !evenIfTerminated) return;
+        const job = await import('@/tools/structure/job-compute');
+        const run = (this.parse ? job.runTaggedParseJob : job.runInterfaceJob) as (i: unknown) => unknown;
+        this.onmessage?.({ data: { ok: true, result: run(input) } } as MessageEvent);
+      };
+      if (this.parse && hold) held.push({ input, reply });
+      else void Promise.resolve().then(() => reply());
+    }
+    terminate() { this.terminated = true; }
+  }
+
+  beforeEach(() => {
+    held = [];
+    hold = false;
+    vi.stubGlobal('Worker', FakeWorker);
+  });
+
+  const submitId = (value: string) => {
+    const box = screen.getByLabelText('PDB ID', { exact: true });
+    fireEvent.input(box, { target: { value } });
+    fireEvent.submit(box.closest('form')!);
+  };
+
+  it('a newer request that fails keeps its error when an older parse finishes later', async () => {
+    await renderLoaded();
+    hold = true;
+    fireEvent.click(screen.getByRole('button', { name: '1CRN Crambin' }));
+    await waitFor(() => expect(held).toHaveLength(1));         // 1CRN fetched, parse in flight
+    submitId('9ZZZ');
+    expect((await screen.findByRole('alert')).textContent).toMatch(/RCSB has no entry 9ZZZ/);
+    await held[0]!.reply({ evenIfTerminated: true });          // the stale parse lands anyway
+    await new Promise(r => setTimeout(r, 50));
+    expect(within(header()).getByText(UBQ_TITLE)).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toMatch(/RCSB has no entry 9ZZZ/);
+    expect(handle.load).not.toHaveBeenCalledWith(expect.any(String), 'mmcif', '1CRN', expect.any(Number));
+  });
+
+  it('an older parse finishing while a newer one runs never lands under the newer name', async () => {
+    await renderLoaded();
+    hold = true;
+    fireEvent.click(screen.getByRole('button', { name: '1CRN Crambin' }));
+    await waitFor(() => expect(held).toHaveLength(1));
+    submitId('3KZ5');
+    await waitFor(() => expect(held).toHaveLength(2));         // 3KZ5 parse in flight too
+    await held[0]!.reply({ evenIfTerminated: true });          // stale 1CRN result arrives first
+    await new Promise(r => setTimeout(r, 50));
+    expect(within(header()).getByText(UBQ_TITLE)).toBeTruthy();
+    await held[1]!.reply();
+    await waitFor(() => expect(within(header()).getByText('Structure of cdomain')).toBeTruthy());
+    await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.stringContaining('data_3KZ5'), 'mmcif', '3KZ5', 0));
+    expect(handle.load).not.toHaveBeenCalledWith(expect.not.stringContaining('data_3KZ5'), 'mmcif', '3KZ5', expect.any(Number));
+  });
+});
