@@ -180,6 +180,7 @@ export function useStructureModel() {
     interfaces,
     metrics,
     computing: facts.busy,
+    interfaceError: facts.error,
     cutoff, setCutoff,
     loadRcsb, loadFile,
     selection, setSelection, selectFromViewer,

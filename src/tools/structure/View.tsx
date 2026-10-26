@@ -5,8 +5,12 @@ import { ToolLayout } from '@/app/components/ToolLayout';
 import { DisplayToolbar } from './components/DisplayToolbar';
 import { DropOverlay } from './components/DropOverlay';
 import { EntityTable } from './components/EntityTable';
+import { ExportMenu } from './components/ExportMenu';
 import { HeaderCard } from './components/HeaderCard';
+import { InterfaceTable } from './components/InterfaceTable';
+import { LigandList } from './components/LigandList';
 import { LoadPanel } from './components/LoadPanel';
+import { MetricsRow } from './components/MetricsRow';
 import { SequencePanel } from './components/SequencePanel';
 import { MolstarViewer } from './MolstarViewer';
 import { SCIENCE } from './science';
@@ -116,7 +120,16 @@ export default function StructureView() {
               <SequencePanel model={m.model} selection={m.selection} setSelection={m.setSelection} hovered={m.hovered} viewer={m.viewer} />
             )}
             {m.model && <EntityTable model={m.model} />}
-            {/* Task 9: LigandList, InterfaceTable (m.interfaces, m.cutoff) and metrics (m.metrics), then export. */}
+            {m.model && <LigandList model={m.model} modelIndex={m.modelIndex} viewer={m.viewer} />}
+            {m.model && (
+              <InterfaceTable interfaces={m.interfaces} computing={m.computing} error={m.interfaceError}
+                cutoff={m.cutoff} setCutoff={m.setCutoff} viewer={m.viewer} />
+            )}
+            {m.metrics && <MetricsRow metrics={m.metrics} />}
+            {m.model && m.source && m.format && (
+              <ExportMenu model={m.model} source={m.source} format={m.format} modelIndex={m.modelIndex}
+                canSnapshot={!!m.viewer} onSnapshot={() => void m.snapshot()} />
+            )}
           </div>
         }
         actions={<ActionBar onCopy={() => summaryText(m)} shareUrl={m.shareUrl} />}
