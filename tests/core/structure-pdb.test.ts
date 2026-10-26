@@ -161,6 +161,35 @@ describe('parsePdbToModel edge cases', () => {
     expect(Array.from(m.models[0]!.entityId)).toEqual(['1', '1', '1', '1', '2', '', '']);
   });
 
+  it('HETATM MSE without SEQRES/MODRES stays in the sequence', () => {
+    const m = parsePdbToModel([
+      rec('ATOM', 1, ' CA', ' ', 'ALA', 'A', 1, ' ', 1, 'C'),
+      rec('HETATM', 2, ' CA', ' ', 'MSE', 'A', 2, ' ', 2, 'C'),
+      rec('ATOM', 3, ' CA', ' ', 'SER', 'A', 3, ' ', 3, 'C'),
+    ].join('\n'));
+    expect(m.entities[0]!.sequence).toBe('AMS');
+    expect(m.chains[0]!.residues[1]).toMatchObject({ compId: 'MSE', parentCompId: 'MET', oneLetter: 'M' });
+    expect(m.ligands).toEqual([]);
+    expect(m.warnings).toEqual([]);
+  });
+
+  it('a free standard-residue ligand after TER is a ligand, not a sequence residue', () => {
+    const lines = (ter: boolean) => [
+      seqres(1, 'A', 5, 'GLY ALA SER LYS LEU'),
+      rec('ATOM', 1, ' CA', ' ', 'GLY', 'A', 1, ' ', 1, 'C'),
+      rec('ATOM', 2, ' CA', ' ', 'ALA', 'A', 2, ' ', 2, 'C'),
+      rec('ATOM', 3, ' CA', ' ', 'SER', 'A', 3, ' ', 3, 'C'),
+      ...(ter ? ['TER'] : []),
+      rec('HETATM', 4, ' CA', ' ', 'LYS', 'A', 301, ' ', 4, 'C'),
+    ].join('\n');
+    for (const ter of [true, false]) {
+      const m = parsePdbToModel(lines(ter));
+      expect(m.chains[0]!.residues.map((r) => r.modelled)).toEqual([true, true, true, false, false]);
+      expect(m.ligands.map((l) => [l.compId, l.authSeqId])).toEqual([['LYS', 301]]);
+      expect(m.models[0]!.labelSeqId[3]).toBe(0);
+    }
+  });
+
   it('empty or hydrogen-only input does not throw; element falls back to the atom name', () => {
     expect(parsePdbToModel('').models).toEqual([]);
     const m = parsePdbToModel(`${rec('ATOM', 1, ' HA', ' ', 'ALA', 'A', 1, ' ', 1, '').slice(0, 76)}`);

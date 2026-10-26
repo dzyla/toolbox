@@ -7,13 +7,13 @@ import type {
   AtomTable, Entity, Ligand, PolymerChain, SeqResidue, StructureHeader, StructureModel,
 } from './model';
 import { newBuilder, finish, type Builder } from './mmcif';
-import { MODIFIED_PARENT, guessPolymerType, residueFactory } from './residues';
+import { MODIFIED_PARENT, STANDARD_COMPS, guessPolymerType, residueFactory } from './residues';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 /** One residue (or ligand) instance of the first model, in file order. */
-interface Instance { chain: string; seq: number; ins: string; comp: string; het: boolean; atomCount: number }
+interface Instance { chain: string; seq: number; ins: string; comp: string; het: boolean; atomCount: number; afterTer: boolean }
 
 const num = (s: string): number => {
   const n = parseFloat(s);
@@ -104,6 +104,7 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
   const instances: Instance[] = [];
   let cur: Builder | undefined;
   let last: Instance | undefined;
+  const terChains = new Set<string>();
 
   for (const line of text.split(/\r?\n/)) {
     switch (line.slice(0, 6)) {
@@ -148,7 +149,7 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
           if (last && last.chain === chain && last.seq === seq && last.ins === ins && last.comp === comp) {
             last.atomCount++;
           } else {
-            last = { chain, seq, ins, comp, het, atomCount: 1 };
+            last = { chain, seq, ins, comp, het, atomCount: 1, afterTer: terChains.has(chain) };
             instances.push(last);
           }
         }
@@ -157,6 +158,10 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
       case 'MODEL ':
         cur = newBuilder(parseInt(line.slice(10, 14), 10) || builders.length + 1);
         builders.push(cur);
+        break;
+      case 'TER   ':
+        // Residues after a chain's TER are never polymer; only the first model's TERs matter.
+        if (builders.length <= 1) terChains.add(line.length > 21 ? line.charAt(21).trim() : (last?.chain ?? ''));
         break;
       case 'ENDMDL':
         cur = undefined;
@@ -234,15 +239,23 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
   // Polymer vs ligand instances.
   const seqSets = new Map<string, Set<string>>();
   for (const [c, list] of seqres) seqSets.set(c, new Set(list));
-  const isPolymer = (i: Instance): boolean =>
-    !WATER.has(i.comp) && (!i.het || !!seqSets.get(i.chain)?.has(i.comp) || modParent.has(i.comp));
-
   const polyByChain = new Map<string, Instance[]>();
   for (const c of seqres.keys()) polyByChain.set(c, []);
   const ligandInsts: Instance[] = [];
+  // Last polymer instance per chain, to judge whether a standard-named HETATM continues the chain.
+  const lastPoly = new Map<string, Instance>();
+  const isPolymer = (i: Instance): boolean => {
+    if (WATER.has(i.comp) || i.afterTer) return false;
+    if (!i.het) return true;
+    if (!STANDARD_COMPS.has(i.comp)) return modParent.has(i.comp) || i.comp in MODIFIED_PARENT;
+    // A standard residue written as HETATM is polymer only when SEQRES has it and it is contiguous.
+    const prev = lastPoly.get(i.chain);
+    return !!seqSets.get(i.chain)?.has(i.comp) && !!prev && i.seq - prev.seq <= 1;
+  };
   for (const i of instances) {
     if (WATER.has(i.comp)) continue;
     if (isPolymer(i)) {
+      lastPoly.set(i.chain, i);
       let list = polyByChain.get(i.chain);
       if (!list) polyByChain.set(i.chain, (list = []));
       list.push(i);
