@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseMmcif } from '@/core/structure/mmcif';
 import { parseCifBlocks } from '@/core/structure/cif';
-import { numberingJumpWarning, oneLetterFor, polymerTypeFromCif, MODIFIED_PARENT } from '@/core/structure/residues';
+import { isPolymerComp, modifiedParent, numberingJumpWarning, oneLetterFor, polymerTypeFromCif, MODIFIED_PARENT } from '@/core/structure/residues';
 import { read } from './structure-helpers';
 
 const UBQ = 'MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG';
@@ -22,6 +22,21 @@ describe('residue helpers', () => {
     expect(numberingJumpWarning('X', [1, 3, 5, 7, 9, 11, 13, 15])).toBe(
       'Chain X: residue numbering jumps 1→3, 3→5, 5→7, 7→9, 9→11 and 2 more; the file has no deposited sequence, so gaps cannot be shown',
     );
+  });
+  it('comp IDs that name Object.prototype members are ordinary unknown residues', () => {
+    for (const comp of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      // A value starting with '_' must be quoted in CIF.
+      const m = parseMmcif(read('minimal.cif').replace(/ MSE A /g, ` '${comp}' A `));
+      const r = m.chains[0]!.residues[2]!;
+      expect(r).toMatchObject({ compId: comp, oneLetter: 'X', modelled: true });
+      expect(r.parentCompId).toBeUndefined();
+      expect(m.warnings).toContain(`Unknown residue ${comp} shown as X`);
+      expect(oneLetterFor(comp)).toBe('X');
+      expect(oneLetterFor('ALA', comp)).toBe('A');
+    }
+    expect(modifiedParent('constructor')).toBeUndefined();
+    expect(modifiedParent('MSE')).toBe('MET');
+    expect(isPolymerComp('constructor')).toBe(false);
   });
   it('classifies polymer types', () => {
     expect(polymerTypeFromCif('polypeptide(L)')).toBe('protein');

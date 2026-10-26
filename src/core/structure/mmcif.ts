@@ -8,7 +8,7 @@ import type {
   AtomTable, Entity, Ligand, PolymerChain, SeqResidue, StructureHeader, StructureModel,
 } from './model';
 import {
-  MODIFIED_PARENT, guessPolymerType, isPolymerComp, numberingJumpWarning, polymerTypeFromCif, residueFactory,
+  guessPolymerType, isPolymerComp, modifiedParent, numberingJumpWarning, polymerTypeFromCif, residueFactory,
 } from './residues';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
@@ -204,7 +204,7 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
     }
   }
 
-  const makeResidue = residueFactory((comp) => modParent.get(comp) ?? chemParent.get(comp) ?? MODIFIED_PARENT[comp], warnings);
+  const makeResidue = residueFactory((comp) => modParent.get(comp) ?? chemParent.get(comp) ?? modifiedParent(comp), warnings);
 
   // Atom-derived lookups (first model).
   const authOfAsym = new Map<string, string>();

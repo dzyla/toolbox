@@ -7,7 +7,7 @@ import type {
   AtomTable, Entity, Ligand, PolymerChain, SeqResidue, StructureHeader, StructureModel,
 } from './model';
 import { newBuilder, finish, type Builder } from './mmcif';
-import { MODIFIED_PARENT, STANDARD_COMPS, guessPolymerType, numberingJumpWarning, residueFactory } from './residues';
+import { STANDARD_COMPS, guessPolymerType, modifiedParent, numberingJumpWarning, residueFactory } from './residues';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -236,7 +236,7 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
   const compOfChain = new Map<string, { id: string; description: string }>();
   for (const e of compEntities) for (const c of e.chains) if (!compOfChain.has(c)) compOfChain.set(c, e);
 
-  const makeResidue = residueFactory((comp) => modParent.get(comp) ?? MODIFIED_PARENT[comp], warnings);
+  const makeResidue = residueFactory((comp) => modParent.get(comp) ?? modifiedParent(comp), warnings);
 
   // Polymer vs ligand instances.
   const seqSets = new Map<string, Set<string>>();
@@ -249,7 +249,7 @@ export function parsePdbToModel(text: string, name = 'structure'): StructureMode
   const isPolymer = (i: Instance): boolean => {
     if (WATER.has(i.comp) || (i.het && i.afterTer)) return false;
     if (!i.het) return true;
-    if (!STANDARD_COMPS.has(i.comp)) return modParent.has(i.comp) || i.comp in MODIFIED_PARENT;
+    if (!STANDARD_COMPS.has(i.comp)) return modParent.has(i.comp) || modifiedParent(i.comp) !== undefined;
     // A standard residue written as HETATM is polymer only when SEQRES has it and it is contiguous.
     const prev = lastPoly.get(i.chain);
     return !!seqSets.get(i.chain)?.has(i.comp) && !!prev && i.seq - prev.seq <= 1;

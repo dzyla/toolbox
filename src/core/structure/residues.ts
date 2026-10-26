@@ -12,6 +12,13 @@ export const MODIFIED_PARENT: Record<string, string> = {
   PSU: 'U', '5MC': 'C', '1MA': 'A', '2MG': 'G', H2U: 'U', OMG: 'G', OMC: 'C',
 };
 
+/** Own-property lookup: comp IDs come from the file, so 'constructor' or '__proto__' must miss. */
+const own = (table: Record<string, string>, key: string): string | undefined =>
+  (Object.hasOwn(table, key) ? table[key] : undefined);
+
+/** Parent of a modified residue from the fallback table, if listed there. */
+export const modifiedParent = (compId: string): string | undefined => own(MODIFIED_PARENT, compId);
+
 /** Unmodified residues: these never get a parentCompId. */
 export const STANDARD_COMPS: ReadonlySet<string> = new Set([
   'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET',
@@ -20,12 +27,12 @@ export const STANDARD_COMPS: ReadonlySet<string> = new Set([
 ]);
 
 const lookup = (c: string): string | undefined =>
-  c === 'UNK' ? 'X' : c === 'N' ? 'N' : (AA_3TO1[c] ?? NUCLEIC_TO1[c]);
+  c === 'UNK' ? 'X' : c === 'N' ? 'N' : (own(AA_3TO1, c) ?? own(NUCLEIC_TO1, c));
 
 /** True when the component is a standard or known modified polymer residue. */
 export function isPolymerComp(compId: string): boolean {
   const c = compId.toUpperCase();
-  return c in AA_3TO1 || c in NUCLEIC_TO1 || c in MODIFIED_PARENT || c === 'UNK' || c === 'N';
+  return Object.hasOwn(AA_3TO1, c) || Object.hasOwn(NUCLEIC_TO1, c) || Object.hasOwn(MODIFIED_PARENT, c) || c === 'UNK' || c === 'N';
 }
 
 /** One-letter code for a residue; `parent` (when known) decides modified residues. 'X' if unknown. */
@@ -33,12 +40,12 @@ export function oneLetterFor(compId: string, parent?: string): string {
   const c = compId.toUpperCase();
   if (parent) {
     const p = parent.toUpperCase();
-    const viaParent = lookup(p) ?? lookup(MODIFIED_PARENT[p] ?? '');
+    const viaParent = lookup(p) ?? lookup(modifiedParent(p) ?? '');
     if (viaParent) return viaParent;
   }
   const direct = lookup(c);
   if (direct) return direct;
-  const fallback = MODIFIED_PARENT[c];
+  const fallback = modifiedParent(c);
   return (fallback && lookup(fallback)) || 'X';
 }
 
