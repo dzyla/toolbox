@@ -1,0 +1,33 @@
+data_EDGE1
+_entry.id EDGE1
+_struct.title
+;Line one of a long title
+line two with 'quotes' and "double quotes"
+;
+_struct.pdbx_descriptor 'five'-O-methyl'
+_struct.note "it's a "test"x"
+_struct.unknown_a ?
+_struct.unknown_b .
+_struct.plain value_with_underscores
+_struct.spaced 'two words'
+_struct.trailing_quote "O5' "
+loop_
+_chem_comp.id
+_chem_comp.name
+_chem_comp.formula
+ALA 'L-ALANINE' 'C3 H7 N O2'
+MSE SELENOMETHIONINE 'C5 H11 N O2 Se'
+HOH WATER "H2 O"
+UNK ? .
+# comment line inside the data
+LIG "O5' DERIVATIVE" 'N''-ACETYL'
+data_EDGE2
+_entry.id EDGE2
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.label_atom_id
+_atom_site.Cartn_x
+_atom_site.pdbx_PDB_model_num
+ATOM 1 N 1.000 1
+ATOM 2 "O5'" 2.500 1
