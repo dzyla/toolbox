@@ -47,12 +47,17 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // The local Mol* viewer chunk (~5 MB, structure tool only) is cached on first use rather than
         // precached, so installing the app does not download it for everyone.
-        globIgnores: ['**/assets/app-*.js'],
+        globIgnores: ['**/assets/molstar-*.{js,css}'],
         runtimeCaching: [
           {
-            urlPattern: /\/assets\/app-[^/]+\.js$/,
+            urlPattern: /\/assets\/molstar-[^/]+\.(js|css)$/,
             handler: 'CacheFirst',
-            options: { cacheName: 'molstar-viewer', expiration: { maxEntries: 2 } }
+            options: { cacheName: 'molstar-viewer', expiration: { maxEntries: 4 } }
+          },
+          {
+            urlPattern: /^https:\/\/files\.rcsb\.org\/download\//,
+            handler: 'CacheFirst',
+            options: { cacheName: 'rcsb-structures', expiration: { maxEntries: 30 }, cacheableResponse: { statuses: [200] } }
           }
         ],
         // Largest precached chunk is the Plotly scatter/scattergl partial bundle (~1.4 MB).
@@ -65,5 +70,14 @@ export default defineConfig({
     })
   ],
   // Intentionally large lazy chunks: Plotly partial bundle (~1.4 MB, chromatography) and Mol* (~5 MB, structure).
-  build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 5200 }
+  build: {
+    target: 'es2022',
+    sourcemap: true,
+    chunkSizeWarningLimit: 5200,
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => (id.includes('node_modules/molstar') ? 'molstar' : undefined)
+      }
+    }
+  }
 });
