@@ -9,7 +9,7 @@ import type { Coloring, Representation } from './MolstarViewer';
 
 export interface ViewerStyle {
   representation: Representation;
-  /** null until the user picks one: Mol*'s per-representation default. */
+  /** null (the default, or "Default" picked again): Mol*'s per-representation preset colouring. */
   coloring: Coloring | null;
 }
 
@@ -24,7 +24,7 @@ export interface ViewerOps {
 export interface ViewerQueue {
   load(data: string, format: StructureFormat, label: string, modelIndex: number): Promise<void>;
   setRepresentation(r: Representation): Promise<void>;
-  setColoring(c: Coloring): Promise<void>;
+  setColoring(c: Coloring | null): Promise<void>;
 }
 
 export function createViewerQueue(ops: ViewerOps): ViewerQueue {

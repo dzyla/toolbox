@@ -46,7 +46,8 @@ export function useStructureModel() {
   const [hovered, setHovered] = useState<ResidueRef | null>(null);
   const [viewer, setViewerState] = useState<MolstarHandle | null>(null);
   const [representation, setRepresentationState] = useState<Representation>('auto');
-  const [coloring, setColoringState] = useState<Coloring>('chain-id');
+  /** null: Mol*'s preset colouring (what the viewer queue starts with). */
+  const [coloring, setColoringState] = useState<Coloring | null>(null);
   const [panels, setPanels] = useState(false);
   const [largeCanvas, setLargeCanvas] = useState(false);
 
@@ -140,7 +141,16 @@ export function useStructureModel() {
   const interfaces: InterfacePair[] | null = facts.result?.pairs ?? null;
   const metrics: StructureMetrics | null = facts.result?.metrics ?? null;
 
-  const setViewer = useCallback((h: MolstarHandle) => setViewerState(() => h), []);
+  // Display choices made before Mol* hands over its handle are replayed onto it (the handle's
+  // queue then applies them before the first load). Defaults need no replay.
+  const style = useRef({ representation, coloring });
+  style.current = { representation, coloring };
+  const setViewer = useCallback((h: MolstarHandle) => {
+    const { representation: r, coloring: c } = style.current;
+    if (r !== 'auto') h.setRepresentation(r).catch(() => setError('The 3D viewer could not change the representation.'));
+    if (c !== null) h.setColoring(c).catch(() => setError('The 3D viewer could not change the colours.'));
+    setViewerState(() => h);
+  }, []);
 
   // A residue clicked in Mol* becomes the strip's selection (polymer residues only; clicks on
   // ligands, water or empty space leave the selection alone).
@@ -155,7 +165,7 @@ export function useStructureModel() {
     setRepresentationState(r);
     viewer?.setRepresentation(r).catch(() => setError('The 3D viewer could not change the representation.'));
   };
-  const setColoring = (c: Coloring) => {
+  const setColoring = (c: Coloring | null) => {
     setColoringState(c);
     viewer?.setColoring(c).catch(() => setError('The 3D viewer could not change the colours.'));
   };

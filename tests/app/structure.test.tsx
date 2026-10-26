@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { read } from '../core/structure-helpers';
@@ -16,11 +16,17 @@ const handle = vi.hoisted(() => ({
   snapshot: vi.fn(async () => new Blob([], { type: 'image/png' })),
 }));
 
+/** When `defer` is set, the fake Mol* keeps its handle until the test calls `ready.fire()`. */
+const ready = vi.hoisted(() => ({ defer: false, fire: () => undefined as void }));
+
 vi.mock('@/tools/structure/MolstarViewer', async () => {
   const { useEffect } = await import('preact/hooks');
   return {
     MolstarViewer: (props: MolstarViewerProps) => {
-      useEffect(() => { props.onReady(handle as unknown as MolstarHandle); }, []);
+      useEffect(() => {
+        const give = () => props.onReady(handle as unknown as MolstarHandle);
+        if (ready.defer) ready.fire = give; else give();
+      }, []);
       return <div data-testid="fake-molstar" aria-label={`Mol* 3D viewer: ${props.label}`} />;
     },
   };
@@ -56,6 +62,7 @@ async function renderLoaded() {
 }
 
 beforeEach(() => {
+  ready.defer = false;
   for (const fn of Object.values(handle)) fn.mockClear();
   downloadBlob.mockClear();
   fetchMock = vi.fn<Fetch>(serveFixtures);
@@ -180,6 +187,37 @@ describe('Structure viewer', () => {
     expect(handle.setRepresentation).toHaveBeenCalledWith('surface');
     expect(screen.getByRole('button', { name: 'Mol* panels' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Large canvas' })).toBeTruthy();
+  });
+
+  it('colour starts at "Default" (Mol* preset colouring) and every colour, Chain included, can be picked', async () => {
+    await renderLoaded();
+    const colour = screen.getByLabelText('Colour', { exact: true }) as HTMLSelectElement;
+    expect(colour.value).toBe('');
+    expect(colour.selectedOptions[0]!.textContent).toBe('Default');
+    // Nothing was replayed onto Mol*: both settings are still the defaults.
+    expect(handle.setColoring).not.toHaveBeenCalled();
+    expect(handle.setRepresentation).not.toHaveBeenCalled();
+    fireEvent.change(colour, { target: { value: 'chain-id' } });
+    expect(handle.setColoring).toHaveBeenLastCalledWith('chain-id');
+    fireEvent.change(colour, { target: { value: '' } });
+    expect(handle.setColoring).toHaveBeenLastCalledWith(null);
+    expect(colour.value).toBe('');
+  });
+
+  it('display choices made before Mol* is ready are applied once its handle arrives', async () => {
+    ready.defer = true;
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText('Representation', { exact: true }), { target: { value: 'surface' } });
+    fireEvent.change(screen.getByLabelText('Colour', { exact: true }), { target: { value: 'entity-id' } });
+    expect(handle.setRepresentation).not.toHaveBeenCalled();
+    act(() => ready.fire());
+    await waitFor(() => expect(handle.load).toHaveBeenCalled());
+    expect(handle.setRepresentation).toHaveBeenCalledTimes(1);
+    expect(handle.setRepresentation).toHaveBeenCalledWith('surface');
+    expect(handle.setColoring).toHaveBeenCalledTimes(1);
+    expect(handle.setColoring).toHaveBeenCalledWith('entity-id');
+    // The style reaches Mol* before the structure does, so the load uses it.
+    expect(handle.setRepresentation.mock.invocationCallOrder[0]).toBeLessThan(handle.load.mock.invocationCallOrder[0]!);
   });
 
   it('snapshot downloads the Mol* PNG as <name>.png', async () => {

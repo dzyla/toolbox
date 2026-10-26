@@ -8,7 +8,9 @@ export const REPRESENTATIONS: { value: Representation; label: string }[] = [
   { value: 'spacefill', label: 'Spacefill' },
 ];
 
-export const COLORINGS: { value: Coloring; label: string }[] = [
+/** '' is "Default": Mol*'s preset colouring for the representation (the state is null). */
+export const COLORINGS: { value: Coloring | ''; label: string }[] = [
+  { value: '', label: 'Default' },
   { value: 'chain-id', label: 'Chain' },
   { value: 'entity-id', label: 'Entity' },
   { value: 'secondary-structure', label: 'Secondary structure' },
@@ -24,9 +26,10 @@ const toggleClass = (on: boolean) => `rounded-lg border px-2.5 py-1 text-xs font
 
 export interface DisplayToolbarProps {
   representation: Representation;
-  coloring: Coloring;
+  /** null: Mol*'s default colouring. */
+  coloring: Coloring | null;
   onRepresentation(r: Representation): void;
-  onColoring(c: Coloring): void;
+  onColoring(c: Coloring | null): void;
   panels: boolean;
   onPanels(v: boolean): void;
   large: boolean;
@@ -51,8 +54,8 @@ export function DisplayToolbar(p: DisplayToolbarProps) {
       </label>
       <label class="flex items-center gap-1.5">
         <span class={captionClass}>Colour</span>
-        <select aria-label="Colour" class={selectClass} value={p.coloring}
-          onChange={e => p.onColoring((e.target as HTMLSelectElement).value as Coloring)}>
+        <select aria-label="Colour" class={selectClass} value={p.coloring ?? ''}
+          onChange={e => p.onColoring(((e.target as HTMLSelectElement).value || null) as Coloring | null)}>
           {COLORINGS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>

@@ -75,6 +75,19 @@ describe('Mol* viewer queue (R17)', () => {
     expect(f.log).toContain('shown A as spacefill/default');
   });
 
+  it('colouring back to null ("Default") reaches the ops and later loads', async () => {
+    const f = fakeOps();
+    const q = createViewerQueue(f.ops);
+    await q.setColoring('chain-id');
+    await q.setColoring(null);
+    await q.load('d', 'mmcif', 'A', 0);
+    expect(f.log).toEqual([
+      'start colour chain-id', 'end colour chain-id',
+      'start colour null', 'end colour null',
+      'start load A', 'end load A', 'shown A as auto/default',
+    ]);
+  });
+
   it('does nothing once disposed', async () => {
     const f = fakeOps();
     let disposed = false;

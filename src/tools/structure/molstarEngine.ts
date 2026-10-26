@@ -231,8 +231,14 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
       await plugin.managers.structure.component.applyPreset(structures, presetFor(style.representation), presetParams(style));
     },
     async applyColoring(style) {
-      if (!style.coloring) return;
-      const components = plugin.managers.structure.hierarchy.current.structures.flatMap(s => s.components);
+      const structures = plugin.managers.structure.hierarchy.current.structures;
+      if (structures.length === 0) return;
+      // Back to "Default": re-apply the representation preset, which brings its own colouring.
+      if (!style.coloring) {
+        await plugin.managers.structure.component.applyPreset(structures, presetFor(style.representation), presetParams(style));
+        return;
+      }
+      const components = structures.flatMap(s => s.components);
       await plugin.managers.structure.component.updateRepresentationsTheme(components, { color: style.coloring });
     },
   });

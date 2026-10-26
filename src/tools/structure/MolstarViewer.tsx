@@ -10,7 +10,8 @@ export type Coloring = 'chain-id' | 'entity-id' | 'secondary-structure' | 'resid
 export interface MolstarHandle {
   load(data: string, format: StructureFormat, label: string, modelIndex: number): Promise<void>;
   setRepresentation(r: Representation): Promise<void>;
-  setColoring(c: Coloring): Promise<void>;
+  /** null: Mol*'s preset colouring for the current representation. */
+  setColoring(c: Coloring | null): Promise<void>;
   highlight(residues: ResidueRef[]): void;          // [] clears
   select(residues: ResidueRef[]): void;             // [] clears
   focus(residues: ResidueRef[]): void;              // camera to these; [] resets the view
