@@ -1,0 +1,310 @@
+/**
+ * The one Mol* plugin behind MolstarViewer. Everything that touches Mol* lives here, so the
+ * component only pulls it in with a dynamic import (it lands next to the lazily loaded Mol* chunk).
+ *
+ * One plugin per mounted viewer: structures are swapped in with `load`, layout changes go through
+ * `plugin.layout.setProps`, and the React (preact/compat) root Mol* renders into is unmounted on
+ * dispose. Not unmounting that root was the cause of the old "does not load a new structure" bug.
+ */
+import { createPluginUI } from 'molstar/lib/mol-plugin-ui';
+import type { PluginUIContext } from 'molstar/lib/mol-plugin-ui/context';
+import { DefaultPluginUISpec, type PluginUISpec } from 'molstar/lib/mol-plugin-ui/spec';
+import {
+  PresetStructureRepresentations,
+  StructureRepresentationPresetProvider,
+  presetStaticComponent,
+} from 'molstar/lib/mol-plugin-state/builder/structure/representation-preset';
+import { StateObjectRef } from 'molstar/lib/mol-state';
+import { StructureElement, StructureProperties, StructureSelection, type Structure } from 'molstar/lib/mol-model/structure';
+import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
+import { Script } from 'molstar/lib/mol-script/script';
+import type { Loci } from 'molstar/lib/mol-model/loci';
+// Same module Mol*'s own `react-dom/client` import resolves to (preset-vite aliases react-dom to
+// preact/compat), so the root created here is the one Mol* renders through, and it can be unmounted.
+import { createRoot } from 'preact/compat/client';
+import 'molstar/build/viewer/molstar.css';
+import type { ResidueRef, StructureFormat } from '@/core/structure';
+import type { Coloring, MolstarHandle, Representation } from './MolstarViewer';
+
+export interface EngineOptions {
+  showControls: boolean;
+  onResidueClick(r: ResidueRef | null): void;
+  onResidueHover(r: ResidueRef | null): void;
+}
+
+export interface MolstarEngine {
+  handle: MolstarHandle;
+  setShowControls(show: boolean): void;
+  resize(): void;
+  dispose(): void;
+}
+
+/** Above this many atoms ambient occlusion and outlines are switched off (interaction stays smooth). */
+const BIG_STRUCTURE_ATOMS = 100_000;
+
+/** Every component in spacefill: Mol* has no built-in preset for that. */
+const SpacefillPreset = StructureRepresentationPresetProvider({
+  id: 'bio-bench-spacefill',
+  display: { name: 'Spacefill', description: 'All atoms as van der Waals spheres.' },
+  params: () => StructureRepresentationPresetProvider.CommonParams,
+  async apply(ref, params, plugin) {
+    const cell = StateObjectRef.resolveAndCheck(plugin.state.data, ref);
+    if (!cell?.obj) return {};
+    const all = await presetStaticComponent(plugin, cell, 'all');
+    const { update, builder, typeParams, color } = StructureRepresentationPresetProvider.reprBuilder(plugin, params, cell.obj.data);
+    const representations = {
+      all: builder.buildRepresentation(update, all, { type: 'spacefill', typeParams, color }, { tag: 'all' }),
+    };
+    await update.commit({ revertOnError: true });
+    return { components: { all }, representations };
+  },
+});
+
+type CommonPresetParams = StructureRepresentationPresetProvider.CommonParams;
+
+function presetFor(r: Representation | null): StructureRepresentationPresetProvider<CommonPresetParams> {
+  switch (r) {
+    case null: return PresetStructureRepresentations.auto;  // Mol* picks by size (cartoon, or coarse surface for huge entries)
+    case 'cartoon': return PresetStructureRepresentations['polymer-and-ligand'];
+    case 'surface': return PresetStructureRepresentations['molecular-surface'];
+    case 'ball-and-stick': return PresetStructureRepresentations['atomic-detail'];
+    case 'spacefill': return SpacefillPreset;
+  }
+}
+
+/** Atom-group query matching residues by auth identifiers, so PDB and mmCIF input behave the same. */
+function residueQuery(residues: ResidueRef[]) {
+  const byChain = new Map<string, ResidueRef[]>();
+  for (const r of residues) {
+    const list = byChain.get(r.authAsymId);
+    if (list) list.push(r); else byChain.set(r.authAsymId, [r]);
+  }
+  const P = MS.struct.atomProperty.macromolecular;
+  const chainTests = [...byChain].map(([asym, list]) => MS.core.logic.and([
+    MS.core.rel.eq([P.auth_asym_id(), asym]),
+    MS.core.logic.or(list.map(r => MS.core.logic.and([
+      MS.core.rel.eq([P.auth_seq_id(), r.authSeqId]),
+      MS.core.rel.eq([P.pdbx_PDB_ins_code(), r.insCode]),
+    ]))),
+  ]));
+  return MS.struct.generator.atomGroups({ 'residue-test': MS.core.logic.or(chainTests) });
+}
+
+function toResidueRef(loci: Loci): ResidueRef | null {
+  if (!StructureElement.Loci.is(loci) || StructureElement.Loci.isEmpty(loci)) return null;
+  const loc = StructureElement.Loci.getFirstLocation(loci);
+  if (!loc) return null;
+  return {
+    authAsymId: StructureProperties.chain.auth_asym_id(loc),
+    authSeqId: StructureProperties.residue.auth_seq_id(loc),
+    insCode: StructureProperties.residue.pdbx_PDB_ins_code(loc) ?? '',
+  };
+}
+
+const refKey = (r: ResidueRef | null) => (r ? `${r.authAsymId}:${r.authSeqId}${r.insCode}` : '');
+
+function dataUriToBlob(uri: string): Blob {
+  const [head, body = ''] = uri.split(',', 2);
+  const type = /data:([^;,]+)/.exec(head ?? '')?.[1] ?? 'image/png';
+  const bin = atob(body);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
+
+export async function createMolstarEngine(host: HTMLElement, options: EngineOptions): Promise<MolstarEngine> {
+  // Mol* renders into its own child element, which preact never diffs.
+  const target = document.createElement('div');
+  target.style.cssText = 'position:absolute;inset:0;';
+  host.appendChild(target);
+  host.setAttribute('data-load-count', '0');
+
+  // Mol* draws its logo link without a text alternative; name it as soon as it appears.
+  const nameLogo = () => host.querySelectorAll('a.msp-logo').forEach(a => {
+    if (!a.getAttribute('aria-label')) a.setAttribute('aria-label', 'Mol* website (molstar.org)');
+  });
+  const logoObserver = new MutationObserver(nameLogo);
+  logoObserver.observe(host, { childList: true, subtree: true });
+
+  const base = DefaultPluginUISpec();
+  const spec: PluginUISpec = {
+    ...base,
+    layout: {
+      initial: {
+        isExpanded: false,
+        showControls: options.showControls,
+        controlsDisplay: 'reactive',
+        regionState: { left: 'full', right: 'full', top: 'full', bottom: 'hidden' },
+      },
+    },
+    components: {
+      ...base.components,
+      controls: { ...base.components?.controls, bottom: 'none' },
+      remoteState: 'none',
+      // Dropped files go to the tool's own loader, not straight into Mol*.
+      disableDragOverlay: true,
+    },
+  };
+
+  const mount: { root?: ReturnType<typeof createRoot> } = {};
+  let plugin: PluginUIContext;
+  try {
+    plugin = await createPluginUI({
+      target,
+      spec,
+      render: (element, container) => {
+        mount.root = createRoot(container);
+        mount.root.render(element);
+      },
+    });
+  } catch (err) {
+    mount.root?.unmount();
+    target.remove();
+    logoObserver.disconnect();
+    throw err;
+  }
+  const defaultPostprocessing = plugin.canvas3d ? { ...plugin.canvas3d.props.postprocessing } : null;
+
+  let disposed = false;
+  let generation = 0;
+  let loadCount = 0;
+  let queue: Promise<void> = Promise.resolve();
+  let representation: Representation | null = null;
+  let coloring: Coloring | null = null;
+
+  const currentStructure = (): Structure | undefined =>
+    plugin.managers.structure.hierarchy.current.structures[0]?.cell.obj?.data;
+
+  const lociFor = (residues: ResidueRef[]): Loci | null => {
+    const structure = currentStructure();
+    if (!structure || residues.length === 0) return null;
+    const selection = Script.getStructureSelection(residueQuery(residues), structure);
+    const loci = StructureSelection.toLociWithSourceUnits(selection);
+    return StructureElement.Loci.isEmpty(loci) ? null : loci;
+  };
+
+  const presetParams = (): CommonPresetParams => (coloring ? { theme: { globalName: coloring } } : {});
+
+  const applyRepresentation = async () => {
+    const structures = plugin.managers.structure.hierarchy.current.structures;
+    if (structures.length === 0) return;
+    await plugin.managers.structure.component.applyPreset(structures, presetFor(representation), presetParams());
+  };
+
+  const setPostprocessingFor = (atoms: number) => {
+    if (!plugin.canvas3d || !defaultPostprocessing) return;
+    plugin.canvas3d.setProps({
+      postprocessing: atoms > BIG_STRUCTURE_ATOMS
+        ? { occlusion: { name: 'off', params: {} }, outline: { name: 'off', params: {} } }
+        : { occlusion: defaultPostprocessing.occlusion, outline: defaultPostprocessing.outline },
+    });
+  };
+
+  async function runLoad(gen: number, data: string, format: StructureFormat, label: string, modelIndex: number) {
+    const superseded = () => disposed || gen !== generation;
+    await plugin.clear();
+    if (superseded()) return;
+    const raw = await plugin.builders.data.rawData({ data, label });
+    if (superseded()) return;
+    const trajectory = await plugin.builders.structure.parseTrajectory(raw, format);
+    if (superseded()) return;
+    const model = await plugin.builders.structure.createModel(trajectory, { modelIndex });
+    if (superseded()) return;
+    // The deposited model (not an assembly), so Mol* shows the same chains our tables describe.
+    const structure = await plugin.builders.structure.createStructure(model, { name: 'model', params: {} });
+    if (superseded()) return;
+    setPostprocessingFor(structure.cell?.obj?.data.elementCount ?? 0);
+    await plugin.builders.structure.representation.applyPreset(structure, presetFor(representation), presetParams());
+    if (superseded()) return;
+    const loaded = plugin.state.data.cells.get(raw.ref)?.obj?.label;
+    host.setAttribute('data-loaded-label', loaded ?? '');
+    loadCount += 1;
+    host.setAttribute('data-load-count', String(loadCount));
+  }
+
+  const handle: MolstarHandle = {
+    load(data, format, label, modelIndex) {
+      const gen = ++generation;
+      // Serialised: each load starts after the previous one settles; a load that has been
+      // superseded by then is skipped, and one superseded mid-way stops at its next step and never
+      // sets the label or count (the newer load clears whatever it built before building its own).
+      const run = queue.then(() => (gen === generation && !disposed ? runLoad(gen, data, format, label, modelIndex) : undefined));
+      queue = run.catch(() => undefined);
+      return run;
+    },
+    async setRepresentation(r) {
+      representation = r;
+      await queue;
+      if (!disposed) await applyRepresentation();
+    },
+    async setColoring(c) {
+      coloring = c;
+      await queue;
+      if (disposed) return;
+      const components = plugin.managers.structure.hierarchy.current.structures.flatMap(s => s.components);
+      await plugin.managers.structure.component.updateRepresentationsTheme(components, { color: c });
+    },
+    highlight(residues) {
+      if (disposed) return;
+      const loci = lociFor(residues);
+      if (loci) plugin.managers.interactivity.lociHighlights.highlightOnly({ loci }, false);
+      else plugin.managers.interactivity.lociHighlights.clearHighlights();
+    },
+    select(residues) {
+      if (disposed) return;
+      const loci = lociFor(residues);
+      if (loci) plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false);
+      else plugin.managers.interactivity.lociSelects.deselectAll();
+    },
+    focus(residues) {
+      if (disposed) return;
+      const loci = lociFor(residues);
+      if (loci) plugin.managers.camera.focusLoci(loci);
+      else plugin.managers.camera.reset();
+    },
+    async snapshot() {
+      const helper = plugin.helpers.viewportScreenshot;
+      if (!helper) throw new Error('The 3D viewer has no canvas to capture');
+      return dataUriToBlob(await helper.getImageDataUri());
+    },
+  };
+
+  // BehaviorSubjects emit their current value on subscribe; skip that one.
+  let primed = false;
+  const clickSub = plugin.behaviors.interaction.click.subscribe(e => {
+    if (primed) options.onResidueClick(toResidueRef(e.current.loci));
+  });
+  let lastHover = '';
+  const hoverSub = plugin.behaviors.interaction.hover.subscribe(e => {
+    if (!primed) return;
+    const r = toResidueRef(e.current.loci);
+    const key = refKey(r);
+    if (key === lastHover) return;
+    lastHover = key;
+    options.onResidueHover(r);
+  });
+  primed = true;
+
+  return {
+    handle,
+    setShowControls(show) {
+      if (disposed || plugin.layout.state.showControls === show) return;
+      plugin.layout.setProps({ showControls: show });
+      // setProps only stores the state; the layout component (and the canvas resize) listen here.
+      plugin.layout.events.updated.next(void 0);
+    },
+    resize() {
+      if (!disposed) plugin.canvas3d?.handleResize();
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      clickSub.unsubscribe();
+      hoverSub.unsubscribe();
+      logoObserver.disconnect();
+      plugin.dispose();
+      mount.root?.unmount();
+      target.remove();
+    },
+  };
+}

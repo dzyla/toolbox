@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   parsePdb,
   getDemoTrpCagePdb,
@@ -8,7 +8,8 @@ import {
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ActionBar } from '@/app/components/ActionBar';
-import { MolstarViewer } from './MolstarViewer';
+import { MolstarViewer, type MolstarHandle } from './MolstarViewer';
+import { detectFormat } from '@/core/structure';
 import { downloadText } from '@/lib/export';
 import { useUrlState } from '@/lib/url-state';
 import { importErrorMessage, readTextFile } from '@/lib/file-import';
@@ -114,6 +115,18 @@ export default function StructureView() {
   const [chainTypeFilter, setChainTypeFilter] = useState<'all' | 'protein' | 'rna' | 'dna' | 'ligand'>('all');
   const [showAllSequencesExpanded, setShowAllSequencesExpanded] = useState<boolean>(false);
   const [groupedLigandsView, setGroupedLigandsView] = useState<boolean>(true);
+
+  // Minimal Mol* adapter until the v2 View: one viewer, structure text pushed in through the handle.
+  const molstar = useRef<MolstarHandle | null>(null);
+  const [molstarReady, setMolstarReady] = useState(false);
+  const [molstarPanels, setMolstarPanels] = useState(false);
+  const [largeCanvas, setLargeCanvas] = useState(false);
+  useEffect(() => {
+    const viewer = molstar.current;
+    if (!viewer || !rawPdb.trim()) return;
+    viewer.load(rawPdb, detectFormat(rawPdb) ?? 'pdb', loadedPdb || 'Structure', 0)
+      .catch(() => setFetchError('The 3D viewer could not display this structure'));
+  }, [rawPdb, loadedPdb, molstarReady]);
 
   async function copyPureSequence(chainOrAll: 'all' | string, e?: Event) {
     if (e) e.stopPropagation();
@@ -412,14 +425,29 @@ export default function StructureView() {
               </a>
             </div>
 
+            <div class="flex justify-end gap-2 pb-2">
+              <button
+                type="button"
+                aria-pressed={molstarPanels}
+                onClick={() => setMolstarPanels(v => !v)}
+                class="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                Mol* panels
+              </button>
+              <button
+                type="button"
+                aria-pressed={largeCanvas}
+                onClick={() => setLargeCanvas(v => !v)}
+                class="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                Large canvas
+              </button>
+            </div>
             <MolstarViewer
-              rcsbId={loadedPdb || '1UBQ'}
-              pdbText={rawPdb}
-              onSelectPdb={id => {
-                setInputPdb(id);
-                handleFetch(id);
-              }}
-              height={580}
+              label={loadedPdb || 'Structure'}
+              height={largeCanvas ? 800 : 580}
+              showControls={molstarPanels}
+              onReady={handle => { molstar.current = handle; setMolstarReady(true); }}
             />
           </div>
 

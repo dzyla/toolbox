@@ -6,7 +6,7 @@ test('structure page renders the 3D viewer locally without contacting molstar.or
     if (/molstar\.org/.test(r.url())) external.push(r.url());
   });
   await page.goto('/#/t/structure');
-  const canvas = page.locator('[aria-label*="3D Backbone Canvas"] canvas').first();
+  const canvas = page.locator('[aria-label^="Mol* 3D viewer"] canvas').first();
   await expect(canvas).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('iframe')).toHaveCount(0);
   expect(external).toEqual([]);

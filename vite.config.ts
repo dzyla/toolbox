@@ -82,7 +82,8 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: 'vendor-ui', test: /node_modules[\\/](preact|@preact|react|react-dom)[\\/]/, priority: 2 },
-            { name: 'molstar', test: /node_modules[\\/]molstar[\\/]/, priority: 1 }
+            // The viewer's Mol* driver rides with Mol* itself, so the structure View is its only importer.
+            { name: 'molstar', test: /node_modules[\\/]molstar[\\/]|src[\\/]tools[\\/]structure[\\/]molstarEngine\.ts$/, priority: 1 }
           ]
         }
       }
