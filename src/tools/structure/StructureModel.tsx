@@ -7,6 +7,7 @@ import { useWorkerCompute } from '@/lib/use-worker-compute';
 import { makeInterfaceWorker, makeParseWorker, runInterfaceJob, runTaggedParseJob, type InterfaceJob, type TaggedParseJob } from './job';
 import { fetchRcsbEntry, loadDemo, normaliseRcsbId, readStructureFile, type StructureSource } from './load';
 import type { Coloring, MolstarHandle, Representation } from './MolstarViewer';
+import { indexResidues, refKey } from './sequence';
 
 export interface Preset { id: string; name: string }
 /** The one preset list (RCSB entries). */
@@ -140,6 +141,16 @@ export function useStructureModel() {
   const metrics: StructureMetrics | null = facts.result?.metrics ?? null;
 
   const setViewer = useCallback((h: MolstarHandle) => setViewerState(() => h), []);
+
+  // A residue clicked in Mol* becomes the strip's selection (polymer residues only; clicks on
+  // ligands, water or empty space leave the selection alone).
+  const residueIndex = useMemo(() => (loaded ? indexResidues(loaded.model) : null), [loaded]);
+  const selectFromViewer = (r: ResidueRef | null) => {
+    const at = r && residueIndex?.get(refKey(r));
+    if (!r || !at) return;
+    setSelection({ labelAsymId: at.labelAsymId, from: at.seqId, to: at.seqId });
+    viewer?.select([r]);
+  };
   const setRepresentation = (r: Representation) => {
     setRepresentationState(r);
     viewer?.setRepresentation(r).catch(() => setError('The 3D viewer could not change the representation.'));
@@ -171,7 +182,7 @@ export function useStructureModel() {
     computing: facts.busy,
     cutoff, setCutoff,
     loadRcsb, loadFile,
-    selection, setSelection,
+    selection, setSelection, selectFromViewer,
     hovered, setHovered,
     viewer, setViewer,
     representation, setRepresentation,

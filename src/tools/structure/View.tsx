@@ -4,8 +4,10 @@ import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { DisplayToolbar } from './components/DisplayToolbar';
 import { DropOverlay } from './components/DropOverlay';
+import { EntityTable } from './components/EntityTable';
 import { HeaderCard } from './components/HeaderCard';
 import { LoadPanel } from './components/LoadPanel';
+import { SequencePanel } from './components/SequencePanel';
 import { MolstarViewer } from './MolstarViewer';
 import { SCIENCE } from './science';
 import { PRESETS, useStructureModel, type StructureViewModel } from './StructureModel';
@@ -106,11 +108,15 @@ export default function StructureView() {
                 height={m.largeCanvas ? 800 : 560}
                 showControls={m.panels}
                 onReady={m.setViewer}
+                onResidueClick={m.selectFromViewer}
                 onResidueHover={m.setHovered}
               />
             </div>
-            {/* Task 8: SequencePanel (linked to m.selection / m.hovered) goes here. */}
-            {/* Task 9: EntityTable, LigandList, InterfaceTable (m.interfaces, m.cutoff) and metrics (m.metrics), then export. */}
+            {m.model && (
+              <SequencePanel model={m.model} selection={m.selection} setSelection={m.setSelection} hovered={m.hovered} viewer={m.viewer} />
+            )}
+            {m.model && <EntityTable model={m.model} />}
+            {/* Task 9: LigandList, InterfaceTable (m.interfaces, m.cutoff) and metrics (m.metrics), then export. */}
           </div>
         }
         actions={<ActionBar onCopy={() => summaryText(m)} shareUrl={m.shareUrl} />}

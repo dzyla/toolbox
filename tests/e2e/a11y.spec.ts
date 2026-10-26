@@ -83,3 +83,22 @@ for (const theme of ['light', 'dark'] as const) {
     expect(failures, failures.join('\n')).toEqual([]);
   });
 }
+
+// The structure sequence panel's selected, modified and unmodelled states only render once a
+// multi-chain entry is loaded and residues are selected.
+for (const theme of ['light', 'dark'] as const) {
+  test(`structure sequence panel with a selection passes axe WCAG A/AA checks in ${theme} mode`, async ({ page }) => {
+    await page.addInitScript(t => localStorage.setItem('bb.theme', t), theme);
+    await page.goto('/#/t/structure');
+    await page.locator('h1').first().waitFor();
+    await page.locator('input[type=file]').first().setInputFiles(new URL('../fixtures/structure/3KZ5.cif', import.meta.url).pathname);
+    await page.getByLabel('Chain', { exact: true }).selectOption('C');
+    await page.getByRole('button', { name: 'Residue A 272 SER', exact: true }).click();
+    await page.getByRole('button', { name: 'Residue A 280 PHE', exact: true }).click({ modifiers: ['Shift'] });
+    await page.getByRole('button', { name: 'Modelled only' }).click();
+    await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
+    const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    const failures = violations.flatMap(v => v.nodes.map(node => `${theme} ${v.id}: ${node.html.slice(0, 160)}`));
+    expect(failures, failures.join('\n')).toEqual([]);
+  });
+}
