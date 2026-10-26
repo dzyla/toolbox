@@ -191,6 +191,22 @@ describe('Sequence panel', () => {
     expect(within(header()).getByText('Chain B: residue numbering jumps 3→7; the file has no deposited sequence, so gaps cannot be shown')).toBeTruthy();
   });
 
+  it('insertion.cif: 27, 27A and 27B are distinct residues, linked to Mol* by insertion code', async () => {
+    await loadFile('insertion.cif', 'insertion');
+    const strip = screen.getByRole('group', { name: 'Sequence of chain A [auth A]' });
+    const names = within(strip).getAllByRole('button').map(b => b.getAttribute('aria-label'));
+    expect(names).toEqual(['Residue A 26 SER', 'Residue A 27 THR', 'Residue A 27A ALA', 'Residue A 27B GLY', 'Residue A 28 LEU']);
+    fireEvent.click(residue('Residue A 27A ALA'));
+    expect(handle.select).toHaveBeenLastCalledWith([{ authAsymId: 'A', authSeqId: 27, insCode: 'A' }]);
+    expect(residue('Residue A 27A ALA').getAttribute('aria-pressed')).toBe('true');
+    // A Mol* click on 27B selects the 27B button, not 27 or 27A.
+    act(() => viewerProps.current!.onResidueClick!({ authAsymId: 'A', authSeqId: 27, insCode: 'B' }));
+    expect(residue('Residue A 27B GLY').getAttribute('aria-pressed')).toBe('true');
+    expect(residue('Residue A 27 THR').getAttribute('aria-pressed')).toBe('false');
+    expect(residue('Residue A 27A ALA').getAttribute('aria-pressed')).toBe('false');
+    expect(handle.select).toHaveBeenLastCalledWith([{ authAsymId: 'A', authSeqId: 27, insCode: 'B' }]);
+  });
+
   it('"Modelled only" with "drop gaps" downloads the 47 modelled residues of chain C', async () => {
     await load3kz5();
     pickChain('C');
