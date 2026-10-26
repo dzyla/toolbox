@@ -26,13 +26,13 @@ interface Builder {
   atomName: string[]; element: string[]; compId: string[];
   labelAsym: string[]; labelSeq: number[]; authAsym: string[]; authSeq: number[]; ins: string[];
   entityId: string[];
-  seen: Set<string>;
+  altOf: Map<string, string>;
 }
 
 function newBuilder(modelNumber: number): Builder {
   return {
     modelNumber, xyz: [], b: [], occ: [], het: [], hyd: [], atomName: [], element: [], compId: [],
-    labelAsym: [], labelSeq: [], authAsym: [], authSeq: [], ins: [], entityId: [], seen: new Set(),
+    labelAsym: [], labelSeq: [], authAsym: [], authSeq: [], ins: [], entityId: [], altOf: new Map(),
   };
 }
 
@@ -91,10 +91,13 @@ function readAtoms(cat: CifCategory | undefined): { models: AtomTable[]; instanc
     const ins = cat.get('pdbx_PDB_ins_code', r) ?? '';
     const name = cat.get('label_atom_id', r) ?? cat.get('auth_atom_id', r) ?? '';
 
-    if (cat.get('label_alt_id', r) !== undefined) {
-      const key = `${asym}|${labelSeq || authSeq}|${ins}|${name}`;
-      if (cur.seen.has(key)) continue;
-      cur.seen.add(key);
+    const alt = cat.get('label_alt_id', r);
+    if (alt !== undefined) {
+      // Keep only the first alt id seen for this residue; blank-alt atoms are always kept.
+      const key = `${asym}|${labelSeq || authSeq}|${ins}`;
+      const first = cur.altOf.get(key);
+      if (first === undefined) cur.altOf.set(key, alt);
+      else if (first !== alt) continue;
     }
 
     const comp = cat.get('label_comp_id', r) ?? cat.get('auth_comp_id', r) ?? '';
@@ -410,14 +413,21 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
       asymToEntity.set(asym, ent.id);
       outChains.push({ labelAsymId: asym, authAsymId: list[0]!.authAsym, entityId: ent.id, residues });
     }
-    // Keep atoms consistent with the generated entity ids.
+    // Keep polymer atoms consistent with the generated entity ids; ligands and waters have
+    // no entity table here, so their entity id is cleared ('').
     for (const t of tables) {
       for (let k = 0; k < t.count; k++) {
         const id = asymToEntity.get(t.labelAsymId[k]!);
-        if (id !== undefined) t.entityId[k] = id;
+        const comp = t.compId[k]!;
+        const poly = id !== undefined && !WATER.has(comp) && (t.labelSeqId[k]! > 0 || isPolymerComp(comp));
+        t.entityId[k] = poly ? id : '';
       }
     }
-    for (const i of insts) { const id = asymToEntity.get(i.asym); if (id) i.entityId = id; }
+    for (const i of insts) {
+      const id = asymToEntity.get(i.asym);
+      const poly = id !== undefined && !WATER.has(i.comp) && (i.labelSeq > 0 || isPolymerComp(i.comp));
+      i.entityId = poly ? id : '';
+    }
   }
 }
 

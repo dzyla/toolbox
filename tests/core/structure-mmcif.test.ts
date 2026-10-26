@@ -262,3 +262,79 @@ HETATM 7 O O . HOH D 4 . 8 8 8 1 10 201 D 1
     expect(() => parseMmcif('')).toThrow(/data block/i);
   });
 });
+
+const HDR = `loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+_atom_site.pdbx_PDB_model_num
+`;
+const MICRO_ATOMS = `ATOM 1 N N . ALA A 1 1 0 0 0 1 A 1
+ATOM 2 N N A SER A 1 2 1 0 0 2 A 1
+ATOM 3 C CB A SER A 1 2 1 1 0 2 A 1
+ATOM 4 O OG A SER A 1 2 1 2 0 2 A 1
+ATOM 5 O OG1 B THR A 1 2 1 3 0 2 A 1
+ATOM 6 C CG2 B THR A 1 2 1 4 0 2 A 1
+ATOM 7 N N . GLY A 1 3 2 0 0 3 A 1
+`;
+
+describe('alt-loc microheterogeneity and minimal-path ligands', () => {
+  it('keeps only the first alt id per residue (minimal path)', () => {
+    const m = parseMmcif(`data_T
+${HDR}${MICRO_ATOMS}`);
+    expect(m.models[0]!.compId.filter((c, i, a) => a.indexOf(c) === i)).toEqual(['ALA', 'SER', 'GLY']);
+    expect(m.models[0]!.count).toBe(5);
+    expect(m.chains[0]!.residues.map((r) => `${r.seqId}${r.oneLetter}`)).toEqual(['1A', '2S', '3G']);
+  });
+
+  it('drops the second alt id with entity categories present', () => {
+    const cif = `data_T
+loop_
+_entity.id
+_entity.type
+1 polymer
+loop_
+_entity_poly_seq.entity_id
+_entity_poly_seq.num
+_entity_poly_seq.mon_id
+1 1 ALA
+1 2 SER
+1 3 GLY
+loop_
+_struct_asym.id
+_struct_asym.entity_id
+A 1
+${HDR}${MICRO_ATOMS}`;
+    const m = parseMmcif(cif);
+    expect(m.models[0]!.compId).not.toContain('THR');
+    expect(m.models[0]!.atomName).not.toContain('OG1');
+    expect(m.chains[0]!.residues.map((r) => r.compId)).toEqual(['ALA', 'SER', 'GLY']);
+  });
+
+  it('does not stamp the polymer entity id on ligand or water atoms (minimal path)', () => {
+    const cif = `data_T
+${HDR}ATOM 1 N N . ALA A 1 1 0 0 0 1 A 1
+ATOM 2 C CA . GLY A 1 2 1 0 0 2 A 1
+HETATM 3 FE FE . HEM A 1 . 5 5 5 301 A 1
+HETATM 4 O O . HOH A 1 . 8 8 8 401 A 1
+`;
+    const m = parseMmcif(cif);
+    expect(m.entities).toHaveLength(1);
+    const polyId = m.entities[0]!.id;
+    expect(m.ligands).toHaveLength(1);
+    expect(m.ligands[0]!.compId).toBe('HEM');
+    expect(m.ligands[0]!.entityId).toBe('');
+    expect(m.models[0]!.entityId).toEqual([polyId, polyId, '', '']);
+  });
+});
