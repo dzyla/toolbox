@@ -1,4 +1,4 @@
-import { runParseJob, type ParseJob } from './job';
+import { runParseJob, type ParseJob } from './job-compute';
 
 self.onmessage = (ev: MessageEvent<ParseJob>) => {
   try {

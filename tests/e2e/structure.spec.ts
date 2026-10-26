@@ -39,8 +39,7 @@ test.beforeEach(async ({ page }) => {
   await routeRcsb(page);
 });
 
-// enabled in Task 7: needs the "PDB ID" input fetching <ID>.cif and the bundled 1UBQ demo.
-test.fixme('loads three structures in a row and Mol* shows each', async ({ page }) => {
+test('loads three structures in a row and Mol* shows each', async ({ page }) => {
   await page.goto('/#/t/structure');
   await expectLoaded(page, '1UBQ');
 
@@ -54,15 +53,14 @@ test.fixme('loads three structures in a row and Mol* shows each', async ({ page 
   await expect(host(page).locator('canvas').first()).toBeVisible();
 });
 
-// enabled in Task 7: needs presets fetching <ID>.cif and the [data-testid="structure-header"] card.
-test.fixme('rapid preset clicks end on the last one', async ({ page }) => {
+test('rapid preset clicks end on the last one', async ({ page }) => {
   await page.goto('/#/t/structure');
   await expectLoaded(page, '1UBQ');
 
   // Fire all three without waiting for any load to finish.
-  await page.getByRole('button', { name: /4HHB/ }).click();
-  await page.getByRole('button', { name: /1CRN/ }).click();
-  await page.getByRole('button', { name: /1AKI/ }).click();
+  await page.getByRole('button', { name: '4HHB Hemoglobin', exact: true }).click();
+  await page.getByRole('button', { name: '1CRN Crambin', exact: true }).click();
+  await page.getByRole('button', { name: '1AKI Lysozyme', exact: true }).click();
 
   await expectLoaded(page, '1AKI');
   await expect(page.getByTestId('structure-header')).toContainText('1AKI');

@@ -24,7 +24,8 @@ import type { Loci } from 'molstar/lib/mol-model/loci';
 import { createRoot } from 'preact/compat/client';
 import 'molstar/build/viewer/molstar.css';
 import type { ResidueRef, StructureFormat } from '@/core/structure';
-import type { Coloring, MolstarHandle, Representation } from './MolstarViewer';
+import type { MolstarHandle, Representation } from './MolstarViewer';
+import { createViewerQueue, type ViewerStyle } from './viewer-queue';
 
 export interface EngineOptions {
   showControls: boolean;
@@ -62,9 +63,9 @@ const SpacefillPreset = StructureRepresentationPresetProvider({
 
 type CommonPresetParams = StructureRepresentationPresetProvider.CommonParams;
 
-function presetFor(r: Representation | null): StructureRepresentationPresetProvider<CommonPresetParams> {
+function presetFor(r: Representation): StructureRepresentationPresetProvider<CommonPresetParams> {
   switch (r) {
-    case null: return PresetStructureRepresentations.auto;  // Mol* picks by size (cartoon, or coarse surface for huge entries)
+    case 'auto': return PresetStructureRepresentations.auto;  // Mol* picks by size (cartoon, or coarse surface for huge entries)
     case 'cartoon': return PresetStructureRepresentations['polymer-and-ligand'];
     case 'surface': return PresetStructureRepresentations['molecular-surface'];
     case 'ball-and-stick': return PresetStructureRepresentations['atomic-detail'];
@@ -166,11 +167,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
   const defaultPostprocessing = plugin.canvas3d ? { ...plugin.canvas3d.props.postprocessing } : null;
 
   let disposed = false;
-  let generation = 0;
   let loadCount = 0;
-  let queue: Promise<void> = Promise.resolve();
-  let representation: Representation | null = null;
-  let coloring: Coloring | null = null;
 
   const currentStructure = (): Structure | undefined =>
     plugin.managers.structure.hierarchy.current.structures[0]?.cell.obj?.data;
@@ -183,13 +180,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     return StructureElement.Loci.isEmpty(loci) ? null : loci;
   };
 
-  const presetParams = (): CommonPresetParams => (coloring ? { theme: { globalName: coloring } } : {});
-
-  const applyRepresentation = async () => {
-    const structures = plugin.managers.structure.hierarchy.current.structures;
-    if (structures.length === 0) return;
-    await plugin.managers.structure.component.applyPreset(structures, presetFor(representation), presetParams());
-  };
+  const presetParams = (style: ViewerStyle): CommonPresetParams => (style.coloring ? { theme: { globalName: style.coloring } } : {});
 
   const setPostprocessingFor = (atoms: number) => {
     if (!plugin.canvas3d || !defaultPostprocessing) return;
@@ -200,8 +191,8 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     });
   };
 
-  async function runLoad(gen: number, data: string, format: StructureFormat, label: string, modelIndex: number) {
-    const superseded = () => disposed || gen !== generation;
+  async function runLoad(isCurrent: () => boolean, data: string, format: StructureFormat, label: string, modelIndex: number, style: ViewerStyle) {
+    const superseded = () => !isCurrent();
     await plugin.clear();
     if (superseded()) return;
     const raw = await plugin.builders.data.rawData({ data, label });
@@ -214,7 +205,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     const structure = await plugin.builders.structure.createStructure(model, { name: 'model', params: {} });
     if (superseded()) return;
     setPostprocessingFor(structure.cell?.obj?.data.elementCount ?? 0);
-    await plugin.builders.structure.representation.applyPreset(structure, presetFor(representation), presetParams());
+    await plugin.builders.structure.representation.applyPreset(structure, presetFor(style.representation), presetParams(style));
     if (superseded()) return;
     const loaded = plugin.state.data.cells.get(raw.ref)?.obj?.label;
     host.setAttribute('data-loaded-label', loaded ?? '');
@@ -222,28 +213,28 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     host.setAttribute('data-load-count', String(loadCount));
   }
 
-  const handle: MolstarHandle = {
-    load(data, format, label, modelIndex) {
-      const gen = ++generation;
-      // Serialised: each load starts after the previous one settles; a load that has been
-      // superseded by then is skipped, and one superseded mid-way stops at its next step and never
-      // sets the label or count (the newer load clears whatever it built before building its own).
-      const run = queue.then(() => (gen === generation && !disposed ? runLoad(gen, data, format, label, modelIndex) : undefined));
-      queue = run.catch(() => undefined);
-      return run;
+  // Loads and style changes share one queue (viewer-queue.ts): a load superseded before its turn is
+  // skipped, one superseded mid-way stops at its next step and never sets the label or count (the
+  // newer load clears whatever it built), and style changes apply between loads, never during one.
+  const queue = createViewerQueue({
+    isDisposed: () => disposed,
+    load: runLoad,
+    async applyRepresentation(style) {
+      const structures = plugin.managers.structure.hierarchy.current.structures;
+      if (structures.length === 0) return;
+      await plugin.managers.structure.component.applyPreset(structures, presetFor(style.representation), presetParams(style));
     },
-    async setRepresentation(r) {
-      representation = r;
-      await queue;
-      if (!disposed) await applyRepresentation();
-    },
-    async setColoring(c) {
-      coloring = c;
-      await queue;
-      if (disposed) return;
+    async applyColoring(style) {
+      if (!style.coloring) return;
       const components = plugin.managers.structure.hierarchy.current.structures.flatMap(s => s.components);
-      await plugin.managers.structure.component.updateRepresentationsTheme(components, { color: c });
+      await plugin.managers.structure.component.updateRepresentationsTheme(components, { color: style.coloring });
     },
+  });
+
+  const handle: MolstarHandle = {
+    load: queue.load,
+    setRepresentation: queue.setRepresentation,
+    setColoring: queue.setColoring,
     highlight(residues) {
       if (disposed) return;
       const loci = lociFor(residues);

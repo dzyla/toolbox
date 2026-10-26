@@ -1,4 +1,4 @@
-import { runInterfaceJob, type InterfaceJob } from './job';
+import { runInterfaceJob, type InterfaceJob } from './job-compute';
 
 self.onmessage = (ev: MessageEvent<InterfaceJob>) => {
   try {

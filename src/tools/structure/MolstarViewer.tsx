@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ResidueRef, StructureFormat } from '@/core/structure';
 import type { MolstarEngine } from './molstarEngine';
 
-export type Representation = 'cartoon' | 'surface' | 'ball-and-stick' | 'spacefill';
+/** 'auto' is Mol*'s size-based preset (cartoon, or a coarse surface for very large entries). */
+export type Representation = 'auto' | 'cartoon' | 'surface' | 'ball-and-stick' | 'spacefill';
 /** Mol* colour theme names; 'uncertainty' is labelled "B-factor" in the UI. */
 export type Coloring = 'chain-id' | 'entity-id' | 'secondary-structure' | 'residue-name' | 'uncertainty';
 

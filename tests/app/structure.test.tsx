@@ -1,151 +1,191 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/preact';
-import StructureView from '@/tools/structure/View';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { read } from '../core/structure-helpers';
+import type { MolstarHandle, MolstarViewerProps } from '@/tools/structure/MolstarViewer';
 
-describe('3D Structure Viewer', () => {
-  it('renders structure viewer with Mol* canvas and structure metrics', () => {
-    render(<StructureView />);
+// A fake Mol*: hands the View a handle of spies as soon as it mounts.
+const handle = vi.hoisted(() => ({
+  load: vi.fn(async () => undefined),
+  setRepresentation: vi.fn(async () => undefined),
+  setColoring: vi.fn(async () => undefined),
+  highlight: vi.fn(),
+  select: vi.fn(),
+  focus: vi.fn(),
+  snapshot: vi.fn(async () => new Blob([], { type: 'image/png' })),
+}));
 
-    expect(screen.getByRole('heading', { name: /3D Structure Viewer/i })).toBeTruthy();
-    expect(screen.getByText(/3D Backbone Canvas/i)).toBeTruthy();
-    expect(screen.getByText(/Total Residues/i)).toBeTruthy();
-    expect(screen.getAllByText(/Radius of Gyration/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Cα Atoms/i)).toBeTruthy();
-    expect(screen.getByText(/Total Atoms/i)).toBeTruthy();
+vi.mock('@/tools/structure/MolstarViewer', async () => {
+  const { useEffect } = await import('preact/hooks');
+  return {
+    MolstarViewer: (props: MolstarViewerProps) => {
+      useEffect(() => { props.onReady(handle as unknown as MolstarHandle); }, []);
+      return <div data-testid="fake-molstar" aria-label={`Mol* 3D viewer: ${props.label}`} />;
+    },
+  };
+});
+
+const downloadBlob = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/export', async importOriginal => ({ ...(await importOriginal<typeof import('@/lib/export')>()), downloadBlob }));
+
+const { default: StructureView } = await import('@/tools/structure/View');
+
+const FIXTURES = join(__dirname, '..', 'fixtures', 'structure');
+/** RCSB text for an ID from tests/fixtures/structure (`.cif` or `.cif.gz`), or null. */
+function fixture(id: string): string | null {
+  if (existsSync(join(FIXTURES, `${id}.cif`))) return read(`${id}.cif`);
+  if (existsSync(join(FIXTURES, `${id}.cif.gz`))) return read(`${id}.cif.gz`);
+  return null;
+}
+
+type Fetch = (url: string) => Promise<Response>;
+const serveFixtures: Fetch = async url => {
+  const id = /\/download\/([^/]+)\.cif$/.exec(url)?.[1] ?? '';
+  const text = fixture(id);
+  return text === null ? new Response('missing', { status: 404 }) : new Response(text, { status: 200 });
+};
+let fetchMock: ReturnType<typeof vi.fn<Fetch>>;
+
+const header = () => screen.getByTestId('structure-header');
+const UBQ_TITLE = 'STRUCTURE OF UBIQUITIN REFINED AT 1.8 ANGSTROMS RESOLUTION';
+
+async function renderLoaded() {
+  render(<StructureView />);
+  await waitFor(() => expect(within(header()).getByText(UBQ_TITLE)).toBeTruthy());
+}
+
+beforeEach(() => {
+  for (const fn of Object.values(handle)) fn.mockClear();
+  downloadBlob.mockClear();
+  fetchMock = vi.fn<Fetch>(serveFixtures);
+  vi.stubGlobal('fetch', fetchMock);
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe('Structure viewer', () => {
+  it('opens on the bundled 1UBQ with its header and loads it into Mol* as mmCIF', async () => {
+    await renderLoaded();
+    expect(fetchMock).not.toHaveBeenCalled();
+    const card = header();
+    expect(within(card).getByText('1UBQ')).toBeTruthy();
+    expect(within(card).getByText('X-RAY DIFFRACTION')).toBeTruthy();
+    expect(within(card).getByText('1.8 Å')).toBeTruthy();
+    expect(within(card).getByText('Homo sapiens')).toBeTruthy();
+    expect(within(card).getByText('1987-01-02')).toBeTruthy();
+    await waitFor(() => expect(handle.load).toHaveBeenCalledWith(expect.stringContaining('data_1UBQ'), 'mmcif', '1UBQ', 0));
+    // One preset list, each preset addressable by ID and name; no model picker for a single model.
+    expect(screen.getByRole('button', { name: '4HHB Hemoglobin' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /4HHB/ })).toHaveLength(1);
+    expect(screen.queryByLabelText('Model', { exact: true })).toBeNull();
+    // The old external "Mol* Viewer Tab" link is gone (everything renders locally).
+    expect(document.querySelector('a[href*="molstar.org/viewer"]')).toBeNull();
   });
 
-  it('renders Mol* Viewer external link and preset benchmarks', () => {
-    render(<StructureView />);
-    const molstarLinks = screen.getAllByRole('link', { name: /Mol\* Viewer/i });
-    expect(molstarLinks.length).toBeGreaterThan(0);
-    expect(molstarLinks[0]!.getAttribute('href')).toContain('molstar.org/viewer');
-
-    expect(screen.getByText(/Ubiquitin/i)).toBeTruthy();
-    expect(screen.getByText(/Trp-Cage/i)).toBeTruthy();
-    expect(screen.getByText(/Lysozyme/i)).toBeTruthy();
-    expect(screen.getByText(/Hemoglobin/i)).toBeTruthy();
+  it('typing an ID and pressing Enter fetches <ID>.cif from RCSB', async () => {
+    await renderLoaded();
+    const box = screen.getByLabelText('PDB ID', { exact: true });
+    fireEvent.input(box, { target: { value: '3kz5' } });
+    fireEvent.submit(box.closest('form')!);
+    await waitFor(() => expect(within(header()).getByText('Structure of cdomain')).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledWith('https://files.rcsb.org/download/3KZ5.cif');
+    await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '3KZ5', 0));
   });
 
-  it('provides explicit Fetch & Load button and file upload input', () => {
-    render(<StructureView />);
-
-    const fetchLoadBtn = screen.getByRole('button', { name: /Fetch & Load/i });
-    expect(fetchLoadBtn).toBeTruthy();
-
-    expect(screen.getByText(/Upload Custom Structure File/i)).toBeTruthy();
-    expect(screen.getByText(/Primary Sequence & Chain Composition/i)).toBeTruthy();
+  it('a preset button fetches its entry', async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByRole('button', { name: '4HHB Hemoglobin' }));
+    await waitFor(() => expect(within(header()).getByText(/DEOXYHAEMOGLOBIN/)).toBeTruthy());
+    expect(within(header()).getByText('1.74 Å')).toBeTruthy();
+    expect(within(header()).getByText(/4 polymer chains/)).toBeTruthy();
   });
 
-  it('renders actual PDB ligand names in sequence and displays Ligands & Cofactors section', async () => {
-    const { fireEvent } = await import('@testing-library/preact');
-    render(<StructureView />);
+  it('dragging over the tool shows the overlay; dropping a CIF anywhere on it loads the file', async () => {
+    await renderLoaded();
+    const root = screen.getByTestId('structure-tool');
+    fireEvent.dragEnter(root, { dataTransfer: { files: [], types: ['Files'] } });
+    expect(screen.getByText('Drop a .cif, .pdb or .gz file')).toBeTruthy();
+    const file = new File([read('3KZ5.cif')], '3KZ5.cif');
+    fireEvent.drop(root, { dataTransfer: { files: [file], types: ['Files'] } });
+    expect(screen.queryByText('Drop a .cif, .pdb or .gz file')).toBeNull();
+    await waitFor(() => expect(within(header()).getByText('Structure of cdomain')).toBeTruthy());
+    await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '3KZ5', 0));
+  });
 
-    const mockPdbWithLigand = [
-      'HETNAM     HEM PROTOPORPHYRIN IX CONTAINING FE',
-      'ATOM      1  N   GLY A   1      11.104  13.207   9.000  1.00 20.00           N',
-      'ATOM      2  CA  GLY A   1      11.104  13.207  10.000  1.00 20.00           C',
-      'ATOM      3  C   GLY A   1      11.104  13.207  11.000  1.00 20.00           C',
-      'ATOM      4  O   GLY A   1      11.104  13.207  12.000  1.00 20.00           O',
-      'HETATM    5  FE  HEM A 142      15.000  15.000  15.000  1.00 15.00          FE',
-      'HETATM    6  N   HEM A 142      15.500  15.000  15.000  1.00 15.00           N',
-    ].join('\n');
+  it('leaving the window hides the drop overlay', async () => {
+    await renderLoaded();
+    const root = screen.getByTestId('structure-tool');
+    fireEvent.dragEnter(root, { dataTransfer: { files: [], types: ['Files'] } });
+    expect(screen.getByText('Drop a .cif, .pdb or .gz file')).toBeTruthy();
+    fireEvent.dragLeave(root, { relatedTarget: null });
+    expect(screen.queryByText('Drop a .cif, .pdb or .gz file')).toBeNull();
+  });
 
-    const file = new File([mockPdbWithLigand], 'myoglobin.pdb', { type: 'text/plain' });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
+  it('dropping a PNG shows an error and keeps 1UBQ', async () => {
+    await renderLoaded();
+    const png = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])], 'photo.png', { type: 'image/png' });
+    fireEvent.drop(screen.getByTestId('structure-tool'), { dataTransfer: { files: [png], types: ['Files'] } });
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/photo\.png is not a structure file/);
+    expect(within(header()).getByText(UBQ_TITLE)).toBeTruthy();
+  });
 
-    fireEvent.change(input, { target: { files: [file] } });
+  it('a failed fetch keeps the previous structure; the next successful load clears the error', async () => {
+    await renderLoaded();
+    const box = screen.getByLabelText('PDB ID', { exact: true });
+    fireEvent.input(box, { target: { value: '9ZZZ' } });
+    fireEvent.submit(box.closest('form')!);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/RCSB has no entry 9ZZZ/);
+    expect(within(header()).getByText(UBQ_TITLE)).toBeTruthy();
+    fireEvent.input(box, { target: { value: '3KZ5' } });
+    fireEvent.submit(box.closest('form')!);
+    await waitFor(() => expect(within(header()).getByText('Structure of cdomain')).toBeTruthy());
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 
-    // Wait for file reader
+  it('a slow earlier fetch never replaces a later one', async () => {
+    await renderLoaded();
+    let releaseSlow: () => void = () => undefined;
+    fetchMock.mockImplementation(async url => {
+      if (url.includes('4HHB')) await new Promise<void>(r => { releaseSlow = r; });
+      return serveFixtures(url);
+    });
+    fireEvent.click(screen.getByRole('button', { name: '4HHB Hemoglobin' }));
+    fireEvent.click(screen.getByRole('button', { name: '1CRN Crambin' }));
+    await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '1CRN', 0));
+    releaseSlow();
     await new Promise(r => setTimeout(r, 50));
-
-    // Verify ligand badge renders with actual PDB name [HEM]
-    expect(screen.getByText('[HEM]')).toBeTruthy();
-    expect(screen.queryByText('X')).toBeNull();
-
-    // Verify Ligands & Cofactors card renders
-    expect(screen.getByText(/Ligands & Cofactors/i)).toBeTruthy();
-    expect(screen.getAllByText('HEM').length).toBeGreaterThan(0);
-    expect(screen.getByText('PROTOPORPHYRIN IX CONTAINING FE')).toBeTruthy();
+    expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '1CRN', 0);
+    expect(within(header()).getByText('1CRN')).toBeTruthy();
   });
 
-  it('renders 1JGQ 30S Ribosome preset benchmark button', () => {
-    render(<StructureView />);
-    expect(screen.getByText(/1JGQ/i)).toBeTruthy();
-    expect(screen.getByText(/30S Ribosome/i)).toBeTruthy();
+  it('an NMR ensemble gets a model picker; picking model 2 reloads Mol* with model index 1', async () => {
+    await renderLoaded();
+    const file = new File([read('1L2Y.cif.gz')], '1L2Y.cif');
+    fireEvent.change(screen.getByLabelText(/Structure file/), { target: { files: [file] } });
+    await waitFor(() => expect(screen.getByText('Model 1 of 38')).toBeTruthy());
+    const picker = screen.getByLabelText('Model', { exact: true });
+    fireEvent.change(picker, { target: { value: '1' } });
+    await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '1L2Y', 1));
   });
 
-  it('renders Subunits Overview Table for multi-chain ribosomal complex with search, inspect, and consolidated ligands', async () => {
-    const { fireEvent } = await import('@testing-library/preact');
-    render(<StructureView />);
+  it('display controls drive Mol*: colour and representation', async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText('Colour', { exact: true }), { target: { value: 'entity-id' } });
+    expect(handle.setColoring).toHaveBeenCalledWith('entity-id');
+    fireEvent.change(screen.getByLabelText('Representation', { exact: true }), { target: { value: 'surface' } });
+    expect(handle.setRepresentation).toHaveBeenCalledWith('surface');
+    expect(screen.getByRole('button', { name: 'Mol* panels' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Large canvas' })).toBeTruthy();
+  });
 
-    const mockRibosomePdb = [
-      'COMPND    MOL_ID: 1;',
-      'COMPND   2 MOLECULE: 16S RIBOSOMAL RNA;',
-      'COMPND   3 CHAIN: A;',
-      'COMPND   4 MOL_ID: 2;',
-      'COMPND   5 MOLECULE: TRNA(PHE);',
-      'COMPND   6 CHAIN: B, C;',
-      'COMPND   7 MOL_ID: 3;',
-      'COMPND   8 MOLECULE: 30S RIBOSOMAL PROTEIN S2;',
-      'COMPND   9 CHAIN: E;',
-      // Chain A: 16S rRNA
-      'ATOM      1  P     U A   1     -50.761  76.728 327.188  1.00 20.00           P',
-      'ATOM      2  P     G A   2     -48.559  75.043 336.960  1.00 20.00           P',
-      // Chain B: tRNA
-      'ATOM      3  P     A B   1     -10.000  10.000  10.000  1.00 20.00           P',
-      'ATOM      4  P     C B   2     -12.000  12.000  12.000  1.00 20.00           P',
-      // Chain C: tRNA
-      'ATOM      5  P     G C   1     -20.000  20.000  20.000  1.00 20.00           P',
-      // Chain E: Protein S2
-      'ATOM      6  CA  MET E   1       6.000   6.000   6.000  1.00 20.00           C',
-      'ATOM      7  CA  GLY E   2       8.000   8.000   8.000  1.00 20.00           C',
-      // Real ligands (multiple MG ions)
-      'HETATM    8 MG    MG A 201     -40.000  70.000 320.000  1.00 15.00          MG',
-      'HETATM    9 MG    MG B 202     -42.000  72.000 322.000  1.00 15.00          MG',
-    ].join('\n');
-
-    const file = new File([mockRibosomePdb], '1jgq-sample.pdb', { type: 'text/plain' });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
-
-    fireEvent.change(input, { target: { files: [file] } });
-    await new Promise(r => setTimeout(r, 50));
-
-    // 4 chains loaded (>3 chains), so Subunits Overview Table should render by default
-    expect(screen.getByText(/16S RIBOSOMAL RNA/i)).toBeTruthy();
-    expect(screen.getAllByText(/TRNA\(PHE\)/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/30S RIBOSOMAL PROTEIN S2/i)).toBeTruthy();
-    expect(screen.getAllByText('RNA').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Protein').length).toBeGreaterThan(0);
-
-    // Filter subunits by search query
-    const searchInput = screen.getByPlaceholderText(/Filter subunits/i) as HTMLInputElement;
-    expect(searchInput).toBeTruthy();
-    fireEvent.input(searchInput, { target: { value: 'S2' } });
-
-    expect(screen.getByText(/30S RIBOSOMAL PROTEIN S2/i)).toBeTruthy();
-    expect(screen.queryByText(/16S RIBOSOMAL RNA/i)).toBeNull();
-
-    // Reset search
-    fireEvent.input(searchInput, { target: { value: '' } });
-    expect(screen.getByText(/16S RIBOSOMAL RNA/i)).toBeTruthy();
-
-    // Inspect Chain A
-    const inspectButtons = screen.getAllByRole('button', { name: /Inspect/i });
-    expect(inspectButtons.length).toBeGreaterThan(0);
-    fireEvent.click(inspectButtons[0]!);
-
-    // Should switch to Chain A detailed view with back button and sequence
-    expect(screen.getByText(/Back to Subunits Overview/i)).toBeTruthy();
-    expect(screen.getByText('UG')).toBeTruthy(); // Chain A pure sequence (UG)
-
-    // Click back to overview
-    fireEvent.click(screen.getByText(/Back to Subunits Overview/i));
-    expect(screen.getByText(/16S RIBOSOMAL RNA/i)).toBeTruthy();
-
-    // Verify consolidated ligands card (2 MG ions consolidated into 1 card showing 2 molecules)
-    expect(screen.getByText(/2 molecules/i)).toBeTruthy();
-    expect(screen.getByText(/Found in Chains: A, B/i)).toBeTruthy();
+  it('snapshot downloads the Mol* PNG as <name>.png', async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByRole('button', { name: /Snapshot/ }));
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), '1UBQ.png'));
+    expect(handle.snapshot).toHaveBeenCalled();
   });
 });
