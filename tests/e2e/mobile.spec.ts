@@ -45,6 +45,17 @@ test('a buffer row shows its pKa source without escaping a phone screen', async 
   expect(await escapingElements(page)).toEqual([]);
 });
 
+// The sequence strip and results only render once a structure is loaded, which the tool sweep never does.
+test('structure results with the sequence strip fit a phone screen', async ({ page }) => {
+  await page.route('https://files.rcsb.org/download/**', route => route.fulfill({ status: 404, body: 'none' }));
+  await page.goto('/#/t/structure');
+  await page.locator('input[type=file]').first().setInputFiles('tests/fixtures/structure/3KZ5.cif');
+  await expect(page.locator('[data-loaded-label="3KZ5"]')).toHaveCount(1, { timeout: 30_000 });
+  await page.getByRole('button', { name: /Results/ }).first().click();
+  await expect(page.getByRole('button', { name: 'Residue E 290 GLY', exact: true })).toBeVisible();
+  expect(await escapingElements(page)).toEqual([]);
+});
+
 for (const id of READY_TOOLS) {
   test(`${id} opens on a phone without errors or horizontal page scroll`, async ({ page }) => {
     const errors: string[] = [];

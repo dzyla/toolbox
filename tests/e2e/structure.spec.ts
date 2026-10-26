@@ -93,3 +93,37 @@ test('toggling Mol* panels and canvas size does not reload the structure', async
   await expect(viewer).toHaveAttribute('data-loaded-label', label!);
   await expect(viewer.locator('canvas')).toHaveCount(1);
 });
+
+test('dropping 3KZ5.cif loads it and clicking a residue selects it in Mol*', async ({ page }) => {
+  await page.goto('/#/t/structure');
+  await expectLoaded(page, '1UBQ');
+
+  const text = readFileSync(join(FIXTURES, '3KZ5.cif'), 'utf8');
+  await page.evaluate(async cif => {
+    const target = document.querySelector('h1')!;
+    const dt = new DataTransfer();
+    dt.items.add(new File([cif], '3KZ5.cif', { type: 'chemical/x-mmcif' }));
+    target.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  }, text);
+
+  await expectLoaded(page, '3KZ5');
+  await expect(page.getByTestId('structure-header')).toContainText('Structure of cdomain');
+  await expect(host(page)).toHaveAttribute('data-selection-count', '0');
+
+  await page.getByRole('button', { name: 'Residue E 290 GLY', exact: true }).click();
+  await expect.poll(async () => Number(await host(page).getAttribute('data-selection-count')), { timeout: 10_000 }).toBeGreaterThan(0);
+});
+
+test('a large entry is parsed in a worker', async ({ page }) => {
+  const workers: string[] = [];
+  page.on('worker', w => workers.push(w.url()));
+  await page.goto('/#/t/structure');
+  await expectLoaded(page, '1UBQ');
+  const idBox = page.getByLabel('PDB ID', { exact: true });
+  await idBox.fill('4HHB');
+  await idBox.press('Enter');
+  await expectLoaded(page, '4HHB');
+  expect(workers.some(u => /parse\.worker/.test(u))).toBe(true);
+});

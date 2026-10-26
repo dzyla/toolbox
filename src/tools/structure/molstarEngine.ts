@@ -169,6 +169,12 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
   let disposed = false;
   let loadCount = 0;
 
+  // Number of elements in Mol*'s current selection, for tests and assistive state.
+  host.setAttribute('data-selection-count', '0');
+  const selectionSub = plugin.managers.structure.selection.events.changed.subscribe(() => {
+    host.setAttribute('data-selection-count', String(plugin.managers.structure.selection.elementCount()));
+  });
+
   const currentStructure = (): Structure | undefined =>
     plugin.managers.structure.hierarchy.current.structures[0]?.cell.obj?.data;
 
@@ -293,6 +299,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
       clickSub.unsubscribe();
       hoverSub.unsubscribe();
       logoObserver.disconnect();
+      selectionSub.unsubscribe();
       plugin.dispose();
       mount.root?.unmount();
       target.remove();

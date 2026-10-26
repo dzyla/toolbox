@@ -67,7 +67,7 @@ export const TOOLS: ToolMeta[] = [
     blurb: 'MW, pI, ε280, instability, digests, plots', keywords: ['protein', 'pi', 'extinction', 'protparam', 'mw', 'kda', 'digest'],
     status: 'ready', load: () => import('./protein/View') },
   { id: 'structure', name: '3D Structure Viewer', category: 'sequences', icon: '🧊',
-    blurb: 'Interactive Mol* 3D structure viewer, RCSB PDB fetch, local PDB upload, and coordinate metrics', keywords: ['structure', 'pdb', '3d', 'protein', 'molstar', 'alphafold', 'rcsb'],
+    blurb: 'Mol* 3D viewer for mmCIF and PDB: RCSB fetch, drag-and-drop files, sequences linked to 3D, FASTA export, ligands and interface residues', keywords: ['structure', 'pdb', '3d', 'protein', 'molstar', 'alphafold', 'rcsb', 'mmcif', 'cif', 'fasta', 'interface'],
     status: 'ready', load: () => import('./structure/View') },
   { id: 'protein-conc', name: 'Protein Concentration', category: 'sequences', icon: '📏',
     blurb: 'A280 to mg/mL and µM', keywords: ['a280', 'concentration', 'nanodrop', 'bradford', 'bca'],
