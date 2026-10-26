@@ -129,6 +129,35 @@ describe('Export', () => {
     expect(back.chains[0]!.authAsymId).toBe('B');
   });
 
+  it('PDB input: chain and whole-structure exports leave out water and keep ligands, in both formats', async () => {
+    await loadFile('3KZ5.pdb', /cdomain/i);
+    const part = screen.getByLabelText('Export part', { exact: true }) as HTMLSelectElement;
+    const all = Array.from(part.options).find(o => o.textContent === 'Whole structure (no water)')!.value;
+    for (const fmt of ['mmcif', 'pdb']) {
+      fireEvent.change(screen.getByLabelText('Export format', { exact: true }), { target: { value: fmt } });
+      for (const value of ['chain:B', all]) {
+        fireEvent.change(part, { target: { value } });
+        fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+        const text = downloadText.mock.calls.at(-1)![0] as string;
+        expect(text).not.toMatch(/HOH/);
+        expect(text).toMatch(/ACT/);
+      }
+    }
+  });
+
+  it('PDB input: "Whole structure" includes a ligand that sits in a chain of its own', async () => {
+    const gol = 'HETATM 9999  C1  GOL Z 901      10.000  10.000  10.000  1.00 20.00           C';
+    const text = read('1UBQ.pdb').replace(/^END\s*$/m, `${gol}\nEND`);
+    await loadFile('1UBQ.pdb', /characters, PDB/, text);   // the demo is 1UBQ too, so wait for the PDB format
+    const part = screen.getByLabelText('Export part', { exact: true }) as HTMLSelectElement;
+    fireEvent.change(part, { target: { value: Array.from(part.options).find(o => o.textContent === 'Whole structure (no water)')!.value } });
+    fireEvent.change(screen.getByLabelText('Export format', { exact: true }), { target: { value: 'pdb' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    const out = downloadText.mock.calls.at(-1)![0] as string;
+    expect(out).toMatch(/^HETATM.{11}GOL Z 901/m);
+    expect(out).not.toMatch(/HOH/);
+  });
+
   it('warns that PDB truncates a two-letter chain ID', async () => {
     const cif = read('minimal.cif').replace(/^(ATOM .* [A-Z]{3}) A (\w+ 1)$/gm, '$1 AA $2');
     await loadFile('long.cif', /./, cif).catch(() => undefined);

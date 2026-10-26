@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseMmcif } from '@/core/structure/mmcif';
+import { parsePdbToModel } from '@/core/structure/pdb';
 import { toFasta } from '@/core/structure/fasta';
 import { computeInterfaces } from '@/core/structure/interfaces';
 import { computeMetrics } from '@/core/structure/metrics';
@@ -238,6 +239,19 @@ describe('export', () => {
     const text = writeMmcif(m, 0, ['A']);
     expect(text).toContain('"O5\'"');
     expect(parseMmcif(text).models[0]!.atomName[0]).toBe("O5'");
+  });
+  it('writers leave out water by comp ID (PDB input: waters share the chain ID)', () => {
+    const m = parsePdbToModel(read('3KZ5.pdb'), '3KZ5');
+    const pdb = writePdb(m, 0, ['B']).text;
+    expect(pdb).not.toMatch(/HOH/);
+    expect(pdb).toMatch(/^HETATM.{11}ACT B/m);
+    const cif = writeMmcif(m, 0, ['A', 'B', 'E']);
+    expect(cif).not.toMatch(/HOH/);
+    expect(parseMmcif(cif).ligands.map((l) => l.compId)).toEqual(['ACT']);
+    for (const comp of ['DOD', 'WAT']) {
+      const w = synth([{ asym: 'A', seq: 1, xyz: [0, 0, 0] }, { asym: 'A', seq: 0, comp, xyz: [1, 1, 1] }], ['A']);
+      expect(writePdb(w, 0, ['A']).text.split('\n').filter((l) => l.startsWith('ATOM') || l.startsWith('HETATM'))).toHaveLength(1);
+    }
   });
   it('writePdb emits fixed-column records, TER and END', () => {
     const m = parseMmcif(read('1UBQ.cif'), '1UBQ');

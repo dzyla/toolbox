@@ -29,10 +29,11 @@ export function ExportMenu({ model, source, format, modelIndex, canSnapshot, onS
       if (e.kind === 'water' || e.labelAsymIds.length === 0) continue;
       list.push({ value: `entity:${e.id}`, label: `Entity ${e.id}: ${e.description || e.kind}`, ids: e.labelAsymIds, file: `entity_${e.id}` });
     }
-    list.push({
-      value: 'all', label: 'Whole structure (no water)', file: 'model',
-      ids: model.entities.filter(e => e.kind !== 'water').flatMap(e => e.labelAsymIds),
-    });
+    // Every non-water asym, ligands included (a PDB file's ligand-only chain has no entity);
+    // the writers drop water atoms by comp ID.
+    const all = new Set(model.entities.filter(e => e.kind !== 'water').flatMap(e => e.labelAsymIds));
+    for (const l of model.ligands) all.add(l.labelAsymId);
+    list.push({ value: 'all', label: 'Whole structure (no water)', file: 'model', ids: [...all] });
     return list;
   }, [model]);
 

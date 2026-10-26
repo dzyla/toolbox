@@ -1,12 +1,18 @@
-/** Writers for a chain selection of one model: mmCIF (round-trips through parseMmcif) and PDB. */
+/**
+ * Writers for a chain selection of one model: mmCIF (round-trips through parseMmcif) and PDB.
+ * Water is always left out, by comp ID, so both input formats behave alike (PDB files put
+ * waters under the polymer chain IDs; mmCIF gives them their own asym IDs).
+ */
 import type { AtomTable, StructureModel } from './model';
+
+const WATER = new Set(['HOH', 'DOD', 'WAT']);
 
 function selected(m: StructureModel, modelIndex: number, labelAsymIds: string[]): { t: AtomTable | undefined; idx: number[] } {
   const t = m.models[modelIndex];
   if (!t) return { t, idx: [] };
   const set = new Set(labelAsymIds);
   const idx: number[] = [];
-  for (let i = 0; i < t.count; i++) if (set.has(t.labelAsymId[i]!)) idx.push(i);
+  for (let i = 0; i < t.count; i++) if (set.has(t.labelAsymId[i]!) && !WATER.has(t.compId[i]!)) idx.push(i);
   return { t, idx };
 }
 
