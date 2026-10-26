@@ -6,6 +6,27 @@ import { VitePWA } from 'vite-plugin-pwa';
 /** Navigation requests for the frozen legacy pages, at any base path. */
 export const LEGACY_NAVIGATION = /\/legacy\//;
 
+type RuntimeCaching = NonNullable<NonNullable<NonNullable<Parameters<typeof VitePWA>[0]>['workbox']>['runtimeCaching']>;
+
+/** Workbox runtime caches (exported for tests/build/pwa-config.test.ts). */
+export const RUNTIME_CACHING: RuntimeCaching = [
+  {
+    urlPattern: /\/assets\/molstar-[^/]+\.(js|css)$/,
+    handler: 'CacheFirst',
+    options: { cacheName: 'molstar-viewer', expiration: { maxEntries: 4 } }
+  },
+  {
+    // Recently opened entries work offline; a month-old copy is fetched again.
+    urlPattern: /^https:\/\/files\.rcsb\.org\/download\//,
+    handler: 'CacheFirst',
+    options: {
+      cacheName: 'rcsb-structures',
+      expiration: { maxEntries: 30, maxAgeSeconds: 30 * 24 * 3600 },
+      cacheableResponse: { statuses: [200] }
+    }
+  }
+];
+
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0') },
@@ -48,18 +69,7 @@ export default defineConfig({
         // The local Mol* viewer chunk (~5 MB, structure tool only) is cached on first use rather than
         // precached, so installing the app does not download it for everyone.
         globIgnores: ['**/assets/molstar-*.{js,css}'],
-        runtimeCaching: [
-          {
-            urlPattern: /\/assets\/molstar-[^/]+\.(js|css)$/,
-            handler: 'CacheFirst',
-            options: { cacheName: 'molstar-viewer', expiration: { maxEntries: 4 } }
-          },
-          {
-            urlPattern: /^https:\/\/files\.rcsb\.org\/download\//,
-            handler: 'CacheFirst',
-            options: { cacheName: 'rcsb-structures', expiration: { maxEntries: 30 }, cacheableResponse: { statuses: [200] } }
-          }
-        ],
+        runtimeCaching: RUNTIME_CACHING,
         // Largest precached chunk is the Plotly scatter/scattergl partial bundle (~1.4 MB).
         maximumFileSizeToCacheInBytes: 2.5 * 1024 * 1024,
         // The frozen legacy pages are served from disk (copied by deploy), not from the precache —
