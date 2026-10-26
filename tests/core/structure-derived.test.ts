@@ -114,6 +114,24 @@ describe('computeInterfaces', () => {
     expect(computeInterfaces(m, 0, 4.7)[0]!.a.residues.map((r) => r.authSeqId)).toEqual([2, 3, 4]);
     expect(computeInterfaces(m, 5)).toEqual([]);
   });
+  it('a chain without label_seq_id (minimal.cif chain B, moved next to chain A) still forms an interface', () => {
+    // Chain B atoms sit at x 20-35, z 5-6.5; shift them by (-20, 0, -2) so VAL B 1 lies ~3 Å from ALA A 1.
+    const cif = read('minimal.cif').replace(
+      /^(ATOM \d+ \S+ \S+ \. \w+ B 2 \. \? )(\S+) (\S+) (\S+)/gm,
+      (_, head: string, x: string, y: string, z: string) => `${head}${(+x - 20).toFixed(3)} ${y} ${(+z - 2).toFixed(3)}`,
+    );
+    const m = parseMmcif(cif);
+    const t = m.models[0]!;
+    // Polymer atoms of chain B carry their residue index (1..6) like chain A's label_seq_id.
+    const bSeq = Array.from(t.labelSeqId).filter((_, i) => t.labelAsymId[i] === 'B');
+    expect(bSeq).toEqual([1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
+    const res = computeInterfaces(m, 0);
+    expect(res).toHaveLength(1);
+    expect(res[0]!.a.labelAsymId).toBe('A');
+    expect(res[0]!.b.labelAsymId).toBe('B');
+    expect(res[0]!.b.residues.length).toBeGreaterThan(0);
+    expect(res[0]!.b.residues[0]).toEqual({ authAsymId: 'B', authSeqId: 1, insCode: '' });
+  });
   it('ignores hydrogens, ligands and unrelated chains', () => {
     const m = synth([
       { asym: 'A', seq: 1, xyz: [0, 0, 0] },

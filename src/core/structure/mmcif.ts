@@ -216,6 +216,23 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
     if (i.labelSeq > 0) instByResidue.set(`${i.asym}:${i.labelSeq}`, i);
   }
 
+  // Chains built from atoms without label_seq_id: their polymer atoms get the residue index the
+  // chain was given (as the PDB reader does), so interfaces and exports see them as polymer.
+  const stampKey = (asym: string, authSeq: number, ins: string, comp: string) => `${asym}|${authSeq}|${ins}|${comp}`;
+  const stamps = new Map<string, number>();
+  const chainFromInstances = (list: Instance[], authChain: string): SeqResidue[] => {
+    const residues = residuesFromInstances(list, makeResidue);
+    if (!list.every((i) => i.labelSeq > 0)) {
+      list.forEach((i, k) => {
+        const key = stampKey(i.asym, i.authSeq, i.ins, i.comp);
+        if (!stamps.has(key)) stamps.set(key, residues[k]!.seqId);
+      });
+    }
+    const jump = numberingJumpWarning(authChain, list.map((i) => i.authSeq));
+    if (jump) warnings.push(jump);
+    return residues;
+  };
+
   const entities: Entity[] = [];
   const chains: PolymerChain[] = [];
   const entCat = cats.get('_entity');
@@ -330,10 +347,7 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
           if (strand !== undefined) authAsym = strand;
         }
       } else {
-        const list = instances.filter((i) => i.asym === asym && isPolymerInstance(i));
-        residues = residuesFromInstances(list, makeResidue);
-        const jump = numberingJumpWarning(authAsym ?? asym, list.map((i) => i.authSeq));
-        if (jump) warnings.push(jump);
+        residues = chainFromInstances(instances.filter((i) => i.asym === asym && isPolymerInstance(i)), authAsym ?? asym);
       }
       if (!ent.sequence) ent.sequence = canon.get(eid) ?? residues.map((x) => x.oneLetter).join('');
       chains.push({ labelAsymId: asym, authAsymId: authAsym ?? asym, entityId: eid, residues });
@@ -342,7 +356,16 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
       if (e.kind === 'polymer' && !e.sequence) e.sequence = canon.get(e.id) ?? '';
     }
   } else {
-    buildFromAtoms(instances, models, entities, chains, entIndex, makeResidue);
+    buildFromAtoms(instances, models, entities, chains, entIndex);
+  }
+  if (stamps.size) {
+    for (const t of models) {
+      for (let k = 0; k < t.count; k++) {
+        if (t.labelSeqId[k]! > 0 || WATER.has(t.compId[k]!)) continue;
+        const seqId = stamps.get(stampKey(t.labelAsymId[k]!, t.authSeqId[k]!, t.insCode[k]!, t.compId[k]!));
+        if (seqId !== undefined) t.labelSeqId[k] = seqId;
+      }
+    }
   }
 
   // Ligands: non-polymer, non-water residue instances of the first model.
@@ -360,7 +383,6 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
 
   function buildFromAtoms(
     insts: Instance[], tables: AtomTable[], ents: Entity[], outChains: PolymerChain[], index: Map<string, Entity>,
-    make: typeof makeResidue,
   ): void {
     const byAsym = new Map<string, Instance[]>();
     for (const i of insts) {
@@ -372,9 +394,7 @@ export function parseMmcif(text: string, name = 'structure'): StructureModel {
     const bySeq = new Map<string, Entity>();
     const asymToEntity = new Map<string, string>();
     for (const [asym, list] of byAsym) {
-      const residues = residuesFromInstances(list, make);
-      const jump = numberingJumpWarning(list[0]!.authAsym, list.map((i) => i.authSeq));
-      if (jump) warnings.push(jump);
+      const residues = chainFromInstances(list, list[0]!.authAsym);
       const seq = residues.map((x) => x.oneLetter).join('');
       const type = guessPolymerType(list.map((i) => i.comp));
       const key = `${type}:${seq}`;
