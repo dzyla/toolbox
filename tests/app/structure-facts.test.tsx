@@ -105,6 +105,8 @@ describe('Metrics', () => {
     await loadFile('3KZ5.cif', 'Structure of cdomain');
     const s = section('Structure metrics');
     expect(s.getByText('Heavy atoms')).toBeTruthy();
+    // The atom count is every atom of the model, hydrogens included; the label says so.
+    expect(s.getByText('Atoms (incl. H)')).toBeTruthy();
         expect(s.getByText('Bounding box')).toBeTruthy();
   });
 });

@@ -2,11 +2,14 @@ import type { StructureMetrics } from '@/core/structure';
 
 const f = (n: number) => n.toLocaleString('en-US');
 
-/** Coordinate-derived numbers for the selected model (water excluded in the core). */
+/**
+ * Coordinate-derived numbers for the selected model. Atom counts cover the whole model (water
+ * included; "Atoms" also counts hydrogens); Rg and the bounding box use non-water heavy atoms.
+ */
 export function MetricsRow({ metrics }: { metrics: StructureMetrics }) {
   const size = metrics.bounds.max.map((v, i) => (v - metrics.bounds.min[i]!).toFixed(1)).join(' × ');
   const items: [string, string][] = [
-    ['Atoms', f(metrics.atomCount)],
+    ['Atoms (incl. H)', f(metrics.atomCount)],
     ['Heavy atoms', f(metrics.heavyAtomCount)],
     ['Residues', f(metrics.residueCount)],
     ['Radius of gyration', `${metrics.radiusOfGyration.toFixed(1)} Å`],
