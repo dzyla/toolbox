@@ -251,6 +251,30 @@ describe('export', () => {
     expect(lines.at(-1)).toBe('END');
     expect(writePdb(m, 4, ['A']).text).toBe('END\n');
   });
+  it('writePdb keeps columns aligned for residue numbers that do not fit 4 columns, and warns', () => {
+    const m = synth([
+      { asym: 'A', seq: 9999, xyz: [1, 2, 3] },
+      { asym: 'A', seq: 10000, xyz: [4, 5, 6] },
+      { asym: 'A', seq: 123456, xyz: [7, 8, 9] },
+    ], ['A']);
+    const { text, warnings } = writePdb(m, 0, ['A']);
+    expect(warnings).toEqual(['Residue numbers above 9999 do not fit PDB format columns']);
+    const lines = text.trimEnd().split('\n');
+    const atoms = lines.filter((l) => l.startsWith('ATOM'));
+    expect(atoms).toHaveLength(3);
+    // resSeq (columns 23-26) wraps modulo 10000, so x/y/z stay in columns 31-54.
+    expect(atoms.map((l) => l.slice(22, 26))).toEqual(['9999', '   0', '3456']);
+    expect(atoms.map((l) => l.slice(30, 54).trim().split(/\s+/).map(Number))).toEqual([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+    expect(new Set(atoms.map((l) => l.length)).size).toBe(1);
+    const ter = lines.find((l) => l.startsWith('TER'))!;
+    expect(ter.slice(22, 27)).toBe('3456 ');
+    // Below -999 does not fit either.
+    const neg = synth([{ asym: 'A', seq: -1000, xyz: [1, 2, 3] }], ['A']);
+    const n = writePdb(neg, 0, ['A']);
+    expect(n.warnings).toEqual(['Residue numbers below -999 do not fit PDB format columns']);
+    expect(n.text.split('\n')[0]!.slice(30, 38)).toBe('   1.000');
+    expect(writePdb(synth([{ asym: 'A', seq: -999, xyz: [0, 0, 0] }], ['A']), 0, ['A']).warnings).toEqual([]);
+  });
   it('writePdb handles ligands and warns about overflows', () => {
     const m = parseMmcif(read('4HHB.cif.gz'), '4HHB');
     const out = writePdb(m, 0, m.chains.map((c) => c.labelAsymId).concat(m.ligands.map((l) => l.labelAsymId)));

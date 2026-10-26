@@ -56,12 +56,22 @@ export function writePdb(m: StructureModel, modelIndex: number, labelAsymIds: st
   if (t) {
     const chainsSeen = new Set<string>();
     let longIds = false;
+    let bigSeq = false;
+    let smallSeq = false;
+    // resSeq has 4 columns: numbers outside -999..9999 wrap modulo 10000 (like serials wrap at
+    // 100000) so the columns after them stay in place; a warning says so.
+    const resSeq = (n: number): string => {
+      if (n > 9999) bigSeq = true;
+      else if (n < -999) smallSeq = true;
+      else return pad(String(n), 4);
+      return pad(String(((n % 10000) + 10000) % 10000), 4);
+    };
     let serial = 0;
     let prev = -1;
     const ter = () => {
       serial++;
       const p = prev;
-      out.push(`TER   ${pad(String(serial % 100000), 5)}      ${t.compId[p]!.slice(0, 3).padStart(3)} ${(t.authAsymId[p]!).charAt(0) || ' '}${pad(String(t.authSeqId[p]), 4)}${t.insCode[p] || ' '}`);
+      out.push(`TER   ${pad(String(serial % 100000), 5)}      ${t.compId[p]!.slice(0, 3).padStart(3)} ${(t.authAsymId[p]!).charAt(0) || ' '}${resSeq(t.authSeqId[p]!)}${t.insCode[p] || ' '}`);
     };
     for (const i of idx) {
       chainsSeen.add(t.labelAsymId[i]!);
@@ -77,7 +87,7 @@ export function writePdb(m: StructureModel, modelIndex: number, labelAsymIds: st
       const b = Math.min(t.bFactor[i]!, 999.99);
       out.push(
         `${t.isHetatm[i] ? 'HETATM' : 'ATOM  '}${pad(String(serial % 100000), 5)} ${nameField} ${t.compId[i]!.slice(0, 3).padStart(3)} `
-        + `${t.authAsymId[i]!.charAt(0) || ' '}${pad(String(t.authSeqId[i]), 4)}${t.insCode[i]!.charAt(0) || ' '}   `
+        + `${t.authAsymId[i]!.charAt(0) || ' '}${resSeq(t.authSeqId[i]!)}${t.insCode[i]!.charAt(0) || ' '}   `
         + `${f(0)}${f(1)}${f(2)}${t.occupancy[i]!.toFixed(2).padStart(6)}${b.toFixed(2).padStart(6)}          ${el.slice(0, 2).padStart(2)}`,
       );
     }
@@ -85,6 +95,8 @@ export function writePdb(m: StructureModel, modelIndex: number, labelAsymIds: st
     if (chainsSeen.size > 62) warnings.push('More than 62 chains: PDB format cannot hold them all');
     if (longIds) warnings.push('Chain IDs longer than one character (e.g. AA) are truncated in PDB format');
     if (serial > 99999) warnings.push('More than 99,999 atoms: serial numbers overflow in PDB format');
+    if (bigSeq) warnings.push('Residue numbers above 9999 do not fit PDB format columns');
+    if (smallSeq) warnings.push('Residue numbers below -999 do not fit PDB format columns');
   }
   out.push('END');
   return { text: out.join('\n') + '\n', warnings };
