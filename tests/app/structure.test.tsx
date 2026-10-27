@@ -266,6 +266,25 @@ describe('Structure viewer', () => {
     expect(handle.setRepresentation.mock.invocationCallOrder[0]).toBeLessThan(handle.load.mock.invocationCallOrder[0]!);
   });
 
+  it('viewer size: Medium by default; Small and Large change the workspace and are remembered', async () => {
+    localStorage.removeItem('bb.structure.viewerSize');
+    await renderLoaded();
+    const size = (name: string) => screen.getByRole('button', { name, exact: true });
+    expect(size('Medium').getAttribute('aria-pressed')).toBe('true');
+    const workspace = () => screen.getByTestId('fake-molstar').closest('.grid') as HTMLElement;
+    expect(workspace().className).toContain('min(40rem');
+    fireEvent.click(size('Small'));
+    expect(size('Small').getAttribute('aria-pressed')).toBe('true');
+    expect(workspace().className).toContain('lg:h-[28rem]');
+    fireEvent.click(size('Large'));
+    expect(workspace().className).toContain('100dvh-6rem');
+    expect(localStorage.getItem('bb.structure.viewerSize')).toBe('large');
+    cleanup();
+    await renderLoaded();
+    expect(size('Large').getAttribute('aria-pressed')).toBe('true');
+    localStorage.removeItem('bb.structure.viewerSize');
+  });
+
   it('snapshot downloads the Mol* PNG as <name>.png', async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole('button', { name: /Snapshot/ }));

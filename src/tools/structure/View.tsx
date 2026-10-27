@@ -4,7 +4,7 @@ import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import type { StructureModel } from '@/core/structure';
 import { ColorLegend } from './components/ColorLegend';
-import { DisplayToolbar } from './components/DisplayToolbar';
+import { DisplayToolbar, type ViewerSize } from './components/DisplayToolbar';
 import { DropOverlay } from './components/DropOverlay';
 import { EntityTable } from './components/EntityTable';
 import { ExportMenu } from './components/ExportMenu';
@@ -93,6 +93,32 @@ function useFullscreen() {
   return { ref, on, supported, toggle };
 }
 
+const SIZE_KEY = 'bb.structure.viewerSize';
+/** Workspace height on wide screens (viewer, strip and side panel share it). */
+const WORKSPACE_HEIGHT: Record<ViewerSize, string> = {
+  small: 'lg:h-[28rem]',
+  medium: 'lg:h-[max(28rem,min(40rem,calc(100dvh-15rem)))]',
+  large: 'lg:h-[max(34rem,calc(100dvh-6rem))]',
+};
+/** Viewer height on narrow screens, where the strip and the tabs stack below it. */
+const VIEWER_HEIGHT: Record<ViewerSize, string> = { small: 'h-[40vh]', medium: 'h-[55vh]', large: 'h-[75vh]' };
+
+/** The chosen viewer size, remembered on this device (a convenience: the default works without it). */
+function useViewerSize(): [ViewerSize, (s: ViewerSize) => void] {
+  const [size, setSize] = useState<ViewerSize>(() => {
+    try {
+      const v = localStorage.getItem(SIZE_KEY);
+      if (v === 'small' || v === 'medium' || v === 'large') return v;
+    } catch { /* storage blocked */ }
+    return 'medium';
+  });
+  const set = (s: ViewerSize) => {
+    setSize(s);
+    try { localStorage.setItem(SIZE_KEY, s); } catch { /* storage blocked */ }
+  };
+  return [size, set];
+}
+
 /** The tab a structure opens on: its interfaces when it has several chains, else ligands, else facts. */
 const firstTab = (m: StructureModel) => (m.chains.length > 1 ? 'interfaces' : m.ligands.length > 0 ? 'ligands' : 'info');
 
@@ -121,6 +147,7 @@ export default function StructureView() {
   const m = useStructureModel();
   const { dragging, handlers } = useFileDrop(file => void m.loadFile(file));
   const full = useFullscreen();
+  const [size, setSize] = useViewerSize();
   const currentId = m.source && m.source.origin !== 'file' ? m.source.rcsbId ?? '' : '';
   const busy = m.fetching ?? (m.parsing ? 'Parsing the structure…' : null);
   const label = m.source?.name ?? 'Structure';
@@ -185,18 +212,19 @@ export default function StructureView() {
             <div ref={full.ref}
               class={`grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)] ${full.on
                 ? 'h-screen bg-white p-3 dark:bg-slate-900 lg:grid-rows-1'
-                : 'lg:h-[max(32rem,calc(100dvh-15rem))]'}`}>
+                : WORKSPACE_HEIGHT[size]}`}>
               <div class="flex min-h-0 min-w-0 flex-col gap-2">
                 <DisplayToolbar
                   representation={m.representation} onRepresentation={m.setRepresentation}
                   coloring={m.coloring} onColoring={m.setColoring} plddt={!!m.plddt}
                   hydrogens={m.hydrogens} onHydrogens={m.setHydrogens} hasHydrogens={m.hasHydrogens}
                   panels={m.panels} onPanels={m.setPanels}
+                  size={size} onSize={setSize}
                   fullscreen={full.supported ? full.on : null} onFullscreen={full.toggle}
                   modelCount={m.model?.models.length ?? 0} modelIndex={m.modelIndex} onModelIndex={m.setModelIndex}
                   canSnapshot={!!m.viewer && !!m.source} onSnapshot={() => void m.snapshot()}
                 />
-                <div class={`relative min-h-72 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 lg:min-h-0 lg:flex-1 ${full.on ? 'flex-1' : 'h-[60vh] lg:h-auto'}`}>
+                <div class={`relative min-h-72 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 lg:min-h-0 lg:flex-1 ${full.on ? 'flex-1' : `${VIEWER_HEIGHT[size]} lg:h-auto`}`}>
                   <MolstarViewer
                     label={label}
                     showControls={m.panels}

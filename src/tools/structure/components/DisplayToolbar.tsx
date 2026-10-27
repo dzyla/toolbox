@@ -1,4 +1,12 @@
 import type { Coloring, Representation } from '../MolstarViewer';
+import { segmentClass, segmentGroupClass } from './ui';
+
+export type ViewerSize = 'small' | 'medium' | 'large';
+const SIZES: { value: ViewerSize; short: string; label: string; title: string }[] = [
+  { value: 'small', short: 'S', label: 'Small', title: 'Small viewer' },
+  { value: 'medium', short: 'M', label: 'Medium', title: 'Medium viewer: fits the screen, up to about 640 px tall' },
+  { value: 'large', short: 'L', label: 'Large', title: 'Large viewer: fills the window' },
+];
 
 export const REPRESENTATIONS: { value: Representation; label: string }[] = [
   { value: 'auto', label: 'Auto (by size)' },
@@ -39,6 +47,8 @@ export interface DisplayToolbarProps {
   hasHydrogens: boolean;
   panels: boolean;
   onPanels(v: boolean): void;
+  size: ViewerSize;
+  onSize(s: ViewerSize): void;
   /** null: the browser cannot show the workspace full screen. */
   fullscreen: boolean | null;
   onFullscreen(): void;
@@ -82,7 +92,13 @@ export function DisplayToolbar(p: DisplayToolbarProps) {
       <button type="button" aria-pressed={p.hydrogens && p.hasHydrogens} disabled={!p.hasHydrogens}
         title={p.hasHydrogens ? 'Show or hide hydrogen atoms' : 'This model has no hydrogen atoms'}
         onClick={() => p.onHydrogens(!p.hydrogens)} class={`${toggleClass(p.hydrogens && p.hasHydrogens)} disabled:opacity-50`}>Hydrogens</button>
-      <div class="ml-auto flex flex-wrap gap-1.5">
+      <div class="ml-auto flex flex-wrap items-center gap-1.5">
+        <div role="group" aria-label="Viewer size" class={segmentGroupClass}>
+          {SIZES.map(o => (
+            <button key={o.value} type="button" aria-pressed={p.size === o.value} aria-label={o.label} title={o.title}
+              class={segmentClass(p.size === o.value)} onClick={() => p.onSize(o.value)}>{o.short}</button>
+          ))}
+        </div>
         <button type="button" aria-pressed={p.panels} onClick={() => p.onPanels(!p.panels)} class={toggleClass(p.panels)}>Mol* panels</button>
         {p.fullscreen !== null && (
           <button type="button" aria-pressed={p.fullscreen} onClick={p.onFullscreen} class={toggleClass(p.fullscreen)}>Full screen</button>
