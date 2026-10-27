@@ -53,14 +53,15 @@ test('loads three structures in a row and Mol* shows each', async ({ page }) => 
   await expect(host(page).locator('canvas').first()).toBeVisible();
 });
 
-test('rapid preset clicks end on the last one', async ({ page }) => {
+test('rapid example picks end on the last one', async ({ page }) => {
   await page.goto('/#/t/structure');
   await expectLoaded(page, '1UBQ');
 
   // Fire all three without waiting for any load to finish.
-  await page.getByRole('button', { name: '4HHB Hemoglobin', exact: true }).click();
-  await page.getByRole('button', { name: '1CRN Crambin', exact: true }).click();
-  await page.getByRole('button', { name: '1AKI Lysozyme', exact: true }).click();
+  const examples = page.getByLabel('Examples', { exact: true });
+  await examples.selectOption('4HHB');
+  await examples.selectOption('1CRN');
+  await examples.selectOption('1AKI');
 
   await expectLoaded(page, '1AKI');
   await expect(page.getByTestId('structure-header')).toContainText('1AKI');
@@ -69,7 +70,8 @@ test('rapid preset clicks end on the last one', async ({ page }) => {
   await expect(host(page)).toHaveAttribute('data-loaded-label', '1AKI');
 });
 
-test('toggling Mol* panels and canvas size does not reload the structure', async ({ page }) => {
+test('toggling Mol* panels and resizing the window does not reload the structure', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/#/t/structure');
   const viewer = host(page);
   await expect(viewer).toHaveAttribute('data-load-count', '1', { timeout: 30_000 });
@@ -83,10 +85,9 @@ test('toggling Mol* panels and canvas size does not reload the structure', async
   await panels.click();
   await expect(viewer.locator('.msp-layout-left')).toBeVisible();
   await panels.click();
-  const size = page.getByRole('button', { name: /Large canvas/i });
-  await size.click();
+  // The viewer fills the screen height, so a taller window gives a taller canvas.
+  await page.setViewportSize({ width: 1280, height: 1000 });
   await expect.poll(async () => (await canvas.boundingBox())!.height, { timeout: 5_000 }).toBeGreaterThan(before);
-  await size.click();
 
   await page.waitForTimeout(1000);
   await expect(viewer).toHaveAttribute('data-load-count', '1');
@@ -114,6 +115,34 @@ test('dropping 3KZ5.cif loads it and clicking a residue selects it in Mol*', asy
 
   await page.getByRole('button', { name: 'Residue E 290 GLY', exact: true }).click();
   await expect.poll(async () => Number(await host(page).getAttribute('data-selection-count')), { timeout: 10_000 }).toBeGreaterThan(0);
+  // The residue and its surroundings are drawn as sticks.
+  await expect.poll(async () => Number(await host(page).getAttribute('data-focus-count')), { timeout: 10_000 }).toBeGreaterThan(0);
+});
+
+test('on a laptop screen the viewer, the strip and the interface list are all on screen at once', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto('/#/t/structure');
+  await expectLoaded(page, '1UBQ');
+  await page.locator('input[type=file]').first().setInputFiles(join(FIXTURES, '3KZ5.cif'));
+  await expectLoaded(page, '3KZ5');
+  const inView = async (name: string, locator: ReturnType<Page['locator']>) => {
+    const box = await locator.boundingBox();
+    expect(box, name).toBeTruthy();
+    expect(box!.y + box!.height, `${name} bottom`).toBeLessThanOrEqual(768);
+  };
+  await inView('viewer', host(page));
+  await inView('strip', page.getByRole('group', { name: /^Sequence of chain/ }));
+  const pair = page.getByRole('button', { name: /↔/ }).first();
+  await inView('interface pair', pair);
+
+  // An interface pair: both sides as sticks, their residues listed; one residue: sticks for it.
+  await pair.click();
+  await expect.poll(async () => Number(await host(page).getAttribute('data-focus-count')), { timeout: 10_000 }).toBeGreaterThan(0);
+  const side = page.getByRole('list', { name: /^Interface residues of chain/ }).first();
+  await side.getByRole('button').first().click();
+  await expect(page.getByText(/^Selected/)).toBeVisible();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
+  await expect.poll(async () => Number(await host(page).getAttribute('data-focus-count')), { timeout: 10_000 }).toBe(0);
 });
 
 test('a large entry is parsed in a worker', async ({ page }) => {

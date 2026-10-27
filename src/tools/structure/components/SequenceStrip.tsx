@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { PolymerChain, ResidueRef, SeqResidue } from '@/core/structure';
-import { BLOCK_LENGTH, ROW_LENGTH, chainLabel, refKey, residueName, residueNumber, residueRef, residueTitle, type Numbering } from '../sequence';
+import { BLOCK_LENGTH, chainLabel, refKey, residueName, residueNumber, residueRef, residueTitle, type Numbering } from '../sequence';
 import type { SequenceSelection } from '../StructureModel';
 
 export interface SequenceStripProps {
@@ -10,6 +10,8 @@ export interface SequenceStripProps {
   selection: SequenceSelection | null;
   /** Residue under the pointer in Mol*. */
   hovered: ResidueRef | null;
+  /** Residues picked as a set elsewhere (an interface), drawn with a marker; the first is scrolled to. */
+  marked?: ResidueRef[];
   /** Select label seqIds `from`–`to`; `commit` also selects and focuses them in Mol*. Returns the new selection. */
   onSelect(from: number, to: number, commit: boolean): SequenceSelection;
   onHover(ref: ResidueRef | null): void;
@@ -18,7 +20,8 @@ export interface SequenceStripProps {
 const CELL_REM = 0.875; // w-3.5
 const BASE = 'relative inline-block h-5 w-3.5 shrink-0 rounded-sm text-center font-mono text-xs leading-5 '
   + 'focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-accent-500 '
-  + 'data-hl:z-10 data-hl:ring-2 data-hl:ring-amber-500';
+  + 'data-hl:z-10 data-hl:ring-2 data-hl:ring-amber-500 '
+  + 'data-mark:after:absolute data-mark:after:inset-x-0.5 data-mark:after:-bottom-0.5 data-mark:after:h-0.5 data-mark:after:rounded-full data-mark:after:bg-fuchsia-600 dark:data-mark:after:bg-fuchsia-400';
 const MODELLED = `${BASE} text-slate-900 hover:bg-accent-100 dark:text-slate-100 dark:hover:bg-accent-900 `
   + 'aria-pressed:bg-accent-600 aria-pressed:text-white';
 const UNMODELLED = `${BASE} text-slate-500 underline decoration-dotted hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 `
@@ -41,10 +44,11 @@ function scrollWithin(box: HTMLElement, el: HTMLElement) {
 }
 
 /**
- * One chain in rows of 50 with a number over every 10th residue. Residues are buttons (one roving tab
- * stop; arrows move, shift+arrows extend); pointer, click and key handling is delegated to the box.
+ * One chain on a single line that scrolls sideways, with a number over every 10th residue. Residues
+ * are buttons (one roving tab stop; arrows move, up/down jump 10, shift extends); pointer, click and
+ * key handling is delegated to the box.
  */
-export function SequenceStrip({ chain, numbering, selection, hovered, onSelect, onHover }: SequenceStripProps) {
+export function SequenceStrip({ chain, numbering, selection, hovered, marked: markedRefs, onSelect, onHover }: SequenceStripProps) {
   const box = useRef<HTMLDivElement>(null);
   const res = chain.residues;
   const byAuth = useMemo(() => {
@@ -100,6 +104,13 @@ export function SequenceStrip({ chain, numbering, selection, hovered, onSelect, 
     mark(el);
     if (el && box.current) scrollWithin(box.current, el);
   }, [hovered, byAuth]);
+  // Marked residues (an interface) in this chain: the first one scrolls into view.
+  const markedIdx = useMemo(() => new Set((markedRefs ?? []).map(r => byAuth.get(refKey(r)) ?? -1).filter(i => i >= 0)), [markedRefs, byAuth]);
+  useEffect(() => {
+    if (markedIdx.size === 0) return;
+    const el = button(Math.min(...markedIdx));
+    if (el && box.current) scrollWithin(box.current, el);
+  }, [markedIdx]);
   // Keyboard moves focus after the roving tab stop re-rendered.
   useEffect(() => {
     if (!moveFocus.current) return;
@@ -167,7 +178,7 @@ export function SequenceStrip({ chain, numbering, selection, hovered, onSelect, 
   const onKeyDown = (e: KeyboardEvent) => {
     const i = indexOf(e);
     if (i < 0) return;
-    const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -ROW_LENGTH, ArrowDown: ROW_LENGTH, Home: -res.length, End: res.length };
+    const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -BLOCK_LENGTH, ArrowDown: BLOCK_LENGTH, Home: -res.length, End: res.length };
     const d = step[e.key];
     if (d === undefined) return;
     e.preventDefault();
@@ -195,6 +206,7 @@ export function SequenceStrip({ chain, numbering, selection, hovered, onSelect, 
       tabIndex={i === focusIdx ? 0 : -1}
       aria-label={residueName(chain, r)}
       aria-pressed={r.seqId >= selFrom && r.seqId <= selTo}
+      data-mark={markedIdx.has(i) ? '' : undefined}
       title={residueTitle(r)}
       class={r.modelled ? MODELLED : UNMODELLED}
     >
@@ -203,50 +215,45 @@ export function SequenceStrip({ chain, numbering, selection, hovered, onSelect, 
     </button>
   );
 
-  const rows: number[] = [];
-  for (let s = 0; s < res.length; s += ROW_LENGTH) rows.push(s);
+  const blocks: number[] = [];
+  for (let b = 0; b < res.length; b += BLOCK_LENGTH) blocks.push(b);
 
   return (
     <div
       ref={box}
       role="group"
       aria-label={`Sequence of chain ${chainLabel(chain)}`}
-      class="max-h-72 select-none overflow-auto rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"
+      class="select-none overflow-x-auto overflow-y-hidden rounded-lg border border-slate-200 bg-white px-2 pt-1 pb-1.5 dark:border-slate-700 dark:bg-slate-950"
       onClick={onClick}
       onPointerDown={onPointerDown}
       onPointerOver={onPointerOver}
       onPointerLeave={onPointerLeave}
       onKeyDown={onKeyDown}
     >
-      {rows.map(start => {
-        const row = res.slice(start, start + ROW_LENGTH);
-        const blocks: number[] = [];
-        for (let b = 0; b < row.length; b += BLOCK_LENGTH) blocks.push(b);
-        return (
-          <div key={start} class="flex w-max items-end gap-2 pb-1">
-            <span aria-hidden="true" class={`${TICK} w-10 shrink-0 pb-0.5 text-right text-slate-600 dark:text-slate-300`}>{number(row[0]!)}</span>
-            <div>
-              <div aria-hidden="true" class="flex gap-1.5">
-                {blocks.map(b => {
-                  const block = row.slice(b, b + BLOCK_LENGTH);
-                  return (
-                    <span key={b} class={`${TICK} text-right text-slate-600 dark:text-slate-300`} style={{ width: `${block.length * CELL_REM}rem` }}>
-                      {block.length === BLOCK_LENGTH ? number(block[BLOCK_LENGTH - 1]!) : ''}
-                    </span>
-                  );
-                })}
-              </div>
-              <div class="flex gap-1.5">
-                {blocks.map(b => (
-                  <span key={b} class="flex">
-                    {row.slice(b, b + BLOCK_LENGTH).map((r, k) => cell(r, start + b + k))}
+      {res.length > 0 && (
+        <div class="flex w-max items-end gap-2">
+          <span aria-hidden="true" class={`${TICK} w-10 shrink-0 pb-0.5 text-right text-slate-600 dark:text-slate-300`}>{number(res[0]!)}</span>
+          <div>
+            <div aria-hidden="true" class="flex gap-1.5">
+              {blocks.map(b => {
+                const block = res.slice(b, b + BLOCK_LENGTH);
+                return (
+                  <span key={b} class={`${TICK} text-right text-slate-600 dark:text-slate-300`} style={{ width: `${block.length * CELL_REM}rem` }}>
+                    {block.length === BLOCK_LENGTH ? number(block[BLOCK_LENGTH - 1]!) : ''}
                   </span>
-                ))}
-              </div>
+                );
+              })}
+            </div>
+            <div class="flex gap-1.5">
+              {blocks.map(b => (
+                <span key={b} class="flex">
+                  {res.slice(b, b + BLOCK_LENGTH).map((r, k) => cell(r, b + k))}
+                </span>
+              ))}
             </div>
           </div>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 }

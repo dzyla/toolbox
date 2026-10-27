@@ -1,7 +1,6 @@
 /** Helpers shared by the sequence strip and the model hook: residue names, numbering, lookups. */
 import type { Entity, PolymerChain, ResidueRef, SeqResidue, StructureModel } from '@/core/structure';
 
-export const ROW_LENGTH = 50;
 export const BLOCK_LENGTH = 10;
 
 export type Numbering = 'auth' | 'label';

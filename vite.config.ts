@@ -92,8 +92,11 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: 'vendor-ui', test: /node_modules[\\/](preact|@preact|react|react-dom)[\\/]/, priority: 2 },
-            // The viewer's Mol* driver rides with Mol* itself, so the structure View is its only importer.
-            { name: 'molstar', test: /node_modules[\\/]molstar[\\/]|src[\\/]tools[\\/]structure[\\/]molstarEngine\.ts$/, priority: 1 }
+            // The viewer's Mol* driver and its colour theme ride with Mol* itself, so the structure View is its only importer.
+            // Colour scales shared by the legend (View) and the Mol* theme; left ungrouped, Rolldown
+            // merges them into the Mol* chunk and the View then loads Mol* eagerly.
+            { name: 'structure-colours', test: /src[\\/]tools[\\/]structure[\\/]colour-scales\.ts$/, priority: 3 },
+            { name: 'molstar', test: /node_modules[\\/]molstar[\\/]|src[\\/]tools[\\/]structure[\\/]molstar(Engine|Themes)\.ts$/, priority: 1 }
           ]
         }
       }

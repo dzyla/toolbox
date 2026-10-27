@@ -51,7 +51,8 @@ test('structure results with the sequence strip fit a phone screen', async ({ pa
   await page.goto('/#/t/structure');
   await page.locator('input[type=file]').first().setInputFiles('tests/fixtures/structure/3KZ5.cif');
   await expect(page.locator('[data-loaded-label="3KZ5"]')).toHaveCount(1, { timeout: 30_000 });
-  await page.getByRole('button', { name: /Results/ }).first().click();
+  // One full-width page: no Inputs/Results switch; the strip sits under the viewer.
+  await page.getByRole('button', { name: 'Residue E 290 GLY', exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole('button', { name: 'Residue E 290 GLY', exact: true })).toBeVisible();
   expect(await escapingElements(page)).toEqual([]);
 });

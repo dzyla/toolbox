@@ -16,6 +16,7 @@ export const COLORINGS: { value: Coloring | ''; label: string }[] = [
   { value: 'secondary-structure', label: 'Secondary structure' },
   { value: 'residue-name', label: 'Residue type' },
   { value: 'uncertainty', label: 'B-factor' },
+  { value: 'plddt', label: 'pLDDT' },
 ];
 
 const selectClass = 'rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200';
@@ -30,10 +31,17 @@ export interface DisplayToolbarProps {
   coloring: Coloring | null;
   onRepresentation(r: Representation): void;
   onColoring(c: Coloring | null): void;
+  /** Offer pLDDT colouring (the structure looks like a predicted model). */
+  plddt: boolean;
+  hydrogens: boolean;
+  onHydrogens(v: boolean): void;
+  /** The shown model has hydrogen atoms (the toggle is disabled otherwise). */
+  hasHydrogens: boolean;
   panels: boolean;
   onPanels(v: boolean): void;
-  large: boolean;
-  onLarge(v: boolean): void;
+  /** null: the browser cannot show the workspace full screen. */
+  fullscreen: boolean | null;
+  onFullscreen(): void;
   modelCount: number;
   modelIndex: number;
   onModelIndex(i: number): void;
@@ -46,8 +54,8 @@ export function DisplayToolbar(p: DisplayToolbarProps) {
   return (
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2" role="toolbar" aria-label="3D display">
       <label class="flex items-center gap-1.5">
-        <span class={captionClass}>Representation</span>
-        <select aria-label="Representation" class={selectClass} value={p.representation}
+        <span class={captionClass}>Style</span>
+        <select aria-label="Representation style" class={selectClass} value={p.representation}
           onChange={e => p.onRepresentation((e.target as HTMLSelectElement).value as Representation)}>
           {REPRESENTATIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -56,7 +64,8 @@ export function DisplayToolbar(p: DisplayToolbarProps) {
         <span class={captionClass}>Colour</span>
         <select aria-label="Colour" class={selectClass} value={p.coloring ?? ''}
           onChange={e => p.onColoring(((e.target as HTMLSelectElement).value || null) as Coloring | null)}>
-          {COLORINGS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {COLORINGS.filter(o => o.value !== 'plddt' || p.plddt || p.coloring === 'plddt')
+            .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>
       {p.modelCount > 1 && (
@@ -70,10 +79,15 @@ export function DisplayToolbar(p: DisplayToolbarProps) {
           </select>
         </label>
       )}
+      <button type="button" aria-pressed={p.hydrogens && p.hasHydrogens} disabled={!p.hasHydrogens}
+        title={p.hasHydrogens ? 'Show or hide hydrogen atoms' : 'This model has no hydrogen atoms'}
+        onClick={() => p.onHydrogens(!p.hydrogens)} class={`${toggleClass(p.hydrogens && p.hasHydrogens)} disabled:opacity-50`}>Hydrogens</button>
       <div class="ml-auto flex flex-wrap gap-1.5">
         <button type="button" aria-pressed={p.panels} onClick={() => p.onPanels(!p.panels)} class={toggleClass(p.panels)}>Mol* panels</button>
-        <button type="button" aria-pressed={p.large} onClick={() => p.onLarge(!p.large)} class={toggleClass(p.large)}>Large canvas</button>
-        <button type="button" disabled={!p.canSnapshot} onClick={p.onSnapshot} class={`${toggleClass(false)} disabled:opacity-50`}>Snapshot (PNG)</button>
+        {p.fullscreen !== null && (
+          <button type="button" aria-pressed={p.fullscreen} onClick={p.onFullscreen} class={toggleClass(p.fullscreen)}>Full screen</button>
+        )}
+        <button type="button" disabled={!p.canSnapshot} onClick={p.onSnapshot} class={`${toggleClass(false)} disabled:opacity-50`} title="Download the 3D view as a PNG image">Snapshot</button>
       </div>
     </div>
   );

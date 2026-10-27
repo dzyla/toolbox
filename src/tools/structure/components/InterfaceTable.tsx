@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { InterfacePair, InterfaceSide, ResidueRef } from '@/core/structure';
-import type { MolstarHandle } from '../MolstarViewer';
 import { buttonClass, captionClass } from './ui';
 
 export interface InterfaceTableProps {
@@ -9,7 +8,10 @@ export interface InterfaceTableProps {
   error: string;
   cutoff: number;
   setCutoff: (c: number) => void;
-  viewer: MolstarHandle | null;
+  /** Both sides of a pair: sticks in 3D, marked in the strip. */
+  onPair(pair: InterfacePair): void;
+  /** One residue of a pair. */
+  onResidue(r: ResidueRef): void;
 }
 
 export const MIN_CUTOFF = 2;
@@ -21,15 +23,38 @@ const residueId = (r: ResidueRef) => `${r.authAsymId}${r.authSeqId}${r.insCode}`
 export const interfaceText = (pairs: InterfacePair[]) =>
   pairs.flatMap(p => [p.a, p.b].map(s => `${s.labelAsymId}: ${s.residues.map(residueId).join(', ')}`)).join('\n');
 
-/** Chain-pair contacts: click a row to highlight both sides in 3D, copy the residue lists. */
-export function InterfaceTable({ interfaces, computing, error, cutoff, setCutoff, viewer }: InterfaceTableProps) {
+const chip = 'rounded border border-slate-300 px-1 py-px font-mono text-[11px] text-slate-700 hover:bg-accent-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+
+/** One side of the open pair: its residues as buttons. */
+function SideResidues({ side, onResidue }: { side: InterfaceSide; onResidue(r: ResidueRef): void }) {
+  return (
+    <div class="space-y-1">
+      <div class="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{`${sideLabel(side)}: ${side.residues.length} residues`}</div>
+      <ul aria-label={`Interface residues of chain ${sideLabel(side)}`} class="flex flex-wrap gap-1">
+        {side.residues.map(r => (
+          <li key={residueId(r)}>
+            <button type="button" class={chip} aria-label={`Show residue ${r.authAsymId} ${r.authSeqId}${r.insCode}`}
+              onClick={() => onResidue(r)}>{`${r.authSeqId}${r.insCode}`}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Chain-pair contacts: click a pair to show both sides as sticks (and open its residue lists),
+ * click a residue to show that one; copy the residue lists.
+ */
+export function InterfaceTable({ interfaces, computing, error, cutoff, setCutoff, onPair, onResidue }: InterfaceTableProps) {
   const [draft, setDraft] = useState(String(cutoff));
-  const [active, setActive] = useState<number | null>(null);
+  // The open pair belongs to one list of interfaces: a new list (structure, model, cutoff) closes it.
+  const [open, setOpen] = useState<{ list: InterfacePair[] | null; i: number } | null>(null);
+  const active = open && open.list === interfaces ? open.i : null;
   const [status, setStatus] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => setDraft(String(cutoff)), [cutoff]);
-  useEffect(() => setActive(null), [interfaces]);
 
   const onCutoff = (raw: string) => {
     setDraft(raw);
@@ -37,10 +62,8 @@ export function InterfaceTable({ interfaces, computing, error, cutoff, setCutoff
     if (raw.trim() !== '' && Number.isFinite(v) && v >= MIN_CUTOFF && v <= MAX_CUTOFF && v !== cutoff) setCutoff(v);
   };
   const pick = (i: number, p: InterfacePair) => {
-    setActive(i);
-    const all = [...p.a.residues, ...p.b.residues];
-    viewer?.highlight(all);
-    viewer?.focus(all);
+    setOpen({ list: interfaces, i });
+    onPair(p);
   };
   const flash = (m: string) => {
     setStatus(m);
@@ -58,7 +81,7 @@ export function InterfaceTable({ interfaces, computing, error, cutoff, setCutoff
   };
 
   return (
-    <section aria-labelledby="interfaces-heading" class="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+    <section aria-labelledby="interfaces-heading" class="space-y-2">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 id="interfaces-heading" class="text-sm font-semibold text-slate-900 dark:text-slate-100">Interface residues</h2>
         <div class="flex flex-wrap items-center gap-2">
@@ -79,11 +102,17 @@ export function InterfaceTable({ interfaces, computing, error, cutoff, setCutoff
       <div class="overflow-x-auto" aria-busy={computing}>
         <ul aria-label="Interfaces" class="min-w-0 space-y-1 text-xs text-slate-800 dark:text-slate-200">
           {(interfaces ?? []).map((p, i) => (
-            <li key={`${p.a.labelAsymId}-${p.b.labelAsymId}`}>
-              <button type="button" aria-pressed={active === i} onClick={() => pick(i, p)}
+            <li key={`${p.a.labelAsymId}-${p.b.labelAsymId}`} class={active === i ? 'rounded-md bg-accent-50/60 pb-2 dark:bg-slate-800/60' : ''}>
+              <button type="button" aria-pressed={active === i} aria-expanded={active === i} onClick={() => pick(i, p)}
                 class={`w-full rounded-md px-2 py-1 text-left font-mono hover:bg-slate-100 dark:hover:bg-slate-800 ${active === i ? 'bg-accent-50 dark:bg-slate-800' : ''}`}>
                 {`${sideLabel(p.a)} ↔ ${sideLabel(p.b)}: ${p.a.residues.length} + ${p.b.residues.length} residues`}
               </button>
+              {active === i && (
+                <div class="space-y-2 px-2 pt-1">
+                  <SideResidues side={p.a} onResidue={onResidue} />
+                  <SideResidues side={p.b} onResidue={onResidue} />
+                </div>
+              )}
             </li>
           ))}
         </ul>

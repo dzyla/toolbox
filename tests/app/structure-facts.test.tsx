@@ -8,6 +8,7 @@ const handle = vi.hoisted(() => ({
   load: vi.fn(async () => undefined),
   setRepresentation: vi.fn(async () => undefined),
   setColoring: vi.fn(async () => undefined),
+  setHydrogens: vi.fn(async () => undefined),
   highlight: vi.fn(),
   select: vi.fn(),
   focus: vi.fn(),
@@ -38,6 +39,8 @@ async function loadFile(name: string, title: RegExp | string, text?: string) {
   fireEvent.change(screen.getByLabelText(/Structure file/), { target: { files: [file] } });
   await waitFor(() => expect(within(header()).getByText(title)).toBeTruthy());
 }
+/** Side-panel tabs keep their content mounted but hidden; open one before using its buttons. */
+const openTab = (name: RegExp) => fireEvent.click(screen.getByRole('tab', { name }));
 const section = (name: string) => within(screen.getByRole('region', { name }));
 const interfaceRows = () => within(screen.getByRole('list', { name: 'Interfaces' })).queryAllByRole('button');
 
@@ -53,18 +56,21 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('Ligands', () => {
   it('groups 4HHB ligands by component and hides the waters', async () => {
     await loadFile('4HHB.cif.gz', /DEOXYHAEMOGLOBIN/i);
+    openTab(/^Ligands/);
     const s = section('Ligands');
     expect(s.getByText('PROTOPORPHYRIN IX CONTAINING FE')).toBeTruthy();
     expect(s.getByText('×4')).toBeTruthy();
     expect(s.getByText('221 waters hidden')).toBeTruthy();
   });
 
-  it('focuses a whole group or one instance', async () => {
+  it('shows a whole group or one instance: selected, as sticks, camera on it', async () => {
     await loadFile('4HHB.cif.gz', /DEOXYHAEMOGLOBIN/i);
+    openTab(/^Ligands/);
     const s = section('Ligands');
     fireEvent.click(s.getByRole('button', { name: 'Focus all HEM' }));
     expect(handle.focus).toHaveBeenLastCalledWith(expect.arrayContaining([expect.objectContaining({ authAsymId: 'A', insCode: '' })]));
     expect(handle.focus.mock.calls.at(-1)![0]).toHaveLength(4);
+    expect(handle.select.mock.calls.at(-1)![0]).toHaveLength(4);
     fireEvent.click(s.getAllByRole('button', { name: /^Focus HEM / })[0]!);
     expect(handle.focus.mock.calls.at(-1)![0]).toHaveLength(1);
   });
@@ -88,11 +94,24 @@ describe('Interfaces', () => {
     expect(total(after)).toBeLessThan(before);
   });
 
-  it('highlights both sides on click and copies auth residue lists', async () => {
+  it('a pair shows both sides as sticks, marks them in the strip and lists them; a residue shows that one', async () => {
     await loadFile('3KZ5.cif', 'Structure of cdomain');
-    fireEvent.click(interfaceRows()[0]!);
-    expect(handle.highlight.mock.calls.at(-1)![0].length).toBeGreaterThan(0);
-    expect(handle.focus).toHaveBeenCalled();
+    const pair = screen.getAllByRole('button', { name: /↔/ })[0]!;
+    fireEvent.click(pair);
+    expect(pair.getAttribute('aria-expanded')).toBe('true');
+    const both = handle.focus.mock.calls.at(-1)![0];
+    expect(both.length).toBeGreaterThan(1);
+    expect(handle.select).toHaveBeenLastCalledWith(both);
+    // The strip shows the side in its chain with a marker.
+    expect(document.querySelectorAll('[data-mark]').length).toBeGreaterThan(0);
+    expect(screen.getByText('Interface marked')).toBeTruthy();
+    const lists = screen.getAllByRole('list', { name: /^Interface residues of chain/ });
+    expect(lists).toHaveLength(2);
+    const first = within(lists[0]!).getAllByRole('button')[0]!;
+    fireEvent.click(first);
+    expect(handle.focus.mock.calls.at(-1)![0]).toHaveLength(1);
+    // A polymer residue lands in the strip as the selection.
+    expect(screen.getByText(/^Selected/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Copy residues' }));
     await waitFor(() => expect(screen.getByText('Copied interface residues.')).toBeTruthy());
     const text = (navigator.clipboard.writeText as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as string;
@@ -103,6 +122,7 @@ describe('Interfaces', () => {
 describe('Metrics', () => {
   it('shows atoms, Rg and the bounding box', async () => {
     await loadFile('3KZ5.cif', 'Structure of cdomain');
+    openTab(/^Info/);
     const s = section('Structure metrics');
     expect(s.getByText('Heavy atoms')).toBeTruthy();
     // The atom count is every atom of the model, hydrogens included; the label says so.
@@ -114,12 +134,14 @@ describe('Metrics', () => {
 describe('Export', () => {
   it('downloads the original text with the right extension', async () => {
     await loadFile('3KZ5.cif', 'Structure of cdomain');
+    openTab(/^Export/);
     fireEvent.click(screen.getByRole('button', { name: 'Original file (.cif)' }));
     expect(downloadText).toHaveBeenCalledWith(read('3KZ5.cif'), '3KZ5.cif');
   });
 
   it('exports chain B of 3KZ5 as mmCIF that parses back as one chain', async () => {
     await loadFile('3KZ5.cif', 'Structure of cdomain');
+    openTab(/^Export/);
     fireEvent.change(screen.getByLabelText('Export part', { exact: true }), { target: { value: 'chain:B' } });
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
     const [text, file] = downloadText.mock.calls.at(-1)!;
@@ -131,6 +153,7 @@ describe('Export', () => {
 
   it('PDB input: chain and whole-structure exports leave out water and keep ligands, in both formats', async () => {
     await loadFile('3KZ5.pdb', /cdomain/i);
+    openTab(/^Export/);
     const part = screen.getByLabelText('Export part', { exact: true }) as HTMLSelectElement;
     const all = Array.from(part.options).find(o => o.textContent === 'Whole structure (no water)')!.value;
     for (const fmt of ['mmcif', 'pdb']) {
@@ -148,7 +171,8 @@ describe('Export', () => {
   it('PDB input: "Whole structure" includes a ligand that sits in a chain of its own', async () => {
     const gol = 'HETATM 9999  C1  GOL Z 901      10.000  10.000  10.000  1.00 20.00           C';
     const text = read('1UBQ.pdb').replace(/^END\s*$/m, `${gol}\nEND`);
-    await loadFile('1UBQ.pdb', /characters, PDB/, text);   // the demo is 1UBQ too, so wait for the PDB format
+    await loadFile('1UBQ.pdb', /characters, PDB/, text);
+    openTab(/^Export/);   // the demo is 1UBQ too, so wait for the PDB format
     const part = screen.getByLabelText('Export part', { exact: true }) as HTMLSelectElement;
     fireEvent.change(part, { target: { value: Array.from(part.options).find(o => o.textContent === 'Whole structure (no water)')!.value } });
     fireEvent.change(screen.getByLabelText('Export format', { exact: true }), { target: { value: 'pdb' } });
@@ -161,6 +185,7 @@ describe('Export', () => {
   it('warns that PDB truncates a two-letter chain ID', async () => {
     const cif = read('minimal.cif').replace(/^(ATOM .* [A-Z]{3}) A (\w+ 1)$/gm, '$1 AA $2');
     await loadFile('long.cif', /./, cif).catch(() => undefined);
+    openTab(/^Export/);
     await waitFor(() => expect(screen.getByLabelText('Export format', { exact: true })).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Export format', { exact: true }), { target: { value: 'pdb' } });
     expect(screen.getByText(/truncated in PDB format/)).toBeTruthy();
@@ -168,6 +193,7 @@ describe('Export', () => {
 
   it('downloads FASTA for all entities and a PNG snapshot', async () => {
     await loadFile('3KZ5.cif', 'Structure of cdomain');
+    openTab(/^Export/);
     fireEvent.click(screen.getByRole('button', { name: 'FASTA (all entities)' }));
     expect(downloadText.mock.calls.at(-1)![1]).toMatch(/\.fasta$/);
     fireEvent.click(screen.getByRole('button', { name: 'PNG snapshot' }));
@@ -178,7 +204,7 @@ describe('Export', () => {
 describe('InterfaceTable error', () => {
   it('surfaces a failed interface job in an alert', async () => {
     const { InterfaceTable } = await import('@/tools/structure/components/InterfaceTable');
-    render(<InterfaceTable interfaces={null} computing={false} error="worker crashed" cutoff={4.5} setCutoff={() => undefined} viewer={null} />);
+    render(<InterfaceTable interfaces={null} computing={false} error="worker crashed" cutoff={4.5} setCutoff={() => undefined} onPair={() => undefined} onResidue={() => undefined} />);
     expect(screen.getByRole('alert').textContent).toMatch(/worker crashed/);
   });
 });

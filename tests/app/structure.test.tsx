@@ -10,6 +10,7 @@ const handle = vi.hoisted(() => ({
   load: vi.fn(async () => undefined),
   setRepresentation: vi.fn(async () => undefined),
   setColoring: vi.fn(async () => undefined),
+  setHydrogens: vi.fn(async () => undefined),
   highlight: vi.fn(),
   select: vi.fn(),
   focus: vi.fn(),
@@ -54,6 +55,8 @@ const serveFixtures: Fetch = async url => {
 let fetchMock: ReturnType<typeof vi.fn<Fetch>>;
 
 const header = () => screen.getByTestId('structure-header');
+/** The example entries are one picker above the viewer. */
+const pickExample = (id: string) => fireEvent.change(screen.getByLabelText('Examples', { exact: true }), { target: { value: id } });
 const UBQ_TITLE = 'STRUCTURE OF UBIQUITIN REFINED AT 1.8 ANGSTROMS RESOLUTION';
 
 async function renderLoaded() {
@@ -85,8 +88,9 @@ describe('Structure viewer', () => {
     expect(within(card).getByText('1987-01-02')).toBeTruthy();
     await waitFor(() => expect(handle.load).toHaveBeenCalledWith(expect.stringContaining('data_1UBQ'), 'mmcif', '1UBQ', 0));
     // One preset list, each preset addressable by ID and name; no model picker for a single model.
-    expect(screen.getByRole('button', { name: '4HHB Hemoglobin' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /4HHB/ })).toHaveLength(1);
+    expect(screen.getByRole('option', { name: '4HHB Hemoglobin' })).toBeTruthy();
+    expect(screen.getAllByRole('option', { name: /4HHB/ })).toHaveLength(1);
+    expect((screen.getByLabelText('Examples', { exact: true }) as HTMLSelectElement).value).toBe('1UBQ');
     expect(screen.queryByLabelText('Model', { exact: true })).toBeNull();
     // The old external "Mol* Viewer Tab" link is gone (everything renders locally).
     expect(document.querySelector('a[href*="molstar.org/viewer"]')).toBeNull();
@@ -102,9 +106,9 @@ describe('Structure viewer', () => {
     await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '3KZ5', 0));
   });
 
-  it('a preset button fetches its entry', async () => {
+  it('picking an example fetches its entry', async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole('button', { name: '4HHB Hemoglobin' }));
+    pickExample('4HHB');
     await waitFor(() => expect(within(header()).getByText(/DEOXYHAEMOGLOBIN/)).toBeTruthy());
     expect(within(header()).getByText('1.74 Å')).toBeTruthy();
     expect(within(header()).getByText(/4 polymer chains/)).toBeTruthy();
@@ -160,8 +164,8 @@ describe('Structure viewer', () => {
       if (url.includes('4HHB')) await new Promise<void>(r => { releaseSlow = r; });
       return serveFixtures(url);
     });
-    fireEvent.click(screen.getByRole('button', { name: '4HHB Hemoglobin' }));
-    fireEvent.click(screen.getByRole('button', { name: '1CRN Crambin' }));
+    pickExample('4HHB');
+    pickExample('1CRN');
     await waitFor(() => expect(handle.load).toHaveBeenLastCalledWith(expect.any(String), 'mmcif', '1CRN', 0));
     releaseSlow();
     await new Promise(r => setTimeout(r, 50));
@@ -183,10 +187,52 @@ describe('Structure viewer', () => {
     await renderLoaded();
     fireEvent.change(screen.getByLabelText('Colour', { exact: true }), { target: { value: 'entity-id' } });
     expect(handle.setColoring).toHaveBeenCalledWith('entity-id');
-    fireEvent.change(screen.getByLabelText('Representation', { exact: true }), { target: { value: 'surface' } });
+    fireEvent.change(screen.getByLabelText('Representation style', { exact: true }), { target: { value: 'surface' } });
     expect(handle.setRepresentation).toHaveBeenCalledWith('surface');
     expect(screen.getByRole('button', { name: 'Mol* panels' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Large canvas' })).toBeTruthy();
+  });
+
+  it('hydrogens: disabled for a file without them; a toggle reaches Mol* for one with them', async () => {
+    await renderLoaded();
+    const h = screen.getByRole('button', { name: 'Hydrogens' }) as HTMLButtonElement;
+    expect(h.disabled).toBe(true);   // 1UBQ is an X-ray entry without hydrogens
+    const file = new File([read('1L2Y.cif.gz')], '1L2Y.cif');   // NMR: hydrogens modelled
+    fireEvent.change(screen.getByLabelText(/Structure file/), { target: { files: [file] } });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Hydrogens' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByRole('button', { name: 'Hydrogens' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Hydrogens' }));
+    expect(handle.setHydrogens).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole('button', { name: 'Hydrogens' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('B-factor colouring gets the 2nd–98th percentile range of the file, with a legend', async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText('Colour', { exact: true }), { target: { value: 'uncertainty' } });
+    const [name, scale] = handle.setColoring.mock.calls.at(-1)! as unknown as [string, { domain: [number, number] }];
+    expect(name).toBe('uncertainty');
+    expect(scale.domain[0]).toBeGreaterThan(0);
+    expect(scale.domain[1]).toBeGreaterThan(scale.domain[0]);
+    expect(within(screen.getByTestId('colour-legend')).getByText('B-factor (Å²)')).toBeTruthy();
+  });
+
+  it('pLDDT is offered only for a predicted model, falls back to Default for an experimental one', async () => {
+    await renderLoaded();
+    const colour = () => screen.getByLabelText('Colour', { exact: true }) as HTMLSelectElement;
+    const offered = () => Array.from(colour().options).some(o => o.value === 'plddt');
+    expect(offered()).toBe(false);
+    // A bare model file (ColabFold-style PDB: no header, no water) with pLDDT in the B-factor column.
+    const atoms = read('1UBQ.pdb').split('\n').filter(l => l.startsWith('ATOM')).map((l, i) => `${l.slice(0, 60)}${(40 + (i % 60)).toFixed(2).padStart(6)}${l.slice(66)}`);
+    fireEvent.change(screen.getByLabelText(/Structure file/), { target: { files: [new File([`${atoms.join('\n')}\nEND\n`], 'ranked_0.pdb')] } });
+    await waitFor(() => expect(offered()).toBe(true));
+    expect(screen.getByText('Predicted model · pLDDT available')).toBeTruthy();
+    fireEvent.change(colour(), { target: { value: 'plddt' } });
+    expect(handle.setColoring).toHaveBeenLastCalledWith('plddt', expect.objectContaining({ plddtScale: 1 }));
+    expect(within(screen.getByTestId('colour-legend')).getByText('Very high (> 90)')).toBeTruthy();
+    pickExample('4HHB');
+    await waitFor(() => expect(within(header()).getByText(/DEOXYHAEMOGLOBIN/)).toBeTruthy());
+    await waitFor(() => expect(colour().value).toBe(''));
+    expect(handle.setColoring).toHaveBeenLastCalledWith(null);
+    expect(offered()).toBe(false);
   });
 
   it('colour starts at "Default" (Mol* preset colouring) and every colour, Chain included, can be picked', async () => {
@@ -207,7 +253,7 @@ describe('Structure viewer', () => {
   it('display choices made before Mol* is ready are applied once its handle arrives', async () => {
     ready.defer = true;
     await renderLoaded();
-    fireEvent.change(screen.getByLabelText('Representation', { exact: true }), { target: { value: 'surface' } });
+    fireEvent.change(screen.getByLabelText('Representation style', { exact: true }), { target: { value: 'surface' } });
     fireEvent.change(screen.getByLabelText('Colour', { exact: true }), { target: { value: 'entity-id' } });
     expect(handle.setRepresentation).not.toHaveBeenCalled();
     act(() => ready.fire());
@@ -271,7 +317,7 @@ describe('Structure viewer with an asynchronous parse worker', () => {
   it('a newer request that fails keeps its error when an older parse finishes later', async () => {
     await renderLoaded();
     hold = true;
-    fireEvent.click(screen.getByRole('button', { name: '1CRN Crambin' }));
+    pickExample('1CRN');
     await waitFor(() => expect(held).toHaveLength(1));         // 1CRN fetched, parse in flight
     submitId('9ZZZ');
     expect((await screen.findByRole('alert')).textContent).toMatch(/RCSB has no entry 9ZZZ/);
@@ -285,7 +331,7 @@ describe('Structure viewer with an asynchronous parse worker', () => {
   it('an older parse finishing while a newer one runs never lands under the newer name', async () => {
     await renderLoaded();
     hold = true;
-    fireEvent.click(screen.getByRole('button', { name: '1CRN Crambin' }));
+    pickExample('1CRN');
     await waitFor(() => expect(held).toHaveLength(1));
     submitId('3KZ5');
     await waitFor(() => expect(held).toHaveLength(2));         // 3KZ5 parse in flight too

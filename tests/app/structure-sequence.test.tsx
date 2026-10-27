@@ -12,6 +12,7 @@ const handle = vi.hoisted(() => ({
   load: vi.fn(async () => undefined),
   setRepresentation: vi.fn(async () => undefined),
   setColoring: vi.fn(async () => undefined),
+  setHydrogens: vi.fn(async () => undefined),
   highlight: vi.fn(),
   select: vi.fn(),
   focus: vi.fn(),
@@ -49,6 +50,8 @@ async function loadFile(name: string, title: RegExp | string) {
   await waitFor(() => expect(within(header()).getByText(title)).toBeTruthy());
 }
 const load3kz5 = () => loadFile('3KZ5.cif', 'Structure of cdomain');
+/** Side-panel tabs keep their content mounted but hidden; open one before using its buttons. */
+const openTab = (name: RegExp) => fireEvent.click(screen.getByRole('tab', { name }));
 const pickChain = (labelAsymId: string) =>
   fireEvent.change(screen.getByLabelText('Chain', { exact: true }), { target: { value: labelAsymId } });
 
@@ -100,6 +103,7 @@ describe('Sequence panel', () => {
     for (const n of [275, 280]) expect(screen.getByRole('button', { name: new RegExp(`^Residue A ${n} `) }).getAttribute('aria-pressed')).toBe('true');
     expect(residue('Residue A 281 ALA').getAttribute('aria-pressed')).toBe('false');
 
+    openTab(/^Export/);
     fireEvent.change(screen.getByLabelText('FASTA scope', { exact: true }), { target: { value: 'selection' } });
     fireEvent.click(screen.getByRole('button', { name: 'Copy FASTA' }));
     const model = parseMmcif(read('3KZ5.cif'), '3KZ5');
@@ -210,6 +214,7 @@ describe('Sequence panel', () => {
   it('"Modelled only" with "drop gaps" downloads the 47 modelled residues of chain C', async () => {
     await load3kz5();
     pickChain('C');
+    openTab(/^Export/);
     fireEvent.change(screen.getByLabelText('FASTA scope', { exact: true }), { target: { value: 'chain' } });
     fireEvent.click(screen.getByRole('button', { name: 'Modelled only' }));
     fireEvent.click(screen.getByRole('button', { name: 'drop gaps' }));
@@ -227,6 +232,7 @@ describe('Sequence panel', () => {
 describe('Entity table', () => {
   it('lists each entity with kind, description, chains (auth IDs), length and modelled counts', async () => {
     await load3kz5();
+    openTab(/^Chains/);
     const table = screen.getByRole('table', { name: 'Entities' });
     const row = within(table).getByRole('row', { name: /Protein sopB/ });
     expect(row.textContent).toContain('Protein');
@@ -236,6 +242,17 @@ describe('Entity table', () => {
     expect(row.textContent).toMatch(/48.*47.*47/);
     expect(within(table).getByRole('row', { name: /ACETATE ION/ })).toBeTruthy();
     expect(screen.queryByRole('searchbox', { name: 'Filter chains' })).toBeNull();
+  });
+
+  it('a polymer chain button shows that chain in the strip and selects it in Mol* without sticks', async () => {
+    await load3kz5();
+    openTab(/^Chains/);
+    fireEvent.click(screen.getByRole('button', { name: 'Show chain C [auth A]' }));
+    expect((screen.getByLabelText('Chain', { exact: true }) as HTMLSelectElement).value).toBe('C');
+    const refs = handle.select.mock.calls.at(-1)![0] as ResidueRef[];
+    expect(refs).toHaveLength(47);
+    expect(refs.every(r => r.authAsymId === 'A')).toBe(true);
+    expect(handle.focus).toHaveBeenLastCalledWith(refs, { sticks: false });
   });
 
   it('shows a chain filter when there are more than 8 chains', () => {

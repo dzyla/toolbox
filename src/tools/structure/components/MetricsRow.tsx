@@ -16,8 +16,8 @@ export function MetricsRow({ metrics }: { metrics: StructureMetrics }) {
     ['Bounding box', `${size} Å`],
   ];
   return (
-    <section aria-label="Structure metrics" class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-      <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-5">
+    <section aria-label="Structure metrics">
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-2">
         {items.map(([k, v]) => (
           <div key={k}>
             <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{k}</dt>

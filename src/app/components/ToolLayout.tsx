@@ -42,8 +42,8 @@ export function ToolLayout({
         </header>
       )}
 
-      {/* Mobile Tab Bar */}
-      <div class="lg:hidden mb-3 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2.5 dark:border-slate-800">
+      {/* Mobile Tab Bar (a full-width layout has no inputs column to switch to) */}
+      {!fullWidthResults && <div class="lg:hidden mb-3 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2.5 dark:border-slate-800">
         <div class="flex min-w-0 flex-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800 text-xs font-semibold shadow-2xs">
           <button
             type="button"
@@ -79,7 +79,7 @@ export function ToolLayout({
             Results ➔
           </button>
         )}
-      </div>
+      </div>}
 
       <div class={fullWidthResults ? 'space-y-4' : `grid gap-6 ${wide ? 'lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'}`}>
         {!fullWidthResults && (
@@ -108,7 +108,7 @@ export function ToolLayout({
           </div>
         )}
 
-        <div class={`space-y-4 min-w-0 ${fullWidthResults ? 'w-full' : ''} lg:block ${mobileTab === 'inputs' ? 'hidden' : 'block'}`}>
+        <div class={`space-y-4 min-w-0 ${fullWidthResults ? 'w-full' : ''} lg:block ${mobileTab === 'inputs' && !fullWidthResults ? 'hidden' : 'block'}`}>
           {/* Mobile Back to Inputs Button */}
           {mobileTab === 'results' && (
             <div class="lg:hidden flex items-center justify-between">

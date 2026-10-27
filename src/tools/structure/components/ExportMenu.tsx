@@ -73,7 +73,7 @@ export function ExportMenu({ model, source, format, modelIndex, canSnapshot, onS
   };
 
   return (
-    <section aria-labelledby="export-heading" class="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+    <section aria-labelledby="export-heading" class="space-y-2">
       <h2 id="export-heading" class="text-sm font-semibold text-slate-900 dark:text-slate-100">Export</h2>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button type="button" class={buttonClass} onClick={original}>{`Original file (.${format === 'pdb' ? 'pdb' : 'cif'})`}</button>

@@ -1,6 +1,5 @@
 import { useMemo } from 'preact/hooks';
 import type { Ligand, ResidueRef, StructureModel } from '@/core/structure';
-import type { MolstarHandle } from '../MolstarViewer';
 import { captionClass } from './ui';
 
 const WATER = new Set(['HOH', 'DOD', 'WAT']);
@@ -21,8 +20,11 @@ function countWaters(model: StructureModel, modelIndex: number): number {
   return seen.size;
 }
 
-/** Ligands grouped by component ID (water hidden); a group button focuses every instance, an instance button one. */
-export function LigandList({ model, modelIndex, viewer }: { model: StructureModel; modelIndex: number; viewer: MolstarHandle | null }) {
+/**
+ * Ligands grouped by component ID (water hidden); a group button shows every instance, an instance
+ * button one, each with its binding site as sticks.
+ */
+export function LigandList({ model, modelIndex, onShow }: { model: StructureModel; modelIndex: number; onShow(refs: ResidueRef[]): void }) {
   const groups = useMemo<Group[]>(() => {
     const by = new Map<string, Group>();
     for (const l of model.ligands) {
@@ -34,14 +36,14 @@ export function LigandList({ model, modelIndex, viewer }: { model: StructureMode
   const waters = useMemo(() => countWaters(model, modelIndex), [model, modelIndex]);
 
   return (
-    <section aria-labelledby="ligands-heading" class="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+    <section aria-labelledby="ligands-heading" class="space-y-2">
       <h2 id="ligands-heading" class="text-sm font-semibold text-slate-900 dark:text-slate-100">Ligands</h2>
       {groups.length === 0 && <p class="text-xs text-slate-500 dark:text-slate-400">No ligands in this structure.</p>}
       <ul class="space-y-2">
         {groups.map(g => (
           <li key={g.compId} class="flex flex-wrap items-start gap-x-3 gap-y-1 text-xs text-slate-800 dark:text-slate-200">
-            <button type="button" class={rowButton} aria-label={`Focus all ${g.compId}`} title="Focus every copy in 3D"
-              onClick={() => viewer?.focus(g.items.map(refOf))}>{g.compId}</button>
+            <button type="button" class={rowButton} aria-label={`Focus all ${g.compId}`} title="Show every copy in 3D"
+              onClick={() => onShow(g.items.map(refOf))}>{g.compId}</button>
             <div class="min-w-40 flex-1 space-y-1">
               <div><span class="break-words">{g.name || g.compId}</span> <span class="text-slate-500 dark:text-slate-400">×{g.items.length}</span></div>
               <div class="flex flex-wrap items-center gap-1">
@@ -49,7 +51,7 @@ export function LigandList({ model, modelIndex, viewer }: { model: StructureMode
                 {g.items.map(l => (
                   <button key={`${l.labelAsymId}-${l.authSeqId}`} type="button" class={rowButton}
                     aria-label={`Focus ${l.compId} ${l.authAsymId}${l.authSeqId}`}
-                    onClick={() => viewer?.focus([refOf(l)])}>{`${l.labelAsymId} [auth ${l.authAsymId}] ${l.authSeqId}`}</button>
+                    onClick={() => onShow([refOf(l)])}>{`${l.labelAsymId} [auth ${l.authAsymId}] ${l.authSeqId}`}</button>
                 ))}
               </div>
             </div>

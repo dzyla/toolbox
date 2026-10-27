@@ -19,12 +19,15 @@ import { StructureElement, StructureProperties, StructureSelection, type Structu
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { Script } from 'molstar/lib/mol-script/script';
 import type { Loci } from 'molstar/lib/mol-model/loci';
+import { Color } from 'molstar/lib/mol-util/color';
 // Same module Mol*'s own `react-dom/client` import resolves to (preset-vite aliases react-dom to
 // preact/compat), so the root created here is the one Mol* renders through, and it can be unmounted.
 import { createRoot } from 'preact/compat/client';
 import 'molstar/build/viewer/molstar.css';
 import type { ResidueRef, StructureFormat } from '@/core/structure';
+import { BFACTOR_COLORS } from './colour-scales';
 import type { MolstarHandle, Representation } from './MolstarViewer';
+import { PLDDT_THEME, PlddtThemeProvider } from './molstarThemes';
 import { createViewerQueue, type ViewerStyle } from './viewer-queue';
 
 export interface EngineOptions {
@@ -164,6 +167,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     logoObserver.disconnect();
     throw err;
   }
+  plugin.representation.structure.themes.colorThemeRegistry.add(PlddtThemeProvider);
   const defaultPostprocessing = plugin.canvas3d ? { ...plugin.canvas3d.props.postprocessing } : null;
 
   let disposed = false;
@@ -173,6 +177,11 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
   host.setAttribute('data-selection-count', '0');
   const selectionSub = plugin.managers.structure.selection.events.changed.subscribe(() => {
     host.setAttribute('data-selection-count', String(plugin.managers.structure.selection.elementCount()));
+  });
+  // Atoms drawn as focus sticks (0 when none), likewise.
+  host.setAttribute('data-focus-count', '0');
+  const focusSub = plugin.managers.structure.focus.behaviors.current.subscribe(entry => {
+    host.setAttribute('data-focus-count', String(entry ? StructureElement.Loci.size(entry.loci) : 0));
   });
 
   const currentStructure = (): Structure | undefined =>
@@ -186,7 +195,25 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     return StructureElement.Loci.isEmpty(loci) ? null : loci;
   };
 
-  const presetParams = (style: ViewerStyle): CommonPresetParams => (style.coloring ? { theme: { globalName: style.coloring } } : {});
+  /** Mol* theme name and parameters for the chosen colouring (null: the preset's own). */
+  const theme = (style: ViewerStyle): { name: string; params: Record<string, unknown> } | null => {
+    switch (style.coloring) {
+      case null: return null;
+      case 'uncertainty': return {
+        name: 'uncertainty',
+        // Mol*'s uncertainty theme reverses its list (high values get the first colour), so ours
+        // (low → high) goes in back to front.
+        params: { domain: style.colorScale.domain ?? [0, 100], list: { kind: 'interpolate', colors: [...BFACTOR_COLORS].reverse().map(c => Color(c)) } },
+      };
+      case 'plddt': return { name: PLDDT_THEME, params: { scale: style.colorScale.plddtScale ?? 1 } };
+      default: return { name: style.coloring, params: {} };
+    }
+  };
+  const presetParams = (style: ViewerStyle): CommonPresetParams => {
+    const t = theme(style);
+    // Our own theme name is not in Mol*'s built-in list; the registry knows it.
+    return t ? { theme: { globalName: t.name as 'uncertainty', globalColorParams: t.params } } : {};
+  };
 
   const setPostprocessingFor = (atoms: number) => {
     if (!plugin.canvas3d || !defaultPostprocessing) return;
@@ -234,12 +261,18 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
       const structures = plugin.managers.structure.hierarchy.current.structures;
       if (structures.length === 0) return;
       // Back to "Default": re-apply the representation preset, which brings its own colouring.
-      if (!style.coloring) {
+      const t = theme(style);
+      if (!t) {
         await plugin.managers.structure.component.applyPreset(structures, presetFor(style.representation), presetParams(style));
         return;
       }
       const components = structures.flatMap(s => s.components);
-      await plugin.managers.structure.component.updateRepresentationsTheme(components, { color: style.coloring });
+      await plugin.managers.structure.component.updateRepresentationsTheme(components, { color: t.name as 'uncertainty', colorParams: t.params });
+    },
+    async applyHydrogens(style) {
+      const manager = plugin.managers.structure.component;
+      // Stored in the manager's options, so later loads (and the focus sticks) follow it too.
+      await manager.setOptions({ ...manager.state.options, hydrogens: style.hydrogens ? 'all' : 'hide-all' });
     },
   });
 
@@ -247,6 +280,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
     load: queue.load,
     setRepresentation: queue.setRepresentation,
     setColoring: queue.setColoring,
+    setHydrogens: queue.setHydrogens,
     highlight(residues) {
       if (disposed) return;
       const loci = lociFor(residues);
@@ -259,11 +293,17 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
       if (loci) plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false);
       else plugin.managers.interactivity.lociSelects.deselectAll();
     },
-    focus(residues) {
+    focus(residues, opts) {
       if (disposed) return;
       const loci = lociFor(residues);
-      if (loci) plugin.managers.camera.focusLoci(loci);
-      else plugin.managers.camera.reset();
+      if (!loci) {
+        plugin.managers.structure.focus.clear();
+        return;
+      }
+      // What a click in Mol* does: the residues and their 5 Å surroundings as sticks, with contacts.
+      if (opts?.sticks === false) plugin.managers.structure.focus.clear();
+      else plugin.managers.structure.focus.setFromLoci(loci);
+      plugin.managers.camera.focusLoci(loci);
     },
     async snapshot() {
       const helper = plugin.helpers.viewportScreenshot;
@@ -306,6 +346,7 @@ export async function createMolstarEngine(host: HTMLElement, options: EngineOpti
       hoverSub.unsubscribe();
       logoObserver.disconnect();
       selectionSub.unsubscribe();
+      focusSub.unsubscribe();
       plugin.dispose();
       mount.root?.unmount();
       target.remove();

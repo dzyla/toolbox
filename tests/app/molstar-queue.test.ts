@@ -25,6 +25,7 @@ function fakeOps() {
     },
     applyRepresentation: style => step(`repr ${style.representation}`, false),
     applyColoring: style => step(`colour ${style.coloring}`, false),
+    applyHydrogens: style => step(`hydrogens ${style.hydrogens ? 'on' : 'off'}`, false),
   };
   return { ops, log, slow, gates, overlap: () => overlap };
 }
@@ -86,6 +87,21 @@ describe('Mol* viewer queue (R17)', () => {
       'start colour null', 'end colour null',
       'start load A', 'end load A', 'shown A as auto/default',
     ]);
+  });
+
+  it('hydrogens and colour scales are queued like the rest and reach later loads', async () => {
+    const seen: ViewerStyle[] = [];
+    const f = fakeOps();
+    const ops: ViewerOps = { ...f.ops, async load(_c, _d, _f, _l, _m, style) { seen.push({ ...style }); } };
+    const q = createViewerQueue(ops);
+    await q.setHydrogens(false);
+    await q.setColoring('uncertainty', { domain: [5, 40] });
+    await q.load('data', 'mmcif', 'A', 0);
+    expect(f.log).toEqual(['start hydrogens off', 'end hydrogens off', 'start colour uncertainty', 'end colour uncertainty']);
+    expect(seen[0]).toMatchObject({ hydrogens: false, coloring: 'uncertainty', colorScale: { domain: [5, 40] } });
+    await q.setColoring('chain-id');
+    await q.load('data', 'mmcif', 'B', 0);
+    expect(seen[1]!.colorScale).toEqual({});
   });
 
   it('does nothing once disposed', async () => {

@@ -5,12 +5,14 @@
  * No Mol* imports here, so the ordering is unit-testable without WebGL.
  */
 import type { StructureFormat } from '@/core/structure';
-import type { Coloring, Representation } from './MolstarViewer';
+import type { ColorScale, Coloring, Representation } from './MolstarViewer';
 
 export interface ViewerStyle {
   representation: Representation;
   /** null (the default, or "Default" picked again): Mol*'s per-representation preset colouring. */
   coloring: Coloring | null;
+  colorScale: ColorScale;
+  hydrogens: boolean;
 }
 
 export interface ViewerOps {
@@ -19,18 +21,20 @@ export interface ViewerOps {
   load(isCurrent: () => boolean, data: string, format: StructureFormat, label: string, modelIndex: number, style: ViewerStyle): Promise<void>;
   applyRepresentation(style: ViewerStyle): Promise<void>;
   applyColoring(style: ViewerStyle): Promise<void>;
+  applyHydrogens(style: ViewerStyle): Promise<void>;
 }
 
 export interface ViewerQueue {
   load(data: string, format: StructureFormat, label: string, modelIndex: number): Promise<void>;
   setRepresentation(r: Representation): Promise<void>;
-  setColoring(c: Coloring | null): Promise<void>;
+  setColoring(c: Coloring | null, scale?: ColorScale): Promise<void>;
+  setHydrogens(show: boolean): Promise<void>;
 }
 
 export function createViewerQueue(ops: ViewerOps): ViewerQueue {
   let generation = 0;
   let tail: Promise<void> = Promise.resolve();
-  const style: ViewerStyle = { representation: 'auto', coloring: null };
+  const style: ViewerStyle = { representation: 'auto', coloring: null, colorScale: {}, hydrogens: true };
 
   const enqueue = (task: () => Promise<void> | undefined): Promise<void> => {
     const run = tail.then(() => (ops.isDisposed() ? undefined : task()));
@@ -49,9 +53,14 @@ export function createViewerQueue(ops: ViewerOps): ViewerQueue {
       style.representation = r;
       return enqueue(() => ops.applyRepresentation(style));
     },
-    setColoring(c) {
+    setColoring(c, scale = {}) {
       style.coloring = c;
+      style.colorScale = scale;
       return enqueue(() => ops.applyColoring(style));
+    },
+    setHydrogens(show) {
+      style.hydrogens = show;
+      return enqueue(() => ops.applyHydrogens(style));
     },
   };
 }

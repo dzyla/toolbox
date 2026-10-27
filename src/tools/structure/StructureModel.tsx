@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { InterfacePair, ResidueRef, StructureFormat, StructureMetrics, StructureModel } from '@/core/structure';
+import { bFactorStats, detectPlddt, type InterfacePair, type ResidueRef, type StructureFormat, type StructureMetrics, type StructureModel } from '@/core/structure';
 import { downloadBlob } from '@/lib/export';
 import { importErrorMessage } from '@/lib/file-import';
 import { useUrlState } from '@/lib/url-state';
 import { useWorkerCompute } from '@/lib/use-worker-compute';
 import { makeInterfaceWorker, makeParseWorker, runInterfaceJob, runTaggedParseJob, type InterfaceJob, type TaggedParseJob } from './job';
 import { fetchRcsbEntry, loadDemo, normaliseRcsbId, readStructureFile, type StructureSource } from './load';
-import type { Coloring, MolstarHandle, Representation } from './MolstarViewer';
-import { indexResidues, refKey } from './sequence';
+import type { ColorScale, Coloring, MolstarHandle, Representation } from './MolstarViewer';
+import { indexResidues, refKey, refsInRange } from './sequence';
 
 export interface Preset { id: string; name: string }
 /** The one preset list (RCSB entries). */
@@ -48,8 +48,12 @@ export function useStructureModel() {
   const [representation, setRepresentationState] = useState<Representation>('auto');
   /** null: Mol*'s preset colouring (what the viewer queue starts with). */
   const [coloring, setColoringState] = useState<Coloring | null>(null);
+  const [hydrogens, setHydrogensState] = useState(true);
   const [panels, setPanels] = useState(false);
-  const [largeCanvas, setLargeCanvas] = useState(false);
+  /** The strip's chain belongs to one model; a new structure starts on its first chain. */
+  const [chainPick, setChainPick] = useState<{ model: StructureModel; id: string } | null>(null);
+  /** Residues picked as a set elsewhere (an interface), marked in the strip. */
+  const [marked, setMarked] = useState<ResidueRef[]>([]);
 
   // Only the newest request may set `loaded` or clear `error`. Each request gets a token; a new one
   // drops any in-flight parse (which also terminates its worker), and fetch/read results and parse
@@ -108,6 +112,7 @@ export function useStructureModel() {
     setModelIndex(0);
     setSelection(null);
     setHovered(null);
+    setMarked([]);
     setError('');
   }, [parsed.result]);
   useEffect(() => {
@@ -143,14 +148,43 @@ export function useStructureModel() {
 
   // Display choices made before Mol* hands over its handle are replayed onto it (the handle's
   // queue then applies them before the first load). Defaults need no replay.
-  const style = useRef({ representation, coloring });
-  style.current = { representation, coloring };
+  // B-factor scale ends and pLDDT detection for the shown model (cheap: one pass over the atoms).
+  const bStats = useMemo(() => (loaded ? bFactorStats(loaded.model, modelIndex) : null), [loaded, modelIndex]);
+  const plddt = useMemo(() => (loaded ? detectPlddt(loaded.model, bStats) : null), [loaded, bStats]);
+  const colorScale = useMemo<ColorScale>(() => ({
+    ...(bStats ? { domain: [bStats.low, bStats.high] as [number, number] } : {}),
+    ...(plddt ? { plddtScale: plddt.scale } : {}),
+  }), [bStats, plddt]);
+  const hasHydrogens = useMemo(() => !!loaded?.model.models[modelIndex]?.isHydrogen.some(h => h === 1), [loaded, modelIndex]);
+
+  const colourError = () => setError('The 3D viewer could not change the colours.');
+  /** Only data-dependent colourings carry a scale (the others are called with the name alone). */
+  const applyColoring = (h: MolstarHandle, c: Coloring | null, scale: ColorScale) =>
+    (c === 'uncertainty' || c === 'plddt' ? h.setColoring(c, scale) : h.setColoring(c)).catch(colourError);
+
+  const style = useRef({ representation, coloring, colorScale, hydrogens });
+  style.current = { representation, coloring, colorScale, hydrogens };
   const setViewer = useCallback((h: MolstarHandle) => {
-    const { representation: r, coloring: c } = style.current;
+    const { representation: r, coloring: c, colorScale: scale, hydrogens: hy } = style.current;
     if (r !== 'auto') h.setRepresentation(r).catch(() => setError('The 3D viewer could not change the representation.'));
-    if (c !== null) h.setColoring(c).catch(() => setError('The 3D viewer could not change the colours.'));
+    if (c !== null) applyColoring(h, c, scale);
+    if (!hy) h.setHydrogens(false).catch(() => setError('The 3D viewer could not hide the hydrogens.'));
     setViewerState(() => h);
   }, []);
+
+  // A new structure or model: the B-factor scale follows its data, and pLDDT colouring falls back
+  // to the default when the new structure is not a predicted model.
+  const scaleKey = useRef(colorScale);
+  useEffect(() => {
+    if (scaleKey.current === colorScale) return;
+    scaleKey.current = colorScale;
+    if (coloring === 'plddt' && !plddt) {
+      setColoringState(null);
+      if (viewer) applyColoring(viewer, null, colorScale);
+    } else if (viewer && (coloring === 'uncertainty' || coloring === 'plddt')) {
+      applyColoring(viewer, coloring, colorScale);
+    }
+  }, [colorScale]);
 
   // A residue clicked in Mol* becomes the strip's selection (polymer residues only; clicks on
   // ligands, water or empty space leave the selection alone).
@@ -159,7 +193,49 @@ export function useStructureModel() {
     const at = r && residueIndex?.get(refKey(r));
     if (!r || !at) return;
     setSelection({ labelAsymId: at.labelAsymId, from: at.seqId, to: at.seqId });
+    setMarked([]);
     viewer?.select([r]);
+  };
+
+  const model = loaded?.model ?? null;
+  const chainId = chainPick && chainPick.model === model ? chainPick.id : model?.chains[0]?.labelAsymId ?? '';
+  const setChainId = (id: string) => { if (model) setChainPick({ model, id }); };
+
+  /** Select residues in Mol*, show them and their surroundings as sticks, and zoom to them. */
+  const showResidues = (refs: ResidueRef[]) => {
+    if (!viewer) return;
+    viewer.select(refs);
+    viewer.focus(refs);
+  };
+  /** One residue from a list (an interface): the strip jumps to it when it is a polymer residue. */
+  const showResidue = (r: ResidueRef) => {
+    const at = residueIndex?.get(refKey(r));
+    if (at) setSelection({ labelAsymId: at.labelAsymId, from: at.seqId, to: at.seqId });
+    showResidues([r]);
+  };
+  /** Both sides of an interface: sticks in 3D, marked in the strip. */
+  const showInterface = (pair: InterfacePair) => {
+    const all = [...pair.a.residues, ...pair.b.residues];
+    setSelection(null);
+    setMarked(all);
+    showResidues(all);
+  };
+  /** A whole chain: the strip switches to it, Mol* selects it and zooms out to it (no sticks). */
+  const showChain = (labelAsymId: string) => {
+    const chain = model?.chains.find(c => c.labelAsymId === labelAsymId);
+    if (!chain) return;
+    setChainId(labelAsymId);
+    setSelection(null);
+    setMarked([]);
+    const refs = refsInRange(chain, -Infinity, Infinity);
+    viewer?.select(refs);
+    viewer?.focus(refs, { sticks: false });
+  };
+  const clearSelection = () => {
+    setSelection(null);
+    setMarked([]);
+    viewer?.select([]);
+    viewer?.focus([]);
   };
   const setRepresentation = (r: Representation) => {
     setRepresentationState(r);
@@ -167,7 +243,11 @@ export function useStructureModel() {
   };
   const setColoring = (c: Coloring | null) => {
     setColoringState(c);
-    viewer?.setColoring(c).catch(() => setError('The 3D viewer could not change the colours.'));
+    if (viewer) applyColoring(viewer, c, colorScale);
+  };
+  const setHydrogens = (show: boolean) => {
+    setHydrogensState(show);
+    viewer?.setHydrogens(show).catch(() => setError('The 3D viewer could not change the hydrogens.'));
   };
   const snapshot = async () => {
     if (!viewer || !loaded) return;
@@ -180,7 +260,7 @@ export function useStructureModel() {
 
   return {
     source: loaded?.source ?? null,
-    model: loaded?.model ?? null,
+    model,
     format: loaded?.format ?? null,
     parsing: candidate !== null,
     /** What is being read or fetched right now, for a status line; null when idle. */
@@ -193,13 +273,17 @@ export function useStructureModel() {
     interfaceError: facts.error,
     cutoff, setCutoff,
     loadRcsb, loadFile,
-    selection, setSelection, selectFromViewer,
+    selection, setSelection, selectFromViewer, clearSelection,
+    marked,
+    chainId, setChainId,
+    showResidues, showResidue, showInterface, showChain,
     hovered, setHovered,
     viewer, setViewer,
     representation, setRepresentation,
     coloring, setColoring,
+    bStats, plddt,
+    hydrogens, setHydrogens, hasHydrogens,
     panels, setPanels,
-    largeCanvas, setLargeCanvas,
     snapshot,
     shareUrl,
   };

@@ -8,14 +8,19 @@ const POLYMER: Record<string, string> = { protein: 'Protein', dna: 'DNA', rna: '
 /** Show the filter box above this many polymer chains. */
 const FILTER_ABOVE = 8;
 
-interface ChainCell { label: string; auth: string; modelled?: number }
+interface ChainCell { label: string; auth: string; modelled?: number; polymer?: boolean }
 interface Row { entity: Entity; kind: string; description: string; length?: number; chains: ChainCell[] }
 
 const th = 'px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400';
 const td = 'px-2 py-1.5 align-top';
 
-/** Every entity except water: kind, description, chains (label [auth]), length and modelled residues per chain. */
-export function EntityTable({ model }: { model: StructureModel }) {
+const chainButton = 'whitespace-nowrap rounded px-0.5 text-accent-700 underline decoration-dotted underline-offset-2 hover:bg-accent-50 dark:text-accent-300 dark:hover:bg-slate-800';
+
+/**
+ * Every entity except water: kind, description, chains (label [auth]), length and modelled residues
+ * per chain. A polymer chain is a button that shows it in the strip and in 3D.
+ */
+export function EntityTable({ model, onChain }: { model: StructureModel; onChain?(labelAsymId: string): void }) {
   const [query, setQuery] = useState('');
   const rows = useMemo<Row[]>(() => {
     const ligandAuth = new Map(model.ligands.map(l => [l.labelAsymId, l.authAsymId]));
@@ -27,7 +32,7 @@ export function EntityTable({ model }: { model: StructureModel }) {
           kind: POLYMER[e.polymerType ?? 'other'] ?? 'Polymer',
           description: entityName(e),
           length: e.sequence.length || chains[0]?.residues.length,
-          chains: chains.map(c => ({ label: c.labelAsymId, auth: c.authAsymId, modelled: c.residues.filter(r => r.modelled).length })),
+          chains: chains.map(c => ({ label: c.labelAsymId, auth: c.authAsymId, modelled: c.residues.filter(r => r.modelled).length, polymer: true })),
         };
       }
       return {
@@ -47,7 +52,7 @@ export function EntityTable({ model }: { model: StructureModel }) {
   });
 
   return (
-    <section aria-labelledby="entities-heading" class="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+    <section aria-labelledby="entities-heading" class="space-y-2">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 id="entities-heading" class="text-sm font-semibold text-slate-900 dark:text-slate-100">Entities and chains</h2>
         {model.chains.length > FILTER_ABOVE && (
@@ -75,7 +80,11 @@ export function EntityTable({ model }: { model: StructureModel }) {
                 <td class={td}>{row.kind}</td>
                 <td class={`${td} min-w-40 break-words`}>{row.description}</td>
                 <td class={`${td} font-mono`}>
-                  {row.chains.map((c, k) => <span key={c.label}>{k > 0 && ', '}<span class="whitespace-nowrap">{`${c.label} [auth ${c.auth}]`}</span></span>)}
+                  {row.chains.map((c, k) => (
+                    <span key={c.label}>{k > 0 && ', '}{c.polymer && onChain
+                      ? <button type="button" class={chainButton} aria-label={`Show chain ${c.label} [auth ${c.auth}]`} onClick={() => onChain(c.label)}>{`${c.label} [auth ${c.auth}]`}</button>
+                      : <span class="whitespace-nowrap">{`${c.label} [auth ${c.auth}]`}</span>}</span>
+                  ))}
                 </td>
                 <td class={`${td} text-right tabular-nums`}>{row.length ?? '—'}</td>
                 <td class={`${td} tabular-nums`}>

@@ -95,6 +95,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByLabel('Chain', { exact: true }).selectOption('C');
     await page.getByRole('button', { name: 'Residue A 272 SER', exact: true }).click();
     await page.getByRole('button', { name: 'Residue A 280 PHE', exact: true }).click({ modifiers: ['Shift'] });
+    await page.getByRole('tab', { name: /^Export/ }).click();
     await page.getByRole('button', { name: 'Modelled only' }).click();
     await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
     const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
