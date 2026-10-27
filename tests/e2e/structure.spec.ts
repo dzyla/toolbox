@@ -120,6 +120,8 @@ test('dropping 3KZ5.cif loads it and clicking a residue selects it in Mol*', asy
 });
 
 test('on a laptop screen the viewer, the strip and the interface list are all on screen at once', async ({ page }) => {
+  // Two loads plus focus round-trips through Mol*: more than the default budget on CI runners.
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto('/#/t/structure');
   await expectLoaded(page, '1UBQ');
