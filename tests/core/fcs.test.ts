@@ -125,8 +125,52 @@ describe('FCS compensation', () => {
     expect(() => invertMatrix([[1, 2], [2, 4]])).toThrow(FcsError);
   });
 
-  it('errors clearly when the matrix names a missing parameter', () => {
-    expect(() => parseFcs(buildFcs({ datatype: 'F', params: ps, events: ev, extra: { $SPILLOVER: '2,FL1-A,FL9-A,1,0,0,1' } }))).toThrow(/FL9-A/);
+  describe('permissive spillover names', () => {
+    const load = (sp: string, prm: { name: string; label?: string }[] = ps) =>
+      parseFcs(buildFcs({ datatype: 'F', params: prm, events: ev, extra: { $SPILLOVER: sp } }));
+    const expectFull = (d: ReturnType<typeof load>) => {
+      expect(d.compensationApplied).toBe(true);
+      expect(d.warnings).toEqual([]);
+      truth.forEach((t, i) => {
+        expect(d.columns[0]![i]).toBeCloseTo(t[0]!, 0);
+        expect(d.columns[1]![i]).toBeCloseTo(t[1]!, 0);
+      });
+    };
+    const vals = `${S[0]!.join(',')},${S[1]!.join(',')}`;
+
+    it('accepts parameter numbers', () => expectFull(load(`2,1,2,${vals}`)));
+    it('accepts $PnS stain names', () => {
+      expectFull(load(`2,CD3,CD4,${vals}`, [{ name: 'FL1-A', label: 'CD3' }, { name: 'FL2-A', label: 'CD4' }, { name: 'FSC-A' }]));
+    });
+    it('ignores case and whitespace', () => expectFull(load(`2, fl1 -a ,FL2-a,${vals}`)));
+    it('prefers $PnN over a numeric index', () => {
+      const d = load(`2,2,1,${S[0]!.join(',')},${S[1]!.join(',')}`, [{ name: '1' }, { name: '2' }, { name: 'FSC-A' }]);
+      expect(d.compensation!.indices).toEqual([1, 0]);
+    });
+    it('loads with partial compensation and warns when one name is unmatched', () => {
+      const d = load('3,FL1-A,FL2-A,Nope,1,0.1,0,0.2,1,0,0,0,1');
+      expect(d.compensationApplied).toBe(true);
+      expect(d.compensation!.names).toEqual(['FL1-A', 'FL2-A']);
+      expect(d.warnings.join(' ')).toMatch(/"Nope".*could not be matched.*dropped/);
+      expect(d.columns[0]![0]).toBeCloseTo(1000, 0);
+    });
+    it('loads uncompensated and warns when too few names match', () => {
+      const d = load('2,FL1-A,FL9-A,1,0,0,1');
+      expect(d.compensationApplied).toBe(false);
+      expect(d.compensation).toBeNull();
+      expect(d.warnings.join(' ')).toMatch(/"FL9-A".*without compensation/);
+      expect(Array.from(d.columns[0]!)).toEqual(ev.map(e => e[0]));
+    });
+    it('loads uncompensated and warns when the value count is wrong', () => {
+      const d = load('2,FL1-A,FL2-A,1,0,0');
+      expect(d.compensationApplied).toBe(false);
+      expect(d.warnings.join(' ')).toMatch(/\$SPILLOVER should hold 2 names and 4 values.*without compensation/);
+    });
+    it('loads uncompensated and warns when the matrix is singular', () => {
+      const d = load('2,FL1-A,FL2-A,1,2,2,4');
+      expect(d.compensationApplied).toBe(false);
+      expect(d.warnings.join(' ')).toMatch(/singular/);
+    });
   });
 });
 

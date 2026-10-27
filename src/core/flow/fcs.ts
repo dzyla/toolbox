@@ -30,6 +30,8 @@ export interface CompensationMatrix {
   source: '$SPILLOVER' | '$SPILL' | '$COMP';
   /** Parameter names (matching $PnN) the rows and columns refer to. */
   names: string[];
+  /** Zero-based parameter indices matching `names` (set by the parser; resolves duplicate names). */
+  indices?: number[];
   /** Row-major n x n spillover matrix S, with observed = true x S. */
   matrix: number[][];
 }
@@ -111,28 +113,81 @@ export function invertMatrix(m: number[][]): number[][] {
   return a.map(row => row.slice(n));
 }
 
-/** Parse $SPILLOVER / $SPILL ("n,name1..namen,v11..vnn") or $COMP ("n,v11..vnn", first n parameters). */
-export function parseCompensation(kw: Record<string, string>, parameters: FcsParameter[]): CompensationMatrix | null {
+/**
+ * Resolve a spillover name to a parameter index, permissively: exact $PnN, then exact $PnS, then
+ * case- and whitespace-insensitive $PnN or $PnS, then a purely numeric name k as 1-based index k.
+ * Returns -1 when nothing matches.
+ */
+export function resolveParameterName(name: string, parameters: FcsParameter[]): number {
+  let i = parameters.findIndex(p => p.name === name);
+  if (i >= 0) return i;
+  i = parameters.findIndex(p => p.label !== '' && p.label === name);
+  if (i >= 0) return i;
+  const norm = (x: string) => x.replace(/\s+/g, '').toLowerCase();
+  const nn = norm(name);
+  if (nn !== '') {
+    i = parameters.findIndex(p => norm(p.name) === nn);
+    if (i >= 0) return i;
+    i = parameters.findIndex(p => p.label !== '' && norm(p.label) === nn);
+    if (i >= 0) return i;
+  }
+  if (/^\d+$/.test(name.trim())) {
+    const k = Number(name.trim());
+    if (k >= 1 && k <= parameters.length) return k - 1;
+  }
+  return -1;
+}
+
+/**
+ * Parse $SPILLOVER / $SPILL ("n,name1..namen,v11..vnn") or $COMP ("n,v11..vnn", first n parameters).
+ * Never throws: a malformed matrix pushes a warning and yields null. Names that cannot be matched
+ * to a parameter are dropped (rows and columns together) with a warning; fewer than two matched
+ * names leaves no meaningful matrix, so null is returned.
+ */
+export function parseCompensation(kw: Record<string, string>, parameters: FcsParameter[], warnings: string[] = []): CompensationMatrix | null {
   for (const key of ['$SPILLOVER', '$SPILL', '$COMP'] as const) {
     const raw = kw[key];
-    if (!raw) continue;
-    const t = raw.split(',').map(s => s.trim());
+    if (!raw || raw.trim() === '') continue;
+    const skip = (why: string) => { warnings.push(`${key} ${why}; the file was loaded without compensation.`); };
+    const t = raw.split(',').map(x => x.trim());
     const n = Number(t[0]);
-    if (!Number.isInteger(n) || n < 1) throw new FcsError(`${key} does not start with a valid parameter count.`);
+    if (!Number.isInteger(n) || n < 1) { skip('does not start with a valid parameter count'); return null; }
     let names: string[]; let values: string[];
     if (key === '$COMP') {
-      if (n > parameters.length) throw new FcsError('$COMP lists more parameters than the file has.');
+      if (n > parameters.length) { skip('lists more parameters than the file has'); return null; }
       names = parameters.slice(0, n).map(p => p.name);
       values = t.slice(1);
     } else {
       names = t.slice(1, 1 + n);
       values = t.slice(1 + n);
     }
-    if (names.length !== n || values.length !== n * n) throw new FcsError(`${key} should hold ${n} names and ${n * n} values.`);
+    if (names.length !== n || values.length !== n * n) { skip(`should hold ${n} names and ${n * n} values but does not`); return null; }
     const nums = values.map(Number);
-    if (nums.some(v => !Number.isFinite(v))) throw new FcsError(`${key} contains a non-numeric value.`);
-    const matrix = Array.from({ length: n }, (_, i) => nums.slice(i * n, (i + 1) * n));
-    return { source: key, names, matrix };
+    if (values.some(v => v === '') || nums.some(v => !Number.isFinite(v))) { skip('contains a non-numeric value'); return null; }
+    const full = Array.from({ length: n }, (_, i) => nums.slice(i * n, (i + 1) * n));
+    const idx = names.map(nm => resolveParameterName(nm, parameters));
+    const seen = new Set<number>();
+    const keep: number[] = [];
+    const bad: string[] = [];
+    idx.forEach((pi, i) => {
+      if (pi < 0) bad.push(`"${names[i]}"`);
+      else if (seen.has(pi)) bad.push(`"${names[i]}" (duplicate of another entry)`);
+      else { seen.add(pi); keep.push(i); }
+    });
+    if (bad.length > 0) {
+      const list = bad.join(', ');
+      if (keep.length < 2) {
+        skip(`names ${list}, which could not be matched to any parameter ($PnN, $PnS or a parameter number), leaving fewer than two usable channels`);
+        return null;
+      }
+      warnings.push(`${key} names ${list}, which could not be matched to any parameter ($PnN, $PnS or a parameter number). Those rows and columns were dropped and compensation was applied only to the ${keep.length} matched channels (approximate: spill from the dropped channels is not corrected).`);
+    }
+    return {
+      source: key,
+      names: keep.map(i => parameters[idx[i]!]!.name),
+      indices: keep.map(i => idx[i]!),
+      matrix: keep.map(i => keep.map(j => full[i]![j]!)),
+    };
   }
   return null;
 }
@@ -142,8 +197,8 @@ export function parseCompensation(kw: Record<string, string>, parameters: FcsPar
  * (copies); other columns are shared. Names unknown to the file are an error.
  */
 export function applyCompensation(columns: Float32Array[], parameters: FcsParameter[], comp: CompensationMatrix): Float32Array[] {
-  const idx = comp.names.map(nm => {
-    const i = parameters.findIndex(p => p.name === nm || (p.label !== '' && p.label === nm));
+  const idx = comp.indices ?? comp.names.map(nm => {
+    const i = resolveParameterName(nm, parameters);
     if (i < 0) throw new FcsError(`The compensation matrix refers to "${nm}", which is not a parameter in this file.`);
     return i;
   });
@@ -330,12 +385,17 @@ export function parseFcs(input: ArrayBuffer | Uint8Array, options: ParseFcsOptio
     }
   }
 
-  const compensation = parseCompensation(kw, parameters);
+  const compensation = parseCompensation(kw, parameters, warnings);
   let outColumns = columns;
   let applied = false;
   if (compensation && (options.compensate ?? true)) {
-    outColumns = applyCompensation(columns, parameters, compensation);
-    applied = true;
+    try {
+      outColumns = applyCompensation(columns, parameters, compensation);
+      applied = true;
+    } catch (err) {
+      if (!(err instanceof FcsError)) throw err;
+      warnings.push(`${err.message} The file was loaded without compensation.`);
+    }
   }
 
   return {
