@@ -119,7 +119,7 @@ export const TOOLS: ToolMeta[] = [
     blurb: 'Open FCS files, plot events, draw gates, and read population statistics', keywords: ['flow', 'cytometry', 'fcs', 'facs', 'gate', 'gating', 'histogram', 'compensation', 'spillover', 'scatter', 'population'],
     status: 'ready', load: () => import('./flow/View') },
   { id: 'colonies', name: 'Colony Counter', category: 'counting', icon: '🔴',
-    blurb: 'Count colonies on a plate photo, on device', keywords: ['colony', 'cfu', 'plate', 'count', 'plaque'],
+    blurb: 'Count colonies from a plate photo or live from the phone camera, on device', keywords: ['colony', 'cfu', 'plate', 'count', 'plaque', 'camera', 'phone', 'live'],
     status: 'ready', load: () => import('./colonies/View') },
   { id: 'hemocytometer', name: 'Hemocytometer', category: 'counting', icon: '🔬',
     blurb: 'Cell counts, viability and seeding', keywords: ['hemocytometer', 'cells', 'viability', 'trypan', 'count'],

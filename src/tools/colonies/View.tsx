@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import {
   calculateCfu,
-  autoDetectColonies,
+  detectColonies,
   computeSizeDistribution,
   calculateColonyPhysicalMetrics,
   calculatePlatePhysicalSummary,
@@ -9,6 +9,8 @@ import {
   DEFAULT_COLONY_CATEGORIES,
   type ColonySpot,
   type ColonyCategory,
+  type DetectResult,
+  type Polarity,
 } from '@/core/counting';
 import { ToolLayout } from '@/app/components/ToolLayout';
 import { SciencePanel, scienceText } from '@/app/components/SciencePanel';
@@ -17,16 +19,22 @@ import { useUrlState } from '@/lib/url-state';
 import { downloadText, toCsv } from '@/lib/export';
 import { importErrorMessage, readImageDataUrl } from '@/lib/file-import';
 import { ImportAlert } from '@/app/components/ImportAlert';
+import { LiveCamera } from './LiveCamera';
+import { WORK_SIZE, examplePlate, photoToPlate, type PlateImage } from './plate-image';
 import { SCIENCE } from './science';
 
 interface State {
   volumePlatedUl: number;
   dilutionExponent: number; // e.g. 4 for 10^4
-  minCertainty: number; // 0.1 to 0.95
-  minDiameter: number;  // px
-  maxDiameter: number;  // px
-  minDistance: number;  // min separation in px
-  dishMarginPct: number; // rim margin exclusion %
+  /** 0 (only obvious colonies) … 1 (faint ones too). */
+  sensitivity: number;
+  polarity: Polarity;
+  /** Rim excluded from the search, % of the dish radius. */
+  edgeMarginPct: number;
+  /** Typical colony diameter in working-image px; 0 = estimated from the photo. */
+  colonyDiameterPx: number;
+  minDiameter: number;  // px, result filter
+  maxDiameter: number;  // px, result filter
   dishDiameterMm: number; // e.g. 90 mm
   showSizeHistogram: boolean;
   showOverlayLabels: boolean;
@@ -36,84 +44,81 @@ interface State {
 const DEFAULTS: State = {
   volumePlatedUl: 100,
   dilutionExponent: 4,
-  minCertainty: 0.50,
-  minDiameter: 4,
-  maxDiameter: 50,
-  minDistance: 5,
-  dishMarginPct: 15,
+  sensitivity: 0.5,
+  polarity: 'auto',
+  edgeMarginPct: 8,
+  colonyDiameterPx: 0,
+  minDiameter: 0,
+  maxDiameter: 200,
   dishDiameterMm: 90,
   showSizeHistogram: true,
   showOverlayLabels: false,
   displayUnits: 'si',
 };
 
-const SYNTHETIC_COORDS = [
-  { x: 230, y: 160, r: 8 },
-  { x: 280, y: 190, r: 10 },
-  { x: 190, y: 220, r: 6 },
-  { x: 330, y: 220, r: 9 },
-  { x: 240, y: 250, r: 14 },
-  { x: 290, y: 270, r: 7 },
-  { x: 160, y: 280, r: 11 },
-  { x: 370, y: 270, r: 8 },
-  { x: 210, y: 310, r: 6 },
-  { x: 270, y: 330, r: 12 },
-  { x: 320, y: 340, r: 7 },
-  { x: 180, y: 360, r: 9 },
-  { x: 240, y: 390, r: 5 },
-  { x: 150, y: 210, r: 5 },
-  { x: 340, y: 160, r: 7 },
-  { x: 210, y: 120, r: 6 },
-  { x: 290, y: 130, r: 8 },
-  { x: 370, y: 340, r: 6 },
-  { x: 140, y: 330, r: 6 },
-  { x: 220, y: 180, r: 4 },
-  { x: 260, y: 210, r: 5 },
-  { x: 300, y: 230, r: 4 },
-  { x: 180, y: 160, r: 4 },
-  { x: 350, y: 300, r: 4 },
+const POLARITIES: { value: Polarity; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
 ];
 
-const BUNDLED_EXAMPLE_COLONIES: ColonySpot[] = SYNTHETIC_COORDS.map((sc, i) => ({
-  id: `c-${i + 1}`,
-  x: sc.x,
-  y: sc.y,
-  radius: sc.r,
-  certainty: 0.95,
-  category: sc.r >= 10 ? 'cat-1' : sc.r >= 6 ? 'cat-2' : 'cat-3',
-  isManual: false,
-}));
+const loadButton = 'py-1.5 px-2.5 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1';
 
 export default function ColoniesView() {
   const [stateSig, shareUrl] = useUrlState<State>('colonies', DEFAULTS);
   const s = stateSig.value;
   const set = (patch: Partial<State>) => { stateSig.value = { ...stateSig.value, ...patch }; };
 
+  const [plate, setPlate] = useState<PlateImage | null>(null);
+  const [detection, setDetection] = useState<DetectResult | null>(null);
   const [allDetected, setAllDetected] = useState<ColonySpot[]>([]);
   const [manualSpots, setManualSpots] = useState<ColonySpot[]>([]);
   const [selectedColonyId, setSelectedColonyId] = useState<string | null>(null);
   const [interactionMode, setInteractionMode] = useState<'pick' | 'add' | 'remove'>('pick');
   const [hoveredColony, setHoveredColony] = useState<ColonySpot | null>(null);
   const [categories] = useState<ColonyCategory[]>(DEFAULT_COLONY_CATEGORIES);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [camera, setCamera] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Active colonies filtered by user certainty and size thresholds
+  // The drawn example plate until a photo is loaded.
+  useEffect(() => { setPlate(examplePlate()); }, []);
+
+  // Detection follows the plate and the settings; slider moves are coalesced (one run per pause).
+  useEffect(() => {
+    if (!plate) return;
+    const t = setTimeout(() => {
+      const ctx = plate.canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;  // no canvas support (tests)
+      const result = detectColonies(ctx.getImageData(0, 0, plate.width, plate.height), {
+        sensitivity: s.sensitivity,
+        polarity: s.polarity,
+        edgeMargin: s.edgeMarginPct / 100,
+        colonyDiameter: s.colonyDiameterPx,
+      });
+      setDetection(result);
+      setAllDetected(result.colonies);
+      setSelectedColonyId(null);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [plate, s.sensitivity, s.polarity, s.edgeMarginPct, s.colonyDiameterPx]);
+
+  // Size filter on detected colonies; manual pins always count.
   const activeColonies = useMemo(() => {
     const filteredAuto = allDetected.filter(c => {
       const diam = (c.radius || 4) * 2;
-      const cert = c.certainty ?? 1.0;
-      return cert >= s.minCertainty && diam >= s.minDiameter && diam <= s.maxDiameter;
+      return diam >= s.minDiameter && diam <= s.maxDiameter;
     });
     return [...filteredAuto, ...manualSpots];
-  }, [allDetected, manualSpots, s.minCertainty, s.minDiameter, s.maxDiameter]);
+  }, [allDetected, manualSpots, s.minDiameter, s.maxDiameter]);
 
-  // Spatial calibration: 500x500 canvas with inner agar plate radius = 215 px
-  const dishRadiusPx = 215;
+  // Spatial calibration from the dish found in the image (its diameter is the chosen dish size).
+  const dishCx = detection?.dish.cx ?? (plate?.width ?? 500) / 2;
+  const dishCy = detection?.dish.cy ?? (plate?.height ?? 500) / 2;
+  const dishRadiusPx = detection?.dish.radius ?? Math.min(plate?.width ?? 500, plate?.height ?? 500) * 0.43;
   const mmPerPixel = (s.dishDiameterMm / 2) / dishRadiusPx;
   const pixelsPerMm = 1 / mmPerPixel;
 
@@ -141,10 +146,10 @@ export default function ColoniesView() {
       selectedColony.radius || 4,
       selectedColony.x,
       selectedColony.y,
-      { cx: 250, cy: 250 },
+      { cx: dishCx, cy: dishCy },
       mmPerPixel,
     );
-  }, [selectedColony, mmPerPixel]);
+  }, [selectedColony, mmPerPixel, dishCx, dishCy]);
 
   const dilutionFactor = Math.pow(10, s.dilutionExponent);
   const volumePlatedMl = s.volumePlatedUl / 1000;
@@ -161,105 +166,28 @@ export default function ColoniesView() {
     }
   }, [activeColonies.length, volumePlatedMl, dilutionFactor]);
 
-  function drawSyntheticPlate(ctx: CanvasRenderingContext2D, width: number, height: number) {
-    const cx = width / 2;
-    const cy = height / 2;
-    const r = dishRadiusPx;
-
-    // Background petri dish rim
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + 6, 0, 2 * Math.PI);
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fill();
-
-    // Agar surface (clean uniform tone)
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    ctx.fillStyle = '#fef08a';
-    ctx.fill();
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    // Draw realistic colonies with dome profile (Gaussian gradient)
-    for (const sc of SYNTHETIC_COORDS) {
-      const g = ctx.createRadialGradient(sc.x, sc.y, 0, sc.x, sc.y, sc.r);
-      g.addColorStop(0, '#260e02');
-      g.addColorStop(0.7, '#451a03');
-      g.addColorStop(1, '#78350f');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(sc.x, sc.y, sc.r, 0, 2 * Math.PI);
-      ctx.fill();
-    }
-  }
-
-  function runAutoDetection(ctx: CanvasRenderingContext2D, width: number, height: number) {
-    try {
-      const imgData = ctx.getImageData(0, 0, width, height);
-      const dishRadiusFrac = 1 - (s.dishMarginPct || 15) / 100;
-      const detected = autoDetectColonies(imgData, {
-        minRadius: 1,
-        maxRadius: 50,
-        minCertainty: 0.20,
-        minDistance: s.minDistance || 5,
-        dishRadiusFrac,
-      });
-      if (detected.length > 0) {
-        setAllDetected(detected);
-      } else if (!imageSrc) {
-        setAllDetected(BUNDLED_EXAMPLE_COLONIES);
-      }
-    } catch {
-      if (!imageSrc) {
-        setAllDetected(BUNDLED_EXAMPLE_COLONIES);
-      }
-    }
-  }
-
-  // Initial draw & automatic detection on synthetic agar plate or custom image
+  // One synchronous paint: the decoded plate, the searched circle, then the colony rings. The
+  // canvas has the plate's own size, so the photo is never stretched.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
-
-    if (imageSrc) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        runAutoDetection(ctx, canvas.width, canvas.height);
-      };
-      img.src = imageSrc;
-    } else {
-      drawSyntheticPlate(ctx, canvas.width, canvas.height);
-      runAutoDetection(ctx, canvas.width, canvas.height);
-    }
-  }, [imageSrc, s.minDistance, s.dishMarginPct]);
-
-  // Redraw overlays whenever active colonies, hover, or selection changes
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !plate) return;
+    if (canvas.width !== plate.width) canvas.width = plate.width;
+    if (canvas.height !== plate.height) canvas.height = plate.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    // Redraw base image/plate
-    if (imageSrc) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        renderOverlays(ctx);
-      };
-      img.src = imageSrc;
-    } else {
-      drawSyntheticPlate(ctx, canvas.width, canvas.height);
-      renderOverlays(ctx);
+    ctx.drawImage(plate.canvas, 0, 0);
+    if (detection) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(56,189,248,0.85)';
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = Math.max(1, plate.width / 600);
+      ctx.beginPath();
+      ctx.arc(detection.dish.cx, detection.dish.cy, detection.searchRadius, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
     }
-  }, [activeColonies, hoveredColony, selectedColonyId, s.showOverlayLabels, s.displayUnits, mmPerPixel]);
+    renderOverlays(ctx);
+  }, [plate, detection, activeColonies, hoveredColony, selectedColonyId, s.showOverlayLabels, s.displayUnits, mmPerPixel]);
 
   function renderOverlays(ctx: CanvasRenderingContext2D) {
     const catMap = new Map(categories.map(c => [c.id, c.color]));
@@ -387,17 +315,18 @@ export default function ColoniesView() {
   }
 
   function handleResetToExample() {
-    setImageSrc(null);
+    setCamera(false);
+    setPlate(examplePlate());
     setSelectedColonyId(null);
     setManualSpots([]);
-    setAllDetected(BUNDLED_EXAMPLE_COLONIES);
   }
 
   async function handleImageUpload(file: File) {
     setImportError('');
     try {
       const { src } = await readImageDataUrl(file);
-      setImageSrc(src);
+      setPlate(await photoToPlate(src));
+      setCamera(false);
       setSelectedColonyId(null);
       setManualSpots([]);
     } catch (err) {
@@ -427,9 +356,9 @@ export default function ColoniesView() {
       ],
       ...activeColonies.map((c, i) => {
         const rPx = c.radius || 4;
-        const phys = calculateColonyPhysicalMetrics(rPx, c.x, c.y, { cx: 250, cy: 250 }, mmPerPixel);
-        const xMm = ((c.x - 250) * mmPerPixel).toFixed(2);
-        const yMm = ((c.y - 250) * mmPerPixel).toFixed(2);
+        const phys = calculateColonyPhysicalMetrics(rPx, c.x, c.y, { cx: dishCx, cy: dishCy }, mmPerPixel);
+        const xMm = ((c.x - dishCx) * mmPerPixel).toFixed(2);
+        const yMm = ((c.y - dishCy) * mmPerPixel).toFixed(2);
         return [
           c.id,
           i + 1,
@@ -454,7 +383,7 @@ export default function ColoniesView() {
   }
 
   const copyText = !cfuResult || 'error' in cfuResult ? (cfuResult?.error ?? 'Invalid calculation') : [
-    `Automated Colony Count: ${activeColonies.length} colonies (Min Certainty: ${(s.minCertainty * 100).toFixed(0)}%)`,
+    `Automated Colony Count: ${activeColonies.length} colonies (sensitivity ${Math.round(s.sensitivity * 100)}%)`,
     `Size Stats: Mean Diameter = ${sizeStats.meanDiameter.toFixed(1)} px (CV: ${sizeStats.cvPercent.toFixed(1)}%)`,
     `Estimated CFU/mL: ${cfuResult.cfuPerMl.toExponential(3)} CFU/mL`,
     `Plating: ${s.volumePlatedUl} µL at 10^${s.dilutionExponent} dilution`,
@@ -462,128 +391,93 @@ export default function ColoniesView() {
     scienceText(SCIENCE),
   ].join('\n');
 
+  const autoDiameter = detection ? detection.typicalRadius * 2 : null;
+
   return (
     <ToolLayout
       icon="🔴"
       title="Automated Colony Counter"
-      blurb="Computer-vision automated colony detection with certainty scoring, size distribution histogram, and CFU/mL calibration."
+      blurb="Count colonies from a plate photo or live from the phone camera, on this device: adjustable detection, size distribution and CFU/mL."
       wide={true}
+      mobileDefaultTab="results"
       inputs={
         <div class="space-y-4">
-          {/* Automated Detection & Certainty Filters */}
+          {/* Detection settings: every change re-counts the plate */}
           <div class="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Detection & Confidence Tuning
+              Detection
             </h3>
 
             <div>
               <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
-                <span>Certainty Threshold</span>
-                <span class="font-mono font-bold text-accent-600 dark:text-accent-400">
-                  {Math.round(s.minCertainty * 100)}%
-                </span>
+                <span>Sensitivity</span>
+                <span class="font-mono font-bold text-accent-600 dark:text-accent-400">{Math.round(s.sensitivity * 100)}%</span>
               </div>
-              <input
-                type="range"
-                min="0.20"
-                max="0.95"
-                step="0.05"
-                aria-label="Certainty Threshold"
-                value={s.minCertainty}
-                onInput={(e) => set({ minCertainty: parseFloat((e.target as HTMLInputElement).value) })}
-                class="w-full accent-accent-600"
-              />
+              <input type="range" min="0" max="1" step="0.05" aria-label="Sensitivity" value={s.sensitivity}
+                onInput={(e) => set({ sensitivity: parseFloat((e.target as HTMLInputElement).value) })}
+                class="w-full accent-accent-600" />
               <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                Higher threshold retains only high-contrast, unambiguous colonies.
+                Higher finds fainter colonies, and eventually reflections and specks.
               </span>
             </div>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span id="colony-colour-caption" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Colonies are</span>
+              <div role="group" aria-labelledby="colony-colour-caption" class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800">
+                {POLARITIES.map(p => (
+                  <button key={p.value} type="button" aria-pressed={s.polarity === p.value} onClick={() => set({ polarity: p.value })}
+                    class={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition ${s.polarity === p.value ? 'bg-accent-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400'}`}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                {detection ? `Found ${detection.polarity === 'light' ? 'lighter' : 'darker'} colonies than the agar.` : 'Lighter or darker than the agar.'}
+              </span>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <label class="block">
+                <span class="block text-[11px] text-slate-500 dark:text-slate-400">Colony size (px, 0 = auto)</span>
+                <input aria-label="Typical colony diameter (px)" type="number" min="0" max="200" step="1" value={s.colonyDiameterPx}
+                  onInput={(e) => set({ colonyDiameterPx: Math.max(0, parseFloat((e.target as HTMLInputElement).value) || 0) })}
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900" />
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">{autoDiameter !== null && s.colonyDiameterPx === 0 ? `auto: ${autoDiameter.toFixed(1)} px` : ' '}</span>
+              </label>
+              <label class="block">
+                <span class="block text-[11px] text-slate-500 dark:text-slate-400">Edge margin ({s.edgeMarginPct}%)</span>
+                <input type="range" min="0" max="25" step="1" aria-label="Edge margin" value={s.edgeMarginPct}
+                  onInput={(e) => set({ edgeMarginPct: parseInt((e.target as HTMLInputElement).value) || 0 })}
+                  class="w-full accent-accent-600" />
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">skips the rim glare</span>
+              </label>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
               <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
-                <span>Size Range Filter (Diameter)</span>
-                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                  {s.minDiameter} – {s.maxDiameter} px
-                </span>
+                <span>Keep diameters</span>
+                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">{s.minDiameter} – {s.maxDiameter} px</span>
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="block text-[10px] text-slate-500 dark:text-slate-400">Min Dia (px)</label>
-                  <input aria-label="Min Dia (px)"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={s.minDiameter}
-                    onInput={(e) => set({ minDiameter: parseInt((e.target as HTMLInputElement).value) || 2 })}
-                    class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
-                  />
+                  <input aria-label="Min Dia (px)" type="number" min="0" max="200" value={s.minDiameter}
+                    onInput={(e) => set({ minDiameter: Math.max(0, parseInt((e.target as HTMLInputElement).value) || 0) })}
+                    class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900" />
                 </div>
                 <div>
                   <label class="block text-[10px] text-slate-500 dark:text-slate-400">Max Dia (px)</label>
-                  <input aria-label="Max Dia (px)"
-                    type="number"
-                    min="5"
-                    max="100"
-                    value={s.maxDiameter}
-                    onInput={(e) => set({ maxDiameter: parseInt((e.target as HTMLInputElement).value) || 50 })}
-                    class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
-                  />
+                  <input aria-label="Max Dia (px)" type="number" min="1" max="1000" value={s.maxDiameter}
+                    onInput={(e) => set({ maxDiameter: parseInt((e.target as HTMLInputElement).value) || 200 })}
+                    class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900" />
                 </div>
               </div>
             </div>
 
-            {/* Minimum Colony Separation Distance */}
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
-                <span>Min Separation (Distance)</span>
-                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                  {s.minDistance} px
-                </span>
-              </div>
-              <input
-                type="range"
-                min="2"
-                max="25"
-                step="1"
-                aria-label="Min Separation"
-                value={s.minDistance}
-                onInput={(e) => set({ minDistance: parseInt((e.target as HTMLInputElement).value) || 2 })}
-                class="w-full accent-accent-600"
-              />
-              <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                Lower separation allows detecting touching doublets / colonies close to each other.
-              </span>
-            </div>
-
-            {/* Petri Dish Rim Glare Exclusion */}
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
-                <span>Rim Glare Margin</span>
-                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                  {s.dishMarginPct}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="25"
-                step="1"
-                aria-label="Rim Glare Margin"
-                value={s.dishMarginPct}
-                onInput={(e) => set({ dishMarginPct: parseInt((e.target as HTMLInputElement).value) || 15 })}
-                class="w-full accent-accent-600"
-              />
-              <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                Excludes edge glare reflections from plastic petri dish borders.
-              </span>
-            </div>
-
             <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 pt-1 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={s.showOverlayLabels}
+              <input type="checkbox" checked={s.showOverlayLabels}
                 onChange={(e) => set({ showOverlayLabels: (e.target as HTMLInputElement).checked })}
-                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600"
-              />
+                class="rounded text-accent-600 dark:text-accent-400 accent-accent-600" />
               <span>Show diameter tags on plate</span>
             </label>
           </div>
@@ -714,156 +608,65 @@ export default function ColoniesView() {
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleResetToExample}
-              class="w-full py-1.5 px-3 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-700 transition flex items-center justify-center gap-1.5 shadow-2xs"
-              title="Load bundled LB agar plate with realistic colonies"
-            >
-              🧫 Load Bundled Example Plate
-            </button>
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              class="flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg bg-accent-600 text-white hover:bg-accent-700 transition flex items-center justify-center gap-1 shadow-xs"
-              title="Snap photo directly from mobile camera"
-            >
-              📸 Camera (Mobile)
-            </button>
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              class="hidden"
-              onChange={(e) => {
-                const input = e.target as HTMLInputElement;
-                const file = input.files?.[0];
-                input.value = '';
-                if (file) void handleImageUpload(file);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              class="flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1"
-            >
-              📁 Upload Photo
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              class="hidden"
-              onChange={(e) => {
-                const input = e.target as HTMLInputElement;
-                const file = input.files?.[0];
-                input.value = '';
-                if (file) void handleImageUpload(file);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => { setImageSrc(null); setSelectedColonyId(null); setAllDetected([]); setManualSpots([]); }}
-              class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
-              title="Clear all colonies and plate"
-            >
-              Clear
-            </button>
-          </div>
           <ImportAlert message={importError} />
         </div>
       }
       results={
         <div class="space-y-4">
-          {!cfuResult || 'error' in cfuResult ? (
-            <p role="alert" class="text-sm text-red-600 dark:text-red-400">{cfuResult?.error ?? 'Calculation error'}</p>
-          ) : (
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 dark:text-slate-400 block">Filtered Colonies</span>
-                <span data-testid="colony-count" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {activeColonies.length}
-                </span>
-                <span class="text-[11px] text-slate-500 dark:text-slate-400 block capitalize">
-                  {plateSummary.densityStatus} ({manualSpots.length > 0 ? `${manualSpots.length} manual` : 'auto'})
-                </span>
-              </div>
-
-              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 dark:text-slate-400 block">Plating Colony Density</span>
-                <span data-testid="colony-density" class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                  {plateSummary.platingDensityCfuPerCm2.toFixed(2)}
-                </span>
-                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">CFU / cm² (dish {plateSummary.dishAreaCm2.toFixed(0)} cm²)</span>
-              </div>
-
-              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 dark:text-slate-400 block">Mean Colony Diameter</span>
-                <span data-testid="colony-diameter" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {s.displayUnits === 'si'
-                    ? `${(sizeStats.meanDiameterMm ?? 0).toFixed(2)} mm`
-                    : `${sizeStats.meanDiameter.toFixed(1)} px`}
-                </span>
-                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
-                  Area: {plateSummary.meanAreaMm2.toFixed(2)} mm² · CV {sizeStats.cvPercent.toFixed(1)}%
-                </span>
-              </div>
-
-              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                <span class="text-xs text-slate-500 dark:text-slate-400 block">Estimated CFU / mL</span>
-                <span data-testid="cfu-ml" class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
-                  {cfuResult.cfuPerMl.toExponential(2)}
-                </span>
-                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">in stock (10⁻{s.dilutionExponent}, {s.volumePlatedUl} µL)</span>
-              </div>
-            </div>
-          )}
-
-          {/* Size Distribution Histogram */}
-          {sizeStats.bins.length > 0 && (
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
-              <div class="flex items-center justify-between">
-                <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Colony Size Distribution Histogram
-                </h4>
-                <span class="text-xs mono text-slate-500 dark:text-slate-400">
-                  Mean Ø: {s.displayUnits === 'si'
-                    ? `${(sizeStats.meanDiameterMm ?? 0).toFixed(2)} mm ± ${(sizeStats.stdDevMm ?? 0).toFixed(2)} mm`
-                    : `${sizeStats.meanDiameter.toFixed(1)} px ± ${sizeStats.stdDev.toFixed(1)} px`}
-                </span>
-              </div>
-
-              <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2">
-                {sizeStats.bins.map((bin, idx) => {
-                  const maxCount = Math.max(1, ...sizeStats.bins.map(b => b.count));
-                  const heightFrac = bin.count / maxCount;
-                  const label = s.displayUnits === 'si' && bin.binLabelMm ? bin.binLabelMm : bin.binLabel;
-                  return (
-                    <div key={idx} class="space-y-1 text-center bg-slate-50 dark:bg-slate-800/40 p-2 rounded-xl">
-                      <div class="h-16 flex items-end justify-center">
-                        <div
-                          class="w-full rounded-t-md bg-accent-600 transition-all duration-300"
-                          style={{ height: `${Math.max(4, heightFrac * 60)}px` }}
-                          title={`${label}: ${bin.count} colonies (${bin.percentage.toFixed(1)}%)`}
-                        />
-                      </div>
-                      <span class="block font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
-                        {bin.count}
-                      </span>
-                      <span class="block text-[10px] text-slate-500 dark:text-slate-400 mono truncate" title={label}>
-                        {label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Interactive Plate Canvas Card */}
+          {/* Plate: load, count, inspect */}
           <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2.5">
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setCamera(true)} aria-pressed={camera}
+                class={`${loadButton} bg-accent-600 text-white hover:bg-accent-700 shadow-xs`}
+                title="Count live from the phone or laptop camera, then capture">
+                🎥 Live camera
+              </button>
+              <button type="button" onClick={() => cameraInputRef.current?.click()}
+                class={`${loadButton} border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800`}
+                title="Take a photo with the phone camera app">
+                📸 Take photo
+              </button>
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" class="hidden"
+                onChange={(e) => {
+                  const input = e.target as HTMLInputElement;
+                  const file = input.files?.[0];
+                  input.value = '';
+                  if (file) void handleImageUpload(file);
+                }} />
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                class={`${loadButton} border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800`}>
+                📁 Upload Photo
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" class="hidden"
+                onChange={(e) => {
+                  const input = e.target as HTMLInputElement;
+                  const file = input.files?.[0];
+                  input.value = '';
+                  if (file) void handleImageUpload(file);
+                }} />
+              <button type="button" onClick={handleResetToExample}
+                class={`${loadButton} border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800`}
+                title="The drawn example plate">
+                🧫 Load Bundled Example Plate
+              </button>
+              <button type="button" onClick={() => { setSelectedColonyId(null); setAllDetected([]); setManualSpots([]); }}
+                class={`${loadButton} text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900`}
+                title="Clear all colonies">
+                Clear
+              </button>
+            </div>
+
+            {camera && (
+              <LiveCamera
+                options={{ polarity: s.polarity, edgeMargin: s.edgeMarginPct / 100, colonyDiameter: s.colonyDiameterPx }}
+                workSize={WORK_SIZE}
+                sensitivity={s.sensitivity}
+                onSensitivity={v => set({ sensitivity: v })}
+                onCapture={p => { setPlate(p); setCamera(false); setManualSpots([]); setSelectedColonyId(null); }}
+                onClose={() => setCamera(false)}
+              />
+            )}
+
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -1021,15 +824,102 @@ export default function ColoniesView() {
             <div class="flex justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden">
               <canvas
                 ref={canvasRef}
-                width={500}
-                height={500}
+                width={plate?.width ?? 500}
+                height={plate?.height ?? 500}
                 onClick={handleCanvasClick}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseLeave={() => setHoveredColony(null)}
-                class="cursor-crosshair max-w-full h-auto rounded-lg shadow-xs"
+                aria-label={`Plate with ${activeColonies.length} counted colonies`}
+                class="cursor-crosshair max-w-full h-auto max-h-[75vh] object-contain rounded-lg shadow-xs"
               />
             </div>
           </div>
+
+          {!cfuResult || 'error' in cfuResult ? (
+            <p role="alert" class="text-sm text-red-600 dark:text-red-400">{cfuResult?.error ?? 'Calculation error'}</p>
+          ) : (
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Filtered Colonies</span>
+                <span data-testid="colony-count" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {activeColonies.length}
+                </span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block capitalize">
+                  {plateSummary.densityStatus} ({manualSpots.length > 0 ? `${manualSpots.length} manual` : 'auto'})
+                </span>
+              </div>
+
+              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Plating Colony Density</span>
+                <span data-testid="colony-density" class="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                  {plateSummary.platingDensityCfuPerCm2.toFixed(2)}
+                </span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">CFU / cm² (dish {plateSummary.dishAreaCm2.toFixed(0)} cm²)</span>
+              </div>
+
+              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Mean Colony Diameter</span>
+                <span data-testid="colony-diameter" class="font-mono text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {s.displayUnits === 'si'
+                    ? `${(sizeStats.meanDiameterMm ?? 0).toFixed(2)} mm`
+                    : `${sizeStats.meanDiameter.toFixed(1)} px`}
+                </span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
+                  Area: {plateSummary.meanAreaMm2.toFixed(2)} mm² · CV {sizeStats.cvPercent.toFixed(1)}%
+                </span>
+              </div>
+
+              <div class="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+                <span class="text-xs text-slate-500 dark:text-slate-400 block">Estimated CFU / mL</span>
+                <span data-testid="cfu-ml" class="font-mono text-2xl font-bold text-accent-600 dark:text-accent-400">
+                  {cfuResult.cfuPerMl.toExponential(2)}
+                </span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 block">in stock (10⁻{s.dilutionExponent}, {s.volumePlatedUl} µL)</span>
+              </div>
+            </div>
+          )}
+
+          {/* Size Distribution Histogram */}
+          {sizeStats.bins.length > 0 && (
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-2">
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Colony Size Distribution Histogram
+                </h4>
+                <span class="text-xs mono text-slate-500 dark:text-slate-400">
+                  Mean Ø: {s.displayUnits === 'si'
+                    ? `${(sizeStats.meanDiameterMm ?? 0).toFixed(2)} mm ± ${(sizeStats.stdDevMm ?? 0).toFixed(2)} mm`
+                    : `${sizeStats.meanDiameter.toFixed(1)} px ± ${sizeStats.stdDev.toFixed(1)} px`}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2">
+                {sizeStats.bins.map((bin, idx) => {
+                  const maxCount = Math.max(1, ...sizeStats.bins.map(b => b.count));
+                  const heightFrac = bin.count / maxCount;
+                  const label = s.displayUnits === 'si' && bin.binLabelMm ? bin.binLabelMm : bin.binLabel;
+                  return (
+                    <div key={idx} class="space-y-1 text-center bg-slate-50 dark:bg-slate-800/40 p-2 rounded-xl">
+                      <div class="h-16 flex items-end justify-center">
+                        <div
+                          class="w-full rounded-t-md bg-accent-600 transition-all duration-300"
+                          style={{ height: `${Math.max(4, heightFrac * 60)}px` }}
+                          title={`${label}: ${bin.count} colonies (${bin.percentage.toFixed(1)}%)`}
+                        />
+                      </div>
+                      <span class="block font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
+                        {bin.count}
+                      </span>
+                      <span class="block text-[10px] text-slate-500 dark:text-slate-400 mono truncate" title={label}>
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
         </div>
       }
       actions={<ActionBar onCopy={() => copyText} shareUrl={shareUrl} />}
