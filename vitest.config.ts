@@ -4,7 +4,13 @@ import preact from '@preact/preset-vite';
 export default defineConfig({
   plugins: [preact()],
   define: { __APP_VERSION__: JSON.stringify('test') },
-  resolve: { alias: { '@': new URL('./src', import.meta.url).pathname } },
+  resolve: {
+    alias: {
+      '@': new URL('./src', import.meta.url).pathname,
+      // Provided by vite-plugin-pwa in the app build only; tests mock this stub.
+      'virtual:pwa-register/preact': new URL('./tests/stubs/pwa-register-preact.ts', import.meta.url).pathname,
+    },
+  },
   test: {
     environment: 'happy-dom',
     include: ['tests/app/**/*.test.{ts,tsx}', 'tests/core/**/*.test.ts', 'tests/lib/**/*.test.{ts,tsx}', 'tests/build/**/*.test.ts'],
