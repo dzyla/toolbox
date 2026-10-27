@@ -45,6 +45,7 @@
     "eslint": "^10.9.1",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.13.2",
+    "jpeg-js": "^0.4.4",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.69.0",
