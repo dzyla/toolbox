@@ -62,7 +62,8 @@ export default function MeasureView() {
   ]);
 
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  // Decoded once on upload so every redraw (each pointer move) can paint synchronously.
+  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [zoom, setZoom] = useState<number>(1.0);
   const [zoomMode, setZoomMode] = useState<'fit' | 'custom'>('fit');
@@ -102,13 +103,9 @@ export default function MeasureView() {
     canvas.height = canvasHeight;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (imageSrc) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        drawAnnotations(ctx);
-      };
-      img.src = imageSrc;
+    if (imageEl) {
+      ctx.drawImage(imageEl, 0, 0, canvas.width, canvas.height);
+      drawAnnotations(ctx);
     } else {
       // Draw realistic cell micrograph / test pattern
       ctx.fillStyle = '#f8fafc';
@@ -154,7 +151,7 @@ export default function MeasureView() {
 
       drawAnnotations(ctx);
     }
-  }, [imageSrc, imageDimensions, measurements, currentPoints, hoverPt, activeScale, canvasWidth, canvasHeight]);
+  }, [imageEl, imageDimensions, measurements, currentPoints, hoverPt, activeScale, canvasWidth, canvasHeight]);
 
   function drawAnnotations(ctx: CanvasRenderingContext2D) {
     // Draw finalized measurements
@@ -388,8 +385,11 @@ export default function MeasureView() {
           h = MAX_DIM;
         }
       }
+      const img = new Image();
+      img.src = src;
+      await img.decode();
       setImageDimensions({ width: w, height: h });
-      setImageSrc(src);
+      setImageEl(img);
       setMeasurements([]);
       setCurrentPoints([]);
     } catch (err) {
@@ -531,7 +531,7 @@ export default function MeasureView() {
             />
             <button
               type="button"
-              onClick={() => { setImageSrc(null); setImageDimensions(null); setMeasurements([]); setCurrentPoints([]); }}
+              onClick={() => { setImageEl(null); setImageDimensions(null); setMeasurements([]); setCurrentPoints([]); }}
               class="px-3 py-1.5 text-xs font-medium rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition"
             >
               Clear
