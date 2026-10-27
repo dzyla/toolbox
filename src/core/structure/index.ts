@@ -12,3 +12,5 @@ export { computeMetrics } from './metrics';
 export type { StructureMetrics } from './metrics';
 export { writeMmcif, writePdb } from './export';
 export type { PdbExport } from './export';
+export { bFactorStats, detectPlddt } from './confidence';
+export type { BFactorStats, PlddtInfo } from './confidence';

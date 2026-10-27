@@ -46,6 +46,8 @@ export interface AtomTable {
 export interface StructureHeader {
   id?: string; title?: string; method?: string; resolution?: number;
   organisms: string[]; depositionDate?: string;
+  /** The file carries ModelCIF (`_ma_*`) categories: a computed model, not an experimental one. */
+  modelCif?: boolean;
 }
 
 export interface StructureModel {

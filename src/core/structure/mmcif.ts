@@ -168,6 +168,7 @@ function readHeader(block: CifBlock): StructureHeader {
   }
   const date = c.get('_pdbx_database_status')?.get('recvd_initial_deposition_date', 0);
   if (date !== undefined) header.depositionDate = date;
+  for (const name of c.keys()) if (name.startsWith('_ma_')) { header.modelCif = true; break; }
   return header;
 }
 
