@@ -2,19 +2,22 @@
  * Colony detection on a plate photo. Pure: works on any RGBA buffer, so it runs the same in a test,
  * on the main thread or on live camera frames.
  *
- * 1. Find the dish (RANSAC circle on the rim) and search its interior minus an edge margin.
+ * 1. Find the dish (RANSAC circle on the rim), then the agar's own edge inside the plastic wall
+ *    (its own circle, where brightness leaves the agar level); search inside it.
  * 2. Agar background: a box blur over dish pixels, then a second one that leaves out everything
  *    far from the first (colonies, marker ink, glare), so neither pulls the background.
  * 3. Colony size: the median radius of clearly separate, round blobs in the background-subtracted
  *    image (or the size the user gives).
- * 4. Colonies are peaks of a difference-of-Gaussians filter tuned to that size (run on the colony
- *    side of the residual only), above k × its robust noise (k follows the sensitivity). Touching
+ * 4. Colonies are peaks of a difference-of-Gaussians scale space around that size (run on the
+ *    colony side of the residual only, each scale in units of its own robust noise), above k
+ *    (k follows the sensitivity). Small and large colonies are found at their own size; touching
  *    colonies give separate peaks.
  * 5. Peaks on lines (marker pen, the rim, scratches) are rejected by their Hessian: a colony is
- *    curved the same way in every direction, a line only across it.
+ *    curved the same way in every direction, a line only across it. A line's end, which looks
+ *    round up close, is rejected because the region around it runs on long and thin.
  * With polarity 'auto', light or dark colonies are chosen by which side has more round blobs.
  */
-import { detectPetriDishBoundary, type DishBoundary } from './dish';
+import { detectAgarEdge, detectPetriDishBoundary, type DishBoundary } from './dish';
 import type { ColonySpot } from './index';
 
 export interface RgbaImage { width: number; height: number; data: Uint8ClampedArray | Uint8Array }
@@ -24,7 +27,7 @@ export interface DetectOptions {
   /** 0 (only obvious colonies) … 1 (faint ones too); default 0.5. */
   sensitivity?: number;
   polarity?: Polarity;
-  /** Fraction of the dish radius excluded at the rim (plastic wall, glare, meniscus); default 0.08. */
+  /** Extra margin inside the agar edge, as a fraction of the dish radius; default 0.02. */
   edgeMargin?: number;
   /** Typical colony diameter in px; 0 or absent: estimated from the photo. */
   colonyDiameter?: number;
@@ -37,8 +40,10 @@ export interface DetectOptions {
 export interface DetectResult {
   colonies: ColonySpot[];
   dish: DishBoundary;
-  /** Inner radius actually searched (dish radius minus the edge margin). */
+  /** Radius actually searched: the agar edge minus the edge margin. */
   searchRadius: number;
+  /** The circle actually searched (the agar edge, shrunk by the margin; centred on the agar). */
+  searchCircle: DishBoundary;
   polarity: 'light' | 'dark';
   /** Radius (px) of a typical colony, as used for the filter. */
   typicalRadius: number;
@@ -120,12 +125,9 @@ function roundBlobs(s: Float32Array, inside: Uint8Array, w: number, h: number, t
   return { count: radii.length, radius: radii[Math.floor(radii.length / 2)]! };
 }
 
-interface Peak { x: number; y: number; value: number; curvatureRatio: number }
-
-/** Local maxima of `d` above `t` within `win` px, with the Hessian eigenvalue ratio at each. */
-function peaks(d: Float32Array, inside: Uint8Array, w: number, h: number, t: number, win: number, hs: number): Peak[] {
-  const out: Peak[] = [];
-  const at = (xx: number, yy: number) => d[Math.min(h - 1, Math.max(0, yy)) * w + Math.min(w - 1, Math.max(0, xx))]!;
+/** Local maxima of `d` above `t` inside the dish, strict within a (2·win+1)² window. */
+function localMaxima(d: Float32Array, inside: Uint8Array, w: number, h: number, t: number, win: number): { x: number; y: number; value: number }[] {
+  const out: { x: number; y: number; value: number }[] = [];
   for (let y = win; y < h - win; y++) {
     for (let x = win; x < w - win; x++) {
       const i = y * w + x, v = d[i]!;
@@ -138,17 +140,53 @@ function peaks(d: Float32Array, inside: Uint8Array, w: number, h: number, t: num
           if (u > v || (u === v && (dy < 0 || (dy === 0 && dx < 0)))) { top = false; break; }
         }
       }
-      if (!top) continue;
-      // Hessian by central differences at step hs; both eigenvalues are negative at a blob.
-      const dxx = at(x + hs, y) + at(x - hs, y) - 2 * v;
-      const dyy = at(x, y + hs) + at(x, y - hs) - 2 * v;
-      const dxy = (at(x + hs, y + hs) + at(x - hs, y - hs) - at(x + hs, y - hs) - at(x - hs, y + hs)) / 4;
-      const tr = (dxx + dyy) / 2, root = Math.sqrt(((dxx - dyy) / 2) ** 2 + dxy * dxy);
-      const l1 = tr - root, l2 = tr + root;                // l1 ≤ l2; a blob has both < 0
-      out.push({ x, y, value: v, curvatureRatio: l2 < 0 ? l2 / l1 : 0 });
+      if (top) out.push({ x, y, value: v });
     }
   }
   return out;
+}
+
+/**
+ * Ratio of the Hessian eigenvalues of `d` at (x, y), central differences at step `hs`: near 1 for
+ * a round peak, near 0 on a line; 0 when the point is not a maximum in both directions.
+ */
+function curvatureRatio(d: Float32Array, w: number, h: number, x: number, y: number, hs: number): number {
+  const at = (xx: number, yy: number) => d[Math.min(h - 1, Math.max(0, yy)) * w + Math.min(w - 1, Math.max(0, xx))]!;
+  const v = at(x, y);
+  const dxx = at(x + hs, y) + at(x - hs, y) - 2 * v;
+  const dyy = at(x, y + hs) + at(x, y - hs) - 2 * v;
+  const dxy = (at(x + hs, y + hs) + at(x - hs, y - hs) - at(x + hs, y - hs) - at(x - hs, y + hs)) / 4;
+  const tr = (dxx + dyy) / 2, root = Math.sqrt(((dxx - dyy) / 2) ** 2 + dxy * dxy);
+  const l1 = tr - root, l2 = tr + root;                    // l1 ≤ l2; a blob has both < 0
+  return l2 < 0 ? l2 / l1 : 0;
+}
+
+/**
+ * Length-to-width ratio of the region around (x, y) where `s` stays above half its value there,
+ * within 4r. A colony (even three touching in a row) stays under about 3; the end of a pen stroke
+ * runs on into a long, thin region.
+ */
+function elongationAt(s: Float32Array, w: number, h: number, x: number, y: number, r: number): number {
+  const t = s[y * w + x]! / 2, lim = Math.ceil(4 * r);
+  const seen = new Set<number>([y * w + x]);
+  const stack = [y * w + x];
+  let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+  while (stack.length) {
+    const i = stack.pop()!;
+    const px = i % w, py = (i - px) / w;
+    n++; sx += px; sy += py; sxx += px * px; syy += py * py; sxy += px * py;
+    for (const j of [i - 1, i + 1, i - w, i + w]) {
+      const jx = j % w, jy = (j - jx) / w;
+      if (j < 0 || j >= s.length || seen.has(j) || Math.abs(jx - x) > lim || Math.abs(jy - y) > lim || s[j]! <= t) continue;
+      seen.add(j);
+      stack.push(j);
+    }
+  }
+  const mx = sx / n, my = sy / n;
+  const a = sxx / n - mx * mx, b = syy / n - my * my, c = sxy / n - mx * my;
+  const root = Math.sqrt(((a - b) / 2) ** 2 + c * c);
+  const l1 = (a + b) / 2 + root, l2 = Math.max(1e-6, (a + b) / 2 - root);
+  return Math.sqrt(l1 / l2);
 }
 
 /** Radius where the signal falls to half its centre value, averaged over 8 directions. */
@@ -171,15 +209,17 @@ export function detectColonies(img: RgbaImage, options: DetectOptions = {}): Det
   const { width: w, height: h, data } = img;
   const dish = options.dish ?? detectPetriDishBoundary(img);
   const sensitivity = Math.max(0, Math.min(1, options.sensitivity ?? 0.5));
-  const edgeMargin = Math.max(0, Math.min(0.5, options.edgeMargin ?? 0.08));
-  const searchRadius = dish.radius * (1 - edgeMargin);
+  const edgeMargin = Math.max(0, Math.min(0.5, options.edgeMargin ?? 0.02));
 
   const gray = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) gray[i] = 0.299 * data[i * 4]! + 0.587 * data[i * 4 + 1]! + 0.114 * data[i * 4 + 2]!;
+  // Search the agar only: its own edge (inside the plastic wall), minus the user's margin.
+  const edge = options.dish ? options.dish : detectAgarEdge(gray, w, h, dish);
+  const searchRadius = Math.max(1, edge.radius - edgeMargin * dish.radius);
+  const agarCircle = { cx: edge.cx, cy: edge.cy, radius: searchRadius };
   const inside = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x;
-    gray[i] = 0.299 * data[i * 4]! + 0.587 * data[i * 4 + 1]! + 0.114 * data[i * 4 + 2]!;
-    if ((x - dish.cx) ** 2 + (y - dish.cy) ** 2 <= searchRadius * searchRadius) inside[i] = 1;
+    if ((x - edge.cx) ** 2 + (y - edge.cy) ** 2 <= searchRadius * searchRadius) inside[y * w + x] = 1;
   }
 
   // Agar background: first pass over the dish, second pass without the outliers of the first.
@@ -216,28 +256,54 @@ export function detectColonies(img: RgbaImage, options: DetectOptions = {}): Det
     ? options.colonyDiameter / 2
     : blobs.radius ?? Math.max(3, searchRadius / 80);
 
-  // Difference of Gaussians tuned to that radius (σ = r/√2 maximises the response to a disc).
-  const sigma = Math.max(0.8, radius / Math.SQRT2);
-  const fine = gaussian(s, inside, w, h, sigma);
-  const coarse = gaussian(s, inside, w, h, sigma * 1.6);
-  const dog = new Float32Array(w * h);
-  for (let i = 0; i < dog.length; i++) dog[i] = fine[i]! - coarse[i]!;
-  const dogNoise = robustSigma(dog, agar, 3);
-  const threshold = dogNoise * (9 - 6 * sensitivity);     // 0 → 9σ, 0.5 → 6σ, 1 → 3σ
+  // Scale space: a difference of Gaussians at radii from half the typical one up to it
+  // (σ = r/√2 maximises the response to a disc; DoG is close to the scale-normalised Laplacian,
+  // so responses compare across scales). Larger scales are left out on purpose: they pick up
+  // broad, faint blobs such as colony reflections in the lid, and larger colonies still respond
+  // at the typical scale. A peak must exceed k × its scale's robust noise and be at least as
+  // strong as the neighbouring scales at the same pixel (a scale-space maximum), so a small
+  // scale's bumps inside a large colony do not count.
+  const radii = [0.5, 0.71, 1].map(f => Math.max(1.2, radius * f))
+    .filter((r, i, all) => i === 0 || r > all[i - 1]! * 1.15);
+  const threshold = 9 - 6 * sensitivity;                  // in noise units: 0 → 9σ, 0.5 → 6σ, 1 → 3σ
+  const dogs = radii.map(r => {
+    const sigma = r / Math.SQRT2;
+    const fine = gaussian(s, inside, w, h, sigma);
+    const coarse = gaussian(s, inside, w, h, sigma * 1.6);
+    const dog = new Float32Array(w * h);
+    for (let i = 0; i < dog.length; i++) dog[i] = fine[i]! - coarse[i]!;
+    return dog;
+  });
+  const candidates2: { x: number; y: number; response: number; z: number; r: number; curvature: number }[] = [];
+  dogs.forEach((dog, k) => {
+    const r = radii[k]!;
+    const n = robustSigma(dog, agar, 3);
+    for (const p of localMaxima(dog, inside, w, h, threshold * n, Math.max(1, Math.round(r * 0.8)))) {
+      const i = p.y * w + p.x;
+      if ((k > 0 && dogs[k - 1]![i]! > p.value) || (k < dogs.length - 1 && dogs[k + 1]![i]! > p.value)) continue;
+      const curvature = curvatureRatio(dog, w, h, p.x, p.y, Math.max(1, Math.round(r / 2)));
+      if (curvature <= 0.25) continue;                      // lines: ink, rim, scratches
+      if (elongationAt(s, w, h, p.x, p.y, r) > 4) continue;  // the end of a line
+      candidates2.push({ x: p.x, y: p.y, response: p.value, z: p.value / n, r, curvature });
+    }
+  });
 
-  const win = Math.max(1, Math.round(radius * 0.8));
-  const found = peaks(dog, inside, w, h, threshold, win, Math.max(1, Math.round(radius / 2)))
-    .filter(p => p.curvatureRatio > 0.25)                   // lines: ink, rim, scratches
-    .sort((a, b) => b.value - a.value);
+  // One colony, one peak: the strongest response wins, and a weaker peak closer than
+  // 0.7 × (sum of radii) is the same colony seen at another scale (e.g. its rim at a small one).
+  // Touching colonies, 2r apart, stay separate.
+  const kept: typeof candidates2 = [];
+  for (const p of candidates2.sort((a, b) => b.response - a.response)) {
+    if (!kept.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 0.7 * (q.r + p.r))) kept.push(p);
+  }
 
   const colonies: ColonySpot[] = [];
   const minR = (options.minDiameter ?? 0) / 2;
-  for (const p of found) {
-    const r = measuredRadius(s, w, h, p.x, p.y, Math.ceil(radius * 3));
+  for (const p of kept) {
+    const r = measuredRadius(s, w, h, p.x, p.y, Math.ceil(p.r * 3));
     if (r < minR) continue;
     // Confidence: how far above the threshold (full at twice it) and how round the peak is.
-    const strength = Math.min(1, p.value / threshold - 1);
-    const certainty = Math.min(0.99, Math.max(0.05, 0.5 + 0.3 * strength + 0.2 * p.curvatureRatio));
+    const strength = Math.min(1, p.z / threshold - 1);
+    const certainty = Math.min(0.99, Math.max(0.05, 0.5 + 0.3 * strength + 0.2 * p.curvature));
     colonies.push({
       id: `auto-${colonies.length + 1}`,
       x: p.x, y: p.y, radius: Math.round(r * 10) / 10,
@@ -246,5 +312,5 @@ export function detectColonies(img: RgbaImage, options: DetectOptions = {}): Det
       isManual: false,
     });
   }
-  return { colonies, dish, searchRadius, polarity, typicalRadius: radius };
+  return { colonies, dish, searchRadius, searchCircle: agarCircle, polarity, typicalRadius: radius };
 }

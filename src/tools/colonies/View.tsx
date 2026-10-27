@@ -46,7 +46,7 @@ const DEFAULTS: State = {
   dilutionExponent: 4,
   sensitivity: 0.5,
   polarity: 'auto',
-  edgeMarginPct: 8,
+  edgeMarginPct: 2,
   colonyDiameterPx: 0,
   minDiameter: 0,
   maxDiameter: 200,
@@ -182,7 +182,7 @@ export default function ColoniesView() {
       ctx.setLineDash([6, 4]);
       ctx.lineWidth = Math.max(1, plate.width / 600);
       ctx.beginPath();
-      ctx.arc(detection.dish.cx, detection.dish.cy, detection.searchRadius, 0, 2 * Math.PI);
+      ctx.arc(detection.searchCircle.cx, detection.searchCircle.cy, detection.searchCircle.radius, 0, 2 * Math.PI);
       ctx.stroke();
       ctx.restore();
     }
@@ -449,7 +449,7 @@ export default function ColoniesView() {
                 <input type="range" min="0" max="25" step="1" aria-label="Edge margin" value={s.edgeMarginPct}
                   onInput={(e) => set({ edgeMarginPct: parseInt((e.target as HTMLInputElement).value) || 0 })}
                   class="w-full accent-accent-600" />
-                <span class="text-[10px] text-slate-500 dark:text-slate-400">skips the rim glare</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">inside the agar edge</span>
               </label>
             </div>
 

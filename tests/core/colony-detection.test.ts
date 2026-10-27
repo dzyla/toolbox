@@ -16,7 +16,7 @@ function plate(size: number, colonies: Array<{ x: number; y: number; r: number }
       let v = 40;                                          // background outside the dish
       if (d <= R) v = 180 - 30 * (x / size);               // agar, unevenly lit
       if (d > R - 3 && d <= R) v = 120;                    // plastic rim
-      if (opts.stroke && Math.abs(y - (x - 40)) < 2 && x > 70 && x < 130 && d < R) v = 20; // marker pen
+      if (opts.stroke && Math.abs(y - (x - 10)) < 2 && x > 100 && x < 140 && d < R) v = 20; // marker pen, clear of the colonies
       // Colonies are domed: full contrast at the centre, fading to the agar at the edge.
       for (const col of colonies) {
         const dc = Math.hypot(x - col.x, y - col.y);
@@ -77,9 +77,11 @@ describe('petri dish and colony detection on a synthetic plate', () => {
   });
 });
 
-describe('a real plate photo (white colonies on clear agar, marker writing, lid reflections)', () => {
-  const file = readFileSync(join(__dirname, '..', 'fixtures', 'colonies', 'white-on-clear-1200.jpg'));
-  const img = jpeg.decode(file, { useTArray: true });
+/** A fixture photo decoded to RGBA. */
+const photo = (name: string) => jpeg.decode(readFileSync(join(__dirname, '..', 'fixtures', 'colonies', name)), { useTArray: true });
+
+describe('a real plate photo: white colonies on clear agar, marker writing, uneven lighting, tilted', () => {
+  const img = photo('white-on-clear-1200.jpg');
 
   it('finds the dish rim, not the image frame', () => {
     const b = detectPetriDishBoundary(img);
@@ -88,20 +90,47 @@ describe('a real plate photo (white colonies on clear agar, marker writing, lid 
     expect(Math.abs(b.radius - 400)).toBeLessThan(10);
   });
 
-  it('counts the sharp colonies (about 190), and nothing on the marker "B" or the rim', () => {
+  it('searches the agar inside the wall, off-centre because the photo is tilted', () => {
+    const r = detectColonies(img);
+    expect(r.searchCircle.radius / r.dish.radius).toBeGreaterThan(0.88);
+    expect(r.searchCircle.radius / r.dish.radius).toBeLessThan(0.96);
+    expect(r.searchCircle.cx - r.dish.cx).toBeGreaterThan(5);
+  });
+
+  it('counts the colonies, faint ones in the glare included (about 300), none on the writing or the wall', () => {
     const r = detectColonies(img);
     expect(r.polarity).toBe('light');
-    expect(r.colonies.length).toBeGreaterThan(170);
-    expect(r.colonies.length).toBeLessThan(205);
-    // Inside the loops of the written "B" (x 605–690, y 615–745) there are no colonies.
-    expect(r.colonies.filter(c => c.x > 615 && c.x < 680 && c.y > 625 && c.y < 690)).toHaveLength(0);
-    // Nothing on the plastic rim (outside the searched circle).
-    expect(r.colonies.every(c => Math.hypot(c.x - r.dish.cx, c.y - r.dish.cy) <= r.searchRadius)).toBe(true);
+    expect(r.colonies.length).toBeGreaterThan(280);
+    expect(r.colonies.length).toBeLessThan(350);
+    // No ring is centred on the marker ink (the black writing is below 90 in brightness; the
+    // agar, even in shadow, is above 110). Colonies inside the loops of the "B" do count.
+    const lum = (x: number, y: number) => { const i = (Math.round(y) * img.width + Math.round(x)) * 4; return 0.299 * img.data[i]! + 0.587 * img.data[i + 1]! + 0.114 * img.data[i + 2]!; };
+    expect(r.colonies.filter(c => lum(c.x, c.y) < 90)).toEqual([]);
+    const sc = r.searchCircle;
+    expect(r.colonies.every(c => Math.hypot(c.x - sc.cx, c.y - sc.cy) <= sc.radius)).toBe(true);
   });
 
   it('sensitivity orders the counts: fewer when strict, more when lenient', () => {
     const strict = detectColonies(img, { sensitivity: 0.2 }).colonies.length;
     const lenient = detectColonies(img, { sensitivity: 0.8 }).colonies.length;
     expect(strict).toBeLessThan(lenient);
+  });
+});
+
+describe('a small real photo (273 px): white colonies of mixed sizes on darker agar, red marker', () => {
+  const img = photo('white-on-dark-273.jpg');
+
+  it('counts small and large colonies alike (about 85)', () => {
+    const r = detectColonies(img);
+    expect(r.polarity).toBe('light');
+    expect(r.colonies.length).toBeGreaterThan(70);
+    expect(r.colonies.length).toBeLessThan(95);
+    // Colonies 3 px across are found, not only the 9 px ones the size estimate centres on.
+    expect(Math.min(...r.colonies.map(c => c.radius ?? Infinity))).toBeLessThan(2);
+  });
+
+  it('keeps off the plastic wall', () => {
+    const r = detectColonies(img);
+    expect(r.searchCircle.radius / r.dish.radius).toBeLessThan(0.92);
   });
 });

@@ -72,6 +72,73 @@ export function detectPetriDishBoundary(img: RgbaLike): DishBoundary {
   return fitCircle(inliers) ?? best.c;
 }
 
+/**
+ * The agar's own edge inside the dish wall, as a circle (it need not share the rim's centre: a
+ * slightly tilted photo shifts it). Along 120 rays from the dish centre, the sharpest brightness
+ * steps past 0.7 R (median over a small arc, so a colony on the ray does not count; a step, not
+ * drift, so uneven lighting does not count); RANSAC circles through those points, and the
+ * smallest well-supported one is the agar edge.
+ * Returns the dish itself when too few rays find an edge.
+ */
+export function detectAgarEdge(gray: Float32Array, w: number, h: number, dish: DishBoundary): DishBoundary {
+  const R = dish.radius, rays = 120;
+  const at = (x: number, y: number) => gray[Math.min(h - 1, Math.max(0, Math.round(y))) * w + Math.min(w - 1, Math.max(0, Math.round(x)))]!;
+  const arc = (a: number, r: number) => {
+    const vals: number[] = [];
+    for (let d = -2; d <= 2; d++) {
+      const b = a + (d * Math.PI) / 180;
+      vals.push(at(dish.cx + r * Math.cos(b), dish.cy + r * Math.sin(b)));
+    }
+    vals.sort((p, q) => p - q);
+    return vals[2]!;
+  };
+  const step = Math.max(0.5, R / 300);
+  const gap = Math.max(2, R * 0.012);
+  const points: { x: number; y: number; ray: number }[] = [];
+  for (let k = 0; k < rays; k++) {
+    const a = (k / rays) * 2 * Math.PI;
+    // A short-range step (± gap), not drift from a reference: uneven lighting changes the agar
+    // brightness slowly across the plate, the wall starts with a jump.
+    const steps: { r: number; j: number }[] = [];
+    for (let r = 0.7 * R; r <= 1.02 * R; r += step) steps.push({ r, j: Math.abs(arc(a, r + gap) - arc(a, r - gap)) });
+    // The three strongest local maxima of the step on this ray, at least 2 gaps apart.
+    const peaks = steps.filter((p, i) => p.j > 12 && (i === 0 || p.j >= steps[i - 1]!.j) && (i === steps.length - 1 || p.j >= steps[i + 1]!.j))
+      .sort((p, q) => q.j - p.j);
+    const kept: number[] = [];
+    for (const p of peaks) {
+      if (kept.length >= 3) break;
+      if (kept.every(r => Math.abs(r - p.r) > 2 * gap)) kept.push(p.r);
+    }
+    for (const r of kept) points.push({ x: dish.cx + r * Math.cos(a), y: dish.cy + r * Math.sin(a), ray: k });
+  }
+  if (points.length < rays / 3) return dish;
+
+  // RANSAC hypotheses with their support (rays agreeing). The wall gives several concentric,
+  // well-supported circles (agar edge, bright band, outer edge); the agar edge is the smallest of
+  // those. Colonies near the rim do not line up into a circle.
+  let seed = 54321;
+  const rand = (n: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const support = (c: DishBoundary) => {
+    const tol = Math.max(1.5, c.radius * 0.012);
+    const hit = new Set<number>();
+    for (const t of points) if (Math.abs(Math.hypot(t.x - c.cx, t.y - c.cy) - c.radius) < tol) hit.add(t.ray);
+    return hit.size;
+  };
+  const hyps: { c: DishBoundary; n: number }[] = [];
+  for (let it = 0; it < 800; it++) {
+    const p = points[rand(points.length)]!, q = points[rand(points.length)]!, t = points[rand(points.length)]!;
+    if (p.ray === q.ray || q.ray === t.ray || p.ray === t.ray) continue;
+    const c = circleThrough(p, q, t);
+    if (!c || c.radius < 0.7 * R || c.radius > 1.02 * R || Math.hypot(c.cx - dish.cx, c.cy - dish.cy) > 0.15 * R) continue;
+    hyps.push({ c, n: support(c) });
+  }
+  const top = Math.max(0, ...hyps.map(h => h.n));
+  if (top < rays / 3) return dish;
+  const best = hyps.filter(h => h.n >= 0.6 * top).sort((a, b) => a.c.radius - b.c.radius)[0]!;
+  const tol = Math.max(1.5, best.c.radius * 0.012);
+  return fitCircle(points.filter(t => Math.abs(Math.hypot(t.x - best.c.cx, t.y - best.c.cy) - best.c.radius) < tol)) ?? best.c;
+}
+
 function circleThrough(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): DishBoundary | null {
   const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
   if (Math.abs(d) < 1e-9) return null;

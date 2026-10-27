@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import jpeg from 'jpeg-js';
 
-// A real plate photo (white colonies on clear agar, marker writing, lid reflections), downscaled.
+// A real plate photo (about 300 white colonies on clear agar, marker writing, uneven light), downscaled.
 const PHOTO = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'colonies', 'white-on-clear-1200.jpg');
 const plateCanvas = 'canvas[aria-label*="counted colonies"]';
 
@@ -36,8 +36,8 @@ test('an uploaded plate photo keeps its aspect ratio and is counted', async ({ p
   const canvas = page.locator(plateCanvas);
   await expect(canvas).toHaveAttribute('width', '1200', { timeout: 15_000 });
   await expect(canvas).toHaveAttribute('height', '900');
-  await expect.poll(async () => Number(await page.getByTestId('colony-count').innerText()), { timeout: 15_000 }).toBeGreaterThan(170);
-  expect(Number(await page.getByTestId('colony-count').innerText())).toBeLessThan(205);
+  await expect.poll(async () => Number(await page.getByTestId('colony-count').innerText()), { timeout: 15_000 }).toBeGreaterThan(280);
+  expect(Number(await page.getByTestId('colony-count').innerText())).toBeLessThan(350);
   const box = (await canvas.boundingBox())!;
   expect(box.width / box.height).toBeCloseTo(4 / 3, 2);
   expect(errors).toEqual([]);
@@ -59,10 +59,10 @@ test('the live camera counts the plate and Capture hands the frame to the counte
     const live = page.getByRole('region', { name: 'Live camera' });
     const status = live.getByRole('status');
     await expect(status).toHaveText(/\d+ colonies/, { timeout: 30_000 });
-    expect(Number((await status.innerText()).match(/\d+/)![0])).toBeGreaterThan(150);
+    expect(Number((await status.innerText()).match(/\d+/)![0])).toBeGreaterThan(200);
     await live.getByRole('button', { name: 'Capture and count' }).click();
     await expect(live).toHaveCount(0);
-    await expect.poll(async () => Number(await page.getByTestId('colony-count').innerText()), { timeout: 15_000 }).toBeGreaterThan(150);
+    await expect.poll(async () => Number(await page.getByTestId('colony-count').innerText()), { timeout: 15_000 }).toBeGreaterThan(250);
   } finally {
     await browser.close();
   }

@@ -60,7 +60,7 @@ export function LiveCamera({ options, workSize, sensitivity, onSensitivity, onCa
         ctx.setLineDash([6, 4]);
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(result.dish.cx, result.dish.cy, result.searchRadius, 0, 2 * Math.PI);
+        ctx.arc(result.searchCircle.cx, result.searchCircle.cy, result.searchCircle.radius, 0, 2 * Math.PI);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.strokeStyle = '#22c55e';
