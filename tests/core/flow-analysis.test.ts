@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   forward, inverse, defaultScale, axisTicks, sameScale, transformColumn,
   pointInPolygon, evaluateGates, populationStats, allGateStats, maskCount,
-  histogram, density2d, subsampleIndices, autoRange, syntheticExample, syntheticObserved,
+  histogram, density2d, subsampleIndices, autoRange,
   type Gate,
 } from '@/core/flow';
 
@@ -133,21 +133,5 @@ describe('binning', () => {
     expect(r.max).toBeGreaterThan(999);
     expect(autoRange([5, 5, 5], lin).max).toBeGreaterThan(5);
     expect(autoRange([], lin)).toEqual({ min: 0, max: 1 });
-  });
-});
-
-describe('synthetic example', () => {
-  it('is seeded, labelled synthetic, and compensation changes FL2', () => {
-    const a = syntheticExample(2000), b = syntheticExample(2000);
-    expect(Array.from(a.columns[2]!.subarray(0, 5))).toEqual(Array.from(b.columns[2]!.subarray(0, 5)));
-    expect(a.warnings[0]).toMatch(/Synthetic/);
-    const raw = syntheticObserved(2000);
-    expect(raw.columns[3]![0]).toBeGreaterThan(a.columns[3]![0]!);
-    expect(a.eventCount).toBe(2000);
-    const f = a.columns[0]!;
-    const g: Gate = { id: 'g', name: 'big', parent: null, type: 'range', param: 0, scale: lin, min: 100_000, max: 1e9 };
-    const frac = maskCount(evaluateGates(a.columns, [g], a.eventCount).g!) / f.length;
-    expect(frac).toBeGreaterThan(0.2);
-    expect(frac).toBeLessThan(0.5);
   });
 });

@@ -18,12 +18,16 @@ export const SCIENCE: Science = {
     'Arcsinh is used for the bi-exponential axis instead of logicle. The two agree near zero and on the high end, but they are not identical, so gate positions will not match a logicle-transformed plot in other software.',
     'A gate is stored on the scale it was drawn on. Changing the plot scale afterwards redraws it through the data values, and a polygon edge is drawn straight between its vertices on the new scale.',
     'Gates apply in order of their hierarchy: an event is in a gate only if it is also in the parent gate.',
+    'Several files share one gate tree. Parameters are matched across files by $PnN name, never by column position; a gate whose parameter a file lacks is not evaluated on that file (shown as "not evaluated", not as 0%). Axis ranges are the union over the shown samples so plots are comparable.',
+    'Overlaid histograms are normalised per sample, either to its own mode (tallest bin = 100) or to % of its events per bin, so samples of different size share one axis. Overlaid 2-D plots are dot plots coloured by sample, at most 20,000 evenly spaced events per sample.',
+    'A split gate is one vertical threshold t on the x parameter that makes two sibling gates: left (x < t) and right (x ≥ t). Every event with a readable value is in exactly one half, and both halves always move together.',
+    'Gate files (JSON, format "bio-bench-flow-gates", version 1) store each gate\'s type, name, parent, parameter $PnN names, display scales (kind, cofactor, log floor) and coordinates in data units, so they re-apply to other files with the same parameter names. On import, malformed gates and gates on parameters no loaded file has are skipped with a warning.',
     'Compensation uses the matrix stored in the file ($SPILLOVER, then $SPILL, then $COMP). It is only as good as the single-stain controls it came from.',
     'Spillover names are matched to parameters by exact $PnN, then $PnS, then case- and whitespace-insensitively, then a purely numeric name k as parameter number k. Names that still do not match are dropped with their rows and columns (compensation is then approximate), and with fewer than two matched channels, or a malformed or singular matrix, the file loads uncompensated with a warning.',
     'Spillover names are matched to parameters by exact $PnN, then $PnS, then ignoring case and spaces, then as a parameter number (1-based); unmatched names are dropped with a visible warning, and if fewer than two match or the matrix is malformed or singular the file loads uncompensated.',
     'Event values are held as 32-bit floats, so 64-bit integer or double data loses precision beyond about seven significant digits.',
     'Density and dot plots clip off-scale events to the plot edge. Dot plots show at most 100,000 events chosen at even spacing, so they are identical on every run.',
-    'The synthetic example is generated in the browser and is not real cytometry data.',
+    'The synthetic example (four samples: Unstained, Stim 0 h, 6 h and 24 h, with debris, doublets, three scatter populations, a viability dye and CD3/CD4/CD8) is generated in the browser from a fixed seed and is not real cytometry data.',
   ],
   references: [
     {
@@ -39,5 +43,5 @@ export const SCIENCE: Science = {
       url: 'https://doi.org/10.1126/science.1198704',
     },
   ],
-  verified: '2026-09-30',
+  verified: '2026-10-27',
 };

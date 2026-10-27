@@ -1,19 +1,58 @@
 /*
  * Gates and population statistics. A gate is tested in display space (it stores the scales it was drawn
- * on), so changing the plot scale later never moves which events a gate contains.
+ * on), so changing the plot scale later never moves which events a gate contains. Gates name their
+ * parameters by $PnN, so one gate tree applies to many files whose columns are in different orders.
  */
 import { forward, type ScaleSpec } from './scales';
 
+/** A parameter: its $PnN name (matched across samples) or a zero-based column index. */
+export type ParamRef = string | number;
+
 interface GateBase { id: string; name: string; /** Parent gate id, or null for a gate on all events. */ parent: string | null }
-export interface RangeGate extends GateBase { type: 'range'; param: number; scale: ScaleSpec; min: number; max: number }
+export interface RangeGate extends GateBase { type: 'range'; param: ParamRef; scale: ScaleSpec; min: number; max: number }
 export interface RectGate extends GateBase {
-  type: 'rect'; xParam: number; yParam: number; xScale: ScaleSpec; yScale: ScaleSpec;
+  type: 'rect'; xParam: ParamRef; yParam: ParamRef; xScale: ScaleSpec; yScale: ScaleSpec;
   xMin: number; xMax: number; yMin: number; yMax: number;
 }
 export interface PolygonGate extends GateBase {
-  type: 'polygon'; xParam: number; yParam: number; xScale: ScaleSpec; yScale: ScaleSpec; points: [number, number][];
+  type: 'polygon'; xParam: ParamRef; yParam: ParamRef; xScale: ScaleSpec; yScale: ScaleSpec; points: [number, number][];
 }
-export type Gate = RangeGate | RectGate | PolygonGate;
+/**
+ * One half of a split (threshold) gate: "left" holds x < threshold, "right" holds x >= threshold.
+ * The two halves are siblings that share `pair` and always carry the same threshold.
+ */
+export interface SplitGate extends GateBase {
+  type: 'split'; param: ParamRef; scale: ScaleSpec; threshold: number; side: 'left' | 'right'; pair: string;
+}
+export type Gate = RangeGate | RectGate | PolygonGate | SplitGate;
+
+/** The parameters a gate tests (x first). */
+export const gateParams = (g: Gate): ParamRef[] => (g.type === 'range' || g.type === 'split' ? [g.param] : [g.xParam, g.yParam]);
+
+/** Short marker name for split-gate halves: the first word of the $PnS label, else the $PnN name. */
+export function splitBaseName(param: { name: string; label?: string }): string {
+  const word = (param.label ?? '').trim().split(/\s+/)[0];
+  return word || param.name;
+}
+
+/** The two halves of a split gate at `threshold` (display units of `scale`), named "<base>−" and "<base>+". */
+export function makeSplitGates(
+  ids: [string, string], base: string, parent: string | null, param: ParamRef, scale: ScaleSpec, threshold: number,
+): [SplitGate, SplitGate] {
+  const pair = ids[0];
+  return [
+    { id: ids[0], name: `${base}−`, parent, type: 'split', param, scale, threshold, side: 'left', pair },
+    { id: ids[1], name: `${base}+`, parent, type: 'split', param, scale, threshold, side: 'right', pair },
+  ];
+}
+
+/** Move a split gate's threshold: every half sharing `pair` moves together. */
+export function setSplitThreshold(gates: Gate[], pair: string, threshold: number): Gate[] {
+  return gates.map(g => (g.type === 'split' && g.pair === pair ? { ...g, threshold } : g));
+}
+
+/** A gate refers to a parameter the sample does not have. */
+export class GateParamError extends Error {}
 
 /** Ray-casting point-in-polygon (even-odd rule). Points exactly on an edge may fall either way. */
 export function pointInPolygon(x: number, y: number, poly: readonly [number, number][]): boolean {
@@ -25,14 +64,27 @@ export function pointInPolygon(x: number, y: number, poly: readonly [number, num
   return inside;
 }
 
+function column(columns: ArrayLike<number>[], names: readonly string[] | undefined, ref: ParamRef, gate: Gate): ArrayLike<number> {
+  const i = typeof ref === 'number' ? ref : names ? names.indexOf(ref) : -1;
+  const c = i >= 0 ? columns[i] : undefined;
+  if (!c) throw new GateParamError(`Gate "${gate.name}" uses parameter ${typeof ref === 'number' ? ref + 1 : `"${ref}"`}, which this sample does not have.`);
+  return c;
+}
+
 /** Does the gate itself (ignoring its parent) contain event `e`? */
-function gateTest(gate: Gate, columns: ArrayLike<number>[]): (e: number) => boolean {
+function gateTest(gate: Gate, columns: ArrayLike<number>[], names?: readonly string[]): (e: number) => boolean {
   if (gate.type === 'range') {
-    const c = columns[gate.param]!;
+    const c = column(columns, names, gate.param, gate);
     const { min, max, scale } = gate;
     return e => { const v = forward(c[e]!, scale); return v >= min && v <= max; };
   }
-  const cx = columns[gate.xParam]!, cy = columns[gate.yParam]!;
+  if (gate.type === 'split') {
+    const c = column(columns, names, gate.param, gate);
+    const { threshold, scale } = gate;
+    // NaN fails both comparisons, so an unreadable value falls in neither half.
+    return gate.side === 'left' ? e => forward(c[e]!, scale) < threshold : e => forward(c[e]!, scale) >= threshold;
+  }
+  const cx = column(columns, names, gate.xParam, gate), cy = column(columns, names, gate.yParam, gate);
   if (gate.type === 'rect') {
     const { xMin, xMax, yMin, yMax, xScale, yScale } = gate;
     return e => {
@@ -44,8 +96,13 @@ function gateTest(gate: Gate, columns: ArrayLike<number>[]): (e: number) => bool
   return e => pointInPolygon(forward(cx[e]!, xScale), forward(cy[e]!, yScale), points);
 }
 
-/** Membership mask (1 = inside) for every gate, honouring the parent hierarchy. Cycles and unknown parents are errors. */
-export function evaluateGates(columns: ArrayLike<number>[], gates: Gate[], eventCount: number): Record<string, Uint8Array> {
+/**
+ * Membership mask (1 = inside) for every gate, honouring the parent hierarchy. Cycles, unknown parents and
+ * parameters missing from the sample are errors. `names` (the sample's $PnN names) resolves name references.
+ */
+export function evaluateGates(
+  columns: ArrayLike<number>[], gates: Gate[], eventCount: number, names?: readonly string[],
+): Record<string, Uint8Array> {
   const byId = new Map(gates.map(g => [g.id, g]));
   const masks: Record<string, Uint8Array> = {};
   const visiting = new Set<string>();
@@ -60,7 +117,7 @@ export function evaluateGates(columns: ArrayLike<number>[], gates: Gate[], event
       if (!p) throw new Error(`Gate "${g.name}" has a parent that does not exist.`);
       parentMask = run(p);
     }
-    const test = gateTest(g, columns);
+    const test = gateTest(g, columns, names);
     const m = new Uint8Array(eventCount);
     for (let e = 0; e < eventCount; e++) if ((parentMask === null || parentMask[e] === 1) && test(e)) m[e] = 1;
     visiting.delete(g.id);
@@ -138,18 +195,74 @@ export function populationStats(
 
 export interface GateStatsRow { id: string | null; name: string; parent: string | null; stats: PopulationStats }
 
-/** Stats for the whole sample plus every gate, for one parameter. */
+/**
+ * Stats for the whole sample plus every gate, for one parameter. Gates with no mask (not evaluated on
+ * this sample, see evaluateSampleGates) are left out.
+ */
 export function allGateStats(
   columns: ArrayLike<number>[], gates: Gate[], eventCount: number, param: number,
-  masks: Record<string, Uint8Array> = evaluateGates(columns, gates, eventCount),
+  masks: Record<string, Uint8Array | null> = evaluateGates(columns, gates, eventCount),
 ): GateStatsRow[] {
   const col = columns[param]!;
   const rows: GateStatsRow[] = [{ id: null, name: 'All events', parent: null, stats: populationStats(col, null, eventCount, eventCount) }];
-  const counts: Record<string, number> = {};
-  for (const g of gates) counts[g.id] = maskCount(masks[g.id]!);
   for (const g of gates) {
-    const parentCount = g.parent === null ? eventCount : counts[g.parent]!;
-    rows.push({ id: g.id, name: g.name, parent: g.parent, stats: populationStats(col, masks[g.id]!, parentCount, eventCount) });
+    const mask = masks[g.id];
+    if (!mask) continue;
+    const parentMask = g.parent === null ? null : masks[g.parent];
+    const parentCount = g.parent === null ? eventCount : parentMask ? maskCount(parentMask) : NaN;
+    rows.push({ id: g.id, name: g.name, parent: g.parent, stats: populationStats(col, mask, parentCount, eventCount) });
   }
   return rows;
+}
+
+export interface SampleGateResult {
+  /** Mask per gate id, or null where the gate (or an ancestor) uses a parameter the sample lacks. */
+  masks: Record<string, Uint8Array | null>;
+  /** Missing $PnN names per gate id that could not be evaluated (ancestors' included). */
+  missing: Record<string, string[]>;
+}
+
+/** The parts of a parsed file that gating needs. */
+export interface GateSample { columns: ArrayLike<number>[]; parameters: readonly { name: string }[]; eventCount: number }
+
+/**
+ * Evaluate a name-referenced gate tree on one sample. A gate whose parameter (or whose ancestor's
+ * parameter) the sample lacks gets a null mask instead of an error, so one tree serves every file.
+ */
+export function evaluateSampleGates(sample: GateSample, gates: Gate[]): SampleGateResult {
+  const names = sample.parameters.map(p => p.name);
+  const byId = new Map(gates.map(g => [g.id, g]));
+  const missing: Record<string, string[]> = {};
+  const lacking = (g: Gate, depth = 0): string[] => {
+    if (missing[g.id]) return missing[g.id]!;
+    const own = gateParams(g).filter(r => (typeof r === 'number' ? r >= sample.columns.length : !names.includes(r))).map(String);
+    const parent = g.parent !== null && depth < gates.length ? byId.get(g.parent) : undefined;
+    const up = parent ? lacking(parent, depth + 1) : [];
+    return [...new Set([...up, ...own])];
+  };
+  for (const g of gates) { const m = lacking(g); if (m.length) missing[g.id] = m; }
+  const ok = gates.filter(g => !missing[g.id]);
+  const evaluated = evaluateGates(sample.columns, ok, sample.eventCount, names);
+  const masks: Record<string, Uint8Array | null> = {};
+  for (const g of gates) masks[g.id] = evaluated[g.id] ?? null;
+  return { masks, missing };
+}
+
+/**
+ * Statistics of one population (a gate id, or null for all events) on one sample, with the statistic
+ * taken over `statParam` (NaN statistics when the sample lacks it). Null when the gate cannot be evaluated.
+ */
+export function sampleGateStats(
+  sample: GateSample, gates: Gate[], gateId: string | null, statParam: string,
+  masks: Record<string, Uint8Array | null> = evaluateSampleGates(sample, gates).masks,
+): PopulationStats | null {
+  const si = sample.parameters.findIndex(p => p.name === statParam);
+  const col = si >= 0 ? sample.columns[si]! : new Float32Array(sample.eventCount).fill(NaN);
+  const n = sample.eventCount;
+  if (gateId === null) return populationStats(col, null, n, n);
+  const g = gates.find(x => x.id === gateId);
+  const mask = masks[gateId];
+  if (!g || !mask) return null;
+  const parentMask = g.parent === null ? null : masks[g.parent];
+  return populationStats(col, mask, g.parent === null ? n : parentMask ? maskCount(parentMask) : NaN, n);
 }

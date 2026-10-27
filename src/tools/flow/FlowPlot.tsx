@@ -5,34 +5,50 @@ import {
   type Gate, type Range, type ScaleSpec,
 } from '@/core/flow';
 
-export type Tool = 'none' | 'rect' | 'polygon' | 'range';
+export type Tool = 'none' | 'rect' | 'polygon' | 'range' | 'split';
 export type Shape =
   | { type: 'range'; min: number; max: number }
   | { type: 'rect'; xMin: number; xMax: number; yMin: number; yMax: number }
-  | { type: 'polygon'; points: [number, number][] };
+  | { type: 'polygon'; points: [number, number][] }
+  | { type: 'split'; at: number };
+/** How overlaid histograms share one y axis: each sample's tallest bin = 100, or % of that sample's events per bin. */
+export type HistNorm = 'mode' | 'percent';
+/** One sample's events on the current axes. */
+export interface Layer { key: string; label: string; color: string; xs: ArrayLike<number>; ys: ArrayLike<number>; mask: Uint8Array | null }
+/** A gate edge that can be dragged: a range gate's min or max, or a split gate's threshold. */
+export type GateField = 'min' | 'max' | 'threshold';
+
+/** Dots drawn per sample in an overlay, so one large file cannot bury the others. */
+export const OVERLAY_DOTS_PER_SAMPLE = 20_000;
 
 interface Props {
   mode: 'hist' | 'scatter';
   view: 'density' | 'dots';
-  xs: Float32Array;
-  ys: Float32Array;
-  mask: Uint8Array | null;
+  /** Every layer in its own colour (outlines for histograms, coloured dots in 2-D). */
+  overlay?: boolean;
+  histNorm?: HistNorm;
+  layers: Layer[];
   xScale: ScaleSpec;
   yScale: ScaleSpec;
   xRange: Range;
   yRange: Range;
   xLabel: string;
   yLabel: string;
-  xParam: number;
-  yParam: number;
+  xParam: string;
+  yParam: string;
   gates: Gate[];
   tool: Tool;
-  onCreate: (shape: Shape) => void;
+  onCreate?: (shape: Shape) => void;
+  /** Called when a gate edge is dropped, with the new value on the gate's own display scale. */
+  onMoveGate?: (id: string, field: GateField, value: number) => void;
   ariaLabel: string;
   canvasRef: Ref<HTMLCanvasElement>;
+  /** Smaller minimum width, for small multiples. */
+  compact?: boolean;
 }
 
 const M = { l: 54, r: 12, t: 12, b: 44 };
+const HANDLE_PX = 7;
 const RAMP: [number, number, number][] = [[68, 1, 84], [49, 104, 142], [33, 145, 140], [53, 183, 121], [144, 215, 67], [253, 231, 37]];
 function ramp(t: number): [number, number, number] {
   const x = Math.min(1, Math.max(0, t)) * (RAMP.length - 1);
@@ -46,14 +62,18 @@ export function FlowPlot(p: Props) {
   const [width, setWidth] = useState(520);
   const [drag, setDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [poly, setPoly] = useState<[number, number][]>([]);
+  const [edge, setEdge] = useState<{ id: string; field: GateField; px: number } | null>(null);
+  const [hover, setHover] = useState(false);
+  const minWidth = p.compact ? 160 : 240;
   const height = p.mode === 'hist' ? Math.round(width * 0.55) : Math.round(width * 0.85);
   const pw = Math.max(10, width - M.l - M.r), ph = Math.max(10, height - M.t - M.b);
-  const { xRange, yRange } = p;
+  const { xRange, yRange, layers } = p;
+  const overlay = !!p.overlay;
 
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    const measure = () => setWidth(Math.max(240, Math.floor(el.clientWidth || 520)));
+    const measure = () => setWidth(Math.max(minWidth, Math.floor(el.clientWidth || 520)));
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
@@ -62,26 +82,75 @@ export function FlowPlot(p: Props) {
   }, []);
 
   // Drawing in progress belongs to one plot; drop it when the plot or tool changes.
-  useEffect(() => { setDrag(null); setPoly([]); }, [p.mode, p.xParam, p.yParam, p.tool, p.xScale, p.yScale]);
+  useEffect(() => { setDrag(null); setPoly([]); setEdge(null); }, [p.mode, p.xParam, p.yParam, p.tool, p.xScale, p.yScale]);
 
-  const hist = useMemo(
-    () => (p.mode === 'hist' ? histogram(p.xs, p.mask, p.xScale, 256, xRange) : null),
-    [p.mode, p.xs, p.mask, p.xScale, xRange],
-  );
+  const hist = useMemo(() => {
+    if (p.mode !== 'hist' || layers.length === 0) return null;
+    const bins = overlay ? 128 : 256;
+    const hs = layers.map(l => histogram(l.xs, l.mask, p.xScale, bins, xRange));
+    // Single sample: raw counts. Overlay: normalised so samples of different size share an axis.
+    const values = hs.map(h => {
+      if (!overlay) return Float64Array.from(h.counts);
+      let total = 0;
+      for (const c of h.counts) total += c;
+      const div = p.histNorm === 'percent' ? total / 100 : h.maxCount / 100;
+      return Float64Array.from(h.counts, c => (div > 0 ? c / div : 0));
+    });
+    let yMax = 0;
+    for (const v of values) for (const x of v) if (x > yMax) yMax = x;
+    return { values, yMax: yMax > 0 ? yMax : 1 };
+  }, [p.mode, layers, p.xScale, xRange, overlay, p.histNorm]);
   const dens = useMemo(
-    () => (p.mode === 'scatter' && p.view === 'density' ? density2d(p.xs, p.ys, p.mask, p.xScale, p.yScale, xRange, yRange, 160, 160) : null),
-    [p.mode, p.view, p.xs, p.ys, p.mask, p.xScale, p.yScale, xRange, yRange],
+    () => (p.mode === 'scatter' && p.view === 'density' && !overlay && layers[0]
+      ? density2d(layers[0].xs, layers[0].ys, layers[0].mask, p.xScale, p.yScale, xRange, yRange, 160, 160) : null),
+    [p.mode, p.view, overlay, layers, p.xScale, p.yScale, xRange, yRange],
   );
   const dots = useMemo(() => {
-    if (p.mode !== 'scatter' || p.view !== 'dots') return null;
-    const idx = subsampleIndices(p.xs.length, 100_000);
-    return p.mask ? idx.filter(i => p.mask![i] === 1) : idx;
-  }, [p.mode, p.view, p.xs, p.mask]);
+    if (p.mode !== 'scatter' || (p.view !== 'dots' && !overlay)) return null;
+    return layers.map(l => {
+      const idx = subsampleIndices(l.xs.length, overlay ? OVERLAY_DOTS_PER_SAMPLE : 100_000);
+      return l.mask ? idx.filter(i => l.mask![i] === 1) : idx;
+    });
+  }, [p.mode, p.view, overlay, layers]);
 
   const sx = (v: number) => M.l + ((v - xRange.min) / (xRange.max - xRange.min)) * pw;
   const sy = (v: number) => M.t + ph - ((v - yRange.min) / (yRange.max - yRange.min)) * ph;
   const ux = (px: number) => xRange.min + ((px - M.l) / pw) * (xRange.max - xRange.min);
   const uy = (py: number) => yRange.min + ((M.t + ph - py) / ph) * (yRange.max - yRange.min);
+  /** A plot-scale x value on gate scale `s`, and back. */
+  const toGate = (v: number, s: ScaleSpec) => forward(inverse(v, p.xScale), s);
+  const gx = (v: number, s: ScaleSpec) => sx(forward(inverse(v, s), p.xScale));
+  const gy = (v: number, s: ScaleSpec) => sy(forward(inverse(v, s), p.yScale));
+
+  // The gate being dragged is drawn at the pointer; the change is committed on release.
+  const dragged = edge ? p.gates.find(g => g.id === edge.id) : undefined;
+  const drawGates = dragged && edge
+    ? p.gates.map(g => {
+      if (g.type === 'split' && dragged.type === 'split' && g.pair === dragged.pair) return { ...g, threshold: toGate(ux(edge.px), g.scale) };
+      if (g.id === dragged.id && g.type === 'range') return { ...g, [edge.field]: toGate(ux(edge.px), g.scale) };
+      return g;
+    })
+    : p.gates;
+
+  const handles = (): { id: string; field: GateField; px: number }[] => {
+    if (!p.onMoveGate) return [];
+    const out: { id: string; field: GateField; px: number }[] = [];
+    const pairs = new Set<string>();
+    for (const g of p.gates) {
+      if (g.type === 'range' && p.mode === 'hist' && g.param === p.xParam) {
+        out.push({ id: g.id, field: 'min', px: gx(g.min, g.scale) }, { id: g.id, field: 'max', px: gx(g.max, g.scale) });
+      } else if (g.type === 'split' && g.param === p.xParam && !pairs.has(g.pair)) {
+        pairs.add(g.pair);
+        out.push({ id: g.id, field: 'threshold', px: gx(g.threshold, g.scale) });
+      }
+    }
+    return out;
+  };
+  const handleAt = (x: number) => {
+    let best: { id: string; field: GateField; px: number } | null = null;
+    for (const h of handles()) if (Math.abs(h.px - x) <= HANDLE_PX && (!best || Math.abs(h.px - x) < Math.abs(best.px - x))) best = h;
+    return best;
+  };
 
   useEffect(() => {
     const canvas = (p.canvasRef as { current: HTMLCanvasElement | null }).current;
@@ -95,12 +164,22 @@ export function FlowPlot(p: Props) {
 
     // data layer
     if (hist) {
-      const bw = pw / hist.counts.length;
-      ctx.fillStyle = 'rgba(79,70,229,0.75)';
-      hist.counts.forEach((c, i) => {
-        const h = hist.maxCount > 0 ? (c / hist.maxCount) * ph : 0;
-        ctx.fillRect(M.l + i * bw, M.t + ph - h, Math.max(1, bw), h);
-      });
+      const bw = pw / (hist.values[0]?.length ?? 1);
+      const hy = (v: number) => M.t + ph - (v / hist.yMax) * ph;
+      if (!overlay) {
+        ctx.fillStyle = 'rgba(79,70,229,0.75)';
+        hist.values[0]?.forEach((c, i) => { const y = hy(c); ctx.fillRect(M.l + i * bw, y, Math.max(1, bw), M.t + ph - y); });
+      } else {
+        ctx.lineWidth = 2; ctx.lineJoin = 'round';
+        hist.values.forEach((vals, k) => {
+          ctx.strokeStyle = layers[k]!.color;
+          ctx.beginPath();
+          ctx.moveTo(M.l, M.t + ph);
+          vals.forEach((c, i) => { const y = hy(c); ctx.lineTo(M.l + i * bw, y); ctx.lineTo(M.l + (i + 1) * bw, y); });
+          ctx.lineTo(M.l + pw, M.t + ph);
+          ctx.stroke();
+        });
+      }
     } else if (dens) {
       const off = document.createElement('canvas');
       off.width = dens.nx; off.height = dens.ny;
@@ -119,19 +198,29 @@ export function FlowPlot(p: Props) {
         ctx.drawImage(off, M.l, M.t, pw, ph);
       }
     } else if (dots) {
-      ctx.fillStyle = 'rgba(37,99,235,0.35)';
-      for (let k = 0; k < dots.length; k++) {
-        const i = dots[k]!;
-        const x = sx(forward(p.xs[i]!, p.xScale)), y = sy(forward(p.ys[i]!, p.yScale));
-        if (x >= M.l && x <= M.l + pw && y >= M.t && y <= M.t + ph) ctx.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
+      // Samples are drawn in interleaved chunks so the last sample does not bury the others.
+      const CHUNK = 400;
+      const longest = Math.max(0, ...dots.map(d => d.length));
+      ctx.globalAlpha = overlay ? 0.45 : 1;
+      for (let start = 0; start < longest; start += CHUNK) {
+        dots.forEach((idx, k) => {
+          const l = layers[k]!;
+          ctx.fillStyle = overlay ? l.color : 'rgba(37,99,235,0.35)';
+          for (let j = start; j < Math.min(idx.length, start + CHUNK); j++) {
+            const i = idx[j]!;
+            const x = sx(forward(l.xs[i]!, p.xScale)), y = sy(forward(l.ys[i]!, p.yScale));
+            if (x >= M.l && x <= M.l + pw && y >= M.t && y <= M.t + ph) ctx.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
+          }
+        });
       }
+      ctx.globalAlpha = 1;
     }
 
     // axes
     ctx.strokeStyle = '#475569'; ctx.fillStyle = '#334155'; ctx.lineWidth = 1;
     ctx.strokeRect(M.l, M.t, pw, ph);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    for (const t of axisTicks(p.xScale, xRange.min, xRange.max)) {
+    for (const t of axisTicks(p.xScale, xRange.min, xRange.max, p.compact ? 4 : 6)) {
       const x = sx(t.value);
       if (x < M.l - 1 || x > M.l + pw + 1) continue;
       ctx.beginPath(); ctx.moveTo(x, M.t + ph); ctx.lineTo(x, M.t + ph + 4); ctx.stroke();
@@ -139,9 +228,9 @@ export function FlowPlot(p: Props) {
     }
     ctx.fillText(p.xLabel, M.l + pw / 2, M.t + ph + 24);
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    const yTicks = hist ? axisTicks({ kind: 'linear', cofactor: 1, floor: 1 }, 0, hist.maxCount, 4) : axisTicks(p.yScale, yRange.min, yRange.max);
+    const yTicks = hist ? axisTicks({ kind: 'linear', cofactor: 1, floor: 1 }, 0, hist.yMax, 4) : axisTicks(p.yScale, yRange.min, yRange.max);
     for (const t of yTicks) {
-      const y = hist ? M.t + ph - (t.value / Math.max(1, hist.maxCount)) * ph : sy(t.value);
+      const y = hist ? M.t + ph - (t.value / hist.yMax) * ph : sy(t.value);
       if (y < M.t - 1 || y > M.t + ph + 1) continue;
       ctx.beginPath(); ctx.moveTo(M.l - 4, y); ctx.lineTo(M.l, y); ctx.stroke();
       ctx.fillText(t.label, M.l - 7, y);
@@ -149,20 +238,33 @@ export function FlowPlot(p: Props) {
     ctx.save();
     ctx.translate(12, M.t + ph / 2); ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(hist ? 'Events' : p.yLabel, 0, 0);
+    ctx.fillText(hist ? (overlay ? (p.histNorm === 'percent' ? '% of events' : '% of mode') : 'Events') : p.yLabel, 0, 0);
     ctx.restore();
 
     // gates on these axes (mapped through data space so a gate drawn on another scale still lines up)
     ctx.lineWidth = 2; ctx.strokeStyle = '#e11d48'; ctx.fillStyle = '#be123c';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const gx = (v: number, s: ScaleSpec) => sx(forward(inverse(v, s), p.xScale));
-    const gy = (v: number, s: ScaleSpec) => sy(forward(inverse(v, s), p.yScale));
-    for (const g of p.gates) {
+    const pairsDrawn = new Set<string>();
+    for (const g of drawGates) {
       if (p.mode === 'hist' && g.type === 'range' && g.param === p.xParam) {
         const a = gx(g.min, g.scale), b = gx(g.max, g.scale);
         ctx.fillStyle = 'rgba(225,29,72,0.10)'; ctx.fillRect(a, M.t, b - a, ph);
         ctx.beginPath(); ctx.moveTo(a, M.t); ctx.lineTo(a, M.t + ph); ctx.moveTo(b, M.t); ctx.lineTo(b, M.t + ph); ctx.stroke();
         ctx.fillStyle = '#be123c'; ctx.fillText(g.name, a + 3, M.t + 3);
+      } else if (g.type === 'split' && g.param === p.xParam) {
+        if (pairsDrawn.has(g.pair)) continue;
+        pairsDrawn.add(g.pair);
+        const x = gx(g.threshold, g.scale);
+        if (x < M.l || x > M.l + pw) continue;
+        ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, M.t + ph); ctx.stroke();
+        ctx.fillRect(x - 4, M.t + ph / 2 - 9, 8, 18); // drag handle
+        ctx.fillStyle = '#be123c';
+        for (const half of drawGates) {
+          if (half.type !== 'split' || half.pair !== g.pair) continue;
+          ctx.textAlign = half.side === 'left' ? 'right' : 'left';
+          ctx.fillText(half.name, half.side === 'left' ? x - 5 : x + 5, M.t + 3);
+        }
+        ctx.textAlign = 'left';
       } else if (p.mode === 'scatter' && g.type === 'rect' && g.xParam === p.xParam && g.yParam === p.yParam) {
         const x0 = gx(g.xMin, g.xScale), x1 = gx(g.xMax, g.xScale), y0 = gy(g.yMin, g.yScale), y1 = gy(g.yMax, g.yScale);
         ctx.strokeRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
@@ -178,7 +280,8 @@ export function FlowPlot(p: Props) {
     // gate being drawn
     ctx.strokeStyle = '#0f172a'; ctx.setLineDash([5, 3]); ctx.lineWidth = 1.5;
     if (drag) {
-      if (p.mode === 'hist') ctx.strokeRect(Math.min(drag.x0, drag.x1), M.t, Math.abs(drag.x1 - drag.x0), ph);
+      if (p.tool === 'split') { ctx.beginPath(); ctx.moveTo(drag.x1, M.t); ctx.lineTo(drag.x1, M.t + ph); ctx.stroke(); }
+      else if (p.mode === 'hist') ctx.strokeRect(Math.min(drag.x0, drag.x1), M.t, Math.abs(drag.x1 - drag.x0), ph);
       else ctx.strokeRect(Math.min(drag.x0, drag.x1), Math.min(drag.y0, drag.y1), Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
     }
     if (poly.length) {
@@ -197,10 +300,16 @@ export function FlowPlot(p: Props) {
     const y = Math.min(M.t + ph, Math.max(M.t, e.clientY - r.top));
     return { x, y };
   };
-  const dragging = p.tool === 'rect' || p.tool === 'range';
+  const dragging = p.tool === 'rect' || p.tool === 'range' || p.tool === 'split';
   const onDown = (e: PointerEvent) => {
-    if (p.tool === 'none') return;
     const { x, y } = pos(e);
+    const h = handleAt(x);
+    if (h) {
+      (e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId);
+      setEdge({ id: h.id, field: h.field, px: x });
+      return;
+    }
+    if (p.tool === 'none' || !p.onCreate) return;
     if (dragging) {
       (e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId);
       setDrag({ x0: x, y0: y, x1: x, y1: y });
@@ -210,39 +319,52 @@ export function FlowPlot(p: Props) {
     }
   };
   const onMove = (e: PointerEvent) => {
-    if (!drag) return;
     const { x, y } = pos(e);
-    setDrag({ ...drag, x1: x, y1: y });
+    if (edge) { setEdge({ ...edge, px: x }); return; }
+    if (drag) { setDrag({ ...drag, x1: x, y1: y }); return; }
+    setHover(handleAt(x) !== null);
   };
   const onUp = () => {
+    if (edge) {
+      const g = p.gates.find(x => x.id === edge.id);
+      if (g && (g.type === 'range' || g.type === 'split')) p.onMoveGate?.(g.id, edge.field, toGate(ux(edge.px), g.scale));
+      setEdge(null);
+      return;
+    }
     if (!drag) return;
     const d = drag;
     setDrag(null);
+    if (p.tool === 'split') { p.onCreate?.({ type: 'split', at: ux(d.x1) }); return; }
     if (Math.abs(d.x1 - d.x0) < 4 || (p.tool === 'rect' && Math.abs(d.y1 - d.y0) < 4)) return;
     const [xa, xb] = [ux(d.x0), ux(d.x1)].sort((a, b) => a - b) as [number, number];
-    if (p.tool === 'range') p.onCreate({ type: 'range', min: xa, max: xb });
+    if (p.tool === 'range') p.onCreate?.({ type: 'range', min: xa, max: xb });
     else {
       const [ya, yb] = [uy(d.y0), uy(d.y1)].sort((a, b) => a - b) as [number, number];
-      p.onCreate({ type: 'rect', xMin: xa, xMax: xb, yMin: ya, yMax: yb });
+      p.onCreate?.({ type: 'rect', xMin: xa, xMax: xb, yMin: ya, yMax: yb });
     }
   };
   function finishPolygon() {
-    if (poly.length >= 3) p.onCreate({ type: 'polygon', points: poly });
+    if (poly.length >= 3) p.onCreate?.({ type: 'polygon', points: poly });
     setPoly([]);
   }
 
+  const drawing = p.tool !== 'none' && !!p.onCreate;
   return (
     <div ref={wrap} class="w-full">
       <canvas
         ref={p.canvasRef}
         role="img"
         aria-label={p.ariaLabel}
-        style={{ width: `${width}px`, height: `${height}px`, touchAction: p.tool === 'none' ? 'auto' : 'none', cursor: p.tool === 'none' ? 'default' : 'crosshair' }}
+        style={{
+          width: `${width}px`, height: `${height}px`,
+          touchAction: drawing ? 'none' : 'auto',
+          cursor: edge || hover ? 'ew-resize' : drawing ? 'crosshair' : 'default',
+        }}
         class="block max-w-full rounded-lg border border-slate-300 bg-white dark:border-slate-600"
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
-        onPointerCancel={() => setDrag(null)}
+        onPointerCancel={() => { setDrag(null); setEdge(null); }}
       />
       {poly.length > 0 && (
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
