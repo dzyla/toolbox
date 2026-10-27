@@ -1,6 +1,7 @@
 
 import type { DsfModel } from '../DsfModel';
 import { PALETTE } from '../DsfModel';
+import { predictBoltzmann } from '@/core/dsf';
 
 export function ResultsPanel({ m }: { m: DsfModel }) {
   const {
@@ -298,7 +299,7 @@ export function ResultsPanel({ m }: { m: DsfModel }) {
                             const bPts: string[] = [];
                             for (let i = 0; i < cond.rawPoints.length; i++) {
                               const t = cond.rawPoints[i]!.temperature;
-                              const bY = cond.boltzmannFit!.predict(t);
+                              const bY = predictBoltzmann(cond.boltzmannFit!, t);
                               const yNorm = getDisplayedFl(bY, cond.rawPoints);
                               bPts.push(`${i === 0 ? 'M' : 'L'} ${scaleX(t).toFixed(1)} ${scaleMeltY(yNorm).toFixed(1)}`);
                             }

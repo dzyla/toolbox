@@ -52,8 +52,12 @@ export interface BoltzmannFitResult {
   sse: number; // Sum of squared errors
   df: number; // Degrees of freedom
   deltaHunf_kJ: number; // Apparent enthalpy of unfolding: ΔH_unf = R · (Tm_K)² / a
-  predict: (temperature: number) => number;
   fittedPoints: BoltzmannFittedPoint[];
+}
+
+/** Fitted fluorescence at a temperature. The fit is plain data (it crosses the worker boundary), so this is a function of it, not a method on it. */
+export function predictBoltzmann(fit: Pick<BoltzmannFitResult, 'fMin' | 'fMax' | 'tm' | 'a'>, temperature: number): number {
+  return boltzmannSigmoid(temperature, fit.fMin, fit.fMax, fit.tm, fit.a);
 }
 
 export type DsfEffectClassification =
@@ -954,7 +958,6 @@ export function fitBoltzmannSigmoid(
     sse: Number(sse.toFixed(4)),
     df,
     deltaHunf_kJ,
-    predict,
     fittedPoints,
   };
 }
