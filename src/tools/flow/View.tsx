@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  allGateStats, commonParameters, evaluateSampleGates, exampleSamples, exportGates, forward, importGates, inverse,
+  allGateStats, pooledGateStats, commonParameters, evaluateSampleGates, exampleSamples, exportGates, forward, importGates, inverse,
   makeSplitGates, maskCount, paramIndex, sampleGateStats, sampleName, samplesLacking, setSplitThreshold, sharedRange,
   splitBaseName, uniqueNames, DEFAULT_COFACTOR, EXAMPLE_SAMPLES, GateImportError,
   type FcsData, type FcsParameter, type Gate, type PopulationStats, type SampleGateResult, type ScaleKind, type ScaleSpec,
@@ -48,9 +48,26 @@ function depthOf(g: Gate, gates: Gate[]): number {
 interface Entry { id: string; name: string; colorIndex: number; visible: boolean; file?: FileSource; exampleIndex?: number }
 interface Sample { id: string; name: string; color: string; visible: boolean; data: FcsData }
 
-function MiniPlot(props: Omit<Parameters<typeof FlowPlot>[0], 'canvasRef'>) {
+/** One plot of the per-sample grid: its own canvas, gates drawable on it like on the main plot. */
+function GridPlot(props: Omit<Parameters<typeof FlowPlot>[0], 'canvasRef'>) {
   const ref = useRef<HTMLCanvasElement>(null);
   return <FlowPlot {...props} canvasRef={ref} compact />;
+}
+
+/** Every layer's events in one layer (for a density of all samples together). */
+function pooledLayer(layers: Layer[]): Layer | null {
+  if (layers.length === 0) return null;
+  const n = layers.reduce((k, l) => k + l.xs.length, 0);
+  const xs = new Float32Array(n), ys = new Float32Array(n);
+  const masked = layers.some(l => l.mask !== null);
+  const mask = masked ? new Uint8Array(n) : null;
+  let o = 0;
+  for (const l of layers) {
+    for (let i = 0; i < l.xs.length; i++) { xs[o + i] = l.xs[i]!; ys[o + i] = l.ys[i]!; }
+    if (mask) { if (l.mask) mask.set(l.mask, o); else mask.fill(1, o, o + l.xs.length); }
+    o += l.xs.length;
+  }
+  return { key: 'pooled', label: layers.map(l => l.label).join(' + '), color: '#2563eb', xs, ys, mask };
 }
 
 export default function FlowView() {
@@ -63,9 +80,11 @@ export default function FlowView() {
   const [xKindSel, setXKindSel] = useState<ScaleKind | null>(null);
   const [yKindSel, setYKindSel] = useState<ScaleKind | null>(null);
   const [view, setView] = useState<'hist' | 'density' | 'dots'>('density');
-  const [layout, setLayout] = useState<'overlay' | 'single'>('overlay');
+  /** all: one plot of every shown sample; grid: one plot per sample; single: one sample at a time. */
+  const [layout, setLayout] = useState<'all' | 'grid' | 'single'>('all');
+  /** Population statistics over every shown sample pooled (default), or over the active sample. */
+  const [statsPooledSel, setStatsPooled] = useState(true);
   const [histNorm, setHistNorm] = useState<HistNorm>('mode');
-  const [grid, setGrid] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [toolSel, setToolSel] = useState<Tool>('rect');
   const [gates, setGates] = useState<Gate[]>([]);
@@ -170,12 +189,17 @@ export default function FlowView() {
     : toolSel === 'range' ? 'rect' : toolSel;
 
   // --- which samples are drawn
-  const overlay = layout === 'overlay' && visible.length > 1;
+  const several = visible.length > 1;
+  // All samples in one plot: a 2-D density pools their events (one heatmap); dots and histograms
+  // overlay them in sample colours.
+  const pooled = layout === 'all' && several && mode === 'scatter' && view === 'density';
+  const overlay = layout === 'all' && several && !pooled;
+  const grid = layout === 'grid' && several;
   const active = visible.find(s => s.id === activeId) ?? visible[0] ?? null;
   const activeIdx = active ? visible.indexOf(active) : -1;
   const col = (s: Sample, name: string) => s.data.columns[paramIndex(s.data, name)];
   const hasAxes = (s: Sample) => paramIndex(s.data, xName) >= 0 && (mode === 'hist' || paramIndex(s.data, yName) >= 0);
-  const plotted = overlay ? visible : active ? [active] : [];
+  const plotted = layout === 'all' && several ? visible : active ? [active] : [];
   const xRange = useMemo(() => sharedRange(visible.flatMap(s => col(s, xName) ?? []), xScale), [visible, xName, xScale]);
   const yRange = useMemo(() => sharedRange(visible.flatMap(s => col(s, yName) ?? []), yScale), [visible, yName, yScale]);
   const layerFor = (s: Sample): Layer | null => {
@@ -185,10 +209,12 @@ export default function FlowView() {
     const xs = col(s, xName)!;
     return { key: s.id, label: s.name, color: s.color, xs, ys: mode === 'hist' ? xs : col(s, yName)!, mask };
   };
-  const layers = useMemo(
-    () => plotted.flatMap(s => layerFor(s) ?? []),
-    [visible, overlay, active?.id, xName, yName, mode, shownId, gates],
-  );
+  const layers = useMemo(() => {
+    const each = plotted.flatMap(s => layerFor(s) ?? []);
+    if (!pooled) return each;
+    const one = pooledLayer(each);
+    return one ? [one] : [];
+  }, [visible, layout, pooled, active?.id, xName, yName, mode, shownId, gates]);
   const lackX = samplesLacking(visible.map(s => s.data), xName).map(i => visible[i]!.name);
   const lackY = mode === 'scatter' ? samplesLacking(visible.map(s => s.data), yName).map(i => visible[i]!.name) : [];
   const shownName = shownId ? gates.find(g => g.id === shownId)?.name ?? '' : '';
@@ -281,14 +307,23 @@ export default function FlowView() {
   );
 
   // --- statistics
+  const statsPooled = statsPooledSel && several;
   const statsSample = active;
-  const statOptions = statsSample ? statsSample.data.parameters.map(p => p.name) : [];
+  const statOptions = statsPooled
+    ? [...new Set(visible.flatMap(s => s.data.parameters.map(p => p.name)))]
+    : statsSample ? statsSample.data.parameters.map(p => p.name) : [];
   const statName = statSel && statOptions.includes(statSel) ? statSel : statOptions.includes(xName) ? xName : statOptions[0] ?? '';
-  const statsMasks = statsSample ? gateResult(statsSample.data) : null;
-  const rows = statsSample && statsMasks && statName
+  const statsMasks = !statsPooled && statsSample ? gateResult(statsSample.data) : null;
+  const pooledStats = useMemo(
+    () => (statsPooled && statName ? pooledGateStats(visible.map(s => ({ ...s.data, name: s.name })), gates, statName) : null),
+    [statsPooled, visible, gates, statName],
+  );
+  const rows = pooledStats ? pooledStats.rows
+    : statsSample && statsMasks && statName
     ? allGateStats(statsSample.data.columns, gates, statsSample.data.eventCount, paramIndex(statsSample.data, statName), statsMasks.masks)
     : [];
   const skippedHere = statsMasks ? gates.filter(g => !statsMasks.masks[g.id]) : [];
+  const statsWho = statsPooled ? `all ${visible.length} samples pooled` : statsSample?.name ?? '';
 
   const breakdownId = (() => {
     const pick = breakdownSel ?? editId ?? gates[gates.length - 1]?.id ?? '';
@@ -312,7 +347,7 @@ export default function FlowView() {
   const sampleHeader = ['Sample', 'Population', 'Parent', 'Events', '% of parent', '% of total', `${statLabel} ${statName}`];
   const sampleTable = () => perSample.map(({ s, stats }) => [s.name, breakdownName, parentName, stats?.count ?? NaN, stats?.pctParent ?? NaN, stats?.pctTotal ?? NaN, stats ? stats[statKind] : NaN]);
   const copyText = () => statsSample ? [
-    `${statsSample.name}: ${statsSample.data.eventCount.toLocaleString()} events, statistics for ${paramText(statName)}`,
+    `${statsPooled ? statsWho : statsSample.name}: ${(rows[0]?.stats.count ?? 0).toLocaleString()} events, statistics for ${paramText(statName)}`,
     statsHeader.join('\t'), ...statsTable().map(r => r.join('\t')), '',
     `${breakdownName} per sample`, sampleHeader.join('\t'), ...sampleTable().map(r => r.join('\t')), '',
     scienceText(SCIENCE),
@@ -324,10 +359,12 @@ export default function FlowView() {
   // --- plot description
   const plotKind = mode === 'hist' ? `Histogram of ${paramText(xName)} on a ${xScale.kind} scale`
     : `${overlay || view === 'dots' ? 'Dot' : 'Density'} plot of ${paramText(yName)} against ${paramText(xName)}`;
-  const who = overlay
+  const who = pooled
+    ? `, all ${plotted.length} samples pooled (${plotted.map(s => s.name).join(', ')})`
+    : overlay
     ? `, overlay of ${layers.length} samples coloured by sample (${layers.map(l => l.label).join(', ')})${mode === 'hist' ? `, each normalised to ${histNorm === 'mode' ? 'its mode' : '% of its events'}` : ''}`
     : active ? `, sample ${active.name}` : '';
-  const gateCounts = !overlay && active
+  const gateCounts = layout === 'single' && active
     ? gates.map(g => { const m = maskOf(active, g.id); return `${g.name} ${m ? maskCount(m).toLocaleString() + ' events' : 'not evaluated'}`; }).join('; ')
     : gates.map(g => g.name).join('; ');
   const ariaLabel = `${plotKind}${who}, ${shownId ? `${shownName} population` : 'all events'}. ${gates.length ? `Gates: ${gateCounts}.` : 'No gates drawn.'}`;
@@ -408,7 +445,7 @@ export default function FlowView() {
               <button type="button" aria-pressed={view === v} onClick={() => setView(v)} class={toggleClass(view === v)}>{l}</button>
             ))}
           </div>
-          {overlay && view === 'density' && <p class={NOTE}>Overlays draw 2-D data as dots coloured by sample (density colours cannot show several samples at once).</p>}
+          {pooled && <p class={NOTE}>All samples: the 2-D density pools the events of every shown sample; Dots colour them by sample.</p>}
           <details class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
             <summary class="cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">Advanced options</summary>
             <div class="mt-3 space-y-3">
@@ -469,13 +506,14 @@ export default function FlowView() {
     <div class="space-y-4">
       <div class={CARD}>
         <div class="flex flex-wrap items-end gap-3">
-          {visible.length > 1 && (
+          {several && (
             <div role="group" aria-label="Samples view" class="flex flex-wrap gap-2">
-              <button type="button" aria-pressed={layout === 'overlay'} onClick={() => setLayout('overlay')} class={toggleClass(layout === 'overlay')}>All samples</button>
-              <button type="button" aria-pressed={layout === 'single'} onClick={() => setLayout('single')} class={toggleClass(layout === 'single')}>Per sample</button>
+              <button type="button" aria-pressed={layout === 'all'} onClick={() => setLayout('all')} class={toggleClass(layout === 'all')} title="Every shown sample in one plot">All samples</button>
+              <button type="button" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')} class={toggleClass(layout === 'grid')} title="One plot per sample, side by side, same axes">Per sample</button>
+              <button type="button" aria-pressed={layout === 'single'} onClick={() => setLayout('single')} class={toggleClass(layout === 'single')} title="One sample at a time">Single sample</button>
             </div>
           )}
-          {!overlay && visible.length > 1 && (
+          {layout === 'single' && several && (
             <div class="flex flex-wrap items-end gap-2">
               <button type="button" class={BTN} disabled={activeIdx <= 0} onClick={() => setActiveId(visible[activeIdx - 1]!.id)}>Previous sample</button>
               {sampleSelect('Sample shown')}
@@ -510,10 +548,29 @@ export default function FlowView() {
             : mode === 'hist' ? 'Drag across the plot to gate a range.' : 'Drag across the plot to draw a rectangle.'}
           {' '}Drag a split line or a range edge to move it. New gates are children of {shownId ? shownName : 'All events'} and apply to every sample.
         </p>
-        <FlowPlot
-          {...plotProps} overlay={overlay} layers={layers} tool={tool} onCreate={addGate} onMoveGate={moveGate}
-          ariaLabel={ariaLabel} canvasRef={canvasRef}
-        />
+        {grid ? (
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {visible.map(s => {
+              const l = layerFor(s);
+              return (
+                <figure class="min-w-0">
+                  <figcaption class="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200">
+                    <span aria-hidden="true" class="inline-block h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />{s.name}
+                  </figcaption>
+                  {l ? (
+                    <GridPlot {...plotProps} layers={[l]} tool={tool} onCreate={addGate} onMoveGate={moveGate}
+                      ariaLabel={`${plotKind}, sample ${s.name}, ${shownId ? `${shownName} population` : 'all events'}.`} />
+                  ) : <p class={NOTE}>Not plotted: a parameter or gate is missing from this sample.</p>}
+                </figure>
+              );
+            })}
+          </div>
+        ) : (
+          <FlowPlot
+            {...plotProps} overlay={overlay} layers={layers} tool={tool} onCreate={addGate} onMoveGate={moveGate}
+            ariaLabel={ariaLabel} canvasRef={canvasRef}
+          />
+        )}
         {overlay && (
           <ul aria-label="Sample colours" class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700 dark:text-slate-200">
             {layers.map(l => <li class="flex items-center gap-1.5"><span aria-hidden="true" class="inline-block h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />{l.label}</li>)}
@@ -528,30 +585,9 @@ export default function FlowView() {
         )}
         {unevaluated.length > 0 && <p class="text-xs text-amber-800 dark:text-amber-300">{shownName} cannot be evaluated on {unevaluated.join(', ')} (a gate parameter is missing), so they are left out.</p>}
         {overlay && mode === 'scatter' && <p class={NOTE}>At most {(20_000).toLocaleString()} evenly spaced events are drawn per sample.</p>}
-        <div class="flex flex-wrap items-center gap-3">
-          <button type="button" class={BTN} onClick={exportPng}>Download plot (PNG)</button>
-          {!overlay && visible.length > 1 && (
-            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={grid} onChange={e => setGrid((e.currentTarget as HTMLInputElement).checked)} />
-              Show every sample side by side
-            </label>
-          )}
-        </div>
-        {!overlay && grid && visible.length > 1 && (
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {visible.map(s => {
-              const l = layerFor(s);
-              return (
-                <figure class="min-w-0">
-                  <figcaption class="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200">
-                    <span aria-hidden="true" class="inline-block h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />{s.name}
-                  </figcaption>
-                  {l ? (
-                    <MiniPlot {...plotProps} layers={[l]} tool="none" ariaLabel={`${plotKind}, sample ${s.name}, ${shownId ? `${shownName} population` : 'all events'}.`} />
-                  ) : <p class={NOTE}>Not plotted: a parameter or gate is missing from this sample.</p>}
-                </figure>
-              );
-            })}
+        {!grid && (
+          <div class="flex flex-wrap items-center gap-3">
+            <button type="button" class={BTN} onClick={exportPng}>Download plot (PNG)</button>
           </div>
         )}
       </div>
@@ -629,16 +665,29 @@ export default function FlowView() {
 
       <div class={CARD}>
         <div class="flex flex-wrap items-end justify-between gap-3">
-          <h3 class={H3}>Population statistics{statsSample ? ` · ${statsSample.name}` : ''}</h3>
+          <h3 class={H3}>Population statistics{statsWho ? ` · ${statsWho}` : ''}</h3>
           <div class="flex flex-wrap items-end gap-2">
-            {visible.length > 1 && sampleSelect('Statistics sample')}
+            {several && (
+              <label class="block">
+                <span class={LABEL}>Statistics of</span>
+                <select aria-label="Statistics of" class={FIELD} value={statsPooled ? '' : active?.id ?? ''}
+                  onChange={e => {
+                    const v = (e.currentTarget as HTMLSelectElement).value;
+                    setStatsPooled(v === '');
+                    if (v) setActiveId(v);
+                  }}>
+                  <option value="">All samples (pooled)</option>
+                  {visible.map(s => <option value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+            )}
             {paramSelect('Statistics parameter', statName, statOptions, setStatSel)}
             <button type="button" class={BTN} onClick={exportCsv}>Export CSV</button>
           </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[40rem] text-left text-xs">
-            <caption class="sr-only">Event counts and statistics of {paramText(statName)} for each population in {statsSample?.name}</caption>
+            <caption class="sr-only">Event counts and statistics of {paramText(statName)} for each population in {statsWho}</caption>
             <thead class="text-slate-600 dark:text-slate-300">
               <tr>{['Population', 'Events', '% parent', '% total', 'Mean', 'Median', 'Geo mean', 'CV %', 'rCV %'].map(h => <th scope="col" class="px-2 py-1 font-semibold">{h}</th>)}</tr>
             </thead>
@@ -663,6 +712,12 @@ export default function FlowView() {
           </table>
         </div>
         {skippedHere.length > 0 && <p class="text-xs text-amber-800 dark:text-amber-300">Not evaluated on this sample (a parameter is missing): {skippedHere.map(g => g.name).join(', ')}.</p>}
+        {pooledStats && Object.keys(pooledStats.skipped).length > 0 && (
+          <p class="text-xs text-amber-800 dark:text-amber-300">
+            Left out of the pooled figures (a parameter is missing): {Object.entries(pooledStats.skipped).map(([id, names]) => `${gates.find(g => g.id === id)?.name ?? id}: ${names.join(', ')}`).join('; ')}.
+          </p>
+        )}
+        {statsPooled && <p class={NOTE}>Pooled: counts and percentages are summed over the shown samples, and mean, median and CV are taken over their events together. Pick a sample for its own figures.</p>}
         <p class={NOTE}>Mean, median and CV use {statsSample?.data.compensationApplied ? 'compensated ' : ''}scale values in data units, not the display scale.</p>
       </div>
 

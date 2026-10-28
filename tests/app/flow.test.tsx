@@ -27,8 +27,21 @@ describe('Flow cytometry tool', () => {
     expect(within(list).getAllByRole('listitem').map(li => li.textContent)).toEqual([
       'Unstained20,000Remove', 'Stim 0 h20,000Remove', 'Stim 6 h20,000Remove', 'Stim 24 h20,000Remove',
     ]);
-    expect(plot().getAttribute('aria-label')).toMatch(/Dot plot of SSC-A against FSC-A, overlay of 4 samples coloured by sample \(Unstained, Stim 0 h, Stim 6 h, Stim 24 h\)/);
+    // All samples: the 2-D density pools them into one heatmap; dots overlay them by colour.
+    expect(plot().getAttribute('aria-label')).toMatch(/^Density plot of SSC-A against FSC-A, all 4 samples pooled \(Unstained, Stim 0 h, Stim 6 h, Stim 24 h\)/);
     expect(screen.getByRole('button', { name: 'All samples' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Dots' }));
+    expect(plot().getAttribute('aria-label')).toMatch(/Dot plot of SSC-A against FSC-A, overlay of 4 samples coloured by sample \(Unstained, Stim 0 h, Stim 6 h, Stim 24 h\)/);
+
+    // Population statistics: all samples pooled by default, or one sample.
+    expect(screen.getByText(/Population statistics · all 4 samples pooled/)).toBeTruthy();
+    const allRow = () => screen.getByText('All events', { selector: 'th' }).closest('tr')!.textContent ?? '';
+    expect(allRow()).toMatch(/80,000/);
+    fireEvent.change(screen.getByLabelText('Statistics of'), { target: { value: 'x1' } });
+    expect(screen.getByText(/Population statistics · Stim 0 h/)).toBeTruthy();
+    expect(allRow()).toMatch(/20,000/);
+    fireEvent.change(screen.getByLabelText('Statistics of'), { target: { value: '' } });
+    expect(allRow()).toMatch(/80,000/);
 
     fireEvent.click(screen.getByRole('button', { name: 'Histogram' }));
     expect(plot().getAttribute('aria-label')).toMatch(/Histogram of FSC-A .* each normalised to its mode/);
@@ -36,13 +49,17 @@ describe('Flow cytometry tool', () => {
     expect(plot().getAttribute('aria-label')).toMatch(/% of its events/);
     fireEvent.click(screen.getByRole('button', { name: '2-D density' }));
 
+    // Per sample: one plot per sample, side by side.
     fireEvent.click(screen.getByRole('button', { name: 'Per sample' }));
+    expect(screen.getAllByRole('img', { name: /Density plot of SSC-A against FSC-A, sample .*, all events\.$/ })).toHaveLength(4);
+
+    // Single sample: one at a time.
+    fireEvent.click(screen.getByRole('button', { name: 'Single sample' }));
+    fireEvent.change(screen.getByLabelText('Sample shown'), { target: { value: 'x0' } });
     expect(plot().getAttribute('aria-label')).toMatch(/^Density plot of SSC-A against FSC-A, sample Unstained/);
     fireEvent.click(screen.getByRole('button', { name: 'Next sample' }));
     expect(plot().getAttribute('aria-label')).toMatch(/sample Stim 0 h/);
     expect((screen.getByLabelText('Sample shown') as HTMLSelectElement).value).toBe('x1');
-    fireEvent.click(screen.getByLabelText('Show every sample side by side'));
-    expect(screen.getAllByRole('img', { name: /Density plot of SSC-A against FSC-A, sample .*, all events\.$/ })).toHaveLength(4);
 
     fireEvent.click(screen.getByRole('button', { name: /Add rectangle gate/ }));
     expect(await screen.findByText('Gate 1', { selector: 'th' })).toBeTruthy();
@@ -63,11 +80,11 @@ describe('Flow cytometry tool', () => {
     fireEvent.change(input, { target: { files: [fileA(), fileB()] } });
     expect(await screen.findByText('All events', { selector: 'th' })).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Samples' }).textContent).toMatch(/a\.fcs4Remove.*b\.fcs4Remove/);
-    expect(plot().getAttribute('aria-label')).toMatch(/overlay of 2 samples .*\(a\.fcs, b\.fcs\)/);
+    expect(plot().getAttribute('aria-label')).toMatch(/all 2 samples pooled \(a\.fcs, b\.fcs\)/);
     // X picker offers the common parameters in the first file's order
     expect(Array.from((screen.getByLabelText('X parameter') as HTMLSelectElement).options).map(o => o.value)).toEqual(['FSC-A', 'SSC-A', 'FL1-A']);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Per sample' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Single sample' }));
     expect(plot().getAttribute('aria-label')).toMatch(/sample a\.fcs/);
     fireEvent.click(screen.getByRole('button', { name: 'All samples' }));
 
@@ -98,7 +115,12 @@ describe('Flow cytometry tool', () => {
     expect(screen.getByText(/Split on FSC-A: FSC-A− holds events below the threshold/)).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Threshold'), { target: { value: '25' } });
-    // sample a: FSC-A 10,20 | 30,40 -> 2 and 2
+    // pooled over both files: a gives 2 | 2, b gives 0 | 4
+    expect(statsRow('FSC-A−')!.querySelectorAll('td')[0]!.textContent).toBe('2');
+    expect(statsRow('FSC-A+')!.querySelectorAll('td')[0]!.textContent).toBe('6');
+    // sample a alone: FSC-A 10,20 | 30,40 -> 2 and 2
+    const statsOf = screen.getByLabelText('Statistics of') as HTMLSelectElement;
+    fireEvent.change(statsOf, { target: { value: Array.from(statsOf.options).find(o => o.text === 'a.fcs')!.value } });
     expect(statsRow('FSC-A−')!.querySelectorAll('td')[0]!.textContent).toBe('2');
     expect(statsRow('FSC-A+')!.querySelectorAll('td')[0]!.textContent).toBe('2');
     // the per-sample breakdown follows the gate being edited (the left half)
@@ -147,7 +169,7 @@ describe('Flow cytometry tool', () => {
     const gateInput = screen.getByLabelText('Load gates from JSON');
     fireEvent.change(gateInput, { target: { files: [new File([json as string], 'flow-gates.json')] } });
     expect(await screen.findByText(/Loaded 3 gates from flow-gates\.json/)).toBeTruthy();
-    expect(statsRow('FSC-A+')!.querySelectorAll('td')[0]!.textContent).toBe('1'); // a: 40
+    expect(statsRow('FSC-A+')!.querySelectorAll('td')[0]!.textContent).toBe('5'); // pooled: a 40, b four events
     expect(statsRow('Gate 3')).toBeTruthy();
 
     fireEvent.change(gateInput, { target: { files: [new File(['{"format":"other"}'], 'x.json')] } });

@@ -10,7 +10,6 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByRole('button', { name: /Load example/ }).click();
     await page.getByRole('button', { name: /Add split gate on FSC-A/ }).click();
     await page.getByRole('button', { name: 'Per sample' }).click();
-    await page.getByLabel('Show every sample side by side').check();
     await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
     const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
     const failures = violations.flatMap(v => v.nodes.map(n => `${v.id}: ${n.html.slice(0, 160)}`));
@@ -24,9 +23,15 @@ test('flow: example overlay, per-sample view, a split gate drawn on the plot, an
   await page.goto('/#/t/flow');
   await page.getByRole('button', { name: /Load example/ }).click();
   const plot = page.locator('canvas[role="img"]').first();
+  await expect(plot).toHaveAttribute('aria-label', /all 4 samples pooled/);
+  await page.getByRole('button', { name: 'Dots' }).click();
   await expect(plot).toHaveAttribute('aria-label', /overlay of 4 samples/);
+  await page.getByRole('button', { name: '2-D density' }).click();
 
   await page.getByRole('button', { name: 'Per sample' }).click();
+  await expect(page.getByRole('img', { name: /sample .*, all events\.$/ })).toHaveCount(4);
+
+  await page.getByRole('button', { name: 'Single sample' }).click();
   await expect(plot).toHaveAttribute('aria-label', /sample Unstained/);
   await page.getByRole('button', { name: 'Next sample' }).click();
   await page.getByRole('button', { name: 'Next sample' }).click();

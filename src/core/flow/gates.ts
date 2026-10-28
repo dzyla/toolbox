@@ -266,3 +266,41 @@ export function sampleGateStats(
   const parentMask = g.parent === null ? null : masks[g.parent];
   return populationStats(col, mask, g.parent === null ? n : parentMask ? maskCount(parentMask) : NaN, n);
 }
+
+/**
+ * Statistics of every population over several samples pooled. A gate pools the samples where it
+ * (and the statistics parameter) can be evaluated: its events, its parent's events and the total are
+ * summed over those, and the statistics are taken over their events together. `skipped` lists, per
+ * gate, the samples left out.
+ */
+export function pooledGateStats(
+  samples: readonly (GateSample & { name: string })[], gates: Gate[], statParam: string,
+): { rows: GateStatsRow[]; skipped: Record<string, string[]> } {
+  const results = samples.map(s => ({ s, col: s.parameters.findIndex(p => p.name === statParam), masks: evaluateSampleGates(s, gates).masks }));
+  const pool = (use: typeof results, pick: (r: (typeof results)[number]) => Uint8Array | null) => {
+    const n = use.reduce((k, r) => k + r.s.eventCount, 0);
+    const values = new Float32Array(n);
+    const mask = new Uint8Array(n);
+    let o = 0;
+    for (const r of use) {
+      const c = r.s.columns[r.col]!, m = pick(r);
+      for (let i = 0; i < r.s.eventCount; i++) { values[o + i] = c[i]!; mask[o + i] = m === null ? 1 : m[i]!; }
+      o += r.s.eventCount;
+    }
+    return { values, mask, n };
+  };
+  const withParam = results.filter(r => r.col >= 0);
+  const all = pool(withParam, () => null);
+  const rows: GateStatsRow[] = [{ id: null, name: 'All events', parent: null, stats: populationStats(all.values, null, all.n, all.n) }];
+  const skipped: Record<string, string[]> = {};
+  for (const g of gates) {
+    const use = withParam.filter(r => r.masks[g.id] && (g.parent === null || r.masks[g.parent]));
+    const left = results.filter(r => !use.includes(r)).map(r => r.s.name);
+    if (left.length) skipped[g.id] = left;
+    if (use.length === 0) continue;
+    const { values, mask, n } = pool(use, r => r.masks[g.id]!);
+    const parentCount = g.parent === null ? n : use.reduce((k, r) => k + maskCount(r.masks[g.parent!]!), 0);
+    rows.push({ id: g.id, name: g.name, parent: g.parent, stats: populationStats(values, mask, parentCount, n) });
+  }
+  return { rows, skipped };
+}

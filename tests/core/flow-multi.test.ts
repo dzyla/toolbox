@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  defaultScale, forward, evaluateGates, evaluateSampleGates, sampleGateStats, allGateStats, maskCount,
+  defaultScale, forward, evaluateGates, evaluateSampleGates, sampleGateStats, allGateStats, pooledGateStats, maskCount,
   makeSplitGates, setSplitThreshold, splitBaseName, parseFcs, exampleSamples, exampleSample, EXAMPLE_SAMPLES,
   commonParameters, samplesLacking, sampleName, uniqueNames, paramIndex, sharedRange, autoRange,
   exportGates, importGates, GateImportError, GATE_FORMAT,
@@ -280,5 +280,30 @@ describe('multi-sample example', () => {
     expect(h24.cd4).toBeLessThan(0.8);
     expect(h24.dead).toBeGreaterThan(h6.dead);
     expect(h6.dead).toBeGreaterThan(h0.dead);
+  });
+});
+
+describe('pooled statistics over samples', () => {
+  // Two samples with the same parameter in different column orders, and a third without it.
+  const a = { name: 'A', parameters: [{ name: 'X' }, { name: 'Y' }], columns: [Float32Array.from([1, 2, 3, 4]), Float32Array.from([0, 0, 0, 0])], eventCount: 4 };
+  const b = { name: 'B', parameters: [{ name: 'Y' }, { name: 'X' }], columns: [Float32Array.from([0, 0]), Float32Array.from([10, 20])], eventCount: 2 };
+  const c = { name: 'C', parameters: [{ name: 'Y' }], columns: [Float32Array.from([5, 5, 5])], eventCount: 3 };
+  const [lo, hi] = makeSplitGates(['lo', 'hi'], 'X', null, 'X', lin, 2.5);
+
+  it('sums counts and percentages over the samples and takes statistics over their events together', () => {
+    const { rows, skipped } = pooledGateStats([a, b], [lo, hi], 'X');
+    expect(rows[0]!.stats.count).toBe(6);
+    const rHi = rows.find(r => r.id === 'hi')!.stats;
+    expect(rHi.count).toBe(4);                       // 3, 4 from A; 10, 20 from B
+    expect(rHi.pctParent).toBeCloseTo(100 * 4 / 6, 6);
+    expect(rHi.median).toBeCloseTo(7, 6);            // median of 3, 4, 10, 20
+    expect(skipped).toEqual({});
+  });
+
+  it('leaves out, and names, a sample where the gate cannot be evaluated', () => {
+    const { rows, skipped } = pooledGateStats([a, b, c], [lo, hi], 'X');
+    expect(rows[0]!.stats.count).toBe(6);            // C lacks the statistics parameter
+    expect(rows.find(r => r.id === 'hi')!.stats.pctTotal).toBeCloseTo(100 * 4 / 6, 6);
+    expect(skipped.hi).toEqual(['C']);
   });
 });
