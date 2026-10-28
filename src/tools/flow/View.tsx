@@ -84,7 +84,6 @@ export default function FlowView() {
   const [layout, setLayout] = useState<'all' | 'grid' | 'single'>('all');
   /** Population statistics over every shown sample pooled (default), or over the active sample. */
   const [statsPooledSel, setStatsPooled] = useState(true);
-  const [histNorm, setHistNorm] = useState<HistNorm>('mode');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [toolSel, setToolSel] = useState<Tool>('rect');
   const [gates, setGates] = useState<Gate[]>([]);
@@ -190,9 +189,9 @@ export default function FlowView() {
 
   // --- which samples are drawn
   const several = visible.length > 1;
-  // All samples in one plot: a 2-D density pools their events (one heatmap); dots and histograms
-  // overlay them in sample colours.
-  const pooled = layout === 'all' && several && mode === 'scatter' && view === 'density';
+  // All samples in one plot: the histogram and the 2-D density pool their events (one curve, one
+  // heatmap); dots overlay them in sample colours.
+  const pooled = layout === 'all' && several && (mode === 'hist' || view === 'density');
   const overlay = layout === 'all' && several && !pooled;
   const grid = layout === 'grid' && several;
   const active = visible.find(s => s.id === activeId) ?? visible[0] ?? null;
@@ -362,7 +361,7 @@ export default function FlowView() {
   const who = pooled
     ? `, all ${plotted.length} samples pooled (${plotted.map(s => s.name).join(', ')})`
     : overlay
-    ? `, overlay of ${layers.length} samples coloured by sample (${layers.map(l => l.label).join(', ')})${mode === 'hist' ? `, each normalised to ${histNorm === 'mode' ? 'its mode' : '% of its events'}` : ''}`
+    ? `, overlay of ${layers.length} samples coloured by sample (${layers.map(l => l.label).join(', ')})`
     : active ? `, sample ${active.name}` : '';
   const gateCounts = layout === 'single' && active
     ? gates.map(g => { const m = maskOf(active, g.id); return `${g.name} ${m ? maskCount(m).toLocaleString() + ' events' : 'not evaluated'}`; }).join('; ')
@@ -445,7 +444,7 @@ export default function FlowView() {
               <button type="button" aria-pressed={view === v} onClick={() => setView(v)} class={toggleClass(view === v)}>{l}</button>
             ))}
           </div>
-          {pooled && <p class={NOTE}>All samples: the 2-D density pools the events of every shown sample; Dots colour them by sample.</p>}
+          {layout === 'all' && several && <p class={NOTE}>All samples: the histogram and the 2-D density pool the events of every shown sample; Dots colour them by sample. Per sample shows each one.</p>}
           <details class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
             <summary class="cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">Advanced options</summary>
             <div class="mt-3 space-y-3">
@@ -492,7 +491,7 @@ export default function FlowView() {
     ? [['range', 'Range'], ['split', 'Split'], ['none', 'No drawing']]
     : [['rect', 'Rectangle'], ['polygon', 'Polygon'], ['split', 'Split left/right'], ['none', 'No drawing']];
   const plotProps = {
-    mode, view: (view === 'dots' ? 'dots' : 'density') as 'dots' | 'density', histNorm,
+    mode, view: (view === 'dots' ? 'dots' : 'density') as 'dots' | 'density', histNorm: 'mode' as HistNorm,
     xScale, yScale, xRange, yRange, xLabel: paramText(xName), yLabel: paramText(yName), xParam: xName, yParam: yName, gates,
   };
 
@@ -518,12 +517,6 @@ export default function FlowView() {
               <button type="button" class={BTN} disabled={activeIdx <= 0} onClick={() => setActiveId(visible[activeIdx - 1]!.id)}>Previous sample</button>
               {sampleSelect('Sample shown')}
               <button type="button" class={BTN} disabled={activeIdx >= visible.length - 1} onClick={() => setActiveId(visible[activeIdx + 1]!.id)}>Next sample</button>
-            </div>
-          )}
-          {overlay && mode === 'hist' && (
-            <div role="group" aria-label="Overlay histogram scale" class="flex flex-wrap gap-2">
-              <button type="button" aria-pressed={histNorm === 'mode'} onClick={() => setHistNorm('mode')} class={toggleClass(histNorm === 'mode')}>% of mode</button>
-              <button type="button" aria-pressed={histNorm === 'percent'} onClick={() => setHistNorm('percent')} class={toggleClass(histNorm === 'percent')}>% of events</button>
             </div>
           )}
         </div>

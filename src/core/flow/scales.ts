@@ -70,12 +70,16 @@ export function axisTicks(s: ScaleSpec, lo: number, hi: number, target = 6): Tic
     for (let e = Math.ceil(lo); e <= hi; e += stride) out.push({ value: e, label: formatTick(10 ** e) });
     return out;
   }
-  // arcsinh: 0 and signed powers of ten that fall inside the axis
+  // arcsinh: 0 and signed powers of ten that fall inside the axis. Near 0 the scale is nearly
+  // linear and compressed, so small powers (±1, ±10) crowd 0: a tick closer than a minimum spacing to
+  // one already kept is dropped (0 first, then larger magnitudes before smaller).
   const dataLo = inverse(lo, s), dataHi = inverse(hi, s);
-  const cands: number[] = [0];
+  const cands: number[] = [];
   for (let e = 0; e <= 9; e++) { cands.push(10 ** e, -(10 ** e)); }
-  const inside = cands.filter(v => v >= dataLo && v <= dataHi).sort((a, b) => a - b);
-  const stride = Math.max(1, Math.ceil(inside.length / (target + 2)));
-  inside.forEach((v, i) => { if (v === 0 || i % stride === 0) out.push({ value: forward(v, s), label: formatTick(v) }); });
+  const inside = cands.filter(v => v >= dataLo && v <= dataHi).sort((a, b) => Math.abs(b) - Math.abs(a));
+  const minGap = (hi - lo) / (target * 2);
+  const kept = dataLo <= 0 && dataHi >= 0 ? [0] : [];
+  for (const v of inside) if (kept.every(k => Math.abs(forward(v, s) - forward(k, s)) >= minGap)) kept.push(v);
+  for (const v of kept.sort((a, b) => a - b)) out.push({ value: forward(v, s), label: formatTick(v) });
   return out;
 }

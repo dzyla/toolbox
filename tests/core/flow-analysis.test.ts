@@ -25,6 +25,10 @@ describe('scales', () => {
     expect(axisTicks(defaultScale('log'), 0, 4).map(t => t.label)).toEqual(['1', '10', '100', '1k', '10k']);
     const t = axisTicks(defaultScale('asinh'), forward(-1000, defaultScale('asinh')), forward(100000, defaultScale('asinh')));
     expect(t.map(x => x.label)).toContain('0');
+    // Near 0 the arcsinh scale is compressed: ±1 and ±10 would sit on top of 0; ticks keep a gap.
+    const span = t[t.length - 1]!.value - t[0]!.value;
+    for (let i = 1; i < t.length; i++) expect(t[i]!.value - t[i - 1]!.value).toBeGreaterThan(span / 20);
+    expect(t.map(x => x.label)).not.toContain('1');
     expect(axisTicks(lin, 1, 1)).toEqual([]);
   });
 });

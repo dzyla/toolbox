@@ -44,9 +44,9 @@ describe('Flow cytometry tool', () => {
     expect(allRow()).toMatch(/80,000/);
 
     fireEvent.click(screen.getByRole('button', { name: 'Histogram' }));
-    expect(plot().getAttribute('aria-label')).toMatch(/Histogram of FSC-A .* each normalised to its mode/);
-    fireEvent.click(screen.getByRole('button', { name: '% of events' }));
-    expect(plot().getAttribute('aria-label')).toMatch(/% of its events/);
+    // One pooled curve for all samples, not one per sample.
+    expect(plot().getAttribute('aria-label')).toMatch(/^Histogram of FSC-A .*, all 4 samples pooled \(Unstained, Stim 0 h, Stim 6 h, Stim 24 h\)/);
+    expect(screen.queryByRole('button', { name: '% of events' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '2-D density' }));
 
     // Per sample: one plot per sample, side by side.
